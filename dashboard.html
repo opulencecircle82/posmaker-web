@@ -168,6 +168,16 @@ input:checked + .slider:before{transform:translateX(18px)}
 
     <!-- DASHBOARD -->
     <div class="section active" id="sec-dashboard">
+      <!-- Quick Setup Banner (shown only when store is empty) -->
+      <div id="setupBanner" style="display:none;background:linear-gradient(135deg,#0a1a2a,#0a2a1a);border:1px solid var(--accent);border-radius:12px;padding:20px 24px;margin-bottom:20px;display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:15px;font-weight:700;margin-bottom:4px">Quick Setup</div>
+            <div style="font-size:13px;color:var(--muted)">Load sample products and create a default cashier to get started fast.</div>
+          </div>
+          <button class="btn btn-accent" onclick="quickSetup()" id="setupBtn">Load Sample Data</button>
+        </div>
+      </div>
       <div class="stat-grid">
         <div class="stat-card"><div class="sc-label">Today's Orders</div><div class="sc-val" id="tdOrders">—</div><div class="sc-sub">orders today</div></div>
         <div class="stat-card"><div class="sc-label">Today's Revenue</div><div class="sc-val" id="tdRev">—</div><div class="sc-sub">gross sales</div></div>
@@ -412,6 +422,7 @@ let pendingLogob64 = null;
   loadDashboard();
   loadProducts();
   loadStaff();
+  checkSetupBanner();
 })();
 
 // ── Navigation ─────────────────────────────────────────────────────────────────
@@ -656,6 +667,40 @@ async function saveSettings() {
   CUR = payload.currency; TAX = payload.tax_rate;
   document.getElementById('sbStore').textContent = payload.name;
   showToast('Settings saved.');
+}
+
+// ── Quick Setup ────────────────────────────────────────────────────────────────
+async function checkSetupBanner() {
+  const { count: pc } = await _sb.from('products').select('id',{count:'exact',head:true}).eq('store_id',STORE.id);
+  const { count: sc } = await _sb.from('store_users').select('id',{count:'exact',head:true}).eq('store_id',STORE.id);
+  if ((pc || 0) === 0 && (sc || 0) === 0) {
+    document.getElementById('setupBanner').style.display = 'flex';
+  }
+}
+async function quickSetup() {
+  const btn = document.getElementById('setupBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Setting up…';
+  const sampleProducts = [
+    {name:'Burger',      category:'Food',   price:120},
+    {name:'Fries',       category:'Food',   price:60},
+    {name:'Fried Chicken',category:'Food',  price:150},
+    {name:'Rice',        category:'Food',   price:35},
+    {name:'Coke',        category:'Drinks', price:50},
+    {name:'Juice',       category:'Drinks', price:45},
+    {name:'Water',       category:'Drinks', price:30},
+    {name:'Coffee',      category:'Drinks', price:75},
+  ];
+  // Insert products
+  await _sb.from('products').insert(sampleProducts.map(p => ({...p, store_id:STORE.id, available:true})));
+  // Insert default cashier
+  const hash = await sha256('cashier123');
+  await _sb.from('store_users').insert({
+    store_id: STORE.id, username: 'cashier1',
+    password_hash: hash, full_name: 'Cashier 1', role: 'cashier', active: true
+  });
+  document.getElementById('setupBanner').style.display = 'none';
+  await loadProducts(); await loadStaff();
+  showToast('Sample data loaded! Default cashier: cashier1 / cashier123');
 }
 
 // ── Orders ─────────────────────────────────────────────────────────────────────
