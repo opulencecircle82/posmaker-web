@@ -41,8 +41,11 @@ CREATE TABLE IF NOT EXISTS products (
   available  BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
--- Add stock column to existing tables (safe to run if already exists)
-ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT 0;
+-- Add new columns (safe to run on existing tables)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS stock               INTEGER DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS sku                 TEXT    DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS unit                TEXT    DEFAULT 'pc';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold INTEGER DEFAULT 5;
 
 -- Orders
 CREATE TABLE IF NOT EXISTS orders (

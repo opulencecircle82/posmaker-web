@@ -180,6 +180,10 @@ input:checked + .slider:before{transform:translateX(18px)}
           <button class="btn btn-accent" onclick="quickSetup()" id="setupBtn">Load Sample Data</button>
         </div>
       </div>
+      <!-- Low stock alert -->
+      <div id="lowStockAlert" style="display:none;background:#2a1a00;border:1px solid #f59e0b;border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;cursor:pointer" onclick="nav('inventory')">
+        <strong style="color:#f59e0b">⚠ Low Stock / Out of Stock</strong> — <span id="lowStockList" style="color:#ccc"></span> <span style="color:#f59e0b;text-decoration:underline">View Inventory →</span>
+      </div>
       <div class="stat-grid">
         <div class="stat-card"><div class="sc-label">Today's Orders</div><div class="sc-val" id="tdOrders">—</div><div class="sc-sub">orders today</div></div>
         <div class="stat-card"><div class="sc-label">Today's Revenue</div><div class="sc-val" id="tdRev">—</div><div class="sc-sub">gross sales</div></div>
@@ -227,8 +231,8 @@ input:checked + .slider:before{transform:translateX(18px)}
           </div>
         </div>
         <table>
-          <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th></tr></thead>
-          <tbody id="invTbody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading…</td></tr></tbody>
+          <thead><tr><th>SKU</th><th>Product</th><th>Category</th><th>Unit</th><th>Price</th><th>Stock</th><th>Status</th><th></th></tr></thead>
+          <tbody id="invTbody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -340,7 +344,10 @@ input:checked + .slider:before{transform:translateX(18px)}
         <h3>🔗 Cashier Access Link</h3>
         <p>Share this URL with your cashiers. They open it on any phone or tablet browser and log in with their username and password.</p>
         <div class="link-box" id="cashierLinkBox">Loading…</div>
-        <button class="btn btn-accent" onclick="copyLink()">📋 Copy Link</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn btn-accent" onclick="copyLink()">📋 Copy Link</button>
+          <a class="btn btn-ghost" id="testPosBtn" href="#" target="_blank">🧪 Test Your POS</a>
+        </div>
       </div>
       <div class="info-card">
         <h3>📱 Open on this device</h3>
@@ -371,6 +378,9 @@ input:checked + .slider:before{transform:translateX(18px)}
     </div>
     <div class="row2">
       <div class="field"><label>Product Name</label><input id="pName" type="text" placeholder="e.g. Burger"></div>
+      <div class="field"><label>SKU <span style="color:var(--dim);font-weight:400">(optional)</span></label><input id="pSku" type="text" placeholder="e.g. BRG-001"></div>
+    </div>
+    <div class="row2">
       <div class="field">
         <label>Category</label>
         <div style="display:flex;gap:6px">
@@ -380,8 +390,20 @@ input:checked + .slider:before{transform:translateX(18px)}
           <button type="button" class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openCatFromProd()">+ New</button>
         </div>
       </div>
+      <div class="field">
+        <label>Unit</label>
+        <select id="pUnit" style="width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none">
+          <optgroup label="Quantity"><option>pc</option><option>pcs</option><option>pair</option><option>dozen</option><option>set</option><option>box</option><option>pack</option><option>bundle</option><option>roll</option><option>tray</option><option>sachet</option><option>bag</option><option>can</option><option>bottle</option></optgroup>
+          <optgroup label="Weight"><option>kg</option><option>g</option><option>mg</option><option>lb</option><option>oz</option></optgroup>
+          <optgroup label="Volume"><option>L</option><option>mL</option><option>gal</option></optgroup>
+          <optgroup label="Other"><option>cup</option><option>bowl</option><option>slice</option><option>sheet</option><option>m</option><option>cm</option><option>ft</option></optgroup>
+        </select>
+      </div>
     </div>
-    <div class="field"><label>Price</label><input id="pPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
+    <div class="row2">
+      <div class="field"><label>Price</label><input id="pPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Low Stock Alert (qty)</label><input id="pLowStock" type="number" min="0" step="1" placeholder="e.g. 5" value="5"></div>
+    </div>
     <div class="field" id="pAvailField" style="display:flex;align-items:center;gap:10px">
       <label style="margin:0">Available</label>
       <label class="toggle"><input type="checkbox" id="pAvail" checked><span class="slider"></span></label>
@@ -389,6 +411,20 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('prodModal')">Cancel</button>
       <button class="btn btn-accent" id="saveProdBtn" onclick="saveProd()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD STOCK MODAL -->
+<div class="modal" id="addStockModal">
+  <div class="mbox" style="width:min(360px,100%)">
+    <h3>Add Stock</h3>
+    <input type="hidden" id="addStockId">
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px" id="addStockInfo"></div>
+    <div class="field"><label>Amount to Add</label><input id="addStockAmt" type="number" min="1" step="1" placeholder="e.g. 50"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addStockModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="confirmAddStock()">Add Stock</button>
     </div>
   </div>
 </div>
@@ -487,6 +523,7 @@ let extraCats = []; // categories with no products yet
   const cashierUrl = `${location.origin}${location.pathname.replace('dashboard.html','cashier.html')}?store=${store.id}`;
   document.getElementById('cashierLinkBox').textContent = cashierUrl;
   document.getElementById('openCashierBtn').href = cashierUrl;
+  document.getElementById('testPosBtn').href = cashierUrl;
 
   // Fill settings form
   document.getElementById('sName').value     = store.name || '';
@@ -559,6 +596,14 @@ async function loadDashboard() {
   document.getElementById('moOrders').textContent = moCnt;
   document.getElementById('moRev').textContent    = CUR + moRev.toFixed(2);
 
+  // Low stock alert
+  const lowItems = allProds.filter(p => (p.stock ?? 0) <= (p.low_stock_threshold ?? 5));
+  const alertEl = document.getElementById('lowStockAlert');
+  if (lowItems.length) {
+    document.getElementById('lowStockList').textContent = lowItems.slice(0,5).map(p=>`${p.name} (${p.stock??0} ${p.unit||'pc'})`).join(', ') + (lowItems.length>5?` +${lowItems.length-5} more`:'');
+    alertEl.style.display = 'block';
+  } else { alertEl.style.display = 'none'; }
+
   const { data: recent } = await _sb.from('orders')
     .select('id,timestamp,cashier_name,total,payment_method')
     .eq('store_id', STORE.id).order('id', { ascending: false }).limit(50);
@@ -622,11 +667,14 @@ function populateCatSelect(selectedVal) {
 }
 function openProdModal(p) {
   document.getElementById('prodModalTitle').textContent = p ? 'Edit Product' : 'Add Product';
-  document.getElementById('prodId').value   = p ? p.id : '';
-  document.getElementById('pName').value    = p ? p.name : '';
-  document.getElementById('pPrice').value   = p ? p.price : '';
-  document.getElementById('pAvail').checked = p ? p.available : true;
+  document.getElementById('prodId').value      = p ? p.id : '';
+  document.getElementById('pName').value       = p ? p.name : '';
+  document.getElementById('pSku').value        = p ? (p.sku || '') : '';
+  document.getElementById('pPrice').value      = p ? p.price : '';
+  document.getElementById('pLowStock').value   = p ? (p.low_stock_threshold ?? 5) : 5;
+  document.getElementById('pAvail').checked    = p ? p.available : true;
   document.getElementById('pAvailField').style.display = p ? 'flex' : 'none';
+  document.getElementById('pUnit').value       = p ? (p.unit || 'pc') : 'pc';
   populateCatSelect(p ? p.category : '');
   document.getElementById('prodModal').classList.add('show');
   setTimeout(() => document.getElementById('pName').focus(), 50);
@@ -640,21 +688,24 @@ function openCatFromProd() {
   setTimeout(() => document.getElementById('catName').focus(), 50);
 }
 async function saveProd() {
-  const id    = document.getElementById('prodId').value;
-  const name  = document.getElementById('pName').value.trim();
-  const cat   = document.getElementById('pCat').value;
-  const price = parseFloat(document.getElementById('pPrice').value);
-  const avail = document.getElementById('pAvail').checked;
+  const id        = document.getElementById('prodId').value;
+  const name      = document.getElementById('pName').value.trim();
+  const sku       = document.getElementById('pSku').value.trim();
+  const cat       = document.getElementById('pCat').value;
+  const unit      = document.getElementById('pUnit').value;
+  const price     = parseFloat(document.getElementById('pPrice').value);
+  const lowStock  = parseInt(document.getElementById('pLowStock').value) || 5;
+  const avail     = document.getElementById('pAvail').checked;
   if (!name || isNaN(price)) { showToast('Name and price are required.', true); return; }
   if (!cat) { showToast('Please select a category.', true); return; }
+  const payload = { name, sku, category: cat, unit, price, low_stock_threshold: lowStock, available: avail };
   if (id) {
-    await _sb.from('products').update({ name, category: cat, price, available: avail }).eq('id', id);
+    await _sb.from('products').update(payload).eq('id', id);
   } else {
-    await _sb.from('products').insert({ store_id: STORE.id, name, category: cat, price, available: true });
+    await _sb.from('products').insert({ store_id: STORE.id, ...payload, available: true });
   }
-  // remove from extraCats once a product uses it
   extraCats = extraCats.filter(c => c !== cat);
-  closeModal('prodModal'); await loadProducts(); loadCategories(); showToast('Product saved.');
+  closeModal('prodModal'); await loadProducts(); loadCategories(); await loadInventory(); showToast('Product saved.');
 }
 async function toggleProd(id, val) {
   await _sb.from('products').update({ available: val }).eq('id', id);
@@ -942,27 +993,34 @@ function filterInv() {
 }
 function renderInv(prods) {
   const tbody = document.getElementById('invTbody');
-  if (!prods.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No products found.</td></tr>'; return; }
+  if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No products found.</td></tr>'; return; }
   tbody.innerHTML = prods.map(p => {
-    const stock = p.stock ?? 0;
-    const low   = stock <= 5;
-    const out   = stock === 0;
-    const badge = out  ? '<span class="badge" style="background:#2a0a0a;color:#ef4444">Out of Stock</span>'
-                : low  ? '<span class="badge" style="background:#2a1a0a;color:#f59e0b">Low Stock</span>'
+    const stock  = p.stock ?? 0;
+    const thresh = p.low_stock_threshold ?? 5;
+    const out    = stock === 0;
+    const low    = !out && stock <= thresh;
+    const badge  = out ? '<span class="badge" style="background:#2a0a0a;color:#ef4444">Out of Stock</span>'
+                 : low ? `<span class="badge" style="background:#2a1a0a;color:#f59e0b">Low ≤${thresh}</span>`
                        : '<span class="badge bg-cash">In Stock</span>';
-    return `<tr>
+    const rowStyle = out ? 'background:rgba(239,68,68,.04)' : low ? 'background:rgba(245,158,11,.04)' : '';
+    return `<tr style="${rowStyle}">
+      <td style="font-family:monospace;font-size:12px;color:var(--muted)">${p.sku || '—'}</td>
       <td style="font-weight:600">${p.name}</td>
       <td style="color:var(--muted)">${p.category}</td>
+      <td style="color:var(--muted)">${p.unit || 'pc'}</td>
       <td style="color:var(--accent)">${CUR}${parseFloat(p.price).toFixed(2)}</td>
       <td>
-        <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;align-items:center;gap:4px">
           <button class="btn btn-ghost btn-sm" style="padding:3px 8px;min-width:26px" onclick="adjStock('${p.id}',-1)">−</button>
-          <span style="min-width:30px;text-align:center;font-weight:700;font-size:14px">${stock}</span>
+          <span style="min-width:32px;text-align:center;font-weight:700;font-size:14px${out?' ;color:#ef4444':low?';color:#f59e0b':''}">${stock}</span>
           <button class="btn btn-ghost btn-sm" style="padding:3px 8px;min-width:26px" onclick="adjStock('${p.id}',1)">+</button>
-          <button class="btn btn-ghost btn-sm" onclick="setStockPrompt('${p.id}',${stock})">Set</button>
         </div>
       </td>
       <td>${badge}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-accent btn-sm" onclick="openAddStock('${p.id}')">+ Add</button>
+        <button class="btn btn-ghost btn-sm" onclick="setStockPrompt('${p.id}',${stock})">Set</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -973,6 +1031,27 @@ async function adjStock(id, delta) {
   p.stock = newVal;
   const prod2 = allProds.find(x => x.id === id); if (prod2) prod2.stock = newVal;
   renderInv(invProds);
+}
+function openAddStock(id) {
+  const p = invProds.find(x => x.id === id); if (!p) return;
+  document.getElementById('addStockId').value   = id;
+  document.getElementById('addStockAmt').value  = '';
+  document.getElementById('addStockInfo').innerHTML =
+    `<strong>${p.name}</strong> &nbsp;·&nbsp; ${p.unit || 'pc'} &nbsp;·&nbsp; Current: <strong style="color:var(--accent)">${p.stock ?? 0}</strong>`;
+  document.getElementById('addStockModal').classList.add('show');
+  setTimeout(() => document.getElementById('addStockAmt').focus(), 50);
+}
+async function confirmAddStock() {
+  const id  = document.getElementById('addStockId').value;
+  const amt = parseInt(document.getElementById('addStockAmt').value);
+  if (!amt || amt < 1) { showToast('Enter a valid amount.', true); return; }
+  const p = invProds.find(x => x.id === id); if (!p) return;
+  const newVal = (p.stock ?? 0) + amt;
+  await _sb.from('products').update({ stock: newVal }).eq('id', id);
+  p.stock = newVal;
+  const p2 = allProds.find(x => x.id === id); if (p2) p2.stock = newVal;
+  closeModal('addStockModal'); renderInv(invProds);
+  showToast(`Added ${amt} ${p.unit||'pc'} to ${p.name}. New stock: ${newVal}`);
 }
 async function setStockPrompt(id, current) {
   const val = prompt('Set stock quantity:', current);
