@@ -37,9 +37,12 @@ CREATE TABLE IF NOT EXISTS products (
   name       TEXT    NOT NULL,
   category   TEXT    DEFAULT 'General',
   price      NUMERIC NOT NULL,
+  stock      INTEGER DEFAULT 0,
   available  BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- Add stock column to existing tables (safe to run if already exists)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT 0;
 
 -- Orders
 CREATE TABLE IF NOT EXISTS orders (

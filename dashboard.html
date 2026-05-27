@@ -142,6 +142,8 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="sb-nav">
     <div class="sb-item active" onclick="nav('dashboard')"><span class="ico">📊</span> Dashboard</div>
     <div class="sb-item" onclick="nav('orders')"><span class="ico">🧾</span> Orders</div>
+    <div class="sb-item" onclick="nav('inventory')"><span class="ico">📦</span> Inventory</div>
+    <div class="sb-item" onclick="nav('categories')"><span class="ico">📂</span> Categories</div>
     <div class="sb-item" onclick="nav('products')"><span class="ico">🏷️</span> Products</div>
     <div class="sb-item" onclick="nav('staff')"><span class="ico">👥</span> Staff</div>
     <div class="sb-item" onclick="nav('settings')"><span class="ico">⚙️</span> Settings</div>
@@ -213,6 +215,37 @@ input:checked + .slider:before{transform:translateX(18px)}
       </div>
     </div>
 
+    <!-- INVENTORY -->
+    <div class="section" id="sec-inventory">
+      <div class="tbl-wrap">
+        <div class="tbl-head" style="flex-wrap:wrap;gap:8px">
+          <h3>Inventory</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="search" id="invSearch" placeholder="Search…" oninput="filterInv()" style="width:160px">
+            <select class="search" id="invCatFilter" onchange="filterInv()" style="width:140px"><option value="">All Categories</option></select>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th></tr></thead>
+          <tbody id="invTbody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div class="section" id="sec-categories">
+      <div class="tbl-wrap">
+        <div class="tbl-head">
+          <h3>Categories</h3>
+          <button class="btn btn-accent btn-sm" onclick="openCatModal()">+ Add Category</button>
+        </div>
+        <table>
+          <thead><tr><th>Category Name</th><th>Products</th><th>Available</th><th></th></tr></thead>
+          <tbody id="catTbody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- PRODUCTS -->
     <div class="section" id="sec-products">
       <div class="tbl-wrap">
@@ -272,6 +305,32 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div class="field"><label>Receipt Footer</label><textarea id="sFooter" rows="2"></textarea></div>
         <button class="btn btn-accent" onclick="saveSettings()">Save Settings</button>
       </div>
+      <div class="info-card">
+        <h3>Bulk Price Adjustment</h3>
+        <p style="margin-bottom:14px">Increase or decrease prices of all products (or by category) by a percentage.</p>
+        <div class="row2">
+          <div class="field">
+            <label>Action</label>
+            <select id="priceAction">
+              <option value="increase">Increase</option>
+              <option value="decrease">Decrease</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Percentage (%)</label>
+            <input id="pricePct" type="number" min="1" max="99" step="1" placeholder="e.g. 10">
+          </div>
+        </div>
+        <div class="field">
+          <label>Apply To</label>
+          <select id="priceCatFilter"><option value="">All Products</option></select>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--muted);margin-bottom:14px" id="pricePreview">Preview will appear here.</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="previewBulkPrice()">Preview</button>
+          <button class="btn btn-accent" onclick="applyBulkPrice()">Apply Changes</button>
+        </div>
+      </div>
     </div>
 
     <!-- CASHIER LINK -->
@@ -318,6 +377,19 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('prodModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveProd()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORY MODAL -->
+<div class="modal" id="catModal">
+  <div class="mbox" style="width:min(400px,100%)">
+    <h3 id="catModalTitle">Add Category</h3>
+    <input type="hidden" id="catOldName">
+    <div class="field"><label>Category Name</label><input id="catName" type="text" placeholder="e.g. Beverages"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('catModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveCat()">Save</button>
     </div>
   </div>
 </div>
@@ -426,7 +498,7 @@ let pendingLogob64 = null;
 })();
 
 // ── Navigation ─────────────────────────────────────────────────────────────────
-const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',products:'Products',staff:'Staff',settings:'Settings',access:'Cashier Link'};
+const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',settings:'Settings',access:'Cashier Link'};
 function nav(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
@@ -436,7 +508,10 @@ function nav(id) {
   });
   document.getElementById('topbarTitle').textContent = SECTION_TITLES[id] || id;
   closeSidebar();
-  if (id === 'orders') loadOrders();
+  if (id === 'orders')     loadOrders();
+  if (id === 'inventory')  loadInventory();
+  if (id === 'categories') loadCategories();
+  if (id === 'settings')   populatePriceCatFilter();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbOverlay').classList.add('show'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbOverlay').classList.remove('show'); }
@@ -806,6 +881,163 @@ function exportOrdCSV() {
   a.download = `orders_${STORE.name.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   showToast('CSV downloaded.');
+}
+
+// ── Inventory ──────────────────────────────────────────────────────────────────
+let invProds = [];
+async function loadInventory() {
+  if (!STORE) return;
+  const { data } = await _sb.from('products').select('*').eq('store_id', STORE.id).order('category').order('name');
+  invProds = data || [];
+  // populate category filter
+  const sel = document.getElementById('invCatFilter');
+  const cats = [...new Set(invProds.map(p => p.category))].sort();
+  sel.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  renderInv(invProds);
+}
+function filterInv() {
+  const q   = document.getElementById('invSearch').value.toLowerCase();
+  const cat = document.getElementById('invCatFilter').value;
+  renderInv(invProds.filter(p =>
+    (!cat || p.category === cat) &&
+    (!q   || p.name.toLowerCase().includes(q))
+  ));
+}
+function renderInv(prods) {
+  const tbody = document.getElementById('invTbody');
+  if (!prods.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No products found.</td></tr>'; return; }
+  tbody.innerHTML = prods.map(p => {
+    const stock = p.stock ?? 0;
+    const low   = stock <= 5;
+    const out   = stock === 0;
+    const badge = out  ? '<span class="badge" style="background:#2a0a0a;color:#ef4444">Out of Stock</span>'
+                : low  ? '<span class="badge" style="background:#2a1a0a;color:#f59e0b">Low Stock</span>'
+                       : '<span class="badge bg-cash">In Stock</span>';
+    return `<tr>
+      <td style="font-weight:600">${p.name}</td>
+      <td style="color:var(--muted)">${p.category}</td>
+      <td style="color:var(--accent)">${CUR}${parseFloat(p.price).toFixed(2)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="btn btn-ghost btn-sm" style="padding:3px 8px;min-width:26px" onclick="adjStock('${p.id}',-1)">−</button>
+          <span style="min-width:30px;text-align:center;font-weight:700;font-size:14px">${stock}</span>
+          <button class="btn btn-ghost btn-sm" style="padding:3px 8px;min-width:26px" onclick="adjStock('${p.id}',1)">+</button>
+          <button class="btn btn-ghost btn-sm" onclick="setStockPrompt('${p.id}',${stock})">Set</button>
+        </div>
+      </td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+async function adjStock(id, delta) {
+  const p = invProds.find(x => x.id === id); if (!p) return;
+  const newVal = Math.max(0, (p.stock ?? 0) + delta);
+  await _sb.from('products').update({ stock: newVal }).eq('id', id);
+  p.stock = newVal;
+  const prod2 = allProds.find(x => x.id === id); if (prod2) prod2.stock = newVal;
+  renderInv(invProds);
+}
+async function setStockPrompt(id, current) {
+  const val = prompt('Set stock quantity:', current);
+  if (val === null) return;
+  const n = parseInt(val);
+  if (isNaN(n) || n < 0) { showToast('Invalid quantity', true); return; }
+  await _sb.from('products').update({ stock: n }).eq('id', id);
+  const p = invProds.find(x => x.id === id); if (p) p.stock = n;
+  const prod2 = allProds.find(x => x.id === id); if (prod2) prod2.stock = n;
+  renderInv(invProds); showToast('Stock updated.');
+}
+
+// ── Categories ─────────────────────────────────────────────────────────────────
+function loadCategories() {
+  if (!allProds.length) { renderCats({}); return; }
+  const cats = {};
+  allProds.forEach(p => {
+    if (!cats[p.category]) cats[p.category] = { total: 0, avail: 0 };
+    cats[p.category].total++;
+    if (p.available) cats[p.category].avail++;
+  });
+  renderCats(cats);
+}
+function renderCats(cats) {
+  const tbody = document.getElementById('catTbody');
+  const keys  = Object.keys(cats).sort();
+  if (!keys.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No categories yet. Add products first.</td></tr>'; return; }
+  tbody.innerHTML = keys.map(c => `<tr>
+    <td style="font-weight:600">${c}</td>
+    <td style="color:var(--muted)">${cats[c].total} product(s)</td>
+    <td style="color:var(--muted)">${cats[c].avail} available</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="openCatModal('${c.replace(/'/g,"\\'")}')">Rename</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCat('${c.replace(/'/g,"\\'")}')">Delete</button>
+    </td>
+  </tr>`).join('');
+}
+function openCatModal(existing) {
+  document.getElementById('catModalTitle').textContent = existing ? 'Rename Category' : 'Add Category';
+  document.getElementById('catOldName').value = existing || '';
+  document.getElementById('catName').value    = existing || '';
+  document.getElementById('catModal').classList.add('show');
+  setTimeout(() => document.getElementById('catName').focus(), 50);
+}
+async function saveCat() {
+  const oldName = document.getElementById('catOldName').value.trim();
+  const newName = document.getElementById('catName').value.trim();
+  if (!newName) { showToast('Category name is required.', true); return; }
+  if (oldName && oldName !== newName) {
+    // Rename: update all products in this category
+    const { error } = await _sb.from('products').update({ category: newName })
+      .eq('store_id', STORE.id).eq('category', oldName);
+    if (error) { showToast(error.message, true); return; }
+  } else if (!oldName) {
+    showToast('To add a category, create a product and assign it.', false);
+    closeModal('catModal'); return;
+  }
+  closeModal('catModal');
+  await loadProducts(); await loadInventory(); loadCategories();
+  showToast(oldName ? `Renamed "${oldName}" → "${newName}"` : 'Category added.');
+}
+async function deleteCat(catName) {
+  if (!confirm(`Delete category "${catName}"? All products in this category will move to "General".`)) return;
+  await _sb.from('products').update({ category: 'General' }).eq('store_id', STORE.id).eq('category', catName);
+  await loadProducts(); await loadInventory(); loadCategories();
+  showToast(`Category "${catName}" deleted.`);
+}
+
+// ── Bulk Price Adjustment ──────────────────────────────────────────────────────
+function populatePriceCatFilter() {
+  const sel = document.getElementById('priceCatFilter');
+  const cats = [...new Set(allProds.map(p => p.category))].sort();
+  sel.innerHTML = '<option value="">All Products</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+function getAffectedProds() {
+  const cat = document.getElementById('priceCatFilter').value;
+  return cat ? allProds.filter(p => p.category === cat) : allProds;
+}
+function previewBulkPrice() {
+  const action = document.getElementById('priceAction').value;
+  const pct    = parseFloat(document.getElementById('pricePct').value);
+  const prods  = getAffectedProds();
+  if (!pct || isNaN(pct) || pct <= 0) { document.getElementById('pricePreview').textContent = 'Enter a valid percentage first.'; return; }
+  const factor = action === 'increase' ? (1 + pct / 100) : (1 - pct / 100);
+  const samples = prods.slice(0, 4).map(p => `${p.name}: ${CUR}${parseFloat(p.price).toFixed(2)} → ${CUR}${(p.price * factor).toFixed(2)}`).join(' | ');
+  document.getElementById('pricePreview').textContent =
+    `${action === 'increase' ? '+' : '-'}${pct}% on ${prods.length} product(s): ${samples}${prods.length > 4 ? ' …' : ''}`;
+}
+async function applyBulkPrice() {
+  const action = document.getElementById('priceAction').value;
+  const pct    = parseFloat(document.getElementById('pricePct').value);
+  const prods  = getAffectedProds();
+  if (!pct || isNaN(pct) || pct <= 0) { showToast('Enter a valid percentage.', true); return; }
+  if (!confirm(`${action === 'increase' ? 'Increase' : 'Decrease'} prices by ${pct}% for ${prods.length} product(s)?`)) return;
+  const factor = action === 'increase' ? (1 + pct / 100) : (1 - pct / 100);
+  for (const p of prods) {
+    const newPrice = Math.round(p.price * factor * 100) / 100;
+    await _sb.from('products').update({ price: newPrice }).eq('id', p.id);
+  }
+  await loadProducts(); await loadInventory();
+  document.getElementById('pricePreview').textContent = 'Done! Prices updated.';
+  showToast(`Prices ${action}d by ${pct}% on ${prods.length} product(s).`);
 }
 
 // ── Cashier link ───────────────────────────────────────────────────────────────
