@@ -220,9 +220,10 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div class="tbl-wrap">
         <div class="tbl-head" style="flex-wrap:wrap;gap:8px">
           <h3>Inventory</h3>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="search" id="invSearch" placeholder="Search…" oninput="filterInv()" style="width:160px">
-            <select class="search" id="invCatFilter" onchange="filterInv()" style="width:140px"><option value="">All Categories</option></select>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input class="search" id="invSearch" placeholder="Search…" oninput="filterInv()" style="width:140px">
+            <select class="search" id="invCatFilter" onchange="filterInv()" style="width:130px"><option value="">All Categories</option></select>
+            <button class="btn btn-accent btn-sm" onclick="openProdModal()">+ Add Product</button>
           </div>
         </div>
         <table>
@@ -365,9 +366,20 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="mbox">
     <h3 id="prodModalTitle">Add Product</h3>
     <input type="hidden" id="prodId">
+    <div id="noCatWarning" style="display:none;background:#2a1a00;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:13px;color:#f59e0b;margin-bottom:14px">
+      No categories yet. <span style="text-decoration:underline;cursor:pointer" onclick="closeModal('prodModal');nav('categories');openCatModal()">Add a category first →</span>
+    </div>
     <div class="row2">
       <div class="field"><label>Product Name</label><input id="pName" type="text" placeholder="e.g. Burger"></div>
-      <div class="field"><label>Category</label><input id="pCat" type="text" placeholder="e.g. Food"></div>
+      <div class="field">
+        <label>Category</label>
+        <div style="display:flex;gap:6px">
+          <select id="pCat" style="flex:1;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none">
+            <option value="">— Select —</option>
+          </select>
+          <button type="button" class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openCatFromProd()">+ New</button>
+        </div>
+      </div>
     </div>
     <div class="field"><label>Price</label><input id="pPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
     <div class="field" id="pAvailField" style="display:flex;align-items:center;gap:10px">
@@ -376,7 +388,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     </div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('prodModal')">Cancel</button>
-      <button class="btn btn-accent" onclick="saveProd()">Save</button>
+      <button class="btn btn-accent" id="saveProdBtn" onclick="saveProd()">Save</button>
     </div>
   </div>
 </div>
@@ -445,6 +457,7 @@ const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 let STORE = null, CUR = '₱', TAX = 12;
 let allProds = [], allStaff = [];
 let pendingLogob64 = null;
+let extraCats = []; // categories with no products yet
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async () => {
@@ -594,30 +607,54 @@ function renderProds(prods) {
     </td>
   </tr>`).join('');
 }
+function getCategoryList() {
+  const fromProds = [...new Set(allProds.map(p => p.category))];
+  return [...new Set([...fromProds, ...extraCats])].sort();
+}
+function populateCatSelect(selectedVal) {
+  const cats = getCategoryList();
+  const sel  = document.getElementById('pCat');
+  sel.innerHTML = '<option value="">— Select Category —</option>' +
+    cats.map(c => `<option value="${c}" ${c === selectedVal ? 'selected' : ''}>${c}</option>`).join('');
+  const hasCats = cats.length > 0;
+  document.getElementById('noCatWarning').style.display  = hasCats ? 'none' : 'block';
+  document.getElementById('saveProdBtn').disabled = !hasCats;
+}
 function openProdModal(p) {
   document.getElementById('prodModalTitle').textContent = p ? 'Edit Product' : 'Add Product';
-  document.getElementById('prodId').value    = p ? p.id : '';
-  document.getElementById('pName').value     = p ? p.name : '';
-  document.getElementById('pCat').value      = p ? p.category : '';
-  document.getElementById('pPrice').value    = p ? p.price : '';
-  document.getElementById('pAvail').checked  = p ? p.available : true;
+  document.getElementById('prodId').value   = p ? p.id : '';
+  document.getElementById('pName').value    = p ? p.name : '';
+  document.getElementById('pPrice').value   = p ? p.price : '';
+  document.getElementById('pAvail').checked = p ? p.available : true;
   document.getElementById('pAvailField').style.display = p ? 'flex' : 'none';
+  populateCatSelect(p ? p.category : '');
   document.getElementById('prodModal').classList.add('show');
   setTimeout(() => document.getElementById('pName').focus(), 50);
+}
+function openCatFromProd() {
+  // open category modal on top of product modal
+  document.getElementById('catModalTitle').textContent = 'Add Category';
+  document.getElementById('catOldName').value = '';
+  document.getElementById('catName').value    = '';
+  document.getElementById('catModal').classList.add('show');
+  setTimeout(() => document.getElementById('catName').focus(), 50);
 }
 async function saveProd() {
   const id    = document.getElementById('prodId').value;
   const name  = document.getElementById('pName').value.trim();
-  const cat   = document.getElementById('pCat').value.trim() || 'General';
+  const cat   = document.getElementById('pCat').value;
   const price = parseFloat(document.getElementById('pPrice').value);
   const avail = document.getElementById('pAvail').checked;
   if (!name || isNaN(price)) { showToast('Name and price are required.', true); return; }
+  if (!cat) { showToast('Please select a category.', true); return; }
   if (id) {
     await _sb.from('products').update({ name, category: cat, price, available: avail }).eq('id', id);
   } else {
     await _sb.from('products').insert({ store_id: STORE.id, name, category: cat, price, available: true });
   }
-  closeModal('prodModal'); await loadProducts(); showToast('Product saved.');
+  // remove from extraCats once a product uses it
+  extraCats = extraCats.filter(c => c !== cat);
+  closeModal('prodModal'); await loadProducts(); loadCategories(); showToast('Product saved.');
 }
 async function toggleProd(id, val) {
   await _sb.from('products').update({ available: val }).eq('id', id);
@@ -950,13 +987,13 @@ async function setStockPrompt(id, current) {
 
 // ── Categories ─────────────────────────────────────────────────────────────────
 function loadCategories() {
-  if (!allProds.length) { renderCats({}); return; }
   const cats = {};
   allProds.forEach(p => {
     if (!cats[p.category]) cats[p.category] = { total: 0, avail: 0 };
     cats[p.category].total++;
     if (p.available) cats[p.category].avail++;
   });
+  extraCats.forEach(c => { if (!cats[c]) cats[c] = { total: 0, avail: 0 }; });
   renderCats(cats);
 }
 function renderCats(cats) {
@@ -989,13 +1026,23 @@ async function saveCat() {
     const { error } = await _sb.from('products').update({ category: newName })
       .eq('store_id', STORE.id).eq('category', oldName);
     if (error) { showToast(error.message, true); return; }
+    extraCats = extraCats.map(c => c === oldName ? newName : c);
+    closeModal('catModal');
+    await loadProducts(); await loadInventory(); loadCategories();
+    showToast(`Renamed "${oldName}" → "${newName}"`);
   } else if (!oldName) {
-    showToast('To add a category, create a product and assign it.', false);
-    closeModal('catModal'); return;
+    // New category — store in extraCats if not already present
+    if (!getCategoryList().includes(newName)) extraCats.push(newName);
+    closeModal('catModal');
+    loadCategories();
+    // if product modal is open, refresh its select and auto-select the new cat
+    if (document.getElementById('prodModal').classList.contains('show')) {
+      populateCatSelect(newName);
+    }
+    showToast(`Category "${newName}" added. Now create a product to use it.`);
+  } else {
+    closeModal('catModal');
   }
-  closeModal('catModal');
-  await loadProducts(); await loadInventory(); loadCategories();
-  showToast(oldName ? `Renamed "${oldName}" → "${newName}"` : 'Category added.');
 }
 async function deleteCat(catName) {
   if (!confirm(`Delete category "${catName}"? All products in this category will move to "General".`)) return;
