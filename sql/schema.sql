@@ -1,0 +1,117 @@
+-- ============================================================
+--  POSMaker SaaS Schema
+--  Run this entire file in Supabase → SQL Editor
+-- ============================================================
+
+-- Stores (one per business / store owner)
+CREATE TABLE IF NOT EXISTS stores (
+  id             UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  owner_id       UUID        REFERENCES auth.users NOT NULL,
+  name           TEXT        NOT NULL,
+  currency       TEXT        DEFAULT '₱',
+  tax_rate       NUMERIC     DEFAULT 12,
+  address        TEXT        DEFAULT '',
+  phone          TEXT        DEFAULT '',
+  receipt_footer TEXT        DEFAULT 'Thank you!',
+  logo_b64       TEXT        DEFAULT '',
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Store staff: cashiers & managers (NOT Supabase Auth users)
+CREATE TABLE IF NOT EXISTS store_users (
+  id            UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id      UUID    REFERENCES stores NOT NULL,
+  username      TEXT    NOT NULL,
+  password_hash TEXT    NOT NULL,
+  full_name     TEXT    DEFAULT '',
+  role          TEXT    DEFAULT 'cashier',   -- cashier | manager
+  active        BOOLEAN DEFAULT TRUE,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (store_id, username)
+);
+
+-- Products
+CREATE TABLE IF NOT EXISTS products (
+  id         UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id   UUID    REFERENCES stores NOT NULL,
+  name       TEXT    NOT NULL,
+  category   TEXT    DEFAULT 'General',
+  price      NUMERIC NOT NULL,
+  available  BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Orders
+CREATE TABLE IF NOT EXISTS orders (
+  id              BIGSERIAL PRIMARY KEY,
+  store_id        UUID    REFERENCES stores NOT NULL,
+  timestamp       TIMESTAMPTZ DEFAULT NOW(),
+  cashier_name    TEXT    DEFAULT '',
+  subtotal        NUMERIC DEFAULT 0,
+  tax             NUMERIC DEFAULT 0,
+  total           NUMERIC DEFAULT 0,
+  payment_method  TEXT    DEFAULT 'Cash',
+  amount_tendered NUMERIC DEFAULT 0,
+  change_given    NUMERIC DEFAULT 0,
+  discount_pct    NUMERIC DEFAULT 0
+);
+
+-- Order line items
+CREATE TABLE IF NOT EXISTS order_items (
+  id         BIGSERIAL PRIMARY KEY,
+  order_id   BIGINT  REFERENCES orders NOT NULL,
+  product_id UUID,
+  name       TEXT,
+  price      NUMERIC,
+  qty        INTEGER
+);
+
+-- ── Row Level Security ─────────────────────────────────────────────────────────
+ALTER TABLE stores       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE store_users  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items  ENABLE ROW LEVEL SECURITY;
+
+-- Stores: owner full access
+CREATE POLICY stores_owner ON stores FOR ALL TO authenticated
+  USING     (auth.uid() = owner_id)
+  WITH CHECK(auth.uid() = owner_id);
+
+-- Stores: anon can read a store's public info (name, currency, tax, logo)
+CREATE POLICY stores_anon_read ON stores FOR SELECT TO anon USING (TRUE);
+
+-- Store users: owner manages their store's staff
+CREATE POLICY su_owner ON store_users FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+
+-- Store users: anon can read active users (for cashier login check)
+CREATE POLICY su_anon_read ON store_users FOR SELECT TO anon
+  USING (active = TRUE);
+
+-- Products: owner full access
+CREATE POLICY prod_owner ON products FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+
+-- Products: anon read available products (cashier needs this)
+CREATE POLICY prod_anon_read ON products FOR SELECT TO anon
+  USING (available = TRUE);
+
+-- Orders: owner full access
+CREATE POLICY ord_owner ON orders FOR ALL TO authenticated
+  USING (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+
+-- Orders: anon insert (cashier submits orders)
+CREATE POLICY ord_anon_insert ON orders FOR INSERT TO anon WITH CHECK (TRUE);
+
+-- Order items: owner full access
+CREATE POLICY oi_owner ON order_items FOR ALL TO authenticated
+  USING (order_id IN (
+    SELECT id FROM orders
+    WHERE store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid())
+  ));
+
+-- Order items: anon insert
+CREATE POLICY oi_anon_insert ON order_items FOR INSERT TO anon WITH CHECK (TRUE);

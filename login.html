@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Admin Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#09090f;color:#f0f0f8;font-family:'Inter',sans-serif;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:min(420px,100%)}
+.logo{text-align:center;font-size:22px;font-weight:800;margin-bottom:32px}
+.logo span{color:#00b4d8}
+.card{background:#111120;border:1px solid #252540;border-radius:16px;padding:36px}
+h1{font-size:22px;font-weight:800;margin-bottom:4px}
+.sub{font-size:14px;color:#8888aa;margin-bottom:28px}
+.field{margin-bottom:16px}
+label{display:block;font-size:13px;font-weight:600;color:#aaa;margin-bottom:6px}
+input{width:100%;padding:11px 14px;background:#09090f;border:1.5px solid #252540;border-radius:8px;color:#f0f0f8;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+input:focus{border-color:#00b4d8}
+input::placeholder{color:#44445a}
+.btn{width:100%;padding:13px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.err{color:#ef4444;font-size:13px;min-height:18px;margin-bottom:10px;text-align:center}
+.signup-link{text-align:center;font-size:13px;color:#8888aa;margin-top:18px}
+.signup-link a{color:#00b4d8;font-weight:600}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">POS<span>Maker</span></div>
+  <div class="card">
+    <h1>Admin login</h1>
+    <p class="sub">Sign in to manage your store.</p>
+
+    <div class="field">
+      <label>Email</label>
+      <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+    </div>
+
+    <div class="err" id="err"></div>
+    <button class="btn" id="btn" onclick="doLogin()">Log In →</button>
+    <div class="signup-link">Don't have a store? <a href="signup.html">Create one free</a></div>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+async function doLogin() {
+  const email = document.getElementById('email').value.trim();
+  const pw    = document.getElementById('pw').value;
+  const errEl = document.getElementById('err');
+  const btn   = document.getElementById('btn');
+
+  errEl.textContent = '';
+  if (!email || !pw) { errEl.textContent = 'Please enter your email and password.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in…';
+
+  const { data, error } = await _sb.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    errEl.textContent = error.message;
+    btn.disabled = false; btn.textContent = 'Log In →';
+    return;
+  }
+
+  // Load the user's store
+  const { data: store } = await _sb.from('stores').select('id').eq('owner_id', data.user.id).single();
+  if (store) localStorage.setItem('pm_store_id', store.id);
+
+  location.href = 'dashboard.html';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// Auto-redirect if already logged in
+(async () => {
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session) location.href = 'dashboard.html';
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>POSMaker Cashier</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540}
+body{background:var(--bg);color:#f0f0f8;font-family:'Segoe UI',sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+
+/* LOGIN */
+#loginWrap{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:0}
+.login-box{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:32px;width:min(360px,92vw)}
+.login-logo-img{display:block;max-height:70px;max-width:160px;margin:0 auto 10px;border-radius:6px;object-fit:contain}
+.login-title{text-align:center;font-size:20px;font-weight:800;color:var(--accent);margin-bottom:6px}
+.login-sub{text-align:center;font-size:13px;color:#8888aa;margin-bottom:24px}
+.inp{width:100%;padding:11px 13px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:#f0f0f8;font-size:15px;margin-bottom:10px;outline:none;font-family:inherit}
+.inp:focus{border-color:var(--accent)}
+.inp::placeholder{color:#44445a}
+.btn-login{width:100%;padding:13px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin-top:4px}
+#loginErr{color:#ef4444;font-size:12px;min-height:16px;margin-bottom:6px;text-align:center}
+
+/* HEADER */
+.hdr{background:var(--accent);padding:9px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.hdr-logo{height:30px;width:auto;border-radius:4px;object-fit:contain;display:none}
+.hdr-title{font-size:16px;font-weight:700;flex:1}
+.hdr-cashier{font-size:12px;opacity:.85;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-logout{background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;flex-shrink:0}
+
+/* CATEGORIES */
+.cat-bar{background:var(--s1);display:flex;overflow-x:auto;padding:7px 8px;gap:6px;flex-shrink:0;border-bottom:1px solid var(--border);scrollbar-width:none}
+.cat-bar::-webkit-scrollbar{display:none}
+.cat-btn{background:var(--s2);border:1px solid var(--border);color:#888;padding:6px 14px;border-radius:20px;cursor:pointer;white-space:nowrap;font-size:13px;flex-shrink:0}
+.cat-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* MAIN */
+.main{display:flex;flex:1;overflow:hidden}
+.products{flex:1;overflow-y:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;align-content:start}
+.p-btn{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 6px;cursor:pointer;text-align:center;user-select:none;transition:background .1s}
+.p-btn:active{background:var(--accent);border-color:var(--accent)}
+.p-name{font-size:12px;line-height:1.3;margin-bottom:5px;color:#ddd}
+.p-price{color:var(--accent);font-size:13px;font-weight:700}
+
+/* CART */
+.cart{width:255px;background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+@media(max-width:580px){.cart{width:210px}}
+.cart-hdr{padding:11px 13px;font-size:13px;font-weight:700;border-bottom:1px solid var(--border);color:#aaa}
+.cart-list{flex:1;overflow-y:auto;padding:6px 10px}
+.cart-empty{color:#444;text-align:center;padding:24px 8px;font-size:13px}
+.ci{display:flex;align-items:center;gap:4px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.ci-name{flex:1;color:#ccc;line-height:1.2}
+.ci-qty{display:flex;align-items:center;gap:3px}
+.q-btn{background:var(--s2);border:none;color:#ccc;width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.q-btn:active{background:var(--accent)}
+.ci-line{color:#aaa;min-width:55px;text-align:right}
+.totals{padding:10px 13px;border-top:1px solid var(--border);font-size:12px}
+.t-row{display:flex;justify-content:space-between;padding:2px 0;color:#aaa}
+.t-row.big{font-size:15px;font-weight:700;color:var(--accent);padding-top:4px}
+.btn-checkout{margin:8px 10px 10px;background:var(--accent);color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;width:calc(100% - 20px)}
+.btn-checkout:disabled{background:#252540;color:#555;cursor:not-allowed}
+
+/* MODAL */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;padding:12px}
+.modal.show{display:flex}
+.mbox{background:var(--s1);border-radius:14px;padding:22px;width:min(380px,96vw);border:1px solid var(--border)}
+.mtitle{font-size:17px;font-weight:700;margin-bottom:12px}
+.mtotal{font-size:24px;font-weight:800;color:var(--accent);margin-bottom:14px}
+.methods{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap}
+.m-btn{flex:1;padding:9px 4px;border:2px solid var(--border);background:transparent;color:#888;border-radius:7px;cursor:pointer;font-size:12px;min-width:70px}
+.m-btn.active{border-color:var(--accent);color:#fff;background:rgba(0,180,216,.12)}
+.quick-row{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.q-cash{flex:1;min-width:60px;padding:8px 4px;background:var(--s2);border:1px solid var(--border);color:#ccc;border-radius:6px;cursor:pointer;font-size:13px}
+.q-cash:active{background:var(--accent)}
+.chg{text-align:center;font-size:15px;min-height:22px;margin-bottom:6px;font-weight:600}
+.m-actions{display:flex;gap:8px;margin-top:10px}
+.btn-cancel{flex:1;padding:11px;background:#252540;border:none;color:#ccc;border-radius:8px;cursor:pointer;font-size:14px}
+.btn-confirm{flex:2;padding:11px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px}
+.receipt-pre{font-family:monospace;font-size:12px;background:#0a0a14;padding:12px;border-radius:8px;max-height:50dvh;overflow-y:auto;white-space:pre-wrap;color:#bbb;border:1px solid var(--border)}
+
+/* DEMO BANNER */
+.demo-banner{background:rgba(124,58,237,.15);border-bottom:1px solid rgba(124,58,237,.3);padding:6px 14px;font-size:12px;color:#a78bfa;text-align:center;flex-shrink:0}
+
+/* SPINNER */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginWrap">
+  <div class="login-box">
+    <img class="login-logo-img" id="loginLogo" alt="">
+    <div class="login-title" id="loginTitle">POS</div>
+    <div class="login-sub" id="loginSub">Cashier Login</div>
+    <input class="inp" id="lu" type="text" placeholder="Username" autocomplete="username">
+    <input class="inp" id="lp" type="password" placeholder="Password" autocomplete="current-password">
+    <div id="loginErr"></div>
+    <button class="btn-login" onclick="doLogin()">Login</button>
+  </div>
+</div>
+
+<!-- APP (hidden until login) -->
+<div id="demoBanner" class="demo-banner" style="display:none">Demo mode — changes are not saved</div>
+<div class="hdr">
+  <img class="hdr-logo" id="hdrLogo" alt="">
+  <span class="hdr-title" id="hdrTitle">POSMaker</span>
+  <span class="hdr-cashier" id="hdrCashier"></span>
+  <button class="btn-logout" onclick="doLogout()">Logout</button>
+</div>
+<div class="cat-bar" id="catBar"></div>
+<div class="main">
+  <div class="products" id="grid"></div>
+  <div class="cart">
+    <div class="cart-hdr">🛒 Cart <span id="cartCnt" style="color:#555;font-weight:400"></span></div>
+    <div class="cart-list" id="cartList"><div class="cart-empty">Cart is empty</div></div>
+    <div class="totals">
+      <div class="t-row"><span>Subtotal</span><span id="tSub">—</span></div>
+      <div class="t-row"><span id="taxLabel">VAT (12%)</span><span id="tTax">—</span></div>
+      <div class="t-row big"><span>TOTAL</span><span id="tTot">—</span></div>
+    </div>
+    <button class="btn-checkout" id="btnCO" disabled onclick="openCheckout()">💰 Checkout</button>
+  </div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div class="modal" id="mCheckout">
+  <div class="mbox">
+    <div class="mtitle">💳 Checkout</div>
+    <div class="mtotal" id="mTotal"></div>
+    <div class="methods">
+      <button class="m-btn active" onclick="setMethod('Cash',this)">💵 Cash</button>
+      <button class="m-btn" onclick="setMethod('Card',this)">💳 Card</button>
+      <button class="m-btn" onclick="setMethod('GCash',this)">📱 GCash</button>
+    </div>
+    <div id="cashSection">
+      <div class="quick-row" id="quickRow"></div>
+      <input class="inp" id="tendered" type="number" placeholder="Amount tendered" oninput="calcChange()">
+      <div class="chg" id="chgDisp"></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeM('mCheckout')">Cancel</button>
+      <button class="btn-confirm" onclick="confirmCO()">✔ Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- RECEIPT MODAL -->
+<div class="modal" id="mReceipt">
+  <div class="mbox">
+    <div class="mtitle">🧾 Receipt</div>
+    <pre class="receipt-pre" id="receiptTxt"></pre>
+    <button class="btn-confirm" style="width:100%;margin-top:12px" onclick="newOrder()">+ New Order</button>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// Parse ?store= from URL
+const params   = new URLSearchParams(location.search);
+const STORE_ID = params.get('store');
+const IS_DEMO  = params.get('demo') === '1';
+
+let STORE = null, CUR = '₱', TAX = 0, CASHIER = null;
+let prods = [], cart = {}, payMeth = 'Cash';
+
+// ── Page init ──────────────────────────────────────────────────────────────────
+(async () => {
+  if (IS_DEMO) {
+    // Demo mode — load sample data without any store
+    document.getElementById('demoBanner').style.display = '';
+    STORE = { id: null, name: 'Demo Store', currency: '₱', tax_rate: 12, receipt_footer: 'Thank you!', logo_b64: '' };
+    CUR = '₱'; TAX = 12;
+    prods = [
+      { id: 'd1', name: 'Burger',        category: 'Food',   price: 120 },
+      { id: 'd2', name: 'Fries',         category: 'Food',   price: 60  },
+      { id: 'd3', name: 'Fried Chicken', category: 'Food',   price: 150 },
+      { id: 'd4', name: 'Rice',          category: 'Food',   price: 35  },
+      { id: 'd5', name: 'Coke',          category: 'Drinks', price: 50  },
+      { id: 'd6', name: 'Juice',         category: 'Drinks', price: 45  },
+      { id: 'd7', name: 'Water',         category: 'Drinks', price: 30  },
+      { id: 'd8', name: 'Coffee',        category: 'Drinks', price: 75  },
+    ];
+    setStoreUI();
+    CASHIER = { full_name: 'Demo Cashier', role: 'cashier' };
+    showPOS('Demo Cashier');
+    return;
+  }
+
+  if (!STORE_ID) {
+    document.getElementById('loginTitle').textContent = 'Invalid Link';
+    document.getElementById('loginSub').textContent = 'No store ID in URL. Ask your manager for the correct cashier link.';
+    return;
+  }
+
+  // Load store info (anon read allowed)
+  const { data: store } = await _sb.from('stores').select('id,name,currency,tax_rate,receipt_footer,logo_b64').eq('id', STORE_ID).single();
+  if (!store) {
+    document.getElementById('loginTitle').textContent = 'Store Not Found';
+    document.getElementById('loginSub').textContent = 'This store ID does not exist.';
+    return;
+  }
+  STORE = store; CUR = store.currency || '₱'; TAX = parseFloat(store.tax_rate) || 0;
+  setStoreUI();
+})();
+
+function setStoreUI() {
+  document.getElementById('loginTitle').textContent = STORE.name;
+  document.getElementById('taxLabel').textContent = `VAT (${STORE.tax_rate}%)`;
+  document.getElementById('hdrTitle').textContent  = STORE.name;
+  if (STORE.logo_b64) {
+    const src = 'data:image/png;base64,' + STORE.logo_b64;
+    const li = document.getElementById('loginLogo');
+    li.src = src; li.style.display = 'block';
+    const hi = document.getElementById('hdrLogo');
+    hi.src = src; hi.style.display = 'block';
+  }
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
+document.getElementById('lp').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+async function doLogin() {
+  const username = document.getElementById('lu').value.trim().toLowerCase();
+  const pw       = document.getElementById('lp').value;
+  const errEl    = document.getElementById('loginErr');
+  errEl.textContent = '';
+  if (!username || !pw) { errEl.textContent = 'Enter username and password.'; return; }
+
+  const hash = await sha256(pw);
+  const { data, error } = await _sb.from('store_users')
+    .select('id,username,full_name,role')
+    .eq('store_id', STORE_ID)
+    .eq('username', username)
+    .eq('password_hash', hash)
+    .eq('active', true)
+    .single();
+
+  if (error || !data) { errEl.textContent = 'Invalid username or password.'; return; }
+  CASHIER = data;
+  await loadProds();
+  showPOS(data.full_name || data.username);
+}
+
+function showPOS(name) {
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('hdrCashier').textContent = '👤 ' + name;
+  redrawCart();
+}
+
+async function doLogout() {
+  cart = {}; CASHIER = null;
+  document.getElementById('lu').value = '';
+  document.getElementById('lp').value = '';
+  document.getElementById('loginErr').textContent = '';
+  document.getElementById('loginWrap').style.display = 'flex';
+}
+
+// ── Products ───────────────────────────────────────────────────────────────────
+async function loadProds() {
+  const { data } = await _sb.from('products')
+    .select('id,name,price,category')
+    .eq('store_id', STORE_ID)
+    .eq('available', true)
+    .order('category').order('name');
+  prods = data || [];
+  buildCats();
+  renderProds('All');
+}
+
+function buildCats() {
+  const cats = ['All', ...new Set(prods.map(p => p.category))];
+  document.getElementById('catBar').innerHTML = cats.map(c =>
+    `<button class="cat-btn${c==='All'?' active':''}" onclick="filterCat('${c.replace(/'/g,"\\'")}',this)">${c}</button>`
+  ).join('');
+}
+
+function filterCat(cat, btn) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderProds(cat);
+}
+
+function renderProds(cat) {
+  const list = cat === 'All' ? prods : prods.filter(p => p.category === cat);
+  document.getElementById('grid').innerHTML = list.length
+    ? list.map(p => `<div class="p-btn" onclick="addItem('${p.id}')">
+        <div class="p-name">${p.name}</div>
+        <div class="p-price">${CUR}${parseFloat(p.price).toFixed(2)}</div>
+      </div>`).join('')
+    : `<div style="color:#444;padding:20px;font-size:13px">No products in this category.</div>`;
+}
+
+// ── Cart ───────────────────────────────────────────────────────────────────────
+function addItem(id) {
+  const p = prods.find(x => x.id == id); if (!p) return;
+  if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
+  cart[id].qty++;
+  redrawCart();
+}
+
+function adjQty(id, d) {
+  if (!cart[id]) return;
+  cart[id].qty += d;
+  if (cart[id].qty <= 0) delete cart[id];
+  redrawCart();
+}
+
+function redrawCart() {
+  const items = Object.values(cart);
+  const cnt = items.reduce((s, i) => s + i.qty, 0);
+  document.getElementById('cartCnt').textContent = cnt ? `(${cnt})` : '';
+  document.getElementById('cartList').innerHTML = items.length
+    ? items.map(i => `<div class="ci">
+        <span class="ci-name">${i.name}</span>
+        <div class="ci-qty">
+          <button class="q-btn" onclick="adjQty('${i.id}',-1)">−</button>
+          <span style="min-width:18px;text-align:center">${i.qty}</span>
+          <button class="q-btn" onclick="adjQty('${i.id}',1)">+</button>
+        </div>
+        <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
+      </div>`).join('')
+    : `<div class="cart-empty">Cart is empty</div>`;
+
+  const sub = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const tax = parseFloat((sub * TAX / 100).toFixed(2));
+  const tot = parseFloat((sub + tax).toFixed(2));
+  document.getElementById('tSub').textContent = CUR + sub.toFixed(2);
+  document.getElementById('tTax').textContent = CUR + tax.toFixed(2);
+  document.getElementById('tTot').textContent = CUR + tot.toFixed(2);
+  document.getElementById('btnCO').disabled = !items.length;
+}
+
+// ── Checkout ───────────────────────────────────────────────────────────────────
+function openCheckout() {
+  const items = Object.values(cart); if (!items.length) return;
+  const sub = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const tot = parseFloat((sub * (1 + TAX / 100)).toFixed(2));
+  document.getElementById('mTotal').textContent = CUR + tot.toFixed(2);
+  document.getElementById('tendered').value = '';
+  document.getElementById('chgDisp').textContent = '';
+  // Quick cash buttons
+  const qr = document.getElementById('quickRow');
+  const denoms = [50, 100, 200, 500, 1000];
+  const higherDenoms = denoms.filter(a => a >= tot);
+  const quickAmounts = higherDenoms.length ? higherDenoms.slice(0, 4) : denoms.slice(-4);
+  qr.innerHTML = quickAmounts.map(a =>
+    `<button class="q-cash" onclick="setCash(${a})">${CUR}${a}</button>`
+  ).join('');
+  document.getElementById('cashSection').style.display = payMeth === 'Cash' ? '' : 'none';
+  document.getElementById('mCheckout').classList.add('show');
+}
+
+function setCash(a) { document.getElementById('tendered').value = a; calcChange(); }
+
+function setMethod(m, btn) {
+  payMeth = m;
+  document.querySelectorAll('.m-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('cashSection').style.display = m === 'Cash' ? '' : 'none';
+}
+
+function calcChange() {
+  const items = Object.values(cart);
+  const tot = parseFloat((items.reduce((s, i) => s + i.price * i.qty, 0) * (1 + TAX / 100)).toFixed(2));
+  const recv = parseFloat(document.getElementById('tendered').value) || 0;
+  const chg = recv - tot;
+  const el = document.getElementById('chgDisp');
+  if (recv > 0) {
+    el.style.color = chg >= 0 ? '#10b981' : '#ef4444';
+    el.textContent = chg >= 0 ? `Change: ${CUR}${chg.toFixed(2)}` : `Short: ${CUR}${Math.abs(chg).toFixed(2)}`;
+  } else {
+    el.textContent = '';
+  }
+}
+
+async function confirmCO() {
+  const items = Object.values(cart).map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty }));
+  const sub    = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
+  const tax    = parseFloat((sub * TAX / 100).toFixed(2));
+  const tot    = parseFloat((sub + tax).toFixed(2));
+  const tender = payMeth === 'Cash' ? parseFloat(document.getElementById('tendered').value) || 0 : tot;
+  const chg    = payMeth === 'Cash' ? parseFloat((tender - tot).toFixed(2)) : 0;
+
+  if (payMeth === 'Cash' && tender < tot) { alert('Amount tendered is less than total.'); return; }
+
+  if (IS_DEMO) {
+    showReceipt({ order_id: 'DEMO', items, subtotal: sub, tax, total: tot, tendered: tender, change: chg, method: payMeth, cashier: 'Demo Cashier' });
+    closeM('mCheckout');
+    return;
+  }
+
+  // Save order to Supabase
+  const { data: order, error } = await _sb.from('orders').insert({
+    store_id: STORE_ID,
+    cashier_name: CASHIER.full_name || CASHIER.username,
+    subtotal: sub, tax, total: tot,
+    payment_method: payMeth,
+    amount_tendered: tender,
+    change_given: chg,
+    discount_pct: 0,
+  }).select('id').single();
+
+  if (error) { alert('Error saving order: ' + error.message); return; }
+
+  // Save order items
+  await _sb.from('order_items').insert(items.map(i => ({
+    order_id: order.id,
+    product_id: i.id,
+    name: i.name,
+    price: i.price,
+    qty: i.qty,
+  })));
+
+  closeM('mCheckout');
+  showReceipt({ order_id: order.id, items, subtotal: sub, tax, total: tot, tendered: tender, change: chg, method: payMeth, cashier: CASHIER.full_name || CASHIER.username });
+}
+
+function showReceipt(d) {
+  const ln = '─'.repeat(32);
+  const storeName = STORE?.name || 'POSMaker';
+  let s = `${storeName}\n${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\nCashier: ${d.cashier}\n${ln}\n`;
+  d.items.forEach(i => s += `${i.name}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`);
+  s += `${ln}\nSubtotal: ${CUR}${d.subtotal.toFixed(2)}\nVAT:      ${CUR}${d.tax.toFixed(2)}\nTOTAL:    ${CUR}${d.total.toFixed(2)}\n`;
+  if (d.method === 'Cash') s += `Cash:     ${CUR}${d.tendered.toFixed(2)}\nChange:   ${CUR}${d.change.toFixed(2)}\n`;
+  else s += `Paid via: ${d.method}\n`;
+  s += `${ln}\n${STORE?.receipt_footer || 'Thank you!'}`;
+  document.getElementById('receiptTxt').textContent = s;
+  document.getElementById('mReceipt').classList.add('show');
+}
+
+function newOrder() { cart = {}; redrawCart(); closeM('mReceipt'); }
+function closeM(id) { document.getElementById(id).classList.remove('show'); }
+
+// ── Utils ──────────────────────────────────────────────────────────────────────
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+</script>
+</body>
+</html>

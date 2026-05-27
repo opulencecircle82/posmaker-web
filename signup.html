@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Create Your Store</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#09090f;color:#f0f0f8;font-family:'Inter',sans-serif;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:min(460px,100%)}
+.logo{text-align:center;font-size:22px;font-weight:800;margin-bottom:32px}
+.logo span{color:#00b4d8}
+.card{background:#111120;border:1px solid #252540;border-radius:16px;padding:36px}
+h1{font-size:22px;font-weight:800;margin-bottom:4px}
+.sub{font-size:14px;color:#8888aa;margin-bottom:28px}
+.field{margin-bottom:16px}
+label{display:block;font-size:13px;font-weight:600;color:#aaa;margin-bottom:6px}
+input,select{width:100%;padding:11px 14px;background:#09090f;border:1.5px solid #252540;border-radius:8px;color:#f0f0f8;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:#00b4d8}
+input::placeholder{color:#44445a}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{width:100%;padding:13px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.err{color:#ef4444;font-size:13px;min-height:18px;margin-bottom:10px;text-align:center}
+.login-link{text-align:center;font-size:13px;color:#8888aa;margin-top:18px}
+.login-link a{color:#00b4d8;font-weight:600}
+.divider{border:none;border-top:1px solid #252540;margin:20px 0}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">POS<span>Maker</span></div>
+  <div class="card">
+    <h1>Create your store</h1>
+    <p class="sub">Set up your POS in under a minute — it's free.</p>
+
+    <div class="field">
+      <label>Store Name</label>
+      <input id="storeName" type="text" placeholder="e.g. Jollibee Taguig" autocomplete="organization">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Currency Symbol</label>
+        <input id="currency" type="text" value="₱" maxlength="4">
+      </div>
+      <div class="field">
+        <label>Tax Rate (%)</label>
+        <input id="taxRate" type="number" value="12" min="0" max="100" step="0.5">
+      </div>
+    </div>
+    <hr class="divider">
+    <div class="field">
+      <label>Your Email</label>
+      <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="pw" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+    </div>
+
+    <div class="err" id="err"></div>
+    <button class="btn" id="btn" onclick="doSignup()">Create Store &amp; Continue →</button>
+    <div class="login-link">Already have a store? <a href="login.html">Log in</a></div>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+async function doSignup() {
+  const storeName = document.getElementById('storeName').value.trim();
+  const currency  = document.getElementById('currency').value.trim() || '₱';
+  const taxRate   = parseFloat(document.getElementById('taxRate').value) || 0;
+  const email     = document.getElementById('email').value.trim();
+  const pw        = document.getElementById('pw').value;
+  const errEl     = document.getElementById('err');
+  const btn       = document.getElementById('btn');
+
+  errEl.textContent = '';
+  if (!storeName) { errEl.textContent = 'Store name is required.'; return; }
+  if (!email)     { errEl.textContent = 'Email is required.'; return; }
+  if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating store…';
+
+  // 1. Create Supabase Auth user
+  const { data: authData, error: authErr } = await _sb.auth.signUp({ email, password: pw });
+  if (authErr) {
+    errEl.textContent = authErr.message;
+    btn.disabled = false; btn.textContent = 'Create Store & Continue →';
+    return;
+  }
+
+  // 2. Create store record
+  const { data: store, error: storeErr } = await _sb
+    .from('stores')
+    .insert({ name: storeName, owner_id: authData.user.id, currency, tax_rate: taxRate })
+    .select()
+    .single();
+
+  if (storeErr) {
+    errEl.textContent = storeErr.message;
+    btn.disabled = false; btn.textContent = 'Create Store & Continue →';
+    return;
+  }
+
+  // Store the store_id locally for the dashboard
+  localStorage.setItem('pm_store_id', store.id);
+  location.href = 'dashboard.html';
+}
+
+// Allow Enter key
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
+</script>
+</body>
+</html>
