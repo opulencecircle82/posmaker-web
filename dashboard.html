@@ -141,6 +141,7 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="sb-store" id="sbStore">Loading…</div>
   <div class="sb-nav">
     <div class="sb-item active" onclick="nav('dashboard')"><span class="ico">📊</span> Dashboard</div>
+    <div class="sb-item" onclick="nav('orders')"><span class="ico">🧾</span> Orders</div>
     <div class="sb-item" onclick="nav('products')"><span class="ico">🏷️</span> Products</div>
     <div class="sb-item" onclick="nav('staff')"><span class="ico">👥</span> Staff</div>
     <div class="sb-item" onclick="nav('settings')"><span class="ico">⚙️</span> Settings</div>
@@ -179,6 +180,26 @@ input:checked + .slider:before{transform:translateX(18px)}
           <thead><tr><th>#</th><th>Date &amp; Time</th><th>Cashier</th><th>Total</th><th>Method</th></tr></thead>
           <tbody id="ordersTbody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading orders…</td></tr></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ORDERS -->
+    <div class="section" id="sec-orders">
+      <div class="tbl-wrap">
+        <div class="tbl-head" style="flex-wrap:wrap;gap:8px">
+          <h3>Orders</h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="date" id="ordFrom" class="search" style="width:140px" oninput="loadOrders()">
+            <input type="date" id="ordTo"   class="search" style="width:140px" oninput="loadOrders()">
+            <button class="btn btn-ghost btn-sm" onclick="clearOrdFilter()">All</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportOrdCSV()">⬇ CSV</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Date &amp; Time</th><th>Cashier</th><th>Items</th><th>Subtotal</th><th>Tax</th><th>Discount</th><th>Total</th><th>Method</th><th>Tendered</th><th>Change</th></tr></thead>
+          <tbody id="ordTbody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px">Loading…</td></tr></tbody>
+        </table>
+        <div style="padding:12px 18px;font-size:12px;color:var(--muted)" id="ordCount"></div>
       </div>
     </div>
 
@@ -291,6 +312,15 @@ input:checked + .slider:before{transform:translateX(18px)}
   </div>
 </div>
 
+<!-- ORDER DETAIL MODAL -->
+<div class="modal" id="ordModal">
+  <div class="mbox" style="width:min(560px,100%)">
+    <h3 id="ordModalTitle">Order Details</h3>
+    <div id="ordModalBody" style="font-size:13px"></div>
+    <div class="m-actions"><button class="btn btn-ghost" onclick="closeModal('ordModal')">Close</button></div>
+  </div>
+</div>
+
 <!-- STAFF MODAL -->
 <div class="modal" id="staffModal">
   <div class="mbox">
@@ -385,7 +415,7 @@ let pendingLogob64 = null;
 })();
 
 // ── Navigation ─────────────────────────────────────────────────────────────────
-const SECTION_TITLES = {dashboard:'Dashboard',products:'Products',staff:'Staff',settings:'Settings',access:'Cashier Link'};
+const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',products:'Products',staff:'Staff',settings:'Settings',access:'Cashier Link'};
 function nav(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
@@ -395,6 +425,7 @@ function nav(id) {
   });
   document.getElementById('topbarTitle').textContent = SECTION_TITLES[id] || id;
   closeSidebar();
+  if (id === 'orders') loadOrders();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbOverlay').classList.add('show'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbOverlay').classList.remove('show'); }
@@ -625,6 +656,111 @@ async function saveSettings() {
   CUR = payload.currency; TAX = payload.tax_rate;
   document.getElementById('sbStore').textContent = payload.name;
   showToast('Settings saved.');
+}
+
+// ── Orders ─────────────────────────────────────────────────────────────────────
+let allOrders = [];
+async function loadOrders() {
+  if (!STORE) return;
+  const from = document.getElementById('ordFrom').value;
+  const to   = document.getElementById('ordTo').value;
+  let q = _sb.from('orders').select('*').eq('store_id', STORE.id).order('id', { ascending: false }).limit(500);
+  if (from) q = q.gte('timestamp', from + 'T00:00:00');
+  if (to)   q = q.lte('timestamp', to   + 'T23:59:59');
+  const { data } = await q;
+  allOrders = data || [];
+  renderOrders(allOrders);
+}
+function renderOrders(orders) {
+  const tbody = document.getElementById('ordTbody');
+  document.getElementById('ordCount').textContent = orders.length + ' order(s)';
+  if (!orders.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td></tr>'; return;
+  }
+  tbody.innerHTML = orders.map(o => {
+    const dt  = new Date(o.timestamp).toLocaleString('en-PH', {year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const m   = (o.payment_method || 'Cash').toLowerCase();
+    const bg  = m === 'cash' ? 'bg-cash' : m === 'card' ? 'bg-card' : 'bg-gcash';
+    const disc = parseFloat(o.discount_pct || 0);
+    return `<tr style="cursor:pointer" onclick="viewOrder(${o.id})">
+      <td style="font-weight:600">#${o.id}</td>
+      <td>${dt}</td>
+      <td>${o.cashier_name || ''}</td>
+      <td style="color:var(--muted)" id="ord-items-${o.id}">—</td>
+      <td>${CUR}${parseFloat(o.subtotal||0).toFixed(2)}</td>
+      <td style="color:var(--muted)">${CUR}${parseFloat(o.tax||0).toFixed(2)}</td>
+      <td style="color:${disc>0?'#f59e0b':'var(--muted)'}">${disc>0?disc+'%':'—'}</td>
+      <td style="color:var(--accent);font-weight:700">${CUR}${parseFloat(o.total||0).toFixed(2)}</td>
+      <td><span class="badge ${bg}">${o.payment_method||'Cash'}</span></td>
+      <td>${CUR}${parseFloat(o.amount_tendered||0).toFixed(2)}</td>
+      <td>${CUR}${parseFloat(o.change_given||0).toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+  // load item counts async
+  orders.forEach(async o => {
+    const { count } = await _sb.from('order_items').select('id', { count: 'exact', head: true }).eq('order_id', o.id);
+    const el = document.getElementById('ord-items-' + o.id);
+    if (el) el.textContent = (count || 0) + ' item(s)';
+  });
+}
+async function viewOrder(ordId) {
+  const o = allOrders.find(x => x.id === ordId); if (!o) return;
+  const { data: items } = await _sb.from('order_items').select('*').eq('order_id', ordId);
+  const dt = new Date(o.timestamp).toLocaleString('en-PH', {dateStyle:'medium',timeStyle:'short'});
+  const disc = parseFloat(o.discount_pct || 0);
+  document.getElementById('ordModalTitle').textContent = `Order #${o.id}`;
+  document.getElementById('ordModalBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:16px;font-size:12px;color:var(--muted)">
+      <span>Date</span><span style="color:var(--text)">${dt}</span>
+      <span>Cashier</span><span style="color:var(--text)">${o.cashier_name || '—'}</span>
+      <span>Payment</span><span style="color:var(--text)">${o.payment_method || 'Cash'}</span>
+      ${disc > 0 ? `<span>Discount</span><span style="color:#f59e0b">${disc}%</span>` : ''}
+    </div>
+    <table style="margin-bottom:14px">
+      <thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Amount</th></tr></thead>
+      <tbody>${(items||[]).map(i=>`<tr>
+        <td>${i.name||''}</td>
+        <td style="text-align:right">${i.qty}</td>
+        <td style="text-align:right">${CUR}${parseFloat(i.price||0).toFixed(2)}</td>
+        <td style="text-align:right;font-weight:600">${CUR}${(i.qty*parseFloat(i.price||0)).toFixed(2)}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <div style="text-align:right;font-size:13px;line-height:2">
+      <div style="color:var(--muted)">Subtotal: <strong style="color:var(--text)">${CUR}${parseFloat(o.subtotal||0).toFixed(2)}</strong></div>
+      <div style="color:var(--muted)">Tax (${TAX}%): <strong style="color:var(--text)">${CUR}${parseFloat(o.tax||0).toFixed(2)}</strong></div>
+      ${disc>0?`<div style="color:#f59e0b">Discount (${disc}%): <strong>-${CUR}${(parseFloat(o.subtotal||0)*disc/100).toFixed(2)}</strong></div>`:''}
+      <div style="font-size:16px;font-weight:800;color:var(--accent)">Total: ${CUR}${parseFloat(o.total||0).toFixed(2)}</div>
+      <div style="color:var(--muted)">Tendered: <strong style="color:var(--text)">${CUR}${parseFloat(o.amount_tendered||0).toFixed(2)}</strong></div>
+      <div style="color:var(--muted)">Change: <strong style="color:var(--text)">${CUR}${parseFloat(o.change_given||0).toFixed(2)}</strong></div>
+    </div>`;
+  document.getElementById('ordModal').classList.add('show');
+}
+function clearOrdFilter() {
+  document.getElementById('ordFrom').value = '';
+  document.getElementById('ordTo').value   = '';
+  loadOrders();
+}
+function exportOrdCSV() {
+  if (!allOrders.length) { showToast('No orders to export.', true); return; }
+  const hdr = ['ID','Date','Cashier','Subtotal','Tax','Discount%','Total','Method','Tendered','Change'];
+  const rows = allOrders.map(o => [
+    o.id,
+    new Date(o.timestamp).toLocaleString('en-PH'),
+    o.cashier_name || '',
+    parseFloat(o.subtotal||0).toFixed(2),
+    parseFloat(o.tax||0).toFixed(2),
+    parseFloat(o.discount_pct||0).toFixed(2),
+    parseFloat(o.total||0).toFixed(2),
+    o.payment_method || 'Cash',
+    parseFloat(o.amount_tendered||0).toFixed(2),
+    parseFloat(o.change_given||0).toFixed(2),
+  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv = [hdr.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + csv);
+  a.download = `orders_${STORE.name.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('CSV downloaded.');
 }
 
 // ── Cashier link ───────────────────────────────────────────────────────────────

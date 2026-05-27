@@ -73,6 +73,18 @@ ALTER TABLE products     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items  ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies first (safe to re-run)
+DROP POLICY IF EXISTS stores_owner      ON stores;
+DROP POLICY IF EXISTS stores_anon_read  ON stores;
+DROP POLICY IF EXISTS su_owner          ON store_users;
+DROP POLICY IF EXISTS su_anon_read      ON store_users;
+DROP POLICY IF EXISTS prod_owner        ON products;
+DROP POLICY IF EXISTS prod_anon_read    ON products;
+DROP POLICY IF EXISTS ord_owner         ON orders;
+DROP POLICY IF EXISTS ord_anon_insert   ON orders;
+DROP POLICY IF EXISTS oi_owner          ON order_items;
+DROP POLICY IF EXISTS oi_anon_insert    ON order_items;
+
 -- Stores: owner full access
 CREATE POLICY stores_owner ON stores FOR ALL TO authenticated
   USING     (auth.uid() = owner_id)
