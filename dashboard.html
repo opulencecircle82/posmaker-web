@@ -802,6 +802,13 @@ async function doLogout() {
 // â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadDashboard() {
   if (!STORE) return;
+  const _tbody = document.getElementById('ordersTbody');
+  _tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading orders...</td></tr>';
+  const _rt = setTimeout(() => {
+    if (_tbody.textContent.trim().startsWith('Loading')) {
+      _tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px"><div style="color:#f59e0b;margin-bottom:8px">Supabase is taking too long to respond.</div><button class="btn btn-accent btn-sm" onclick="loadDashboard()">&#8635; Retry</button></td></tr>';
+    }
+  }, 8000);
   try {
     const today = new Date().toISOString().slice(0, 10);
     const month = today.slice(0, 7);
@@ -836,8 +843,9 @@ async function loadDashboard() {
       .eq('store_id', STORE.id).order('id', { ascending: false }).limit(50).abortSignal(_sig());
 
     const tbody = document.getElementById('ordersTbody');
-    if (rErr) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px">Error: ${rErr.message}</td></tr>`; return; }
+    if (rErr) { clearTimeout(_rt); tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px">Error: ${rErr.message}</td></tr>`; return; }
     if (!recent || !recent.length) {
+      clearTimeout(_rt);
       tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No orders yet.</td></tr>';
       return;
     }
@@ -853,10 +861,12 @@ async function loadDashboard() {
         <td><span class="badge ${bg}">${o.payment_method || 'Cash'}</span></td>
       </tr>`;
     }).join('');
+    clearTimeout(_rt);
   } catch(e) {
+    clearTimeout(_rt);
     console.error('loadDashboard error:', e);
-    document.getElementById('ordersTbody').innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px">Connection error — <a href="" style="color:var(--accent)">Refresh</a></td></tr>`;
-    ['tdOrders','tdRev','moOrders','moRev'].forEach(id => document.getElementById(id).textContent = '!');
+    document.getElementById('ordersTbody').innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px"><div style="color:#ef4444;margin-bottom:8px">Error: ${e.message||'Connection failed'}</div><button class="btn btn-accent btn-sm" onclick="loadDashboard()">&#8635; Retry</button></td></tr>`;
+    ['tdOrders','tdRev','moOrders','moRev'].forEach(id => document.getElementById(id).textContent = '?');
   }
 }
 
@@ -1249,6 +1259,13 @@ async function deleteProd(id) {
 
 // â”€â”€ Staff â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadStaff() {
+  const _sb2 = document.getElementById('staffTbody');
+  _sb2.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr>';
+  const _st = setTimeout(() => {
+    if (_sb2.textContent.trim().startsWith('Loading')) {
+      _sb2.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px"><div style="color:#f59e0b;margin-bottom:8px">Supabase is taking too long.</div><button class="btn btn-accent btn-sm" onclick="loadStaff()">&#8635; Retry</button></td></tr>';
+    }
+  }, 8000);
   try {
     const { data, error } = await _sb.from('store_users')
       .select('id,username,full_name,role,active').eq('store_id', STORE.id).order('role').order('username').abortSignal(_sig());
@@ -1262,10 +1279,12 @@ async function loadStaff() {
       (logs || []).forEach(l => { if(!lastLog[l.staff_id]) lastLog[l.staff_id] = l.login_at; });
       allStaff.forEach(s => { s._lastLogin = lastLog[s.id] || null; });
     }
+    clearTimeout(_st);
     renderStaff(allStaff);
   } catch(e) {
+    clearTimeout(_st);
     console.error('loadStaff error:', e);
-    document.getElementById('staffTbody').innerHTML = `<tr><td colspan="6" style="text-align:center;color:#ef4444;padding:24px">Error loading staff: ${e.message} — <a href="" style="color:var(--accent)">Refresh</a></td></tr>`;
+    _sb2.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px"><div style="color:#ef4444;margin-bottom:8px">Error: ${e.message}</div><button class="btn btn-accent btn-sm" onclick="loadStaff()">&#8635; Retry</button></td></tr>`;
   }
 }
 function renderStaff(staff) {
