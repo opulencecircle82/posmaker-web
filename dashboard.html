@@ -154,6 +154,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="sb-item" onclick="nav('staff')"><span class="ico">&#128101;</span> Staff</div>
     <div class="sb-item" onclick="nav('salesreport')"><span class="ico">&#128202;</span> Sales Report</div>
     <div class="sb-item" onclick="nav('settings')"><span class="ico">&#9881;</span> Settings</div>
+    <div class="sb-item" onclick="location.href='customize.html'"><span class="ico">&#127912;</span> Customize POS</div>
     <div class="sb-item" onclick="nav('access')"><span class="ico">&#128279;</span> Cashier Link</div>
   </div>
   <div class="sb-bottom">
@@ -390,9 +391,10 @@ input:checked + .slider:before{transform:translateX(18px)}
         <h3>ðŸ”— Cashier Access Link</h3>
         <p>Share this URL with your cashiers. They open it on any phone or tablet browser and log in with their username and password.</p>
         <div class="link-box" id="cashierLinkBox">Loading...</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-          <button class="btn btn-accent" onclick="copyLink()">ðŸ“‹ Copy Link</button>
-          <a class="btn btn-ghost" id="testPosBtn" href="#" target="_blank">ðŸ§ª Test Your POS</a>
+        <div style=”display:flex;gap:8px;flex-wrap:wrap;margin-top:12px”>
+          <button class=”btn btn-accent” onclick=”copyLink()”>&#128203; Copy Link</button>
+          <a class=”btn btn-ghost” id=”testPosBtn” href=”#” target=”_blank”>&#129514; Test Your POS</a>
+          <a class=”btn btn-ghost” id=”customizePosBtn” href=”customize.html”>&#127912; Customize POS</a>
         </div>
       </div>
       <div class="info-card">
@@ -886,6 +888,16 @@ async function loadReport(period) {
   if(error){ document.getElementById('rptContent').innerHTML = '<div style=”padding:20px;color:#f87171”>' + error.message + '</div>'; return; }
 
   rptData = data || [];
+  if(rptData.length) {
+    const ids = rptData.map(o => o.id);
+    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids);
+    const imap = {};
+    (items || []).forEach(i => {
+      if(!imap[i.order_id]) imap[i.order_id] = [];
+      imap[i.order_id].push(i.qty > 1 ? `${i.name} x${i.qty}` : i.name);
+    });
+    rptData.forEach(o => { o._items = imap[o.id] || []; });
+  }
   renderReport(rptData, from, to);
 }
 
@@ -928,9 +940,10 @@ function renderReport(orders, from, to) {
         <span style=”font-size:12px;color:var(--dim)”>${rows.length} orders &nbsp;|&nbsp; <strong style=”color:var(--accent)”>${CUR}${cashTotal.toFixed(2)}</strong></span>
       </div>
       <table style=”width:100%;border-collapse:collapse;font-size:12px”>
-        <thead><tr style=”color:var(--dim);border-bottom:1px solid var(--border)”>
+        <thead><tr style=”color:var(--muted);border-bottom:1px solid var(--border)”>
           <th style=”text-align:left;padding:4px 8px”>#</th>
           <th style=”text-align:left;padding:4px 8px”>Date &amp; Time</th>
+          <th style=”text-align:left;padding:4px 8px”>Items Sold</th>
           <th style=”text-align:right;padding:4px 8px”>Sub</th>
           <th style=”text-align:right;padding:4px 8px”>VAT</th>
           <th style=”text-align:right;padding:4px 8px”>Total</th>
@@ -938,15 +951,16 @@ function renderReport(orders, from, to) {
         </tr></thead>
         <tbody>
           ${rows.map(o => `<tr style=”border-bottom:1px solid rgba(255,255,255,.04)”>
-            <td style=”padding:5px 8px;color:var(--dim)”>#${o.id}</td>
+            <td style=”padding:5px 8px;color:var(--muted)”>#${o.id}</td>
             <td style=”padding:5px 8px”>${fmt(o.timestamp)}</td>
-            <td style=”padding:5px 8px;text-align:right;color:var(--dim)”>${CUR}${parseFloat(o.subtotal||0).toFixed(2)}</td>
-            <td style=”padding:5px 8px;text-align:right;color:var(--dim)”>${CUR}${parseFloat(o.tax||0).toFixed(2)}</td>
+            <td style=”padding:5px 8px;color:var(--text);font-size:11px;max-width:220px”>${(o._items||[]).join(', ') || '&#8212;'}</td>
+            <td style=”padding:5px 8px;text-align:right;color:var(--muted)”>${CUR}${parseFloat(o.subtotal||0).toFixed(2)}</td>
+            <td style=”padding:5px 8px;text-align:right;color:var(--muted)”>${CUR}${parseFloat(o.tax||0).toFixed(2)}</td>
             <td style=”padding:5px 8px;text-align:right;font-weight:600;color:var(--accent)”>${CUR}${parseFloat(o.total||0).toFixed(2)}</td>
             <td style=”padding:5px 8px;text-align:center”><span style=”background:${o.payment_method==='Cash'?'#065f46':o.payment_method==='GCash'?'#1e3a5f':'#3b1a5f'};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px”>${o.payment_method||'Cash'}</span></td>
           </tr>`).join('')}
           <tr style=”border-top:2px solid var(--border);font-weight:700”>
-            <td colspan=”4” style=”padding:6px 8px;text-align:right;color:var(--dim)”>Cashier Total:</td>
+            <td colspan=”5” style=”padding:6px 8px;text-align:right;color:var(--muted)”>${cashier} Total:</td>
             <td style=”padding:6px 8px;text-align:right;color:var(--accent)”>${CUR}${cashTotal.toFixed(2)}</td>
             <td></td>
           </tr>
@@ -955,9 +969,29 @@ function renderReport(orders, from, to) {
     </div>`;
   });
 
-  // Grand total row
-  html += `<div style=”text-align:right;padding:10px 8px;border-top:2px solid var(--accent);font-size:15px;font-weight:700”>
-    GRAND TOTAL: <span style=”color:var(--accent)”>${CUR}${grandTotal.toFixed(2)}</span>
+  // Overall summary footer
+  const grandSub = orders.reduce((s,o) => s + parseFloat(o.subtotal||0), 0);
+  const grandVat = orders.reduce((s,o) => s + parseFloat(o.tax||0), 0);
+  html += `<div style=”background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-top:8px”>
+    <div style=”font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px”>Overall Summary</div>
+    <div style=”display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px”>
+      <div style=”background:var(--s1);border-radius:8px;padding:12px 14px”>
+        <div style=”font-size:11px;color:var(--muted);margin-bottom:4px”>Total Orders</div>
+        <div style=”font-size:22px;font-weight:800;color:var(--text)”>${grandCount}</div>
+      </div>
+      <div style=”background:var(--s1);border-radius:8px;padding:12px 14px”>
+        <div style=”font-size:11px;color:var(--muted);margin-bottom:4px”>Total Subtotal (ex-VAT)</div>
+        <div style=”font-size:22px;font-weight:800;color:var(--text)”>${CUR}${grandSub.toFixed(2)}</div>
+      </div>
+      <div style=”background:var(--s1);border-radius:8px;padding:12px 14px”>
+        <div style=”font-size:11px;color:var(--muted);margin-bottom:4px”>Total VAT (${TAX}%)</div>
+        <div style=”font-size:22px;font-weight:800;color:var(--text)”>${CUR}${grandVat.toFixed(2)}</div>
+      </div>
+      <div style=”background:linear-gradient(135deg,#003d4d,#00263a);border:1px solid var(--accent);border-radius:8px;padding:12px 14px”>
+        <div style=”font-size:11px;color:var(--accent);margin-bottom:4px”>GRAND TOTAL</div>
+        <div style=”font-size:26px;font-weight:800;color:var(--accent)”>${CUR}${grandTotal.toFixed(2)}</div>
+      </div>
+    </div>
   </div>`;
 
   html += '</div>';
@@ -984,22 +1018,23 @@ function downloadReport() {
     const rows = byC[cashier];
     const cashTotal = rows.reduce((s,o) => s + parseFloat(o.total||0), 0);
     csv += 'Cashier:,' + cashier + '\r\n';
-    csv += 'Order #,Date & Time,Subtotal,VAT,Total,Payment Method\r\n';
+    csv += 'Order #,Date & Time,Items Sold,Subtotal,VAT,Total,Payment Method\r\n';
     rows.forEach(o => {
       csv += [
         '#' + o.id,
         '”' + fmt(o.timestamp) + '”',
+        '”' + (o._items||[]).join('; ') + '”',
         parseFloat(o.subtotal||0).toFixed(2),
         parseFloat(o.tax||0).toFixed(2),
         parseFloat(o.total||0).toFixed(2),
         o.payment_method || 'Cash'
       ].join(',') + '\r\n';
     });
-    csv += ',,,Cashier Total:,' + cashTotal.toFixed(2) + ',\r\n\r\n';
+    csv += ',,,,' + cashier + ' Total:,' + cashTotal.toFixed(2) + ',\r\n\r\n';
   });
 
   const grandTotal = rptData.reduce((s,o) => s + parseFloat(o.total||0), 0);
-  csv += ',,,,GRAND TOTAL:,' + grandTotal.toFixed(2) + '\r\n';
+  csv += ',,,,,GRAND TOTAL:,' + grandTotal.toFixed(2) + '\r\n';
 
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');

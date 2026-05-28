@@ -187,3 +187,12 @@ CREATE POLICY oi_owner ON order_items FOR ALL TO authenticated
 
 -- Order items: anon insert
 CREATE POLICY oi_anon_insert ON order_items FOR INSERT TO anon WITH CHECK (TRUE);
+
+-- POS Theme columns on stores (for Customize POS feature)
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_font    TEXT    DEFAULT '';
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_accent  TEXT    DEFAULT '';
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_bg      TEXT    DEFAULT '';
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_card    TEXT    DEFAULT '';
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_text    TEXT    DEFAULT '';
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_radius  NUMERIC DEFAULT 10;
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_bg_img  TEXT    DEFAULT '';

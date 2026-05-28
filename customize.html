@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker &#8212; Customize POS</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Lato:wght@400;700&family=Nunito:wght@400;600;700;800&family=Open+Sans:wght@400;600;700&family=Raleway:wght@400;600;700;800&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--accent:#00b4d8;--text:#f0f0f8;--muted:#8888aa;--dim:#44445a}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+
+/* TOP BAR */
+.cz-bar{background:var(--s1);border-bottom:1px solid var(--border);padding:0 18px;height:52px;display:flex;align-items:center;gap:14px;flex-shrink:0}
+.cz-bar-title{font-size:15px;font-weight:700;flex:1;display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden}
+.cz-bar-store{font-size:12px;font-weight:400;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.cz-bar-actions{display:flex;gap:8px;flex-shrink:0}
+
+/* LAYOUT */
+.cz-main{display:flex;flex:1;overflow:hidden}
+
+/* CONTROL PANEL */
+.cz-panel{width:290px;background:var(--s1);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.cz-sec{padding:14px 16px;border-bottom:1px solid var(--border)}
+.cz-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:10px}
+.cz-field{margin-bottom:10px}
+.cz-field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500}
+.cz-select,.cz-input,.cz-textarea{width:100%;padding:7px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none}
+.cz-select:focus,.cz-input:focus,.cz-textarea:focus{border-color:var(--accent)}
+.cz-select option{background:var(--s1)}
+.cz-textarea{resize:vertical}
+.color-row{display:flex;align-items:center;gap:8px}
+.cswatch{width:34px;height:34px;border-radius:7px;border:2px solid var(--border);cursor:pointer;overflow:hidden;flex-shrink:0;padding:0;position:relative}
+.cswatch input[type=color]{position:absolute;inset:0;width:100%;height:100%;border:none;cursor:pointer;padding:0;opacity:0}
+.cswatch-bg{position:absolute;inset:0;border-radius:5px}
+.cval{font-size:12px;font-family:monospace;color:var(--muted);flex:1;font-size:11px}
+.range-row{display:flex;align-items:center;gap:8px}
+.cz-range{flex:1;accent-color:var(--accent);height:4px}
+.rval{font-size:11px;color:var(--muted);width:30px;text-align:right;flex-shrink:0}
+.font-preview-text{font-size:11px;color:var(--muted);margin-top:5px;padding:5px 8px;background:var(--bg);border-radius:5px;border:1px solid var(--border);line-height:1.5}
+.preset-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+.preset-dot{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:border-color .15s,transform .15s}
+.preset-dot:hover{transform:scale(1.15)}
+.preset-dot.active{border-color:#fff}
+.img-drop{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1.5px dashed var(--border);border-radius:7px;cursor:pointer;font-size:12px;color:var(--muted);transition:border-color .2s}
+.img-drop:hover{border-color:var(--accent);color:var(--text)}
+.img-thumb{width:100%;height:54px;object-fit:cover;border-radius:5px;margin-top:6px;display:none}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.85}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-ghost{background:var(--s2);border:1px solid var(--border);color:var(--text)}
+.btn-pos{background:linear-gradient(135deg,#065f46,#0a4a2a);border:1px solid #10b981;color:#10b981}
+.btn-back{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:0;line-height:1;transition:color .15s}
+.btn-back:hover{color:var(--text)}
+
+/* PREVIEW */
+.cz-preview{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.cz-preview-bar{padding:8px 16px;font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:.7px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.cz-preview-canvas{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:20px;background:repeating-linear-gradient(45deg,#0d0d1a 0,#0d0d1a 10px,#111120 10px,#111120 20px)}
+
+/* POS MOCK */
+.pos-mock{
+  width:880px;height:540px;max-width:100%;
+  font-family:var(--pm-font,'Inter'),sans-serif;
+  background:var(--pm-bg,#09090f);
+  border-radius:10px;overflow:hidden;
+  display:flex;flex-direction:column;
+  box-shadow:0 24px 64px rgba(0,0,0,.7);
+  position:relative;flex-shrink:0;
+}
+.pm-bgimg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.18;pointer-events:none;border-radius:inherit}
+.pm-hdr{background:var(--pm-accent,#00b4d8);padding:0 14px;height:46px;display:flex;align-items:center;gap:10px;flex-shrink:0;position:relative;z-index:1}
+.pm-logo{height:28px;width:28px;border-radius:4px;object-fit:contain;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.pm-storename{font-size:14px;font-weight:800;color:#fff;flex:1}
+.pm-cashier{font-size:11px;color:rgba(255,255,255,.8)}
+.pm-body{flex:1;display:flex;overflow:hidden;position:relative;z-index:1}
+.pm-left{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.pm-cats{background:var(--pm-s1,#111120);border-bottom:1px solid var(--pm-border,#252540);padding:6px 8px;display:flex;gap:5px;flex-shrink:0}
+.pm-cat{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer;background:var(--pm-s2,#191929);color:var(--pm-muted,#8888aa);border:1px solid var(--pm-border,#252540)}
+.pm-cat.active{background:var(--pm-accent,#00b4d8);color:#fff;border-color:transparent}
+.pm-grid{flex:1;padding:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;overflow-y:auto;align-content:start}
+.pm-card{
+  background:var(--pm-s1,#111120);
+  border:1.5px solid var(--pm-border,#252540);
+  border-radius:var(--pm-radius,10px);
+  padding:10px 8px;text-align:center;cursor:pointer;
+}
+.pm-card-name{font-size:10px;font-weight:600;color:var(--pm-text,#f0f0f8);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm-card-price{font-size:13px;font-weight:800;color:var(--pm-accent,#00b4d8)}
+.pm-cart{
+  width:210px;flex-shrink:0;
+  background:var(--pm-s1,#111120);
+  border-left:1px solid var(--pm-border,#252540);
+  display:flex;flex-direction:column;
+  padding:10px 10px;
+}
+.pm-cart-title{font-size:11px;font-weight:700;color:var(--pm-muted,#8888aa);margin-bottom:8px}
+.pm-cart-item{font-size:10px;color:var(--pm-text,#f0f0f8);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--pm-border,#252540)}
+.pm-spacer{flex:1}
+.pm-total-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-top:2px solid var(--pm-border,#252540);margin-top:4px}
+.pm-total-label{font-size:10px;color:var(--pm-muted,#8888aa)}
+.pm-total-val{font-size:15px;font-weight:800;color:var(--pm-accent,#00b4d8)}
+.pm-btn{
+  background:var(--pm-accent,#00b4d8);color:#fff;
+  border:none;border-radius:var(--pm-radius,10px);
+  padding:9px;font-size:12px;font-weight:700;
+  cursor:pointer;font-family:inherit;margin-top:6px;
+}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:#1a3a2a;border:1px solid #10b981;color:#10b981;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;z-index:500;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.err{background:#2a0a0a;border-color:#ef4444;color:#ef4444}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="cz-bar">
+  <button class="btn-back" onclick="location.href='dashboard.html'">&#8592;</button>
+  <div class="cz-bar-title">
+    &#127912; Customize POS
+    <span class="cz-bar-store" id="czStoreName"></span>
+  </div>
+  <div class="cz-bar-actions">
+    <button class="btn btn-ghost" onclick="resetTheme()">&#9851; Reset</button>
+    <button class="btn btn-accent" id="saveBtn" onclick="saveTheme()">&#128190; Save</button>
+    <a class="btn btn-pos" id="openPosBtn" href="#" target="_blank">&#128085; My POS &#8594;</a>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="cz-main">
+
+  <!-- CONTROL PANEL -->
+  <div class="cz-panel">
+
+    <!-- FONT -->
+    <div class="cz-sec">
+      <div class="cz-sec-title">Font</div>
+      <div class="cz-field">
+        <label>Font Family</label>
+        <select class="cz-select" id="czFont" onchange="applyPreview()">
+          <option value="Inter">Inter (Default)</option>
+          <option value="Roboto">Roboto</option>
+          <option value="Poppins">Poppins</option>
+          <option value="Montserrat">Montserrat</option>
+          <option value="Lato">Lato</option>
+          <option value="Nunito">Nunito</option>
+          <option value="Open Sans">Open Sans</option>
+          <option value="Raleway">Raleway</option>
+        </select>
+        <div class="font-preview-text" id="fontPreview" style="font-family:'Inter',sans-serif">The quick brown fox — &#8369;1,234.56</div>
+      </div>
+    </div>
+
+    <!-- COLOR PRESETS -->
+    <div class="cz-sec">
+      <div class="cz-sec-title">Color Presets</div>
+      <div class="preset-grid" id="presetGrid"></div>
+    </div>
+
+    <!-- COLORS -->
+    <div class="cz-sec">
+      <div class="cz-sec-title">Custom Colors</div>
+      <div class="cz-field">
+        <label>Accent / Buttons</label>
+        <div class="color-row">
+          <label class="cswatch" id="swAccent"><div class="cswatch-bg" id="bgAccent"></div><input type="color" id="czAccent" value="#00b4d8" oninput="applyPreview()"></label>
+          <span class="cval" id="valAccent">#00b4d8</span>
+        </div>
+      </div>
+      <div class="cz-field">
+        <label>Background</label>
+        <div class="color-row">
+          <label class="cswatch"><div class="cswatch-bg" id="bgBg"></div><input type="color" id="czBg" value="#09090f" oninput="applyPreview()"></label>
+          <span class="cval" id="valBg">#09090f</span>
+        </div>
+      </div>
+      <div class="cz-field">
+        <label>Cards / Panels</label>
+        <div class="color-row">
+          <label class="cswatch"><div class="cswatch-bg" id="bgCard"></div><input type="color" id="czCard" value="#111120" oninput="applyPreview()"></label>
+          <span class="cval" id="valCard">#111120</span>
+        </div>
+      </div>
+      <div class="cz-field">
+        <label>Text Color</label>
+        <div class="color-row">
+          <label class="cswatch"><div class="cswatch-bg" id="bgText"></div><input type="color" id="czText" value="#f0f0f8" oninput="applyPreview()"></label>
+          <span class="cval" id="valText">#f0f0f8</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHAPE -->
+    <div class="cz-sec">
+      <div class="cz-sec-title">Card Shape</div>
+      <div class="cz-field">
+        <label>Border Radius</label>
+        <div class="range-row">
+          <input type="range" class="cz-range" id="czRadius" min="0" max="22" value="10" oninput="applyPreview()">
+          <span class="rval" id="valRadius">10px</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- BACKGROUND IMAGE -->
+    <div class="cz-sec">
+      <div class="cz-sec-title">Background Image</div>
+      <div class="cz-field">
+        <div class="img-drop" onclick="document.getElementById('bgImgFile').click()">
+          <span>&#128247;</span> Upload Image (JPG/PNG)
+        </div>
+        <input type="file" id="bgImgFile" accept="image/*" style="display:none" onchange="handleBgImg(event)">
+        <img id="bgImgThumb" class="img-thumb">
+        <button class="btn btn-ghost" id="removeBgBtn" style="display:none;margin-top:6px;font-size:11px;padding:4px 10px" onclick="removeBgImg()">&#10005; Remove Image</button>
+      </div>
+    </div>
+
+    <!-- RECEIPT -->
+    <div class="cz-sec">
+      <div class="cz-sec-title">Receipt</div>
+      <div class="cz-field">
+        <label>Footer Text</label>
+        <textarea class="cz-textarea" id="czFooter" rows="2" placeholder="e.g. Thank you! Come again."></textarea>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="cz-preview">
+    <div class="cz-preview-bar">
+      <span>&#128065; Live Preview</span>
+      <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px">Updates in real-time</span>
+    </div>
+    <div class="cz-preview-canvas">
+      <div class="pos-mock" id="posMock">
+        <div class="pm-bgimg" id="pmBgImg"></div>
+        <div class="pm-hdr">
+          <div class="pm-logo" id="pmLogo">P</div>
+          <span class="pm-storename" id="pmStoreName">My Store</span>
+          <span class="pm-cashier">&#128100; Cashier</span>
+        </div>
+        <div class="pm-body">
+          <div class="pm-left">
+            <div class="pm-cats">
+              <div class="pm-cat active">All</div>
+              <div class="pm-cat">Food</div>
+              <div class="pm-cat">Drinks</div>
+              <div class="pm-cat">Snacks</div>
+            </div>
+            <div class="pm-grid" id="pmGrid"></div>
+          </div>
+          <div class="pm-cart">
+            <div class="pm-cart-title">Cart</div>
+            <div class="pm-cart-item"><span>Chicken</span><span>&#8369;88.00</span></div>
+            <div class="pm-cart-item"><span>Rice x2</span><span>&#8369;70.00</span></div>
+            <div class="pm-cart-item"><span>Coke</span><span>&#8369;30.00</span></div>
+            <div class="pm-spacer"></div>
+            <div class="pm-total-row">
+              <span class="pm-total-label">TOTAL</span>
+              <span class="pm-total-val">&#8369;188.00</span>
+            </div>
+            <button class="pm-btn">Confirm Order</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+let STORE = null, bgImgData = '';
+
+// Color presets
+const PRESETS = [
+  {a:'#00b4d8',bg:'#09090f',c:'#111120',t:'#f0f0f8',n:'Cyan'},
+  {a:'#8b5cf6',bg:'#07070f',c:'#0f0f1e',t:'#f0f0f8',n:'Purple'},
+  {a:'#10b981',bg:'#060f09',c:'#0a1a0e',t:'#f0f0f8',n:'Green'},
+  {a:'#f59e0b',bg:'#0f0a04',c:'#1a1108',t:'#f0f0f8',n:'Amber'},
+  {a:'#ef4444',bg:'#0f0606',c:'#1a0808',t:'#f0f0f8',n:'Red'},
+  {a:'#ec4899',bg:'#0f0608',c:'#1a0810',t:'#f0f0f8',n:'Pink'},
+  {a:'#0ea5e9',bg:'#f0f4f8',c:'#ffffff',t:'#1a1a2e',n:'Light'},
+  {a:'#d97706',bg:'#faf7f2',c:'#ffffff',t:'#2d1a08',n:'Warm'},
+];
+
+const presetGrid = document.getElementById('presetGrid');
+PRESETS.forEach(p => {
+  const d = document.createElement('div');
+  d.className = 'preset-dot'; d.title = p.n;
+  d.style.background = p.a;
+  d.onclick = () => {
+    document.getElementById('czAccent').value = p.a;
+    document.getElementById('czBg').value     = p.bg;
+    document.getElementById('czCard').value   = p.c;
+    document.getElementById('czText').value   = p.t;
+    presetGrid.querySelectorAll('.preset-dot').forEach(x => x.classList.remove('active'));
+    d.classList.add('active');
+    applyPreview();
+  };
+  presetGrid.appendChild(d);
+});
+
+// Mock products
+const MOCKS = [
+  {n:'Chicken',p:88},{n:'Rice',p:35},{n:'Coke',p:30},{n:'Water',p:20},
+  {n:'Fries',p:65},{n:'Burger',p:120},{n:'Juice',p:45},{n:'Coffee',p:55},
+];
+document.getElementById('pmGrid').innerHTML = MOCKS.map(m =>
+  `<div class="pm-card"><div class="pm-card-name">${m.n}</div><div class="pm-card-price">&#8369;${m.p}</div></div>`
+).join('');
+
+// Init
+(async () => {
+  const { data: { session } } = await _sb.auth.getSession();
+  if(!session){ location.href = 'login.html'; return; }
+  const { data: store } = await _sb.from('stores').select('*').eq('owner_id', session.user.id).single();
+  if(!store){ location.href = 'dashboard.html'; return; }
+  STORE = store;
+
+  document.getElementById('czStoreName').textContent = store.name;
+  document.getElementById('pmStoreName').textContent = store.name;
+  document.getElementById('pmLogo').textContent = (store.name||'P')[0].toUpperCase();
+  document.getElementById('openPosBtn').href = `cashier.html?store=${store.id}`;
+  document.getElementById('czFooter').value  = store.receipt_footer || '';
+
+  if(store.pos_font)   document.getElementById('czFont').value   = store.pos_font;
+  if(store.pos_accent) document.getElementById('czAccent').value = store.pos_accent;
+  if(store.pos_bg)     document.getElementById('czBg').value     = store.pos_bg;
+  if(store.pos_card)   document.getElementById('czCard').value   = store.pos_card;
+  if(store.pos_text)   document.getElementById('czText').value   = store.pos_text;
+  if(store.pos_radius != null) document.getElementById('czRadius').value = store.pos_radius;
+  if(store.pos_bg_img){ bgImgData = 'data:image/jpeg;base64,' + store.pos_bg_img; showThumb(); }
+
+  applyPreview();
+})();
+
+function applyPreview() {
+  const font   = document.getElementById('czFont').value;
+  const accent = document.getElementById('czAccent').value;
+  const bg     = document.getElementById('czBg').value;
+  const card   = document.getElementById('czCard').value;
+  const text   = document.getElementById('czText').value;
+  const radius = document.getElementById('czRadius').value;
+
+  // Update labels & swatches
+  const fields = [
+    ['czAccent','valAccent','bgAccent'],
+    ['czBg','valBg','bgBg'],
+    ['czCard','valCard','bgCard'],
+    ['czText','valText','bgText'],
+  ];
+  fields.forEach(([id,vid,bid]) => {
+    const v = document.getElementById(id).value;
+    document.getElementById(vid).textContent = v;
+    document.getElementById(bid).style.background = v;
+  });
+  document.getElementById('valRadius').textContent = radius + 'px';
+
+  // Font preview
+  const fp = document.getElementById('fontPreview');
+  fp.style.fontFamily = `'${font}', sans-serif`;
+
+  // Derived colors (muted = blend text+bg 40%, border = blend 18%)
+  const muted  = blend(text, bg, .4);
+  const border = blend(text, bg, .18);
+  const s2     = blend(card, bg, .5);
+
+  // Apply to mock
+  const m = document.getElementById('posMock');
+  const vars = {
+    '--pm-font'  : `'${font}'`,
+    '--pm-accent': accent,
+    '--pm-bg'    : bg,
+    '--pm-s1'    : card,
+    '--pm-s2'    : s2,
+    '--pm-text'  : text,
+    '--pm-muted' : muted,
+    '--pm-border': border,
+    '--pm-radius': radius + 'px',
+  };
+  Object.entries(vars).forEach(([k,v]) => m.style.setProperty(k,v));
+  m.style.fontFamily = `'${font}', sans-serif`;
+
+  // BG image
+  const bi = document.getElementById('pmBgImg');
+  if(bgImgData) { bi.style.backgroundImage = `url(${bgImgData})`; bi.style.display = 'block'; }
+  else          { bi.style.display = 'none'; }
+}
+
+function blend(hex1, hex2, r) {
+  const p = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  const [r1,g1,b1] = p(hex1), [r2,g2,b2] = p(hex2);
+  const c = x => Math.max(0,Math.min(255,Math.round(x))).toString(16).padStart(2,'0');
+  return '#' + c(r1*r+r2*(1-r)) + c(g1*r+g2*(1-r)) + c(b1*r+b2*(1-r));
+}
+
+function handleBgImg(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { bgImgData = ev.target.result; showThumb(); applyPreview(); };
+  reader.readAsDataURL(file);
+}
+function showThumb() {
+  const t = document.getElementById('bgImgThumb');
+  t.src = bgImgData; t.style.display = 'block';
+  document.getElementById('removeBgBtn').style.display = '';
+}
+function removeBgImg() {
+  bgImgData = '';
+  document.getElementById('bgImgThumb').style.display = 'none';
+  document.getElementById('removeBgBtn').style.display = 'none';
+  document.getElementById('bgImgFile').value = '';
+  applyPreview();
+}
+
+async function saveTheme() {
+  if(!STORE) return;
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Saving...';
+  const payload = {
+    pos_font  : document.getElementById('czFont').value,
+    pos_accent: document.getElementById('czAccent').value,
+    pos_bg    : document.getElementById('czBg').value,
+    pos_card  : document.getElementById('czCard').value,
+    pos_text  : document.getElementById('czText').value,
+    pos_radius: parseInt(document.getElementById('czRadius').value),
+    pos_bg_img: bgImgData ? bgImgData.split(',')[1] : '',
+    receipt_footer: document.getElementById('czFooter').value,
+  };
+  const { error } = await _sb.from('stores').update(payload).eq('id', STORE.id);
+  btn.disabled = false; btn.innerHTML = '&#128190; Save';
+  if(error) { toast('Error: ' + error.message, true); return; }
+  toast('Theme saved! Cashier will use your new design.');
+}
+
+function resetTheme() {
+  document.getElementById('czFont').value   = 'Inter';
+  document.getElementById('czAccent').value = '#00b4d8';
+  document.getElementById('czBg').value     = '#09090f';
+  document.getElementById('czCard').value   = '#111120';
+  document.getElementById('czText').value   = '#f0f0f8';
+  document.getElementById('czRadius').value = '10';
+  removeBgImg();
+  applyPreview();
+}
+
+function toast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show' + (err?' err':'');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>

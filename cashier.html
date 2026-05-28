@@ -198,7 +198,7 @@ let prods = [], cart = {}, payMeth = 'Cash';
   }
 
   // Load store info (anon read allowed)
-  const { data: store } = await _sb.from('stores').select('id,name,currency,tax_rate,receipt_footer,logo_b64').eq('id', STORE_ID).single();
+  const { data: store } = await _sb.from('stores').select('id,name,currency,tax_rate,receipt_footer,logo_b64,pos_font,pos_accent,pos_bg,pos_card,pos_text,pos_radius,pos_bg_img').eq('id', STORE_ID).single();
   if (!store) {
     document.getElementById('loginTitle').textContent = 'Store Not Found';
     document.getElementById('loginSub').textContent = 'This store ID does not exist.';
@@ -218,6 +218,22 @@ function setStoreUI() {
     li.src = src; li.style.display = 'block';
     const hi = document.getElementById('hdrLogo');
     hi.src = src; hi.style.display = 'block';
+  }
+  applyPosTheme(STORE);
+}
+
+function applyPosTheme(s) {
+  const r = document.documentElement;
+  if (s.pos_accent) r.style.setProperty('--accent', s.pos_accent);
+  if (s.pos_bg)     r.style.setProperty('--bg', s.pos_bg);
+  if (s.pos_card)   { r.style.setProperty('--s1', s.pos_card); r.style.setProperty('--s2', s.pos_card + 'cc'); }
+  if (s.pos_text)   r.style.setProperty('--text', s.pos_text);
+  if (s.pos_radius) r.style.setProperty('--radius', s.pos_radius + 'px');
+  if (s.pos_font)   document.body.style.fontFamily = `'${s.pos_font}', sans-serif`;
+  if (s.pos_bg_img) {
+    document.body.style.backgroundImage = `url(data:image/jpeg;base64,${s.pos_bg_img})`;
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
   }
 }
 
