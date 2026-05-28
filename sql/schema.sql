@@ -41,11 +41,31 @@ CREATE TABLE IF NOT EXISTS products (
   available  BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
--- Add new columns (safe to run on existing tables)
-ALTER TABLE products ADD COLUMN IF NOT EXISTS stock               INTEGER DEFAULT 0;
-ALTER TABLE products ADD COLUMN IF NOT EXISTS sku                 TEXT    DEFAULT '';
-ALTER TABLE products ADD COLUMN IF NOT EXISTS unit                TEXT    DEFAULT 'pc';
-ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold INTEGER DEFAULT 5;
+-- Add columns to existing products (safe to re-run)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS sku  TEXT DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS unit TEXT DEFAULT 'pc';
+
+-- Inventory Items (raw materials / supplies — separate from sellable products)
+CREATE TABLE IF NOT EXISTS inventory_items (
+  id                  UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id            UUID    REFERENCES stores NOT NULL,
+  name                TEXT    NOT NULL,
+  sku                 TEXT    DEFAULT '',
+  category            TEXT    DEFAULT '',
+  unit                TEXT    DEFAULT 'pc',
+  stock               NUMERIC DEFAULT 0,
+  low_stock_threshold NUMERIC DEFAULT 5,
+  cost_price          NUMERIC DEFAULT 0,
+  created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS inv_owner      ON inventory_items;
+DROP POLICY IF EXISTS inv_anon_read  ON inventory_items;
+
+CREATE POLICY inv_owner ON inventory_items FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
 
 -- Orders
 CREATE TABLE IF NOT EXISTS orders (

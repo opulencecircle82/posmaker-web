@@ -171,7 +171,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <!-- DASHBOARD -->
     <div class="section active" id="sec-dashboard">
       <!-- Quick Setup Banner (shown only when store is empty) -->
-      <div id="setupBanner" style="display:none;background:linear-gradient(135deg,#0a1a2a,#0a2a1a);border:1px solid var(--accent);border-radius:12px;padding:20px 24px;margin-bottom:20px;display:none">
+      <div id="setupBanner" style="display:none;background:linear-gradient(135deg,#0a1a2a,#0a2a1a);border:1px solid var(--accent);border-radius:12px;padding:20px 24px;margin-bottom:20px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
           <div>
             <div style="font-size:15px;font-weight:700;margin-bottom:4px">Quick Setup</div>
@@ -223,15 +223,15 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="section" id="sec-inventory">
       <div class="tbl-wrap">
         <div class="tbl-head" style="flex-wrap:wrap;gap:8px">
-          <h3>Inventory</h3>
+          <h3>Inventory <span style="font-size:11px;color:var(--muted);font-weight:400">(raw materials &amp; supplies)</span></h3>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input class="search" id="invSearch" placeholder="Search…" oninput="filterInv()" style="width:140px">
+            <input class="search" id="invSearch" placeholder="Search…" oninput="filterInv()" style="width:130px">
             <select class="search" id="invCatFilter" onchange="filterInv()" style="width:130px"><option value="">All Categories</option></select>
-            <button class="btn btn-accent btn-sm" onclick="openProdModal()">+ Add Product</button>
+            <button class="btn btn-accent btn-sm" onclick="openInvModal()">+ Add Item</button>
           </div>
         </div>
         <table>
-          <thead><tr><th>SKU</th><th>Product</th><th>Category</th><th>Unit</th><th>Price</th><th>Stock</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>SKU</th><th>Item Name</th><th>Category</th><th>Unit</th><th>Cost</th><th>Stock</th><th>Status</th><th></th></tr></thead>
           <tbody id="invTbody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Loading…</td></tr></tbody>
         </table>
       </div>
@@ -239,13 +239,17 @@ input:checked + .slider:before{transform:translateX(18px)}
 
     <!-- CATEGORIES -->
     <div class="section" id="sec-categories">
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn btn-accent btn-sm" id="catTabProd" onclick="switchCatTab('prod')">🏷️ Product Categories</button>
+        <button class="btn btn-ghost btn-sm" id="catTabInv"  onclick="switchCatTab('inv')">📦 Inventory Categories</button>
+      </div>
       <div class="tbl-wrap">
         <div class="tbl-head">
-          <h3>Categories</h3>
+          <h3 id="catTabTitle">Product Categories</h3>
           <button class="btn btn-accent btn-sm" onclick="openCatModal()">+ Add Category</button>
         </div>
         <table>
-          <thead><tr><th>Category Name</th><th>Products</th><th>Available</th><th></th></tr></thead>
+          <thead><tr><th>Category Name</th><th>Items</th><th>Details</th><th></th></tr></thead>
           <tbody id="catTbody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Loading…</td></tr></tbody>
         </table>
       </div>
@@ -404,9 +408,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div class="field"><label>Price</label><input id="pPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
       <div class="field"><label>Initial Stock</label><input id="pStock" type="number" min="0" step="1" placeholder="0" value="0"></div>
     </div>
-    <div class="row2">
-      <div class="field"><label>Low Stock Alert (qty)</label><input id="pLowStock" type="number" min="0" step="1" placeholder="e.g. 5" value="5"></div>
-    </div>
+    <div class="field"><label>Low Stock Alert (qty)</label><input id="pLowStock" type="number" min="0" step="1" placeholder="e.g. 5" value="5"></div>
     <div class="field" id="pAvailField" style="display:flex;align-items:center;gap:10px">
       <label style="margin:0">Available</label>
       <label class="toggle"><input type="checkbox" id="pAvail" checked><span class="slider"></span></label>
@@ -414,6 +416,45 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('prodModal')">Cancel</button>
       <button class="btn btn-accent" id="saveProdBtn" onclick="saveProd()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVENTORY ITEM MODAL -->
+<div class="modal" id="invModal">
+  <div class="mbox">
+    <h3 id="invModalTitle">Add Inventory Item</h3>
+    <input type="hidden" id="invItemId">
+    <div class="row2">
+      <div class="field"><label>Item Name</label><input id="invName" type="text" placeholder="e.g. Chicken Breast"></div>
+      <div class="field"><label>SKU <span style="color:var(--dim);font-weight:400">(optional)</span></label><input id="invSku" type="text" placeholder="e.g. CHK-001"></div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Category</label>
+        <div style="display:flex;gap:6px">
+          <select id="invCat" style="flex:1;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none"><option value="">— Select —</option></select>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openInvCatQuick()">+ New</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Unit</label>
+        <select id="invUnit" style="width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none">
+          <optgroup label="Quantity"><option>pc</option><option>pcs</option><option>pair</option><option>dozen</option><option>set</option><option>box</option><option>pack</option><option>bundle</option><option>roll</option><option>tray</option><option>sachet</option><option>bag</option><option>can</option><option>bottle</option></optgroup>
+          <optgroup label="Weight"><option>kg</option><option>g</option><option>mg</option><option>lb</option><option>oz</option></optgroup>
+          <optgroup label="Volume"><option>L</option><option>mL</option><option>gal</option></optgroup>
+          <optgroup label="Other"><option>cup</option><option>bowl</option><option>slice</option><option>sheet</option><option>m</option><option>cm</option><option>ft</option></optgroup>
+        </select>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Initial Stock</label><input id="invStock" type="number" min="0" step="0.01" placeholder="0" value="0"></div>
+      <div class="field"><label>Cost Price</label><input id="invCost" type="number" min="0" step="0.01" placeholder="0.00" value="0"></div>
+    </div>
+    <div class="field"><label>Low Stock Alert (qty)</label><input id="invLowStock" type="number" min="0" step="1" placeholder="e.g. 5" value="5"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('invModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveInvItem()">Save</button>
     </div>
   </div>
 </div>
@@ -496,7 +537,8 @@ const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 let STORE = null, CUR = '₱', TAX = 12;
 let allProds = [], allStaff = [];
 let pendingLogob64 = null;
-let extraCats = []; // categories with no products yet
+let extraCats = [], extraInvCats = [], catTab = 'prod';
+let invItems = [];
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async () => {
@@ -563,7 +605,7 @@ function nav(id) {
   closeSidebar();
   if (id === 'orders')     loadOrders();
   if (id === 'inventory')  loadInventory();
-  if (id === 'categories') loadCategories();
+  if (id === 'categories') { switchCatTab(catTab); }
   if (id === 'settings')   populatePriceCatFilter();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbOverlay').classList.add('show'); }
@@ -656,61 +698,54 @@ function renderProds(prods) {
   </tr>`).join('');
 }
 function getCategoryList() {
-  const fromProds = [...new Set(allProds.map(p => p.category))];
-  return [...new Set([...fromProds, ...extraCats])].sort();
+  return [...new Set([...allProds.map(p=>p.category).filter(Boolean),...extraCats])].sort();
 }
 function populateCatSelect(selectedVal) {
-  const cats = getCategoryList();
-  const sel  = document.getElementById('pCat');
-  sel.innerHTML = '<option value="">— Select Category —</option>' +
-    cats.map(c => `<option value="${c}" ${c === selectedVal ? 'selected' : ''}>${c}</option>`).join('');
-  const hasCats = cats.length > 0;
-  document.getElementById('noCatWarning').style.display  = hasCats ? 'none' : 'block';
-  document.getElementById('saveProdBtn').disabled = !hasCats;
-}
-function openProdModal(p) {
-  document.getElementById('prodModalTitle').textContent = p ? 'Edit Product' : 'Add Product';
-  document.getElementById('prodId').value      = p ? p.id : '';
-  document.getElementById('pName').value       = p ? p.name : '';
-  document.getElementById('pSku').value        = p ? (p.sku || '') : '';
-  document.getElementById('pPrice').value      = p ? p.price : '';
-  document.getElementById('pStock').value      = p ? (p.stock ?? 0) : 0;
-  document.getElementById('pLowStock').value   = p ? (p.low_stock_threshold ?? 5) : 5;
-  document.getElementById('pAvail').checked    = p ? p.available : true;
-  document.getElementById('pAvailField').style.display = p ? 'flex' : 'none';
-  document.getElementById('pUnit').value       = p ? (p.unit || 'pc') : 'pc';
-  populateCatSelect(p ? p.category : '');
-  document.getElementById('prodModal').classList.add('show');
-  setTimeout(() => document.getElementById('pName').focus(), 50);
+  const cats=getCategoryList();
+  const sel=document.getElementById('pCat');
+  sel.innerHTML='<option value="">— Select Category —</option>'+cats.map(c=>`<option value="${c}"${c===selectedVal?' selected':''}>${c}</option>`).join('');
+  const ok=cats.length>0;
+  document.getElementById('noCatWarning').style.display=ok?'none':'block';
+  document.getElementById('saveProdBtn').disabled=!ok;
 }
 function openCatFromProd() {
-  // open category modal on top of product modal
-  document.getElementById('catModalTitle').textContent = 'Add Category';
-  document.getElementById('catOldName').value = '';
-  document.getElementById('catName').value    = '';
+  document.getElementById('catModalTitle').textContent='Add Category';
+  document.getElementById('catOldName').value='';
+  document.getElementById('catName').value='';
   document.getElementById('catModal').classList.add('show');
-  setTimeout(() => document.getElementById('catName').focus(), 50);
+  setTimeout(()=>document.getElementById('catName').focus(),50);
 }
-async function saveProd() {
-  const id        = document.getElementById('prodId').value;
-  const name      = document.getElementById('pName').value.trim();
-  const sku       = document.getElementById('pSku').value.trim();
-  const cat       = document.getElementById('pCat').value;
-  const unit      = document.getElementById('pUnit').value;
-  const price     = parseFloat(document.getElementById('pPrice').value);
-  const stock     = parseInt(document.getElementById('pStock').value) || 0;
-  const lowStock  = parseInt(document.getElementById('pLowStock').value) || 5;
-  const avail     = document.getElementById('pAvail').checked;
-  if (!name || isNaN(price)) { showToast('Name and price are required.', true); return; }
-  if (!cat) { showToast('Please select a category.', true); return; }
-  const payload = { name, sku, category: cat, unit, price, stock, low_stock_threshold: lowStock, available: avail };
-  if (id) {
-    await _sb.from('products').update(payload).eq('id', id);
-  } else {
-    await _sb.from('products').insert({ store_id: STORE.id, ...payload, available: true });
-  }
-  extraCats = extraCats.filter(c => c !== cat);
-  closeModal('prodModal'); await loadProducts(); loadCategories(); await loadInventory(); showToast('Product saved.');
+function openProdModal(p) {
+  document.getElementById('prodModalTitle').textContent=p?'Edit Product':'Add Product';
+  document.getElementById('prodId').value=p?p.id:'';
+  document.getElementById('pName').value=p?p.name:'';
+  document.getElementById('pSku').value=p?(p.sku||''):'';
+  document.getElementById('pPrice').value=p?p.price:'';
+  document.getElementById('pStock').value=p?(p.stock??0):0;
+  document.getElementById('pLowStock').value=p?(p.low_stock_threshold??5):5;
+  document.getElementById('pAvail').checked=p?p.available:true;
+  document.getElementById('pAvailField').style.display=p?'flex':'none';
+  document.getElementById('pUnit').value=p?(p.unit||'pc'):'pc';
+  populateCatSelect(p?p.category:'');
+  document.getElementById('prodModal').classList.add('show');
+  setTimeout(()=>document.getElementById('pName').focus(),50);
+}
+async function saveProd(){
+  const id=document.getElementById('prodId').value;
+  const name=document.getElementById('pName').value.trim();
+  const sku=document.getElementById('pSku').value.trim();
+  const cat=document.getElementById('pCat').value;
+  const unit=document.getElementById('pUnit').value;
+  const price=parseFloat(document.getElementById('pPrice').value);
+  const stock=parseInt(document.getElementById('pStock').value)||0;
+  const lowStock=parseInt(document.getElementById('pLowStock').value)||5;
+  const avail=document.getElementById('pAvail').checked;
+  if(!name||isNaN(price)){showToast('Name and price are required.',true);return;}
+  if(!cat){showToast('Please select a category.',true);return;}
+  const payload={name,sku,category:cat,unit,price,stock,low_stock_threshold:lowStock,available:avail};
+  if(id){await _sb.from('products').update(payload).eq('id',id);}
+  else{await _sb.from('products').insert({store_id:STORE.id,...payload,available:true});}
+  closeModal('prodModal');await loadProducts();loadCategories();showToast('Product saved.');
 }
 async function toggleProd(id, val) {
   await _sb.from('products').update({ available: val }).eq('id', id);
@@ -841,32 +876,16 @@ async function saveSettings() {
 async function checkSetupBanner() {
   const { count: pc } = await _sb.from('products').select('id',{count:'exact',head:true}).eq('store_id',STORE.id);
   const { count: sc } = await _sb.from('store_users').select('id',{count:'exact',head:true}).eq('store_id',STORE.id);
-  if ((pc || 0) === 0 && (sc || 0) === 0) {
-    document.getElementById('setupBanner').style.display = 'flex';
-  }
+  if ((pc||0)===0 && (sc||0)===0) document.getElementById('setupBanner').style.display='flex';
 }
 async function quickSetup() {
   const btn = document.getElementById('setupBtn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Setting up…';
-  const sampleProducts = [
-    {name:'Burger',      category:'Food',   price:120},
-    {name:'Fries',       category:'Food',   price:60},
-    {name:'Fried Chicken',category:'Food',  price:150},
-    {name:'Rice',        category:'Food',   price:35},
-    {name:'Coke',        category:'Drinks', price:50},
-    {name:'Juice',       category:'Drinks', price:45},
-    {name:'Water',       category:'Drinks', price:30},
-    {name:'Coffee',      category:'Drinks', price:75},
-  ];
-  // Insert products
-  await _sb.from('products').insert(sampleProducts.map(p => ({...p, store_id:STORE.id, available:true})));
-  // Insert default cashier
-  const hash = await sha256('cashier123');
-  await _sb.from('store_users').insert({
-    store_id: STORE.id, username: 'cashier1',
-    password_hash: hash, full_name: 'Cashier 1', role: 'cashier', active: true
-  });
-  document.getElementById('setupBanner').style.display = 'none';
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Setting up…';
+  const prods=[{name:'Burger',category:'Food',price:120},{name:'Fries',category:'Food',price:60},{name:'Fried Chicken',category:'Food',price:150},{name:'Rice',category:'Food',price:35},{name:'Coke',category:'Drinks',price:50},{name:'Juice',category:'Drinks',price:45},{name:'Water',category:'Drinks',price:30},{name:'Coffee',category:'Drinks',price:75}];
+  await _sb.from('products').insert(prods.map(p=>({...p,store_id:STORE.id,available:true,unit:'pc',stock:0,sku:''})));
+  const hash=await sha256('cashier123');
+  await _sb.from('store_users').insert({store_id:STORE.id,username:'cashier1',password_hash:hash,full_name:'Cashier 1',role:'cashier',active:true});
+  document.getElementById('setupBanner').style.display='none';
   await loadProducts(); await loadStaff();
   showToast('Sample data loaded! Default cashier: cashier1 / cashier123');
 }
@@ -976,207 +995,231 @@ function exportOrdCSV() {
   showToast('CSV downloaded.');
 }
 
-// ── Inventory ──────────────────────────────────────────────────────────────────
-let invProds = [];
+// ── Inventory (separate inventory_items table) ─────────────────────────────────
 async function loadInventory() {
-  if (!STORE) return;
-  const { data } = await _sb.from('products').select('*').eq('store_id', STORE.id).order('category').order('name');
-  invProds = data || [];
-  // populate category filter
-  const sel = document.getElementById('invCatFilter');
-  const cats = [...new Set(invProds.map(p => p.category))].sort();
-  sel.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
-  renderInv(invProds);
+  if(!STORE) return;
+  const {data}=await _sb.from('inventory_items').select('*').eq('store_id',STORE.id).order('category').order('name');
+  invItems=data||[];
+  const cats=[...new Set(invItems.map(i=>i.category).filter(Boolean))].sort();
+  const sel=document.getElementById('invCatFilter');
+  sel.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  renderInv(invItems);
 }
 function filterInv() {
-  const q   = document.getElementById('invSearch').value.toLowerCase();
-  const cat = document.getElementById('invCatFilter').value;
-  renderInv(invProds.filter(p =>
-    (!cat || p.category === cat) &&
-    (!q   || p.name.toLowerCase().includes(q))
-  ));
+  const q=document.getElementById('invSearch').value.toLowerCase();
+  const cat=document.getElementById('invCatFilter').value;
+  renderInv(invItems.filter(i=>(!cat||i.category===cat)&&(!q||i.name.toLowerCase().includes(q)||(i.sku||'').toLowerCase().includes(q))));
 }
-function renderInv(prods) {
-  const tbody = document.getElementById('invTbody');
-  if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No products found.</td></tr>'; return; }
-  tbody.innerHTML = prods.map(p => {
-    const stock  = p.stock ?? 0;
-    const thresh = p.low_stock_threshold ?? 5;
-    const out    = stock === 0;
-    const low    = !out && stock <= thresh;
-    const badge  = out ? '<span class="badge" style="background:#2a0a0a;color:#ef4444">Out of Stock</span>'
-                 : low ? `<span class="badge" style="background:#2a1a0a;color:#f59e0b">Low ≤${thresh}</span>`
-                       : '<span class="badge bg-cash">In Stock</span>';
-    const rowStyle = out ? 'background:rgba(239,68,68,.04)' : low ? 'background:rgba(245,158,11,.04)' : '';
-    return `<tr style="${rowStyle}">
-      <td style="font-family:monospace;font-size:12px;color:var(--muted)">${p.sku || '—'}</td>
-      <td style="font-weight:600">${p.name}</td>
-      <td style="color:var(--muted)">${p.category}</td>
-      <td style="color:var(--muted)">${p.unit || 'pc'}</td>
-      <td style="color:var(--accent)">${CUR}${parseFloat(p.price).toFixed(2)}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:4px">
-          <button class="btn btn-ghost btn-sm" style="padding:3px 8px;min-width:26px" onclick="adjStock('${p.id}',-1)">−</button>
-          <span style="min-width:32px;text-align:center;font-weight:700;font-size:14px${out?' ;color:#ef4444':low?';color:#f59e0b':''}">${stock}</span>
-          <button class="btn btn-ghost btn-sm" style="padding:3px 8px;min-width:26px" onclick="adjStock('${p.id}',1)">+</button>
-        </div>
-      </td>
+function renderInv(items) {
+  const tbody=document.getElementById('invTbody');
+  if(!items.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No items. Click + Add Item.</td></tr>';return;}
+  tbody.innerHTML=items.map(i=>{
+    const stock=parseFloat(i.stock??0);
+    const thresh=parseFloat(i.low_stock_threshold??5);
+    const out=stock===0;
+    const low=!out&&stock<=thresh;
+    const badge=out?'<span class="badge" style="background:#2a0a0a;color:#ef4444">Out of Stock</span>':low?`<span class="badge" style="background:#2a1a0a;color:#f59e0b">Low</span>`:'<span class="badge bg-cash">In Stock</span>';
+    const rs=out?'background:rgba(239,68,68,.04)':low?'background:rgba(245,158,11,.04)':'';
+    return `<tr style="${rs}">
+      <td style="font-family:monospace;font-size:12px;color:var(--muted)">${i.sku||'—'}</td>
+      <td style="font-weight:600">${i.name}</td>
+      <td style="color:var(--muted)">${i.category||'—'}</td>
+      <td style="color:var(--muted)">${i.unit||'pc'}</td>
+      <td style="color:var(--muted)">${CUR}${parseFloat(i.cost_price||0).toFixed(2)}</td>
+      <td><div style="display:flex;align-items:center;gap:4px">
+        <button class="btn btn-ghost btn-sm" style="padding:3px 8px" onclick="adjInvStock('${i.id}',-1)">&#8722;</button>
+        <span style="min-width:32px;text-align:center;font-weight:700;color:${out?'#ef4444':low?'#f59e0b':'var(--text)'}">${stock}</span>
+        <button class="btn btn-ghost btn-sm" style="padding:3px 8px" onclick="adjInvStock('${i.id}',1)">+</button>
+      </div></td>
       <td>${badge}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-accent btn-sm" onclick="openAddStock('${p.id}')">+ Add</button>
-        <button class="btn btn-ghost btn-sm" onclick="setStockPrompt('${p.id}',${stock})">Set</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteInvProd('${p.id}')">Del</button>
-      </td>
-    </tr>`;
+        <button class="btn btn-accent btn-sm" onclick="openAddStock('${i.id}')">+Add</button>
+        <button class="btn btn-ghost btn-sm" onclick="openInvModal(invItems.find(x=>x.id==='${i.id}'))">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteInvItem('${i.id}')">Del</button>
+      </td></tr>`;
   }).join('');
 }
-async function adjStock(id, delta) {
-  const p = invProds.find(x => x.id === id); if (!p) return;
-  const newVal = Math.max(0, (p.stock ?? 0) + delta);
-  await _sb.from('products').update({ stock: newVal }).eq('id', id);
-  p.stock = newVal;
-  const prod2 = allProds.find(x => x.id === id); if (prod2) prod2.stock = newVal;
-  renderInv(invProds);
+function getInvCatList(){return[...new Set([...invItems.map(i=>i.category).filter(Boolean),...extraInvCats])].sort();}
+function populateInvCatSelect(sel,selected){
+  const cats=getInvCatList();
+  sel.innerHTML='<option value="">— Select Category —</option>'+cats.map(c=>`<option value="${c}"${c===selected?' selected':''}>${c}</option>`).join('');
 }
-function openAddStock(id) {
-  const p = invProds.find(x => x.id === id); if (!p) return;
-  document.getElementById('addStockId').value   = id;
-  document.getElementById('addStockAmt').value  = '';
-  document.getElementById('addStockInfo').innerHTML =
-    `<strong>${p.name}</strong> &nbsp;·&nbsp; ${p.unit || 'pc'} &nbsp;·&nbsp; Current: <strong style="color:var(--accent)">${p.stock ?? 0}</strong>`;
+function openInvModal(item){
+  document.getElementById('invModalTitle').textContent=item?'Edit Item':'Add Inventory Item';
+  document.getElementById('invItemId').value=item?item.id:'';
+  document.getElementById('invName').value=item?item.name:'';
+  document.getElementById('invSku').value=item?(item.sku||''):'';
+  document.getElementById('invUnit').value=item?(item.unit||'pc'):'pc';
+  document.getElementById('invStock').value=item?(item.stock??0):0;
+  document.getElementById('invCost').value=item?(item.cost_price??0):0;
+  document.getElementById('invLowStock').value=item?(item.low_stock_threshold??5):5;
+  populateInvCatSelect(document.getElementById('invCat'),item?item.category:'');
+  document.getElementById('invModal').classList.add('show');
+  setTimeout(()=>document.getElementById('invName').focus(),50);
+}
+function openInvCatQuick(){
+  const name=prompt('New inventory category name:');
+  if(!name||!name.trim())return;
+  const n=name.trim();
+  if(!getInvCatList().includes(n))extraInvCats.push(n);
+  populateInvCatSelect(document.getElementById('invCat'),n);
+}
+async function saveInvItem(){
+  const id=document.getElementById('invItemId').value;
+  const name=document.getElementById('invName').value.trim();
+  const sku=document.getElementById('invSku').value.trim();
+  const cat=document.getElementById('invCat').value;
+  const unit=document.getElementById('invUnit').value;
+  const stock=parseFloat(document.getElementById('invStock').value)||0;
+  const cost=parseFloat(document.getElementById('invCost').value)||0;
+  const lowStock=parseFloat(document.getElementById('invLowStock').value)||5;
+  if(!name){showToast('Item name is required.',true);return;}
+  if(!cat){showToast('Please select a category.',true);return;}
+  const payload={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock};
+  let err;
+  if(id){({error:err}=await _sb.from('inventory_items').update(payload).eq('id',id));}
+  else{({error:err}=await _sb.from('inventory_items').insert({store_id:STORE.id,...payload}));}
+  if(err){showToast(err.message,true);return;}
+  extraInvCats=extraInvCats.filter(c=>c!==cat);
+  closeModal('invModal');await loadInventory();
+  showToast('Item saved.');
+}
+async function adjInvStock(id,delta){
+  const item=invItems.find(x=>x.id===id);if(!item)return;
+  const newVal=Math.max(0,parseFloat(item.stock??0)+delta);
+  await _sb.from('inventory_items').update({stock:newVal}).eq('id',id);
+  item.stock=newVal;renderInv(invItems);
+}
+function openAddStock(id){
+  const i=invItems.find(x=>x.id===id);if(!i)return;
+  document.getElementById('addStockId').value=id;
+  document.getElementById('addStockAmt').value='';
+  document.getElementById('addStockInfo').innerHTML=`<strong>${i.name}</strong> &nbsp;·&nbsp; ${i.unit||'pc'} &nbsp;·&nbsp; Current: <strong style="color:var(--accent)">${i.stock??0}</strong>`;
   document.getElementById('addStockModal').classList.add('show');
-  setTimeout(() => document.getElementById('addStockAmt').focus(), 50);
+  setTimeout(()=>document.getElementById('addStockAmt').focus(),50);
 }
-async function confirmAddStock() {
-  const id  = document.getElementById('addStockId').value;
-  const amt = parseInt(document.getElementById('addStockAmt').value);
-  if (!amt || amt < 1) { showToast('Enter a valid amount.', true); return; }
-  const p = invProds.find(x => x.id === id); if (!p) return;
-  const newVal = (p.stock ?? 0) + amt;
-  await _sb.from('products').update({ stock: newVal }).eq('id', id);
-  p.stock = newVal;
-  const p2 = allProds.find(x => x.id === id); if (p2) p2.stock = newVal;
-  closeModal('addStockModal'); renderInv(invProds);
-  showToast(`Added ${amt} ${p.unit||'pc'} to ${p.name}. New stock: ${newVal}`);
+async function confirmAddStock(){
+  const id=document.getElementById('addStockId').value;
+  const amt=parseFloat(document.getElementById('addStockAmt').value);
+  if(!amt||amt<=0){showToast('Enter a valid amount.',true);return;}
+  const i=invItems.find(x=>x.id===id);if(!i)return;
+  const newVal=parseFloat(i.stock??0)+amt;
+  await _sb.from('inventory_items').update({stock:newVal}).eq('id',id);
+  i.stock=newVal;closeModal('addStockModal');renderInv(invItems);
+  showToast(`Added ${amt} ${i.unit||'pc'} to ${i.name}. New: ${newVal}`);
 }
-async function setStockPrompt(id, current) {
-  const val = prompt('Set stock quantity:', current);
-  if (val === null) return;
-  const n = parseInt(val);
-  if (isNaN(n) || n < 0) { showToast('Invalid quantity', true); return; }
-  await _sb.from('products').update({ stock: n }).eq('id', id);
-  const p = invProds.find(x => x.id === id); if (p) p.stock = n;
-  const prod2 = allProds.find(x => x.id === id); if (prod2) prod2.stock = n;
-  renderInv(invProds); showToast('Stock updated.');
+async function deleteInvItem(id){
+  const i=invItems.find(x=>x.id===id);if(!i)return;
+  if(!confirm(`Delete "${i.name}"?`))return;
+  await _sb.from('inventory_items').delete().eq('id',id);
+  await loadInventory();showToast(`"${i.name}" deleted.`);
 }
 
-async function deleteInvProd(id) {
-  const p = invProds.find(x => x.id === id); if (!p) return;
-  if (!confirm(`Delete "${p.name}" from inventory and products?`)) return;
-  await _sb.from('products').delete().eq('id', id);
-  await loadProducts(); await loadInventory(); loadCategories();
-  showToast(`"${p.name}" deleted.`);
+// ── Categories (two tabs) ──────────────────────────────────────────────────────
+function switchCatTab(tab){
+  catTab=tab;
+  document.getElementById('catTabProd').className=tab==='prod'?'btn btn-accent btn-sm':'btn btn-ghost btn-sm';
+  document.getElementById('catTabInv').className=tab==='inv'?'btn btn-accent btn-sm':'btn btn-ghost btn-sm';
+  document.getElementById('catTabTitle').textContent=tab==='prod'?'Product Categories':'Inventory Categories';
+  loadCategories();
 }
-
-// ── Categories ─────────────────────────────────────────────────────────────────
-function loadCategories() {
-  const cats = {};
-  allProds.forEach(p => {
-    if (!cats[p.category]) cats[p.category] = { total: 0, avail: 0 };
-    cats[p.category].total++;
-    if (p.available) cats[p.category].avail++;
-  });
-  extraCats.forEach(c => { if (!cats[c]) cats[c] = { total: 0, avail: 0 }; });
-  renderCats(cats);
-}
-function renderCats(cats) {
-  const tbody = document.getElementById('catTbody');
-  const keys  = Object.keys(cats).sort();
-  if (!keys.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No categories yet. Add products first.</td></tr>'; return; }
-  tbody.innerHTML = keys.map(c => `<tr>
-    <td style="font-weight:600">${c}</td>
-    <td style="color:var(--muted)">${cats[c].total} product(s)</td>
-    <td style="color:var(--muted)">${cats[c].avail} available</td>
-    <td style="white-space:nowrap">
-      <button class="btn btn-ghost btn-sm" onclick="openCatModal('${c.replace(/'/g,"\\'")}')">Rename</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteCat('${c.replace(/'/g,"\\'")}')">Delete</button>
-    </td>
-  </tr>`).join('');
-}
-function openCatModal(existing) {
-  document.getElementById('catModalTitle').textContent = existing ? 'Rename Category' : 'Add Category';
-  document.getElementById('catOldName').value = existing || '';
-  document.getElementById('catName').value    = existing || '';
-  document.getElementById('catModal').classList.add('show');
-  setTimeout(() => document.getElementById('catName').focus(), 50);
-}
-async function saveCat() {
-  const oldName = document.getElementById('catOldName').value.trim();
-  const newName = document.getElementById('catName').value.trim();
-  if (!newName) { showToast('Category name is required.', true); return; }
-  if (oldName && oldName !== newName) {
-    // Rename: update all products in this category
-    const { error } = await _sb.from('products').update({ category: newName })
-      .eq('store_id', STORE.id).eq('category', oldName);
-    if (error) { showToast(error.message, true); return; }
-    extraCats = extraCats.map(c => c === oldName ? newName : c);
-    closeModal('catModal');
-    await loadProducts(); await loadInventory(); loadCategories();
-    showToast(`Renamed "${oldName}" → "${newName}"`);
-  } else if (!oldName) {
-    // New category — store in extraCats if not already present
-    if (!getCategoryList().includes(newName)) extraCats.push(newName);
-    closeModal('catModal');
-    loadCategories();
-    // if product modal is open, refresh its select and auto-select the new cat
-    if (document.getElementById('prodModal').classList.contains('show')) {
-      populateCatSelect(newName);
-    }
-    showToast(`Category "${newName}" added. Now create a product to use it.`);
-  } else {
-    closeModal('catModal');
+function loadCategories(){
+  if(catTab==='prod'){
+    const cats={};
+    allProds.forEach(p=>{if(!cats[p.category])cats[p.category]={total:0,avail:0};cats[p.category].total++;if(p.available)cats[p.category].avail++;});
+    extraCats.forEach(c=>{if(!cats[c])cats[c]={total:0,avail:0};});
+    renderCats(cats,'prod');
+  }else{
+    const cats={};
+    invItems.forEach(i=>{const c=i.category||'(none)';if(!cats[c])cats[c]={total:0};cats[c].total++;});
+    extraInvCats.forEach(c=>{if(!cats[c])cats[c]={total:0};});
+    renderCats(cats,'inv');
   }
 }
-async function deleteCat(catName) {
-  if (!confirm(`Delete category "${catName}"? All products in this category will move to "General".`)) return;
-  await _sb.from('products').update({ category: 'General' }).eq('store_id', STORE.id).eq('category', catName);
-  await loadProducts(); await loadInventory(); loadCategories();
-  showToast(`Category "${catName}" deleted.`);
+function renderCats(cats,tab){
+  const tbody=document.getElementById('catTbody');
+  const keys=Object.keys(cats).sort();
+  const noun=tab==='prod'?'product(s)':'item(s)';
+  if(!keys.length){tbody.innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No categories yet.</td></tr>`;return;}
+  tbody.innerHTML=keys.map(c=>`<tr>
+    <td style="font-weight:600">${c}</td>
+    <td style="color:var(--muted)">${cats[c].total} ${noun}</td>
+    <td style="color:var(--muted)">${tab==='prod'?((cats[c].avail||0)+' available'):'—'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="openCatModal('${c.replace(/'/g,String.fromCharCode(92,39))}')">Rename</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCat('${c.replace(/'/g,String.fromCharCode(92,39))}')">Delete</button>
+    </td></tr>`).join('');
+}
+function openCatModal(existing){
+  document.getElementById('catModalTitle').textContent=existing?'Rename Category':(catTab==='prod'?'Add Product Category':'Add Inventory Category');
+  document.getElementById('catOldName').value=existing||'';
+  document.getElementById('catName').value=existing||'';
+  document.getElementById('catModal').classList.add('show');
+  setTimeout(()=>document.getElementById('catName').focus(),50);
+}
+async function saveCat(){
+  const oldName=document.getElementById('catOldName').value.trim();
+  const newName=document.getElementById('catName').value.trim();
+  if(!newName){showToast('Category name is required.',true);return;}
+  if(oldName&&oldName!==newName){
+    if(catTab==='prod'){
+      const{error}=await _sb.from('products').update({category:newName}).eq('store_id',STORE.id).eq('category',oldName);
+      if(error){showToast(error.message,true);return;}
+      extraCats=extraCats.map(c=>c===oldName?newName:c);await loadProducts();
+    }else{
+      const{error}=await _sb.from('inventory_items').update({category:newName}).eq('store_id',STORE.id).eq('category',oldName);
+      if(error){showToast(error.message,true);return;}
+      extraInvCats=extraInvCats.map(c=>c===oldName?newName:c);await loadInventory();
+    }
+    closeModal('catModal');loadCategories();showToast(`Renamed "${oldName}" to "${newName}"`);
+  }else if(!oldName){
+    if(catTab==='prod'){
+      if(!getCategoryList().includes(newName))extraCats.push(newName);
+      if(document.getElementById('prodModal').classList.contains('show'))populateCatSelect(newName);
+    }else{
+      if(!getInvCatList().includes(newName))extraInvCats.push(newName);
+      if(document.getElementById('invModal').classList.contains('show'))populateInvCatSelect(document.getElementById('invCat'),newName);
+    }
+    closeModal('catModal');loadCategories();showToast(`Category "${newName}" added.`);
+  }else{closeModal('catModal');}
+}
+async function deleteCat(catName){
+  if(!confirm(`Delete category "${catName}"?`))return;
+  if(catTab==='prod'){
+    await _sb.from('products').update({category:''}).eq('store_id',STORE.id).eq('category',catName);
+    extraCats=extraCats.filter(c=>c!==catName);await loadProducts();
+  }else{
+    await _sb.from('inventory_items').update({category:''}).eq('store_id',STORE.id).eq('category',catName);
+    extraInvCats=extraInvCats.filter(c=>c!==catName);await loadInventory();
+  }
+  loadCategories();showToast(`Category "${catName}" deleted.`);
 }
 
 // ── Bulk Price Adjustment ──────────────────────────────────────────────────────
-function populatePriceCatFilter() {
-  const sel = document.getElementById('priceCatFilter');
-  const cats = [...new Set(allProds.map(p => p.category))].sort();
-  sel.innerHTML = '<option value="">All Products</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+function populatePriceCatFilter(){
+  const sel=document.getElementById('priceCatFilter');
+  const cats=[...new Set(allProds.map(p=>p.category))].sort();
+  sel.innerHTML='<option value="">All Products</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
 }
-function getAffectedProds() {
-  const cat = document.getElementById('priceCatFilter').value;
-  return cat ? allProds.filter(p => p.category === cat) : allProds;
+function getAffectedProds(){const cat=document.getElementById('priceCatFilter').value;return cat?allProds.filter(p=>p.category===cat):allProds;}
+function previewBulkPrice(){
+  const action=document.getElementById('priceAction').value;
+  const pct=parseFloat(document.getElementById('pricePct').value);
+  const prods=getAffectedProds();
+  if(!pct||isNaN(pct)||pct<=0){document.getElementById('pricePreview').textContent='Enter a valid percentage first.';return;}
+  const factor=action==='increase'?(1+pct/100):(1-pct/100);
+  const samples=prods.slice(0,4).map(p=>`${p.name}: ${CUR}${parseFloat(p.price).toFixed(2)} → ${CUR}${(p.price*factor).toFixed(2)}`).join(' | ');
+  document.getElementById('pricePreview').textContent=`${action==='increase'?'+':'-'}${pct}% on ${prods.length} product(s): ${samples}${prods.length>4?` +${prods.length-4} more`:''}`;
 }
-function previewBulkPrice() {
-  const action = document.getElementById('priceAction').value;
-  const pct    = parseFloat(document.getElementById('pricePct').value);
-  const prods  = getAffectedProds();
-  if (!pct || isNaN(pct) || pct <= 0) { document.getElementById('pricePreview').textContent = 'Enter a valid percentage first.'; return; }
-  const factor = action === 'increase' ? (1 + pct / 100) : (1 - pct / 100);
-  const samples = prods.slice(0, 4).map(p => `${p.name}: ${CUR}${parseFloat(p.price).toFixed(2)} → ${CUR}${(p.price * factor).toFixed(2)}`).join(' | ');
-  document.getElementById('pricePreview').textContent =
-    `${action === 'increase' ? '+' : '-'}${pct}% on ${prods.length} product(s): ${samples}${prods.length > 4 ? ' …' : ''}`;
-}
-async function applyBulkPrice() {
-  const action = document.getElementById('priceAction').value;
-  const pct    = parseFloat(document.getElementById('pricePct').value);
-  const prods  = getAffectedProds();
-  if (!pct || isNaN(pct) || pct <= 0) { showToast('Enter a valid percentage.', true); return; }
-  if (!confirm(`${action === 'increase' ? 'Increase' : 'Decrease'} prices by ${pct}% for ${prods.length} product(s)?`)) return;
-  const factor = action === 'increase' ? (1 + pct / 100) : (1 - pct / 100);
-  for (const p of prods) {
-    const newPrice = Math.round(p.price * factor * 100) / 100;
-    await _sb.from('products').update({ price: newPrice }).eq('id', p.id);
-  }
-  await loadProducts(); await loadInventory();
-  document.getElementById('pricePreview').textContent = 'Done! Prices updated.';
+async function applyBulkPrice(){
+  const action=document.getElementById('priceAction').value;
+  const pct=parseFloat(document.getElementById('pricePct').value);
+  const prods=getAffectedProds();
+  if(!pct||isNaN(pct)||pct<=0){showToast('Enter a valid percentage.',true);return;}
+  if(!confirm(`${action==='increase'?'Increase':'Decrease'} prices by ${pct}% for ${prods.length} product(s)?`))return;
+  const factor=action==='increase'?(1+pct/100):(1-pct/100);
+  for(const p of prods){await _sb.from('products').update({price:Math.round(p.price*factor*100)/100}).eq('id',p.id);}
+  await loadProducts();document.getElementById('pricePreview').textContent='Done! Prices updated.';
   showToast(`Prices ${action}d by ${pct}% on ${prods.length} product(s).`);
 }
 
