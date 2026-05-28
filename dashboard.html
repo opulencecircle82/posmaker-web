@@ -757,7 +757,7 @@ let invItems = [];
   }
 
   loadDashboard();
-  await loadDbCategories();
+  await Promise.race([loadDbCategories(), new Promise(r => setTimeout(r, 8000))]);
   loadProducts();
   loadInventory();
   loadStaff();
@@ -794,55 +794,62 @@ async function doLogout() {
 // â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadDashboard() {
   if (!STORE) return;
-  const today = new Date().toISOString().slice(0, 10);
-  const month = today.slice(0, 7);
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const month = today.slice(0, 7);
 
-  const { data: todayOrders } = await _sb.from('orders')
-    .select('total').eq('store_id', STORE.id)
-    .gte('timestamp', today + 'T00:00:00');
-  const { data: monthOrders } = await _sb.from('orders')
-    .select('total').eq('store_id', STORE.id)
-    .gte('timestamp', month + '-01T00:00:00');
+    const [r1, r2] = await Promise.all([
+      _sb.from('orders').select('total').eq('store_id', STORE.id).gte('timestamp', today + 'T00:00:00'),
+      _sb.from('orders').select('total').eq('store_id', STORE.id).gte('timestamp', month + '-01T00:00:00')
+    ]);
+    const todayOrders = r1.data || [];
+    const monthOrders = r2.data || [];
 
-  const tdCnt = todayOrders?.length || 0;
-  const tdRev = (todayOrders || []).reduce((s, o) => s + parseFloat(o.total || 0), 0);
-  const moCnt = monthOrders?.length || 0;
-  const moRev = (monthOrders || []).reduce((s, o) => s + parseFloat(o.total || 0), 0);
+    const tdCnt = todayOrders.length;
+    const tdRev = todayOrders.reduce((s, o) => s + parseFloat(o.total || 0), 0);
+    const moCnt = monthOrders.length;
+    const moRev = monthOrders.reduce((s, o) => s + parseFloat(o.total || 0), 0);
 
-  document.getElementById('tdOrders').textContent = tdCnt;
-  document.getElementById('tdRev').textContent    = CUR + tdRev.toFixed(2);
-  document.getElementById('moOrders').textContent = moCnt;
-  document.getElementById('moRev').textContent    = CUR + moRev.toFixed(2);
+    document.getElementById('tdOrders').textContent = tdCnt;
+    document.getElementById('tdRev').textContent    = CUR + tdRev.toFixed(2);
+    document.getElementById('moOrders').textContent = moCnt;
+    document.getElementById('moRev').textContent    = CUR + moRev.toFixed(2);
 
-  // Low stock alert
-  const lowItems = allProds.filter(p => (p.stock ?? 0) <= (p.low_stock_threshold ?? 5));
-  const alertEl = document.getElementById('lowStockAlert');
-  if (lowItems.length) {
-    document.getElementById('lowStockList').textContent = lowItems.slice(0,5).map(p=>`${p.name} (${p.stock??0} ${p.unit||'pc'})`).join(', ') + (lowItems.length>5?` +${lowItems.length-5} more`:'');
-    alertEl.style.display = 'block';
-  } else { alertEl.style.display = 'none'; }
+    // Low stock alert
+    const lowItems = allProds.filter(p => (p.stock ?? 0) <= (p.low_stock_threshold ?? 5));
+    const alertEl = document.getElementById('lowStockAlert');
+    if (lowItems.length) {
+      document.getElementById('lowStockList').textContent = lowItems.slice(0,5).map(p=>`${p.name} (${p.stock??0} ${p.unit||'pc'})`).join(', ') + (lowItems.length>5?` +${lowItems.length-5} more`:'');
+      alertEl.style.display = 'block';
+    } else { alertEl.style.display = 'none'; }
 
-  const { data: recent } = await _sb.from('orders')
-    .select('id,timestamp,cashier_name,total,payment_method')
-    .eq('store_id', STORE.id).order('id', { ascending: false }).limit(50);
+    const { data: recent, error: rErr } = await _sb.from('orders')
+      .select('id,timestamp,cashier_name,total,payment_method')
+      .eq('store_id', STORE.id).order('id', { ascending: false }).limit(50);
 
-  const tbody = document.getElementById('ordersTbody');
-  if (!recent || !recent.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No orders yet.</td></tr>';
-    return;
+    const tbody = document.getElementById('ordersTbody');
+    if (rErr) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px">Error: ${rErr.message}</td></tr>`; return; }
+    if (!recent || !recent.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No orders yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = recent.map(o => {
+      const dt = new Date(o.timestamp).toLocaleString('en-PH', {month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const m  = (o.payment_method || 'Cash').toLowerCase();
+      const bg = m === 'cash' ? 'bg-cash' : m === 'card' ? 'bg-card' : 'bg-gcash';
+      return `<tr>
+        <td>#${o.id}</td>
+        <td>${dt}</td>
+        <td>${o.cashier_name || ''}</td>
+        <td style="color:var(--accent);font-weight:700">${CUR}${parseFloat(o.total).toFixed(2)}</td>
+        <td><span class="badge ${bg}">${o.payment_method || 'Cash'}</span></td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    console.error('loadDashboard error:', e);
+    document.getElementById('ordersTbody').innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px">Connection error — <a href="" style="color:var(--accent)">Refresh</a></td></tr>`;
+    ['tdOrders','tdRev','moOrders','moRev'].forEach(id => document.getElementById(id).textContent = '!');
   }
-  tbody.innerHTML = recent.map(o => {
-    const dt = new Date(o.timestamp).toLocaleString('en-PH', {month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const m  = (o.payment_method || 'Cash').toLowerCase();
-    const bg = m === 'cash' ? 'bg-cash' : m === 'card' ? 'bg-card' : 'bg-gcash';
-    return `<tr>
-      <td>#${o.id}</td>
-      <td>${dt}</td>
-      <td>${o.cashier_name || ''}</td>
-      <td style="color:var(--accent);font-weight:700">${CUR}${parseFloat(o.total).toFixed(2)}</td>
-      <td><span class="badge ${bg}">${o.payment_method || 'Cash'}</span></td>
-    </tr>`;
-  }).join('');
 }
 
 // ── Sales Report ────────────────────────────────────────────────────────────────
@@ -1047,8 +1054,9 @@ function downloadReport() {
 
 // ── Products ────────────────────────────────────────────────────────────────────
 async function loadProducts() {
-  const { data } = await _sb.from('products')
+  const { data, error } = await _sb.from('products')
     .select('*').eq('store_id', STORE.id).order('category').order('name');
+  if (error) { console.error('loadProducts error:', error); }
   allProds = data || [];
   renderProds(allProds);
 }
@@ -1233,19 +1241,24 @@ async function deleteProd(id) {
 
 // â”€â”€ Staff â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadStaff() {
-  const { data } = await _sb.from('store_users')
-    .select('id,username,full_name,role,active').eq('store_id', STORE.id).order('role').order('username');
-  allStaff = data || [];
-  // batch-fetch last login for each staff
-  if (allStaff.length) {
-    const ids = allStaff.map(s => s.id);
-    const { data: logs } = await _sb.from('staff_logs')
-      .select('staff_id,login_at').in('staff_id', ids).order('login_at', { ascending: false });
-    const lastLog = {};
-    (logs || []).forEach(l => { if(!lastLog[l.staff_id]) lastLog[l.staff_id] = l.login_at; });
-    allStaff.forEach(s => { s._lastLogin = lastLog[s.id] || null; });
+  try {
+    const { data, error } = await _sb.from('store_users')
+      .select('id,username,full_name,role,active').eq('store_id', STORE.id).order('role').order('username');
+    if (error) throw error;
+    allStaff = data || [];
+    if (allStaff.length) {
+      const ids = allStaff.map(s => s.id);
+      const { data: logs } = await _sb.from('staff_logs')
+        .select('staff_id,login_at').in('staff_id', ids).order('login_at', { ascending: false });
+      const lastLog = {};
+      (logs || []).forEach(l => { if(!lastLog[l.staff_id]) lastLog[l.staff_id] = l.login_at; });
+      allStaff.forEach(s => { s._lastLogin = lastLog[s.id] || null; });
+    }
+    renderStaff(allStaff);
+  } catch(e) {
+    console.error('loadStaff error:', e);
+    document.getElementById('staffTbody').innerHTML = `<tr><td colspan="6" style="text-align:center;color:#ef4444;padding:24px">Error loading staff: ${e.message} — <a href="" style="color:var(--accent)">Refresh</a></td></tr>`;
   }
-  renderStaff(allStaff);
 }
 function renderStaff(staff) {
   const tbody = document.getElementById('staffTbody');
