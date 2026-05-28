@@ -775,10 +775,12 @@ function nav(id) {
   });
   document.getElementById('topbarTitle').textContent = SECTION_TITLES[id] || id;
   closeSidebar();
+  if (id === 'dashboard')  loadDashboard();
   if (id === 'orders')     loadOrders();
   if (id === 'salesreport') loadReport('monthly');
   if (id === 'inventory')  loadInventory();
-  if (id === 'categories') { switchCatTab(catTab); }
+  if (id === 'staff')      loadStaff();
+  if (id === 'categories') { loadDbCategories().then(() => loadProducts().then(loadCategories)); switchCatTab(catTab); }
   if (id === 'settings')   populatePriceCatFilter();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbOverlay').classList.add('show'); }
@@ -798,12 +800,12 @@ async function loadDashboard() {
     const today = new Date().toISOString().slice(0, 10);
     const month = today.slice(0, 7);
 
-    const [r1, r2] = await Promise.all([
-      _sb.from('orders').select('total').eq('store_id', STORE.id).gte('timestamp', today + 'T00:00:00'),
-      _sb.from('orders').select('total').eq('store_id', STORE.id).gte('timestamp', month + '-01T00:00:00')
-    ]);
-    const todayOrders = r1.data || [];
-    const monthOrders = r2.data || [];
+    const { data: todayOrders, error: e1 } = await _sb.from('orders')
+      .select('total').eq('store_id', STORE.id).gte('timestamp', today + 'T00:00:00');
+    if (e1) throw e1;
+    const { data: monthOrders, error: e2 } = await _sb.from('orders')
+      .select('total').eq('store_id', STORE.id).gte('timestamp', month + '-01T00:00:00');
+    if (e2) throw e2;
 
     const tdCnt = todayOrders.length;
     const tdRev = todayOrders.reduce((s, o) => s + parseFloat(o.total || 0), 0);
