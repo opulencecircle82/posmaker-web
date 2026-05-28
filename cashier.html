@@ -198,7 +198,7 @@ let prods = [], cart = {}, payMeth = 'Cash';
   }
 
   // Load store info (anon read allowed)
-  const { data: store } = await _sb.from('stores').select('id,name,currency,tax_rate,receipt_footer,logo_b64,pos_font,pos_accent,pos_bg,pos_card,pos_text,pos_radius,pos_bg_img').eq('id', STORE_ID).single();
+  const { data: store } = await _sb.from('stores').select('id,name,currency,tax_rate,receipt_footer,logo_b64,pos_font,pos_accent,pos_bg,pos_card,pos_text,pos_radius,pos_bg_img,pos_btn_style,pos_bg_scale,pos_bg_opacity').eq('id', STORE_ID).single();
   if (!store) {
     document.getElementById('loginTitle').textContent = 'Store Not Found';
     document.getElementById('loginSub').textContent = 'This store ID does not exist.';
@@ -230,10 +230,40 @@ function applyPosTheme(s) {
   if (s.pos_text)   r.style.setProperty('--text', s.pos_text);
   if (s.pos_radius) r.style.setProperty('--radius', s.pos_radius + 'px');
   if (s.pos_font)   document.body.style.fontFamily = `'${s.pos_font}', sans-serif`;
+
+  // BG image with scale + opacity via fixed overlay div
   if (s.pos_bg_img) {
-    document.body.style.backgroundImage = `url(data:image/jpeg;base64,${s.pos_bg_img})`;
-    document.body.style.backgroundSize = 'cover';
-    document.body.style.backgroundPosition = 'center';
+    document.body.style.backgroundImage = 'none';
+    let ov = document.getElementById('_posThemeBg');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = '_posThemeBg';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none';
+      document.body.prepend(ov);
+    }
+    ov.style.backgroundImage = `url(data:image/jpeg;base64,${s.pos_bg_img})`;
+    ov.style.opacity = ((s.pos_bg_opacity ?? 18) / 100).toString();
+    const scale = s.pos_bg_scale || 'cover';
+    switch (scale) {
+      case 'cover':   ov.style.backgroundSize = 'cover';     ov.style.backgroundRepeat = 'no-repeat'; ov.style.backgroundPosition = 'center'; break;
+      case 'contain': ov.style.backgroundSize = 'contain';   ov.style.backgroundRepeat = 'no-repeat'; ov.style.backgroundPosition = 'center'; break;
+      case 'tile':    ov.style.backgroundSize = 'auto';      ov.style.backgroundRepeat = 'repeat';    break;
+      case 'stretch': ov.style.backgroundSize = '100% 100%'; ov.style.backgroundRepeat = 'no-repeat'; break;
+    }
+  }
+
+  // Button style via dynamic CSS injection
+  const bs = s.pos_btn_style || 'default';
+  if (bs !== 'default') {
+    let styleEl = document.getElementById('_pmBtnStyle');
+    if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = '_pmBtnStyle'; document.head.appendChild(styleEl); }
+    const rules = {
+      '3d':    '.p-btn{transform:translateY(-3px);box-shadow:0 5px 0 rgba(0,0,0,.5),0 8px 16px rgba(0,0,0,.3)!important}',
+      'neon':  '.p-btn{border-color:var(--accent)!important;box-shadow:0 0 8px var(--accent),0 0 20px var(--accent)!important}',
+      'glass': '.p-btn{background:rgba(255,255,255,.05)!important;backdrop-filter:blur(10px)}',
+      'pill':  '.p-btn{border-radius:24px!important}',
+    };
+    styleEl.textContent = rules[bs] || '';
   }
 }
 
