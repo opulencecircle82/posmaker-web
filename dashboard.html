@@ -402,6 +402,9 @@ input:checked + .slider:before{transform:translateX(18px)}
     </div>
     <div class="row2">
       <div class="field"><label>Price</label><input id="pPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Initial Stock</label><input id="pStock" type="number" min="0" step="1" placeholder="0" value="0"></div>
+    </div>
+    <div class="row2">
       <div class="field"><label>Low Stock Alert (qty)</label><input id="pLowStock" type="number" min="0" step="1" placeholder="e.g. 5" value="5"></div>
     </div>
     <div class="field" id="pAvailField" style="display:flex;align-items:center;gap:10px">
@@ -671,6 +674,7 @@ function openProdModal(p) {
   document.getElementById('pName').value       = p ? p.name : '';
   document.getElementById('pSku').value        = p ? (p.sku || '') : '';
   document.getElementById('pPrice').value      = p ? p.price : '';
+  document.getElementById('pStock').value      = p ? (p.stock ?? 0) : 0;
   document.getElementById('pLowStock').value   = p ? (p.low_stock_threshold ?? 5) : 5;
   document.getElementById('pAvail').checked    = p ? p.available : true;
   document.getElementById('pAvailField').style.display = p ? 'flex' : 'none';
@@ -694,11 +698,12 @@ async function saveProd() {
   const cat       = document.getElementById('pCat').value;
   const unit      = document.getElementById('pUnit').value;
   const price     = parseFloat(document.getElementById('pPrice').value);
+  const stock     = parseInt(document.getElementById('pStock').value) || 0;
   const lowStock  = parseInt(document.getElementById('pLowStock').value) || 5;
   const avail     = document.getElementById('pAvail').checked;
   if (!name || isNaN(price)) { showToast('Name and price are required.', true); return; }
   if (!cat) { showToast('Please select a category.', true); return; }
-  const payload = { name, sku, category: cat, unit, price, low_stock_threshold: lowStock, available: avail };
+  const payload = { name, sku, category: cat, unit, price, stock, low_stock_threshold: lowStock, available: avail };
   if (id) {
     await _sb.from('products').update(payload).eq('id', id);
   } else {
