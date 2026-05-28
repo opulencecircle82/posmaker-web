@@ -710,6 +710,12 @@ let pInvLinks = []; // array of inventory item IDs linked to current product
 let dbCats = [], dbInvCats = [], catTab = 'prod'; // loaded from categories table
 let invItems = [];
 
+function _sig(ms = 12000) {
+  const c = new AbortController();
+  setTimeout(() => c.abort(), ms);
+  return c.signal;
+}
+
 // â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 (async () => {
   const { data: { session } } = await _sb.auth.getSession();
@@ -801,10 +807,10 @@ async function loadDashboard() {
     const month = today.slice(0, 7);
 
     const { data: todayOrders, error: e1 } = await _sb.from('orders')
-      .select('total').eq('store_id', STORE.id).gte('timestamp', today + 'T00:00:00');
+      .select('total').eq('store_id', STORE.id).gte('timestamp', today + 'T00:00:00').abortSignal(_sig());
     if (e1) throw e1;
     const { data: monthOrders, error: e2 } = await _sb.from('orders')
-      .select('total').eq('store_id', STORE.id).gte('timestamp', month + '-01T00:00:00');
+      .select('total').eq('store_id', STORE.id).gte('timestamp', month + '-01T00:00:00').abortSignal(_sig());
     if (e2) throw e2;
 
     const tdCnt = todayOrders.length;
@@ -827,7 +833,7 @@ async function loadDashboard() {
 
     const { data: recent, error: rErr } = await _sb.from('orders')
       .select('id,timestamp,cashier_name,total,payment_method')
-      .eq('store_id', STORE.id).order('id', { ascending: false }).limit(50);
+      .eq('store_id', STORE.id).order('id', { ascending: false }).limit(50).abortSignal(_sig());
 
     const tbody = document.getElementById('ordersTbody');
     if (rErr) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px">Error: ${rErr.message}</td></tr>`; return; }
@@ -1057,7 +1063,7 @@ function downloadReport() {
 // ── Products ────────────────────────────────────────────────────────────────────
 async function loadProducts() {
   const { data, error } = await _sb.from('products')
-    .select('*').eq('store_id', STORE.id).order('category').order('name');
+    .select('*').eq('store_id', STORE.id).order('category').order('name').abortSignal(_sig());
   if (error) { console.error('loadProducts error:', error); }
   allProds = data || [];
   renderProds(allProds);
@@ -1084,7 +1090,7 @@ function renderProds(prods) {
 async function loadDbCategories(){
   if(!STORE)return;
   try{
-    const{data,error}=await _sb.from('categories').select('name,type').eq('store_id',STORE.id).order('name');
+    const{data,error}=await _sb.from('categories').select('name,type').eq('store_id',STORE.id).order('name').abortSignal(_sig());
     if(error)return; // table may not exist yet — fail silently
     dbCats=(data||[]).filter(r=>r.type==='prod').map(r=>r.name);
     dbInvCats=(data||[]).filter(r=>r.type==='inv').map(r=>r.name);
@@ -1245,13 +1251,13 @@ async function deleteProd(id) {
 async function loadStaff() {
   try {
     const { data, error } = await _sb.from('store_users')
-      .select('id,username,full_name,role,active').eq('store_id', STORE.id).order('role').order('username');
+      .select('id,username,full_name,role,active').eq('store_id', STORE.id).order('role').order('username').abortSignal(_sig());
     if (error) throw error;
     allStaff = data || [];
     if (allStaff.length) {
       const ids = allStaff.map(s => s.id);
       const { data: logs } = await _sb.from('staff_logs')
-        .select('staff_id,login_at').in('staff_id', ids).order('login_at', { ascending: false });
+        .select('staff_id,login_at').in('staff_id', ids).order('login_at', { ascending: false }).abortSignal(_sig());
       const lastLog = {};
       (logs || []).forEach(l => { if(!lastLog[l.staff_id]) lastLog[l.staff_id] = l.login_at; });
       allStaff.forEach(s => { s._lastLogin = lastLog[s.id] || null; });
@@ -1423,11 +1429,11 @@ async function loadOrders() {
   let q = _sb.from('orders').select('*').eq('store_id', STORE.id).order('id', { ascending: false }).limit(500);
   if (from) q = q.gte('timestamp', from + 'T00:00:00');
   if (to)   q = q.lte('timestamp', to   + 'T23:59:59');
-  const { data } = await q;
+  const { data } = await q.abortSignal(_sig());
   allOrders = data || [];
   if (allOrders.length) {
     const ids = allOrders.map(o => o.id);
-    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids);
+    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids).abortSignal(_sig());
     const imap = {};
     (items || []).forEach(i => {
       if (!imap[i.order_id]) imap[i.order_id] = [];
@@ -1530,7 +1536,7 @@ function exportOrdCSV() {
 // â”€â”€ Inventory (separate inventory_items table) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadInventory() {
   if(!STORE) return;
-  const {data}=await _sb.from('inventory_items').select('*').eq('store_id',STORE.id).order('category').order('name');
+  const {data}=await _sb.from('inventory_items').select('*').eq('store_id',STORE.id).order('category').order('name').abortSignal(_sig());
   invItems=data||[];
   const cats=[...new Set(invItems.map(i=>i.category).filter(Boolean))].sort();
   const sel=document.getElementById('invCatFilter');
