@@ -1020,6 +1020,7 @@ function renderInv(prods) {
       <td style="white-space:nowrap">
         <button class="btn btn-accent btn-sm" onclick="openAddStock('${p.id}')">+ Add</button>
         <button class="btn btn-ghost btn-sm" onclick="setStockPrompt('${p.id}',${stock})">Set</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteInvProd('${p.id}')">Del</button>
       </td>
     </tr>`;
   }).join('');
@@ -1062,6 +1063,14 @@ async function setStockPrompt(id, current) {
   const p = invProds.find(x => x.id === id); if (p) p.stock = n;
   const prod2 = allProds.find(x => x.id === id); if (prod2) prod2.stock = n;
   renderInv(invProds); showToast('Stock updated.');
+}
+
+async function deleteInvProd(id) {
+  const p = invProds.find(x => x.id === id); if (!p) return;
+  if (!confirm(`Delete "${p.name}" from inventory and products?`)) return;
+  await _sb.from('products').delete().eq('id', id);
+  await loadProducts(); await loadInventory(); loadCategories();
+  showToast(`"${p.name}" deleted.`);
 }
 
 // ── Categories ─────────────────────────────────────────────────────────────────
