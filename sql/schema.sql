@@ -42,8 +42,11 @@ CREATE TABLE IF NOT EXISTS products (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- Add columns to existing products (safe to re-run)
-ALTER TABLE products ADD COLUMN IF NOT EXISTS sku  TEXT DEFAULT '';
-ALTER TABLE products ADD COLUMN IF NOT EXISTS unit TEXT DEFAULT 'pc';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS sku        TEXT    DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS unit       TEXT    DEFAULT 'pc';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS image_b64  TEXT    DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS inv_links  TEXT    DEFAULT '[]';
 
 -- Inventory Items (raw materials / supplies — separate from sellable products)
 CREATE TABLE IF NOT EXISTS inventory_items (
@@ -92,12 +95,43 @@ CREATE TABLE IF NOT EXISTS order_items (
   qty        INTEGER
 );
 
+-- Staff Login Logs
+CREATE TABLE IF NOT EXISTS staff_logs (
+  id        UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id  UUID        REFERENCES stores NOT NULL,
+  staff_id  UUID        REFERENCES store_users NOT NULL,
+  username  TEXT        NOT NULL,
+  login_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE staff_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sl_owner      ON staff_logs;
+DROP POLICY IF EXISTS sl_anon_insert ON staff_logs;
+CREATE POLICY sl_owner ON staff_logs FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+CREATE POLICY sl_anon_insert ON staff_logs FOR INSERT TO anon WITH CHECK (TRUE);
+
+-- Categories (persistent, separate from products/inventory)
+CREATE TABLE IF NOT EXISTS categories (
+  id       UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id UUID REFERENCES stores NOT NULL,
+  name     TEXT NOT NULL,
+  type     TEXT DEFAULT 'prod',  -- prod | inv
+  UNIQUE (store_id, name, type)
+);
+
 -- ── Row Level Security ─────────────────────────────────────────────────────────
+ALTER TABLE categories   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stores       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE store_users  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items  ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS cat_owner ON categories;
+CREATE POLICY cat_owner ON categories FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
 
 -- Drop existing policies first (safe to re-run)
 DROP POLICY IF EXISTS stores_owner      ON stores;

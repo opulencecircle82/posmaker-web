@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -39,14 +39,16 @@ body{background:var(--bg);color:#f0f0f8;font-family:'Segoe UI',sans-serif;height
 /* MAIN */
 .main{display:flex;flex:1;overflow:hidden}
 .products{flex:1;overflow-y:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;align-content:start}
-.p-btn{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 6px;cursor:pointer;text-align:center;user-select:none;transition:background .1s}
+.p-btn{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:0;cursor:pointer;text-align:center;user-select:none;transition:background .1s;overflow:hidden;display:flex;flex-direction:column}
 .p-btn:active{background:var(--accent);border-color:var(--accent)}
-.p-name{font-size:12px;line-height:1.3;margin-bottom:5px;color:#ddd}
-.p-price{color:var(--accent);font-size:13px;font-weight:700}
+.p-name{font-size:12px;line-height:1.3;margin:6px 6px 2px;color:#ddd}
+.p-price{color:var(--accent);font-size:13px;font-weight:700;margin-bottom:6px}
 
 /* CART */
-.cart{width:255px;background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.cart{width:290px;background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
 @media(max-width:580px){.cart{width:210px}}
+.pay-section{padding:8px 10px 0;border-top:1px solid var(--border)}
+.pay-label{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
 .cart-hdr{padding:11px 13px;font-size:13px;font-weight:700;border-bottom:1px solid var(--border);color:#aaa}
 .cart-list{flex:1;overflow-y:auto;padding:6px 10px}
 .cart-empty{color:#444;text-align:center;padding:24px 8px;font-size:13px}
@@ -115,45 +117,42 @@ body{background:var(--bg);color:#f0f0f8;font-family:'Segoe UI',sans-serif;height
 <div class="main">
   <div class="products" id="grid"></div>
   <div class="cart">
-    <div class="cart-hdr">🛒 Cart <span id="cartCnt" style="color:#555;font-weight:400"></span></div>
+    <div class="cart-hdr">&#128722; Cart <span id="cartCnt" style="color:#555;font-weight:400"></span></div>
     <div class="cart-list" id="cartList"><div class="cart-empty">Cart is empty</div></div>
     <div class="totals">
-      <div class="t-row"><span>Subtotal</span><span id="tSub">—</span></div>
-      <div class="t-row"><span id="taxLabel">VAT (12%)</span><span id="tTax">—</span></div>
-      <div class="t-row big"><span>TOTAL</span><span id="tTot">—</span></div>
+      <div class="t-row"><span style="color:#666">Sub (ex-VAT)</span><span id="tSub" style="color:#666">&#8212;</span></div>
+      <div class="t-row"><span id="taxLabel" style="color:#666">VAT incl. (12%)</span><span id="tTax">&#8212;</span></div>
+      <div class="t-row big"><span>TOTAL</span><span id="tTot">&#8212;</span></div>
     </div>
-    <button class="btn-checkout" id="btnCO" disabled onclick="openCheckout()">💰 Checkout</button>
+    <div class="pay-section" id="paySection" style="display:none">
+      <div class="pay-label">Payment Method</div>
+      <div class="methods" style="margin-bottom:8px">
+        <button class="m-btn active" onclick="setMethod('Cash',this)">Cash</button>
+        <button class="m-btn" onclick="setMethod('Card',this)">Card</button>
+        <button class="m-btn" onclick="setMethod('GCash',this)">GCash</button>
+      </div>
+      <div id="cashSection">
+        <div class="quick-row" id="quickRow"></div>
+        <input class="inp" id="tendered" type="number" placeholder="Amount tendered" oninput="calcChange()" style="margin-bottom:4px">
+        <div class="chg" id="chgDisp"></div>
+      </div>
+    </div>
+    <button class="btn-checkout" id="btnCO" disabled onclick="confirmOrder()">&#10004; Confirm Order</button>
   </div>
 </div>
 
-<!-- CHECKOUT MODAL -->
-<div class="modal" id="mCheckout">
-  <div class="mbox">
-    <div class="mtitle">💳 Checkout</div>
-    <div class="mtotal" id="mTotal"></div>
-    <div class="methods">
-      <button class="m-btn active" onclick="setMethod('Cash',this)">💵 Cash</button>
-      <button class="m-btn" onclick="setMethod('Card',this)">💳 Card</button>
-      <button class="m-btn" onclick="setMethod('GCash',this)">📱 GCash</button>
-    </div>
-    <div id="cashSection">
-      <div class="quick-row" id="quickRow"></div>
-      <input class="inp" id="tendered" type="number" placeholder="Amount tendered" oninput="calcChange()">
-      <div class="chg" id="chgDisp"></div>
-    </div>
-    <div class="m-actions">
-      <button class="btn-cancel" onclick="closeM('mCheckout')">Cancel</button>
-      <button class="btn-confirm" onclick="confirmCO()">✔ Confirm</button>
-    </div>
-  </div>
-</div>
 
-<!-- RECEIPT MODAL -->
-<div class="modal" id="mReceipt">
+<!-- CONFIRM POPUP -->
+<div class="modal" id="mConfirm">
   <div class="mbox">
-    <div class="mtitle">🧾 Receipt</div>
-    <pre class="receipt-pre" id="receiptTxt"></pre>
-    <button class="btn-confirm" style="width:100%;margin-top:12px" onclick="newOrder()">+ New Order</button>
+    <div class="mtitle">&#10004; Order Confirmed</div>
+    <div class="mtotal" id="confirmTotal"></div>
+    <div id="confirmChange" style="font-size:13px;color:#10b981;margin-bottom:10px"></div>
+    <pre class="receipt-pre" id="receiptTxt" style="max-height:220px"></pre>
+    <div class="m-actions" style="margin-top:12px">
+      <button class="btn-cancel" onclick="newOrder()">New Order</button>
+      <button class="btn-confirm" onclick="doPrint()">&#128438; Print Receipt</button>
+    </div>
   </div>
 </div>
 
@@ -166,7 +165,7 @@ const params   = new URLSearchParams(location.search);
 const STORE_ID = params.get('store');
 const IS_DEMO  = params.get('demo') === '1';
 
-let STORE = null, CUR = '₱', TAX = 0, CASHIER = null;
+let STORE = null, CUR = '₱', TAX = 0, CASHIER = null, CASHIER_NAME = '';
 let prods = [], cart = {}, payMeth = 'Cash';
 
 // ── Page init ──────────────────────────────────────────────────────────────────
@@ -243,13 +242,16 @@ async function doLogin() {
 
   if (error || !data) { errEl.textContent = 'Invalid username or password.'; return; }
   CASHIER = data;
+  // log the login (fire-and-forget)
+  _sb.from('staff_logs').insert({ store_id: STORE_ID, staff_id: data.id, username: data.username, login_at: new Date().toISOString() });
   await loadProds();
   showPOS(data.full_name || data.username);
 }
 
 function showPOS(name) {
+  CASHIER_NAME = name;
   document.getElementById('loginWrap').style.display = 'none';
-  document.getElementById('hdrCashier').textContent = '👤 ' + name;
+  document.getElementById('hdrCashier').textContent = '\u{1F464} ' + name;
   redrawCart();
 }
 
@@ -264,7 +266,7 @@ async function doLogout() {
 // ── Products ───────────────────────────────────────────────────────────────────
 async function loadProds() {
   const { data } = await _sb.from('products')
-    .select('id,name,price,category')
+    .select('id,name,price,category,image_b64')
     .eq('store_id', STORE_ID)
     .eq('available', true)
     .order('category').order('name');
@@ -290,7 +292,7 @@ function renderProds(cat) {
   const list = cat === 'All' ? prods : prods.filter(p => p.category === cat);
   document.getElementById('grid').innerHTML = list.length
     ? list.map(p => `<div class="p-btn" onclick="addItem('${p.id}')">
-        <div class="p-name">${p.name}</div>
+        <img src="data:image/jpeg;base64,${p.image_b64}" style="width:100%;height:70px;object-fit:cover;display:${p.image_b64?`block`:`none`}"><div style="height:50px;display:${p.image_b64?`none`:`flex`};align-items:center;justify-content:center;font-size:28px;margin-top:4px">&#127869;</div><div class="p-name">${p.name}</div>
         <div class="p-price">${CUR}${parseFloat(p.price).toFixed(2)}</div>
       </div>`).join('')
     : `<div style="color:#444;padding:20px;font-size:13px">No products in this category.</div>`;
@@ -327,33 +329,31 @@ function redrawCart() {
       </div>`).join('')
     : `<div class="cart-empty">Cart is empty</div>`;
 
-  const sub = items.reduce((s, i) => s + i.price * i.qty, 0);
-  const tax = parseFloat((sub * TAX / 100).toFixed(2));
-  const tot = parseFloat((sub + tax).toFixed(2));
+  const tot = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
+  const tax = parseFloat((tot * TAX / (100 + TAX)).toFixed(2));
+  const sub = parseFloat((tot - tax).toFixed(2));
   document.getElementById('tSub').textContent = CUR + sub.toFixed(2);
   document.getElementById('tTax').textContent = CUR + tax.toFixed(2);
   document.getElementById('tTot').textContent = CUR + tot.toFixed(2);
-  document.getElementById('btnCO').disabled = !items.length;
+  updatePaySection();
 }
 
 // ── Checkout ───────────────────────────────────────────────────────────────────
-function openCheckout() {
-  const items = Object.values(cart); if (!items.length) return;
-  const sub = items.reduce((s, i) => s + i.price * i.qty, 0);
-  const tot = parseFloat((sub * (1 + TAX / 100)).toFixed(2));
-  document.getElementById('mTotal').textContent = CUR + tot.toFixed(2);
-  document.getElementById('tendered').value = '';
-  document.getElementById('chgDisp').textContent = '';
-  // Quick cash buttons
-  const qr = document.getElementById('quickRow');
-  const denoms = [50, 100, 200, 500, 1000];
-  const higherDenoms = denoms.filter(a => a >= tot);
-  const quickAmounts = higherDenoms.length ? higherDenoms.slice(0, 4) : denoms.slice(-4);
-  qr.innerHTML = quickAmounts.map(a =>
-    `<button class="q-cash" onclick="setCash(${a})">${CUR}${a}</button>`
-  ).join('');
-  document.getElementById('cashSection').style.display = payMeth === 'Cash' ? '' : 'none';
-  document.getElementById('mCheckout').classList.add('show');
+function updatePaySection() {
+  const items = Object.values(cart);
+  const haItems = items.length > 0;
+  document.getElementById('paySection').style.display = haItems ? '' : 'none';
+  document.getElementById('btnCO').disabled = !haItems;
+  if (haItems) {
+    const tot = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
+    const denoms = [50, 100, 200, 500, 1000];
+    const higher = denoms.filter(a => a >= tot);
+    const quickAmounts = higher.length ? higher.slice(0, 3) : denoms.slice(-3);
+    document.getElementById('quickRow').innerHTML = quickAmounts.map(a =>
+      `<button class="q-cash" onclick="setCash(${a})">${CUR}${a}</button>`
+    ).join('');
+    document.getElementById('cashSection').style.display = payMeth === 'Cash' ? '' : 'none';
+  }
 }
 
 function setCash(a) { document.getElementById('tendered').value = a; calcChange(); }
@@ -367,7 +367,7 @@ function setMethod(m, btn) {
 
 function calcChange() {
   const items = Object.values(cart);
-  const tot = parseFloat((items.reduce((s, i) => s + i.price * i.qty, 0) * (1 + TAX / 100)).toFixed(2));
+  const tot = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
   const recv = parseFloat(document.getElementById('tendered').value) || 0;
   const chg = recv - tot;
   const el = document.getElementById('chgDisp');
@@ -379,26 +379,25 @@ function calcChange() {
   }
 }
 
-async function confirmCO() {
+async function confirmOrder() {
   const items = Object.values(cart).map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty }));
-  const sub    = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
-  const tax    = parseFloat((sub * TAX / 100).toFixed(2));
-  const tot    = parseFloat((sub + tax).toFixed(2));
+  const tot    = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
+  const tax    = parseFloat((tot * TAX / (100 + TAX)).toFixed(2));
+  const sub    = parseFloat((tot - tax).toFixed(2));
   const tender = payMeth === 'Cash' ? parseFloat(document.getElementById('tendered').value) || 0 : tot;
   const chg    = payMeth === 'Cash' ? parseFloat((tender - tot).toFixed(2)) : 0;
 
   if (payMeth === 'Cash' && tender < tot) { alert('Amount tendered is less than total.'); return; }
 
   if (IS_DEMO) {
-    showReceipt({ order_id: 'DEMO', items, subtotal: sub, tax, total: tot, tendered: tender, change: chg, method: payMeth, cashier: 'Demo Cashier' });
-    closeM('mCheckout');
+    showReceipt({ order_id: 'DEMO', items, subtotal: sub, tax, total: tot, tendered: tender, change: chg, method: payMeth, cashier: CASHIER_NAME });
     return;
   }
 
   // Save order to Supabase
-  const { data: order, error } = await _sb.from('orders').insert({
+  const { data: ord, error: oErr } = await _sb.from('orders').insert({
     store_id: STORE_ID,
-    cashier_name: CASHIER.full_name || CASHIER.username,
+    cashier_name: CASHIER_NAME,
     subtotal: sub, tax, total: tot,
     payment_method: payMeth,
     amount_tendered: tender,
@@ -406,22 +405,16 @@ async function confirmCO() {
     discount_pct: 0,
   }).select('id').single();
 
-  if (error) { alert('Error saving order: ' + error.message); return; }
+  if (oErr) { alert(oErr.message); return; }
 
-  // Save order items
-  await _sb.from('order_items').insert(items.map(i => ({
-    order_id: order.id,
-    product_id: i.id,
-    name: i.name,
-    price: i.price,
-    qty: i.qty,
-  })));
+  await _sb.from('order_items').insert(
+    items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
+  );
 
-  closeM('mCheckout');
-  showReceipt({ order_id: order.id, items, subtotal: sub, tax, total: tot, tendered: tender, change: chg, method: payMeth, cashier: CASHIER.full_name || CASHIER.username });
+  showReceipt({ order_id: ord.id, items, subtotal: sub, tax, total: tot, tendered: tender, change: chg, method: payMeth, cashier: CASHIER_NAME });
 }
 
-function showReceipt(d) {
+function buildReceiptText(d) {
   const ln = '─'.repeat(32);
   const storeName = STORE?.name || 'POSMaker';
   let s = `${storeName}\n${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\nCashier: ${d.cashier}\n${ln}\n`;
@@ -430,11 +423,33 @@ function showReceipt(d) {
   if (d.method === 'Cash') s += `Cash:     ${CUR}${d.tendered.toFixed(2)}\nChange:   ${CUR}${d.change.toFixed(2)}\n`;
   else s += `Paid via: ${d.method}\n`;
   s += `${ln}\n${STORE?.receipt_footer || 'Thank you!'}`;
-  document.getElementById('receiptTxt').textContent = s;
-  document.getElementById('mReceipt').classList.add('show');
+  return s;
 }
 
-function newOrder() { cart = {}; redrawCart(); closeM('mReceipt'); }
+function showReceipt(d) {
+  document.getElementById('confirmTotal').textContent = CUR + d.total.toFixed(2);
+  document.getElementById('confirmChange').textContent = d.method === 'Cash' ? 'Change: ' + CUR + d.change.toFixed(2) : '';
+  document.getElementById('receiptTxt').textContent = buildReceiptText(d);
+  document.getElementById('mConfirm').classList.add('show');
+}
+
+function doPrint() {
+  const txt = document.getElementById('receiptTxt').textContent;
+  const w = window.open('', '', 'width=300,height=500');
+  w.document.write('<pre style="font-family:monospace;font-size:12px">' + txt + '</pre>');
+  w.print();
+  w.close();
+  newOrder();
+}
+
+function newOrder() {
+  cart = {}; payMeth = 'Cash';
+  document.getElementById('tendered').value = '';
+  document.getElementById('chgDisp').textContent = '';
+  document.querySelectorAll('.m-btn').forEach((b, i) => { b.classList.toggle('active', i === 0); });
+  redrawCart();
+  closeM('mConfirm');
+}
 function closeM(id) { document.getElementById(id).classList.remove('show'); }
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
