@@ -720,23 +720,49 @@ async function saveTheme() {
   if (!STORE) return;
   const btn = document.getElementById('saveBtn');
   btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Saving...';
-  const payload = {
-    pos_font      : document.getElementById('czFont').value,
-    pos_accent    : document.getElementById('czAccent').value,
-    pos_bg        : document.getElementById('czBg').value,
-    pos_card      : document.getElementById('czCard').value,
-    pos_text      : document.getElementById('czText').value,
-    pos_radius    : parseInt(document.getElementById('czRadius').value),
-    pos_btn_style : btnStyle,
-    pos_bg_scale  : bgScale,
-    pos_bg_opacity: parseInt(document.getElementById('czBgOpacity').value),
-    pos_bg_img    : bgImgData ? bgImgData.split(',')[1] : '',
-    receipt_footer: document.getElementById('czFooter').value,
-  };
-  const { error } = await _sb.from('stores').update(payload).eq('id', STORE.id);
+
+  const font    = document.getElementById('czFont').value;
+  const accent  = document.getElementById('czAccent').value;
+  const bg      = document.getElementById('czBg').value;
+  const card    = document.getElementById('czCard').value;
+  const text    = document.getElementById('czText').value;
+  const radius  = parseInt(document.getElementById('czRadius').value);
+  const footer  = document.getElementById('czFooter').value;
+  const imgVal  = bgImgData || '';
+  const opacity = parseInt(document.getElementById('czBgOpacity').value);
+
+  // Try progressively simpler payloads until one succeeds
+  // (handles databases where new columns haven't been added yet)
+  const tries = [
+    { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
+      pos_btn_style:btnStyle, pos_bg_scale:bgScale, pos_bg_opacity:opacity, pos_bg_img:imgVal, receipt_footer:footer },
+    { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
+      pos_bg_img:imgVal, receipt_footer:footer },
+    { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
+      receipt_footer:footer },
+    { pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, receipt_footer:footer },
+  ];
+
+  for (let i = 0; i < tries.length; i++) {
+    const { error } = await _sb.from('stores').update(tries[i]).eq('id', STORE.id);
+    if (!error) {
+      btn.disabled = false; btn.innerHTML = '&#128190; Save';
+      if (i === 0) {
+        toast('Theme saved! Your cashier will use the new design.');
+      } else {
+        toast('Saved (partial). Run schema SQL in Supabase to unlock all features.', true);
+      }
+      return;
+    }
+    // Only retry if it's a missing-column error; any other error → stop
+    if (!error.message || !error.message.toLowerCase().includes('column')) {
+      btn.disabled = false; btn.innerHTML = '&#128190; Save';
+      toast('Error: ' + error.message, true); return;
+    }
+  }
+
   btn.disabled = false; btn.innerHTML = '&#128190; Save';
-  if (error) { toast('Error: ' + error.message, true); return; }
-  toast('Theme saved! Your cashier will use the new design.');
+  toast('Could not save. Run the schema SQL in Supabase first.', true);
 }
 
 // ── Reset ─────────────────────────────────────────────────────────────────────

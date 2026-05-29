@@ -352,7 +352,9 @@ function applyPosTheme(s) {
     else if(scale==='tile'){sz='auto';rp='repeat';pos='0 0';}
     else if(scale==='stretch'){sz='100% 100%';rp='no-repeat';pos='0 0';}
     else{sz='cover';rp='no-repeat';pos='center';}
-    document.body.style.backgroundImage    = `linear-gradient(${overlay},${overlay}),url("data:image/jpeg;base64,${s.pos_bg_img}")`;
+    // Support both full data URL (new format) and raw base64 (old format)
+    const imgSrc = s.pos_bg_img.startsWith('data:') ? s.pos_bg_img : `data:image/jpeg;base64,${s.pos_bg_img}`;
+    document.body.style.backgroundImage    = `linear-gradient(${overlay},${overlay}),url("${imgSrc}")`;
     document.body.style.backgroundSize     = `auto,${sz}`;
     document.body.style.backgroundRepeat   = `repeat,${rp}`;
     document.body.style.backgroundPosition = `0 0,${pos}`;
