@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POSMaker">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#00b4d8">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>POSMaker Cashier</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/config.js"></script>
@@ -159,6 +166,21 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 </style>
 </head>
 <body>
+
+<!-- ── PWA INSTALL BANNER ── -->
+<div id="installBar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#111120;border-top:1px solid #00b4d8;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:10px">
+    <img src="icon-192.png" style="width:36px;height:36px;border-radius:8px">
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#f0f0f8">Install POSMaker</div>
+      <div style="font-size:11px;color:#8888aa">Add to home screen for offline use</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button onclick="document.getElementById('installBar').style.display='none'" style="padding:7px 14px;background:transparent;border:1px solid #252540;color:#8888aa;border-radius:7px;cursor:pointer;font-size:12px">Later</button>
+    <button onclick="installPWA()" style="padding:7px 16px;background:#00b4d8;border:none;color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">&#10515; Install</button>
+  </div>
+</div>
 
 <!-- ── LOGIN ── -->
 <div id="loginWrap">
@@ -1093,6 +1115,31 @@ async function deleteDraft(id) {
 async function sha256(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── PWA Install ───────────────────────────────────────────────────────────
+let _pwaPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaPrompt = e;
+  const bar = document.getElementById('installBar');
+  if (bar) bar.style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  const bar = document.getElementById('installBar');
+  if (bar) bar.style.display = 'none';
+  _pwaPrompt = null;
+});
+async function installPWA() {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  const { outcome } = await _pwaPrompt.userChoice;
+  if (outcome === 'accepted') _pwaPrompt = null;
+}
+
+// ── Service Worker ────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 </script>
 </body>

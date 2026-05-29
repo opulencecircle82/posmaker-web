@@ -431,6 +431,49 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
       </div>
       <div id="posTerminalList"><div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Loading...</div></div>
+
+      <!-- DOWNLOAD / INSTALL SECTION -->
+      <div style="margin-top:24px">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">&#128640; Install as App</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px">
+            <div style="font-size:22px;margin-bottom:8px">&#129354;</div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:4px">Android App</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Open the Cashier Link sa Chrome sa iyong Android phone. Lalabas ang "Add to Home Screen" &#8212; i-install at magmukhang native app.</div>
+            <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.8;margin-bottom:10px">
+              1&#65039;&#8419; Buksan ang Cashier Link sa Chrome<br>
+              2&#65039;&#8419; Pindutin ang &#8942; (menu) sa kanang sulok<br>
+              3&#65039;&#8419; I-tap ang <strong style="color:var(--accent)">Add to Home Screen</strong><br>
+              4&#65039;&#8419; I-tap ang <strong style="color:var(--accent)">Install</strong> &#8212; tapos na!
+            </div>
+            <button class="btn btn-accent btn-sm" style="width:100%;justify-content:center" onclick="showInstallModal('Android')">View Steps &#8594;</button>
+          </div>
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px">
+            <div style="font-size:22px;margin-bottom:8px">&#128187;</div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:4px">Windows / PC App</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Open the Cashier Link sa Edge o Chrome sa PC. May lalabas na install button sa address bar &#8212; i-click at mabubuksan sa sariling window.</div>
+            <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.8;margin-bottom:10px">
+              1&#65039;&#8419; Buksan ang Cashier Link sa Edge/Chrome<br>
+              2&#65039;&#8419; I-click ang &#10515; icon sa address bar<br>
+              3&#65039;&#8419; I-click ang <strong style="color:var(--accent)">Install</strong><br>
+              4&#65039;&#8419; Magbubukas sa sariling window na &#8212; tapos na!
+            </div>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="showInstallModal('PC/Windows')">View Steps &#8594;</button>
+          </div>
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px">
+            <div style="font-size:22px;margin-bottom:8px">&#128230;</div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:4px">Download APK File</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">I-generate ang proper <strong>.apk</strong> file para sa Android gamit ang PWABuilder &#8212; libre at walang Google Play na kailangan.</div>
+            <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.8;margin-bottom:10px">
+              1&#65039;&#8419; I-copy ang iyong Cashier Link<br>
+              2&#65039;&#8419; Pumunta sa <strong style="color:var(--accent)">pwabuilder.com</strong><br>
+              3&#65039;&#8419; I-paste ang URL &#8594; I-click Start<br>
+              4&#65039;&#8419; I-download ang <strong style="color:var(--accent)">Android APK</strong>
+            </div>
+            <button class="btn btn-accent btn-sm" style="width:100%;justify-content:center" id="btnPWABuilder" onclick="openPWABuilder()">&#128230; Generate APK &#8594;</button>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -607,6 +650,25 @@ input:checked + .slider:before{transform:translateX(18px)}
       <button class="btn btn-ghost" onclick="closeModal('catModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveCat()">Save</button>
     </div>
+  </div>
+</div>
+
+<!-- POS INSTALL MODAL -->
+<div class="modal" id="posInstallModal">
+  <div class="mbox" style="width:min(420px,100%)">
+    <h3>&#128640; Install on <span id="posInstallType">Android</span></h3>
+    <div id="posInstallSteps" style="font-size:13px;color:#ccc;line-height:2;margin-bottom:16px">
+      <div style="margin-bottom:10px;padding:12px;background:var(--s2);border-radius:8px">
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px">Your Cashier Link:</div>
+        <div id="posInstallUrl" style="font-family:monospace;font-size:12px;color:var(--accent);word-break:break-all"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="navigator.clipboard.writeText(document.getElementById('posInstallUrl').textContent);showToast('Link copied!')">&#128203; Copy Link</button>
+      </div>
+      <div style="padding:12px;background:var(--s2);border-radius:8px">
+        <div style="font-weight:700;color:var(--text);margin-bottom:8px">Steps:</div>
+        <div id="posInstallStepList" style="line-height:2"></div>
+      </div>
+    </div>
+    <div class="m-actions"><button class="btn btn-ghost" onclick="closeModal('posInstallModal')">Close</button></div>
   </div>
 </div>
 
@@ -1342,6 +1404,24 @@ function renderPOSTerminals() {
       </div>
     </div>`;
   }).join('');
+}
+function openPWABuilder() {
+  if (!allStores.length) { showToast('No POS terminal found.', true); return; }
+  const base = location.origin + location.pathname.replace('dashboard.html','cashier.html');
+  const url = `${base}?store=${allStores[0].id}`;
+  window.open('https://www.pwabuilder.com/?site=' + encodeURIComponent(url), '_blank');
+}
+function showInstallModal(type) {
+  if (!allStores.length) return;
+  const base = location.origin + location.pathname.replace('dashboard.html','cashier.html');
+  const url = `${base}?store=${allStores[0].id}`;
+  document.getElementById('posInstallType').textContent = type;
+  document.getElementById('posInstallUrl').textContent = url;
+  const steps = type === 'Android'
+    ? '1️⃣ Buksan ang link sa <strong>Chrome</strong> sa Android phone<br>2️⃣ I-tap ang <strong>⋮ menu</strong> (tatlong tuldok sa itaas)<br>3️⃣ I-tap ang <strong style="color:var(--accent)">Add to Home Screen</strong><br>4️⃣ I-tap ang <strong style="color:var(--accent)">Install</strong> — tapos na! 🎉<br><br><em style="color:var(--muted)">Lalabas ang app icon sa iyong home screen katulad ng isang APK.</em>'
+    : '1️⃣ Buksan ang link sa <strong>Edge o Chrome</strong> sa PC<br>2️⃣ Hanapin ang <strong style="color:var(--accent)">⬇ install icon</strong> sa address bar (kanan)<br>3️⃣ I-click ang <strong style="color:var(--accent)">Install</strong><br>4️⃣ Magbubukas ang POS sa sariling window — tapos na! 🎉<br><br><em style="color:var(--muted)">Makikita sa Start Menu at Taskbar tulad ng normal na app.</em>';
+  document.getElementById('posInstallStepList').innerHTML = steps;
+  document.getElementById('posInstallModal').classList.add('show');
 }
 function tryAddPOS() {
   document.getElementById('upgradeMsg').innerHTML =
