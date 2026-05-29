@@ -354,7 +354,7 @@ function openDemo() {
   const tax  = document.getElementById('idxTax').value || '12';
   localStorage.setItem('pm_demo_prods', JSON.stringify(demoProd));
   const p = new URLSearchParams({ dname: name, dcur: cur, dtax: tax });
-  window.open('demo.html?' + p.toString(), '_blank');
+  window.location.href = 'demo.html?' + p.toString();
 }
 </script>
 </body>
