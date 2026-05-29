@@ -387,6 +387,8 @@ let discPct = 0, discAmt = 0;
       { id: 'd8', name: 'Coffee',        category: 'Drinks', price: 75,  image_b64: '', available: true, stock: 99, unit: 'pc' },
     ];
     setStoreUI();
+    buildCats();
+    renderProds('All');
     CASHIER = { full_name: 'Demo Cashier', role: 'cashier' };
     showPOS('Demo Cashier');
     return;
