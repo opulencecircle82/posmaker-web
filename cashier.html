@@ -606,7 +606,7 @@ async function confirmOrder() {
 
   if (IS_DEMO) { showReceipt(receiptData); return; }
 
-  const { data: ord, error: oErr } = await _sb.from('orders').insert({
+  const baseRow = {
     store_id:        STORE_ID,
     cashier_name:    CASHIER_NAME,
     subtotal:        sub,
@@ -616,11 +616,15 @@ async function confirmOrder() {
     amount_tendered: tender,
     change_given:    change,
     discount_pct:    dPct,
-    discount_amt:    disc,
-    order_type:      orderType,
-    table_no:        tableNo,
-    is_kot:          isKOT,
-  }).select('id').single();
+  };
+  const fullRow = { ...baseRow, discount_amt: disc, order_type: orderType, table_no: tableNo, is_kot: isKOT };
+
+  let { data: ord, error: oErr } = await _sb.from('orders').insert(fullRow).select('id').single();
+
+  // Fallback: new columns not in DB yet — retry with base columns only
+  if (oErr && oErr.message && oErr.message.toLowerCase().includes('column')) {
+    ({ data: ord, error: oErr } = await _sb.from('orders').insert(baseRow).select('id').single());
+  }
 
   if (oErr) { alert(oErr.message); return; }
 
@@ -734,7 +738,14 @@ async function saveDraft() {
     items_json:   JSON.stringify(items),
   });
 
-  if (error) { alert(error.message); return; }
+  if (error) {
+    if (error.message && (error.message.includes('does not exist') || error.message.includes('relation'))) {
+      alert('Draft orders table not set up yet.\nPlease ask your admin to run the latest schema SQL in Supabase.');
+    } else {
+      alert(error.message);
+    }
+    return;
+  }
   await loadDraftList();
 }
 
