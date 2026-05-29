@@ -156,6 +156,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="sb-item" onclick="nav('settings')"><span class="ico">&#9881;</span> Settings</div>
     <div class="sb-item" onclick="location.href='customize.html'"><span class="ico">&#127912;</span> Customize POS</div>
     <div class="sb-item" onclick="nav('access')"><span class="ico">&#128279;</span> Cashier Link</div>
+    <div class="sb-item" onclick="nav('pos')"><span class="ico">&#128187;</span> My POS <span id="posNavBadge" style="margin-left:auto;font-size:10px;background:rgba(0,180,216,.2);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
   </div>
   <div class="sb-bottom">
     <div class="sb-user" id="sbUser"></div>
@@ -411,6 +412,25 @@ input:checked + .slider:before{transform:translateX(18px)}
         <p style="margin-bottom:10px">2. Send the cashier link to your staff &#8212; it works on any browser, no install needed.</p>
         <p>3. Cashiers log in with the username and password you set for them.</p>
       </div>
+    </div>
+
+    <!-- MY POS TERMINALS -->
+    <div class="section" id="sec-pos">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:16px;font-weight:700">My POS Terminals</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:2px">Each terminal has its own unique cashier URL</div>
+        </div>
+        <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()">+ Add POS</button>
+      </div>
+      <div style="background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.25);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:22px">&#127381;</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--accent)">Free Plan &#8212; 1 POS Terminal Included</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Upgrade to Pro to run multiple POS counters or locations under one account.</div>
+        </div>
+      </div>
+      <div id="posTerminalList"><div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Loading...</div></div>
     </div>
 
   </div>
@@ -761,6 +781,8 @@ let invItems = [];
 
 const FREE_PROD_LIMIT = 3;
 const FREE_INV_LIMIT  = 3;
+const FREE_POS_LIMIT  = 1;
+let allStores = [];
 
 function _sig(ms = 12000) {
   const c = new AbortController();
@@ -820,11 +842,12 @@ function _sig(ms = 12000) {
   loadProducts();
   loadInventory();
   loadStaff();
+  loadPOSTerminals();
   checkSetupBanner();
 })();
 
 // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',salesreport:'Sales Report',settings:'Settings',access:'Cashier Link'};
+const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',salesreport:'Sales Report',settings:'Settings',access:'Cashier Link',pos:'My POS Terminals'};
 // ── Business-type adaptation ───────────────────────────────────────────────────
 const RESTAURANT_BIZ = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
   'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
@@ -883,6 +906,7 @@ function nav(id) {
   if (id === 'staff')      loadStaff();
   if (id === 'categories') { loadDbCategories().then(() => loadProducts().then(loadCategories)); switchCatTab(catTab); }
   if (id === 'settings')   populatePriceCatFilter();
+  if (id === 'pos')        loadPOSTerminals();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbOverlay').classList.add('show'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbOverlay').classList.remove('show'); }
@@ -1284,6 +1308,54 @@ function updateAddBtnLabels() {
     ib.textContent = over ? `+ Add Item (${c}/${FREE_INV_LIMIT} — Full)` : `+ Add Item (${c}/${FREE_INV_LIMIT})`;
     ib.style.background = over ? '#6b7280' : '';
   }
+}
+async function loadPOSTerminals() {
+  const list = document.getElementById('posTerminalList');
+  if (list) list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Loading...</div>';
+  const { data } = await _sb.from('stores').select('id,name,business_type,created_at').order('created_at').abortSignal(_sig());
+  allStores = data || [];
+  renderPOSTerminals();
+  updateAddPOSBtn();
+}
+function renderPOSTerminals() {
+  const list = document.getElementById('posTerminalList');
+  if (!list) return;
+  const base = location.origin + location.pathname.replace('dashboard.html','cashier.html');
+  if (!allStores.length) { list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted)">No POS terminals found.</div>'; return; }
+  list.innerHTML = allStores.map((s, i) => {
+    const url = `${base}?store=${s.id}`;
+    const shortId = s.id.substring(0,8).toUpperCase();
+    return `<div class="info-card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div>
+          <div style="font-size:15px;font-weight:700">&#128187; POS #${i+1} &mdash; ${s.name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:monospace">ID: ${shortId}&hellip;</div>
+          ${s.business_type?`<div style="font-size:11px;color:var(--accent);margin-top:3px">${s.business_type}</div>`:''}
+        </div>
+        <span class="badge" style="background:#0a2a1a;color:#10b981">&#9679; Active</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">CASHIER URL</div>
+      <div class="link-box" style="font-size:12px;margin:0 0 12px">${url}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-accent btn-sm" onclick="navigator.clipboard.writeText('${url}');showToast('Cashier link copied!')">&#128203; Copy Link</button>
+        <a class="btn btn-ghost btn-sm" href="${url}" target="_blank">Open Cashier &#8594;</a>
+      </div>
+    </div>`;
+  }).join('');
+}
+function tryAddPOS() {
+  document.getElementById('upgradeMsg').innerHTML =
+    `You have <strong>${allStores.length}/${FREE_POS_LIMIT}</strong> POS terminal &mdash; that&apos;s the free plan limit.<br>Upgrade to Pro to run multiple POS counters or branches under one account.`;
+  document.getElementById('upgradeModal').classList.add('show');
+}
+function updateAddPOSBtn() {
+  const btn = document.getElementById('btnAddPOS');
+  if (!btn) return;
+  const over = allStores.length >= FREE_POS_LIMIT;
+  btn.textContent = over ? `+ Add POS (${allStores.length}/${FREE_POS_LIMIT} — Full)` : `+ Add POS (${allStores.length}/${FREE_POS_LIMIT})`;
+  btn.style.background = over ? '#6b7280' : '';
+  const badge = document.getElementById('posNavBadge');
+  if (badge) badge.textContent = `${allStores.length}/${FREE_POS_LIMIT}`;
 }
 function openProdModal(p) {
   if (!p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
