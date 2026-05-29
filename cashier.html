@@ -369,12 +369,14 @@ let discPct = 0, discAmt = 0;
     const dname = params.get('dname') || 'Demo Store';
     const dcur  = params.get('dcur')  || '₱';
     const dtax  = parseFloat(params.get('dtax') || '12');
-    const dlogo = params.get('dlogo') || '';
-    STORE = { id: null, name: dname, currency: dcur, tax_rate: dtax, receipt_footer: 'Thank you!', logo_b64: dlogo,
+    STORE = { id: null, name: dname, currency: dcur, tax_rate: dtax, receipt_footer: 'Thank you!', logo_b64: '',
               pos_font:'', pos_accent:'', pos_bg:'', pos_card:'', pos_text:'', pos_radius:10,
               pos_bg_img:'', pos_btn_style:'default', pos_bg_scale:'cover', pos_bg_opacity:18, business_type:'' };
     CUR = dcur; TAX = dtax;
-    prods = [
+    // Use products from the landing page builder, or fall back to defaults
+    const _saved = localStorage.getItem('pm_demo_prods');
+    localStorage.removeItem('pm_demo_prods');
+    prods = _saved ? JSON.parse(_saved) : [
       { id: 'd1', name: 'Burger',        category: 'Food',   price: 120, image_b64: '', available: true, stock: 99, unit: 'pc' },
       { id: 'd2', name: 'Fries',         category: 'Food',   price: 60,  image_b64: '', available: true, stock: 99, unit: 'pc' },
       { id: 'd3', name: 'Fried Chicken', category: 'Food',   price: 150, image_b64: '', available: true, stock: 99, unit: 'pc' },
