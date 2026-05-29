@@ -199,3 +199,28 @@ ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_bg_img    TEXT    DEFAULT '';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_btn_style  TEXT    DEFAULT 'default';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_bg_scale   TEXT    DEFAULT 'cover';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_bg_opacity NUMERIC DEFAULT 18;
+
+-- Restaurant POS columns on orders
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type   TEXT    DEFAULT 'Dine In';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_no     TEXT    DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_kot       BOOLEAN DEFAULT FALSE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amt NUMERIC DEFAULT 0;
+
+-- Draft orders (save-for-later cart)
+CREATE TABLE IF NOT EXISTS draft_orders (
+  id           UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id     UUID        REFERENCES stores NOT NULL,
+  cashier_name TEXT        DEFAULT '',
+  order_type   TEXT        DEFAULT 'Dine In',
+  table_no     TEXT        DEFAULT '',
+  items_json   TEXT        DEFAULT '[]',
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE draft_orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS draft_owner ON draft_orders;
+DROP POLICY IF EXISTS draft_anon  ON draft_orders;
+CREATE POLICY draft_owner ON draft_orders FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+CREATE POLICY draft_anon ON draft_orders FOR ALL TO anon
+  USING (TRUE) WITH CHECK (TRUE);

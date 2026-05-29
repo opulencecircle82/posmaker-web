@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -8,91 +8,135 @@
 <script src="js/config.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-:root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540}
-body{background:var(--bg);color:#f0f0f8;font-family:'Segoe UI',sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+:root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--radius:8px}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
 
-/* LOGIN */
-#loginWrap{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:0}
+/* ── LOGIN ─────────────────────────────────────────────── */
+#loginWrap{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column}
 .login-box{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:32px;width:min(360px,92vw)}
 .login-logo-img{display:block;max-height:70px;max-width:160px;margin:0 auto 10px;border-radius:6px;object-fit:contain}
 .login-title{text-align:center;font-size:20px;font-weight:800;color:var(--accent);margin-bottom:6px}
 .login-sub{text-align:center;font-size:13px;color:#8888aa;margin-bottom:24px}
-.inp{width:100%;padding:11px 13px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:#f0f0f8;font-size:15px;margin-bottom:10px;outline:none;font-family:inherit}
+.inp{width:100%;padding:11px 13px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;margin-bottom:10px;outline:none;font-family:inherit}
 .inp:focus{border-color:var(--accent)}
 .inp::placeholder{color:#44445a}
 .btn-login{width:100%;padding:13px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin-top:4px}
 #loginErr{color:#ef4444;font-size:12px;min-height:16px;margin-bottom:6px;text-align:center}
 
-/* HEADER */
-.hdr{background:var(--accent);padding:9px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
-.hdr-logo{height:30px;width:auto;border-radius:4px;object-fit:contain;display:none}
-.hdr-title{font-size:16px;font-weight:700;flex:1}
-.hdr-cashier{font-size:12px;opacity:.85;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.btn-logout{background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;flex-shrink:0}
+/* ── HEADER ────────────────────────────────────────────── */
+.hdr{background:var(--accent);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.hdr-logo{height:28px;width:auto;border-radius:4px;object-fit:contain;display:none}
+.hdr-title{font-size:15px;font-weight:700;flex:1}
+.hdr-cashier{font-size:11px;opacity:.85;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-logout{background:rgba(255,255,255,.2);border:none;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;flex-shrink:0}
 
-/* CATEGORIES */
-.cat-bar{background:var(--s1);display:flex;overflow-x:auto;padding:7px 8px;gap:6px;flex-shrink:0;border-bottom:1px solid var(--border);scrollbar-width:none}
+/* ── ORDER TYPE TABS ────────────────────────────────────── */
+.ot-bar{background:var(--s1);display:flex;border-bottom:2px solid var(--border);flex-shrink:0}
+.ot-btn{flex:1;padding:9px 6px;border:none;background:transparent;color:#666;font-size:12px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;letter-spacing:.4px;text-transform:uppercase}
+.ot-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(0,180,216,.07)}
+
+/* ── CATEGORIES ─────────────────────────────────────────── */
+.cat-bar{background:var(--s1);display:flex;overflow-x:auto;padding:5px 8px;gap:5px;flex-shrink:0;border-bottom:1px solid var(--border);scrollbar-width:none}
 .cat-bar::-webkit-scrollbar{display:none}
-.cat-btn{background:var(--s2);border:1px solid var(--border);color:#888;padding:6px 14px;border-radius:20px;cursor:pointer;white-space:nowrap;font-size:13px;flex-shrink:0}
+.cat-btn{background:var(--s2);border:1px solid var(--border);color:#888;padding:7px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;font-size:11px;font-weight:700;flex-shrink:0;text-transform:uppercase;letter-spacing:.6px;transition:all .15s}
 .cat-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 
-/* MAIN */
+/* ── MAIN LAYOUT ────────────────────────────────────────── */
 .main{display:flex;flex:1;overflow:hidden}
-.products{flex:1;overflow-y:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;align-content:start}
-.p-btn{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:0;cursor:pointer;text-align:center;user-select:none;transition:background .1s;overflow:hidden;display:flex;flex-direction:column}
-.p-btn:active{background:var(--accent);border-color:var(--accent)}
-.p-name{font-size:12px;line-height:1.3;margin:6px 6px 2px;color:#ddd}
-.p-price{color:var(--accent);font-size:13px;font-weight:700;margin-bottom:6px}
 
-/* CART */
-.cart{width:290px;background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
-@media(max-width:580px){.cart{width:210px}}
-.pay-section{padding:8px 10px 0;border-top:1px solid var(--border)}
-.pay-label{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-.cart-hdr{padding:11px 13px;font-size:13px;font-weight:700;border-bottom:1px solid var(--border);color:#aaa}
-.cart-list{flex:1;overflow-y:auto;padding:6px 10px}
-.cart-empty{color:#444;text-align:center;padding:24px 8px;font-size:13px}
-.ci{display:flex;align-items:center;gap:4px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
-.ci-name{flex:1;color:#ccc;line-height:1.2}
+/* ── PRODUCT GRID ───────────────────────────────────────── */
+.products{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;align-content:start}
+.p-btn{background:var(--s2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:left;user-select:none;transition:transform .1s,border-color .1s;overflow:hidden;display:flex;flex-direction:column}
+.p-btn:active{border-color:var(--accent);transform:scale(.96)}
+.p-img{width:100%;height:105px;object-fit:cover;display:block}
+.p-noimg{width:100%;height:105px;display:flex;align-items:center;justify-content:center;font-size:38px;background:var(--s1)}
+.p-info{padding:7px 8px 8px}
+.p-name{font-size:11px;line-height:1.3;color:#ddd;margin-bottom:3px;font-weight:500}
+.p-price{color:var(--accent);font-size:13px;font-weight:800}
+
+/* ── CART ───────────────────────────────────────────────── */
+.cart{width:300px;background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+@media(max-width:620px){.cart{width:215px}}
+
+/* Cart action row (Draft / Table / KOT) */
+.cart-acts{display:flex;gap:4px;padding:6px 7px;border-bottom:1px solid var(--border);flex-shrink:0}
+.act-btn{flex:1;padding:5px 2px;border:1px solid var(--border);background:var(--s2);color:#999;border-radius:5px;cursor:pointer;font-size:10px;font-weight:700;text-align:center;white-space:nowrap;letter-spacing:.3px}
+.act-btn:active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.act-btn.on{background:rgba(0,180,216,.15);color:var(--accent);border-color:var(--accent)}
+
+/* Cart items */
+.cart-list{flex:1;overflow-y:auto;padding:4px 7px}
+.cart-empty{color:#444;text-align:center;padding:20px 8px;font-size:12px}
+.ci{display:flex;align-items:center;gap:4px;padding:5px 0;border-bottom:1px solid var(--border)}
+.ci-name{flex:1;color:#ccc;font-size:11px;line-height:1.25}
 .ci-qty{display:flex;align-items:center;gap:3px}
-.q-btn{background:var(--s2);border:none;color:#ccc;width:22px;height:22px;border-radius:4px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.q-btn{background:var(--s2);border:none;color:#ccc;width:19px;height:19px;border-radius:3px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .q-btn:active{background:var(--accent)}
-.ci-line{color:#aaa;min-width:55px;text-align:right}
-.totals{padding:10px 13px;border-top:1px solid var(--border);font-size:12px}
-.t-row{display:flex;justify-content:space-between;padding:2px 0;color:#aaa}
-.t-row.big{font-size:15px;font-weight:700;color:var(--accent);padding-top:4px}
-.btn-checkout{margin:8px 10px 10px;background:var(--accent);color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;width:calc(100% - 20px)}
-.btn-checkout:disabled{background:#252540;color:#555;cursor:not-allowed}
+.ci-qty-num{min-width:16px;text-align:center;font-size:11px}
+.ci-line{color:#aaa;min-width:48px;text-align:right;font-size:11px}
 
-/* MODAL */
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;padding:12px}
-.modal.show{display:flex}
-.mbox{background:var(--s1);border-radius:14px;padding:22px;width:min(380px,96vw);border:1px solid var(--border)}
-.mtitle{font-size:17px;font-weight:700;margin-bottom:12px}
-.mtotal{font-size:24px;font-weight:800;color:var(--accent);margin-bottom:14px}
-.methods{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap}
-.m-btn{flex:1;padding:9px 4px;border:2px solid var(--border);background:transparent;color:#888;border-radius:7px;cursor:pointer;font-size:12px;min-width:70px}
+/* Discount section */
+.disc-section{padding:5px 8px;border-top:1px solid var(--border);display:none}
+.disc-section.show{display:block}
+.disc-label{font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;font-weight:700}
+.disc-inputs{display:flex;gap:5px}
+.disc-inp{flex:1;padding:5px 7px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;outline:none;font-family:inherit;min-width:0}
+.disc-inp:focus{border-color:var(--accent)}
+
+/* Totals */
+.totals{padding:7px 9px;border-top:1px solid var(--border);font-size:11px;flex-shrink:0}
+.t-row{display:flex;justify-content:space-between;padding:2px 0;color:#777}
+.t-row.disc-line{color:#ef4444}
+.t-row.big{font-size:15px;font-weight:800;color:var(--accent);padding-top:4px}
+
+/* Payment */
+.pay-section{padding:5px 8px 0;border-top:1px solid var(--border);flex-shrink:0}
+.pay-label{font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;font-weight:700}
+.methods{display:flex;gap:4px;margin-bottom:5px}
+.m-btn{flex:1;padding:6px 2px;border:2px solid var(--border);background:transparent;color:#777;border-radius:5px;cursor:pointer;font-size:11px;min-width:0;font-weight:600}
 .m-btn.active{border-color:var(--accent);color:#fff;background:rgba(0,180,216,.12)}
-.quick-row{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
-.q-cash{flex:1;min-width:60px;padding:8px 4px;background:var(--s2);border:1px solid var(--border);color:#ccc;border-radius:6px;cursor:pointer;font-size:13px}
+.quick-row{display:flex;gap:4px;margin-bottom:5px;flex-wrap:wrap}
+.q-cash{flex:1;min-width:50px;padding:6px 3px;background:var(--s2);border:1px solid var(--border);color:#ccc;border-radius:5px;cursor:pointer;font-size:11px}
 .q-cash:active{background:var(--accent)}
-.chg{text-align:center;font-size:15px;min-height:22px;margin-bottom:6px;font-weight:600}
-.m-actions{display:flex;gap:8px;margin-top:10px}
-.btn-cancel{flex:1;padding:11px;background:#252540;border:none;color:#ccc;border-radius:8px;cursor:pointer;font-size:14px}
-.btn-confirm{flex:2;padding:11px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px}
-.receipt-pre{font-family:monospace;font-size:12px;background:#0a0a14;padding:12px;border-radius:8px;max-height:50dvh;overflow-y:auto;white-space:pre-wrap;color:#bbb;border:1px solid var(--border)}
+.chg{text-align:center;font-size:12px;min-height:18px;margin-bottom:3px;font-weight:600}
+.btn-checkout{margin:6px 7px 7px;background:var(--accent);color:#fff;border:none;padding:11px;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;width:calc(100% - 14px)}
+.btn-checkout:disabled{background:#1e1e30;color:#444;cursor:not-allowed}
+
+/* ── MODALS ─────────────────────────────────────────────── */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:500;align-items:center;justify-content:center;padding:12px}
+.modal.show{display:flex}
+.mbox{background:var(--s1);border-radius:14px;padding:20px;width:min(420px,96vw);border:1px solid var(--border);max-height:90dvh;overflow-y:auto}
+.mtitle{font-size:16px;font-weight:700;margin-bottom:12px;color:var(--text)}
+.mtotal{font-size:22px;font-weight:800;color:var(--accent);margin-bottom:10px}
+.m-actions{display:flex;gap:7px;margin-top:10px}
+.btn-cancel{flex:1;padding:10px;background:#252540;border:none;color:#ccc;border-radius:8px;cursor:pointer;font-size:13px}
+.btn-confirm{flex:2;padding:10px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px}
+.receipt-pre{font-family:monospace;font-size:11px;background:#0a0a14;padding:10px;border-radius:8px;max-height:40dvh;overflow-y:auto;white-space:pre-wrap;color:#bbb;border:1px solid var(--border)}
+
+/* Table grid */
+.tbl-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:10px 0}
+.tbl-btn{padding:11px 4px;border:2px solid var(--border);background:var(--s2);color:#aaa;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;text-align:center}
+.tbl-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,180,216,.1)}
+.tbl-btn.none-btn{border-style:dashed;color:#444;font-size:11px}
+
+/* Draft list */
+.draft-item{padding:9px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;margin-bottom:5px;transition:border-color .15s;position:relative}
+.draft-item:active{border-color:var(--accent)}
+.draft-top{font-size:12px;font-weight:600;color:#ddd;margin-bottom:2px;padding-right:24px}
+.draft-sub{font-size:10px;color:#555}
+.draft-del{position:absolute;top:8px;right:8px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1}
 
 /* DEMO BANNER */
-.demo-banner{background:rgba(124,58,237,.15);border-bottom:1px solid rgba(124,58,237,.3);padding:6px 14px;font-size:12px;color:#a78bfa;text-align:center;flex-shrink:0}
+.demo-banner{background:rgba(124,58,237,.15);border-bottom:1px solid rgba(124,58,237,.3);padding:5px 12px;font-size:11px;color:#a78bfa;text-align:center;flex-shrink:0}
 
 /* SPINNER */
-.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
+<!-- ── LOGIN ── -->
 <div id="loginWrap">
   <div class="login-box">
     <img class="login-logo-img" id="loginLogo" alt="">
@@ -105,53 +149,113 @@ body{background:var(--bg);color:#f0f0f8;font-family:'Segoe UI',sans-serif;height
   </div>
 </div>
 
-<!-- APP (hidden until login) -->
+<!-- ── APP ── -->
 <div id="demoBanner" class="demo-banner" style="display:none">Demo mode — changes are not saved</div>
+
 <div class="hdr">
   <img class="hdr-logo" id="hdrLogo" alt="">
   <span class="hdr-title" id="hdrTitle">POSMaker</span>
   <span class="hdr-cashier" id="hdrCashier"></span>
   <button class="btn-logout" onclick="doLogout()">Logout</button>
 </div>
+
+<!-- Order type tabs -->
+<div class="ot-bar">
+  <button class="ot-btn active" data-type="Dine In"   onclick="setOrderType(this)">&#127869; Dine In</button>
+  <button class="ot-btn"        data-type="Take Away"  onclick="setOrderType(this)">&#128101; Take Away</button>
+  <button class="ot-btn"        data-type="Delivery"   onclick="setOrderType(this)">&#128666; Delivery</button>
+</div>
+
+<!-- Category tabs -->
 <div class="cat-bar" id="catBar"></div>
+
 <div class="main">
+  <!-- Product grid -->
   <div class="products" id="grid"></div>
+
+  <!-- Cart -->
   <div class="cart">
-    <div class="cart-hdr">&#128722; Cart <span id="cartCnt" style="color:#555;font-weight:400"></span></div>
+    <!-- Cart action row -->
+    <div class="cart-acts">
+      <button class="act-btn" onclick="showDrafts()">&#128203; Drafts</button>
+      <button class="act-btn" id="btnTable" onclick="showTableModal()">&#127963; Table: &#8212;</button>
+      <button class="act-btn" id="btnKOT"   onclick="toggleKOT()">&#128104;&#8205;&#127859; KOT</button>
+    </div>
+
+    <!-- Items -->
     <div class="cart-list" id="cartList"><div class="cart-empty">Cart is empty</div></div>
+
+    <!-- Discount -->
+    <div class="disc-section" id="discSection">
+      <div class="disc-label">Discount</div>
+      <div class="disc-inputs">
+        <input class="disc-inp" id="discPct" type="number" placeholder="%" min="0" max="100" step="0.5" oninput="onDiscPct()">
+        <input class="disc-inp" id="discAmt" type="number" placeholder="Amount" min="0" step="0.01" oninput="onDiscAmt()">
+      </div>
+    </div>
+
+    <!-- Totals -->
     <div class="totals">
-      <div class="t-row"><span style="color:#666">Sub (ex-VAT)</span><span id="tSub" style="color:#666">&#8212;</span></div>
-      <div class="t-row"><span id="taxLabel" style="color:#666">VAT incl. (12%)</span><span id="tTax">&#8212;</span></div>
+      <div class="t-row"><span>Subtotal (ex-VAT)</span><span id="tSub">&#8212;</span></div>
+      <div class="t-row disc-line" id="tDiscRow" style="display:none"><span>Discount</span><span id="tDisc"></span></div>
+      <div class="t-row"><span id="taxLabel">VAT (12%)</span><span id="tTax">&#8212;</span></div>
       <div class="t-row big"><span>TOTAL</span><span id="tTot">&#8212;</span></div>
     </div>
+
+    <!-- Payment method -->
     <div class="pay-section" id="paySection" style="display:none">
       <div class="pay-label">Payment Method</div>
-      <div class="methods" style="margin-bottom:8px">
+      <div class="methods">
         <button class="m-btn active" onclick="setMethod('Cash',this)">Cash</button>
-        <button class="m-btn" onclick="setMethod('Card',this)">Card</button>
-        <button class="m-btn" onclick="setMethod('GCash',this)">GCash</button>
+        <button class="m-btn"        onclick="setMethod('Card',this)">Card</button>
+        <button class="m-btn"        onclick="setMethod('GCash',this)">GCash</button>
       </div>
       <div id="cashSection">
         <div class="quick-row" id="quickRow"></div>
-        <input class="inp" id="tendered" type="number" placeholder="Amount tendered" oninput="calcChange()" style="margin-bottom:4px">
+        <input class="inp" id="tendered" type="number" placeholder="Amount tendered" oninput="calcChange()" style="padding:8px 10px;margin-bottom:2px">
         <div class="chg" id="chgDisp"></div>
       </div>
     </div>
+
     <button class="btn-checkout" id="btnCO" disabled onclick="confirmOrder()">&#10004; Confirm Order</button>
   </div>
 </div>
 
-
-<!-- CONFIRM POPUP -->
+<!-- ── RECEIPT MODAL ── -->
 <div class="modal" id="mConfirm">
   <div class="mbox">
     <div class="mtitle">&#10004; Order Confirmed</div>
     <div class="mtotal" id="confirmTotal"></div>
-    <div id="confirmChange" style="font-size:13px;color:#10b981;margin-bottom:10px"></div>
-    <pre class="receipt-pre" id="receiptTxt" style="max-height:220px"></pre>
-    <div class="m-actions" style="margin-top:12px">
-      <button class="btn-cancel" onclick="newOrder()">New Order</button>
+    <div id="confirmChange" style="font-size:12px;color:#10b981;margin-bottom:8px"></div>
+    <pre class="receipt-pre" id="receiptTxt"></pre>
+    <div class="m-actions">
+      <button class="btn-cancel"  onclick="newOrder()">New Order</button>
       <button class="btn-confirm" onclick="doPrint()">&#128438; Print Receipt</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TABLE MODAL ── -->
+<div class="modal" id="mTable">
+  <div class="mbox">
+    <div class="mtitle">&#127963; Select Table</div>
+    <div class="tbl-grid" id="tblGrid"></div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeM('mTable')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DRAFT MODAL ── -->
+<div class="modal" id="mDraft">
+  <div class="mbox">
+    <div class="mtitle">&#128203; Draft Orders</div>
+    <div id="draftList" style="max-height:320px;overflow-y:auto;margin-bottom:8px">
+      <div style="color:#555;text-align:center;padding:20px;font-size:12px">No drafts saved.</div>
+    </div>
+    <div class="m-actions">
+      <button class="btn-cancel"  onclick="closeM('mDraft')">Close</button>
+      <button class="btn-confirm" onclick="saveDraft()">&#128190; Save Cart as Draft</button>
     </div>
   </div>
 </div>
@@ -160,30 +264,30 @@ body{background:var(--bg);color:#f0f0f8;font-family:'Segoe UI',sans-serif;height
 const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// Parse ?store= from URL
 const params   = new URLSearchParams(location.search);
 const STORE_ID = params.get('store');
 const IS_DEMO  = params.get('demo') === '1';
 
-let STORE = null, CUR = '₱', TAX = 0, CASHIER = null, CASHIER_NAME = '';
+let STORE = null, CUR = '&#8369;', TAX = 0, CASHIER = null, CASHIER_NAME = '';
 let prods = [], cart = {}, payMeth = 'Cash';
+let orderType = 'Dine In', tableNo = '', isKOT = false;
+let discPct = 0, discAmt = 0;
 
-// ── Page init ──────────────────────────────────────────────────────────────────
+// ── Page init ────────────────────────────────────────────────────────────
 (async () => {
   if (IS_DEMO) {
-    // Demo mode — load sample data without any store
     document.getElementById('demoBanner').style.display = '';
     STORE = { id: null, name: 'Demo Store', currency: '₱', tax_rate: 12, receipt_footer: 'Thank you!', logo_b64: '' };
     CUR = '₱'; TAX = 12;
     prods = [
-      { id: 'd1', name: 'Burger',        category: 'Food',   price: 120 },
-      { id: 'd2', name: 'Fries',         category: 'Food',   price: 60  },
-      { id: 'd3', name: 'Fried Chicken', category: 'Food',   price: 150 },
-      { id: 'd4', name: 'Rice',          category: 'Food',   price: 35  },
-      { id: 'd5', name: 'Coke',          category: 'Drinks', price: 50  },
-      { id: 'd6', name: 'Juice',         category: 'Drinks', price: 45  },
-      { id: 'd7', name: 'Water',         category: 'Drinks', price: 30  },
-      { id: 'd8', name: 'Coffee',        category: 'Drinks', price: 75  },
+      { id: 'd1', name: 'Burger',        category: 'Food',   price: 120, image_b64: '' },
+      { id: 'd2', name: 'Fries',         category: 'Food',   price: 60,  image_b64: '' },
+      { id: 'd3', name: 'Fried Chicken', category: 'Food',   price: 150, image_b64: '' },
+      { id: 'd4', name: 'Rice',          category: 'Food',   price: 35,  image_b64: '' },
+      { id: 'd5', name: 'Coke',          category: 'Drinks', price: 50,  image_b64: '' },
+      { id: 'd6', name: 'Juice',         category: 'Drinks', price: 45,  image_b64: '' },
+      { id: 'd7', name: 'Water',         category: 'Drinks', price: 30,  image_b64: '' },
+      { id: 'd8', name: 'Coffee',        category: 'Drinks', price: 75,  image_b64: '' },
     ];
     setStoreUI();
     CASHIER = { full_name: 'Demo Cashier', role: 'cashier' };
@@ -197,7 +301,6 @@ let prods = [], cart = {}, payMeth = 'Cash';
     return;
   }
 
-  // Load store info (anon read allowed)
   const { data: store } = await _sb.from('stores').select('*').eq('id', STORE_ID).single();
   if (!store) {
     document.getElementById('loginTitle').textContent = 'Store Not Found';
@@ -210,14 +313,12 @@ let prods = [], cart = {}, payMeth = 'Cash';
 
 function setStoreUI() {
   document.getElementById('loginTitle').textContent = STORE.name;
-  document.getElementById('taxLabel').textContent = `VAT (${STORE.tax_rate}%)`;
-  document.getElementById('hdrTitle').textContent  = STORE.name;
+  document.getElementById('taxLabel').textContent   = `VAT (${STORE.tax_rate}%)`;
+  document.getElementById('hdrTitle').textContent   = STORE.name;
   if (STORE.logo_b64) {
     const src = 'data:image/png;base64,' + STORE.logo_b64;
-    const li = document.getElementById('loginLogo');
-    li.src = src; li.style.display = 'block';
-    const hi = document.getElementById('hdrLogo');
-    hi.src = src; hi.style.display = 'block';
+    const li = document.getElementById('loginLogo'); li.src = src; li.style.display = 'block';
+    const hi = document.getElementById('hdrLogo');   hi.src = src; hi.style.display = 'block';
   }
   applyPosTheme(STORE);
 }
@@ -230,54 +331,46 @@ function applyPosTheme(s) {
   if (s.pos_text)   { r.style.setProperty('--text', s.pos_text); document.body.style.color = s.pos_text; }
   if (s.pos_radius) r.style.setProperty('--radius', s.pos_radius + 'px');
 
-  // Load Google Font dynamically then apply
   if (s.pos_font) {
     if (s.pos_font !== 'Inter' && s.pos_font !== 'Segoe UI') {
-      const fontSlug = encodeURIComponent(s.pos_font).replace(/%20/g, '+');
+      const slug = encodeURIComponent(s.pos_font).replace(/%20/g, '+');
       let lnk = document.getElementById('_pmFontLink');
       if (!lnk) { lnk = document.createElement('link'); lnk.id = '_pmFontLink'; lnk.rel = 'stylesheet'; document.head.appendChild(lnk); }
-      lnk.href = `https://fonts.googleapis.com/css2?family=${fontSlug}:wght@400;600;700;800&display=swap`;
+      lnk.href = `https://fonts.googleapis.com/css2?family=${slug}:wght@400;600;700;800&display=swap`;
     }
     document.body.style.fontFamily = `'${s.pos_font}', sans-serif`;
   }
 
-  // BG image — use CSS multiple backgrounds (gradient overlay + image) to simulate opacity.
-  // Avoids z-index issues: no separate div needed.
   if (s.pos_bg_img) {
     const opacity = (s.pos_bg_opacity ?? 18) / 100;
-    const bgHex   = s.pos_bg || '#09090f';
-    const pr = parseInt(bgHex.slice(1,3), 16) || 9;
-    const pg = parseInt(bgHex.slice(3,5), 16) || 9;
-    const pb = parseInt(bgHex.slice(5,7), 16) || 15;
-    const overlay = `rgba(${pr},${pg},${pb},${(1 - opacity).toFixed(2)})`;
+    const bgHex = s.pos_bg || '#09090f';
+    const pr = parseInt(bgHex.slice(1,3),16)||9, pg = parseInt(bgHex.slice(3,5),16)||9, pb = parseInt(bgHex.slice(5,7),16)||15;
+    const overlay = `rgba(${pr},${pg},${pb},${(1-opacity).toFixed(2)})`;
     const scale = s.pos_bg_scale || 'cover';
-    let imgSize, imgRepeat, imgPos;
-    switch(scale) {
-      case 'contain': imgSize = 'contain';    imgRepeat = 'no-repeat'; imgPos = 'center'; break;
-      case 'tile':    imgSize = 'auto';       imgRepeat = 'repeat';    imgPos = '0 0';    break;
-      case 'stretch': imgSize = '100% 100%';  imgRepeat = 'no-repeat'; imgPos = '0 0';    break;
-      default:        imgSize = 'cover';      imgRepeat = 'no-repeat'; imgPos = 'center'; break;
-    }
+    let sz, rp, pos;
+    if (scale==='contain'){sz='contain';rp='no-repeat';pos='center';}
+    else if(scale==='tile'){sz='auto';rp='repeat';pos='0 0';}
+    else if(scale==='stretch'){sz='100% 100%';rp='no-repeat';pos='0 0';}
+    else{sz='cover';rp='no-repeat';pos='center';}
     document.body.style.backgroundImage    = `linear-gradient(${overlay},${overlay}),url("data:image/jpeg;base64,${s.pos_bg_img}")`;
-    document.body.style.backgroundSize     = `auto,${imgSize}`;
-    document.body.style.backgroundRepeat   = `repeat,${imgRepeat}`;
-    document.body.style.backgroundPosition = `0 0,${imgPos}`;
+    document.body.style.backgroundSize     = `auto,${sz}`;
+    document.body.style.backgroundRepeat   = `repeat,${rp}`;
+    document.body.style.backgroundPosition = `0 0,${pos}`;
   }
 
-  // Button style via dynamic <style> injection
   const bs = s.pos_btn_style || 'default';
   let styleEl = document.getElementById('_pmBtnStyle');
   if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = '_pmBtnStyle'; document.head.appendChild(styleEl); }
   const btnRules = {
-    '3d':    '.p-btn{transform:translateY(-3px);box-shadow:0 5px 0 rgba(0,0,0,.5),0 8px 16px rgba(0,0,0,.3)!important}',
+    '3d':    '.p-btn{transform:translateY(-2px);box-shadow:0 4px 0 rgba(0,0,0,.5),0 6px 12px rgba(0,0,0,.3)!important}',
     'neon':  '.p-btn{border-color:var(--accent)!important;box-shadow:0 0 8px var(--accent),0 0 20px var(--accent)!important}',
     'glass': '.p-btn{background:rgba(255,255,255,.05)!important;backdrop-filter:blur(10px)}',
-    'pill':  '.p-btn{border-radius:24px!important}',
+    'pill':  '.p-btn{border-radius:20px!important}',
   };
   styleEl.textContent = btnRules[bs] || '';
 }
 
-// ── Auth ───────────────────────────────────────────────────────────────────────
+// ── Auth ─────────────────────────────────────────────────────────────────
 document.getElementById('lp').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 async function doLogin() {
@@ -297,8 +390,8 @@ async function doLogin() {
     .single();
 
   if (error || !data) { errEl.textContent = 'Invalid username or password.'; return; }
+
   CASHIER = data;
-  // log the login (fire-and-forget)
   _sb.from('staff_logs').insert({ store_id: STORE_ID, staff_id: data.id, username: data.username, login_at: new Date().toISOString() });
   await loadProds();
   showPOS(data.full_name || data.username);
@@ -319,7 +412,7 @@ async function doLogout() {
   document.getElementById('loginWrap').style.display = 'flex';
 }
 
-// ── Products ───────────────────────────────────────────────────────────────────
+// ── Products ─────────────────────────────────────────────────────────────
 async function loadProds() {
   const { data } = await _sb.from('products')
     .select('id,name,price,category,image_b64')
@@ -347,14 +440,59 @@ function filterCat(cat, btn) {
 function renderProds(cat) {
   const list = cat === 'All' ? prods : prods.filter(p => p.category === cat);
   document.getElementById('grid').innerHTML = list.length
-    ? list.map(p => `<div class="p-btn" onclick="addItem('${p.id}')">
-        <img src="data:image/jpeg;base64,${p.image_b64}" style="width:100%;height:70px;object-fit:cover;display:${p.image_b64?`block`:`none`}"><div style="height:50px;display:${p.image_b64?`none`:`flex`};align-items:center;justify-content:center;font-size:28px;margin-top:4px">&#127869;</div><div class="p-name">${p.name}</div>
-        <div class="p-price">${CUR}${parseFloat(p.price).toFixed(2)}</div>
+    ? list.map(p => `
+      <div class="p-btn" onclick="addItem('${p.id}')">
+        ${p.image_b64
+          ? `<img class="p-img" src="data:image/jpeg;base64,${p.image_b64}" alt="">`
+          : `<div class="p-noimg">&#127869;</div>`}
+        <div class="p-info">
+          <div class="p-name">${p.name}</div>
+          <div class="p-price">${CUR}${parseFloat(p.price).toFixed(2)}</div>
+        </div>
       </div>`).join('')
     : `<div style="color:#444;padding:20px;font-size:13px">No products in this category.</div>`;
 }
 
-// ── Cart ───────────────────────────────────────────────────────────────────────
+// ── Order type ────────────────────────────────────────────────────────────
+function setOrderType(btn) {
+  orderType = btn.dataset.type;
+  document.querySelectorAll('.ot-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Clear table when switching away from Dine In
+  if (orderType !== 'Dine In' && tableNo) { tableNo = ''; updateTableBtn(); }
+}
+
+// ── Table management ──────────────────────────────────────────────────────
+function showTableModal() {
+  const grid = document.getElementById('tblGrid');
+  const tables = Array.from({length: 20}, (_, i) => 'T' + (i + 1));
+  grid.innerHTML =
+    `<button class="tbl-btn none-btn${!tableNo?' active':''}" onclick="selectTable('')">No Table</button>` +
+    tables.map(t =>
+      `<button class="tbl-btn${tableNo===t?' active':''}" onclick="selectTable('${t}')">${t}</button>`
+    ).join('');
+  document.getElementById('mTable').classList.add('show');
+}
+
+function selectTable(t) {
+  tableNo = t;
+  updateTableBtn();
+  closeM('mTable');
+}
+
+function updateTableBtn() {
+  document.getElementById('btnTable').textContent = tableNo ? `\u{1F3DA} ${tableNo}` : '\u{1F3DA} Table: —';
+}
+
+// ── KOT toggle ────────────────────────────────────────────────────────────
+function toggleKOT() {
+  isKOT = !isKOT;
+  const btn = document.getElementById('btnKOT');
+  btn.classList.toggle('on', isKOT);
+  btn.textContent = isKOT ? '\u{1F468}‍\u{1F373} KOT ✓' : '\u{1F468}‍\u{1F373} KOT';
+}
+
+// ── Cart ──────────────────────────────────────────────────────────────────
 function addItem(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
   if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
@@ -369,49 +507,72 @@ function adjQty(id, d) {
   redrawCart();
 }
 
-function redrawCart() {
+function getCartTotals() {
   const items = Object.values(cart);
-  const cnt = items.reduce((s, i) => s + i.qty, 0);
-  document.getElementById('cartCnt').textContent = cnt ? `(${cnt})` : '';
-  document.getElementById('cartList').innerHTML = items.length
+  const raw = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
+  const disc = discAmt > 0 ? parseFloat(Math.min(discAmt, raw).toFixed(2)) : parseFloat((raw * discPct / 100).toFixed(2));
+  const total = parseFloat((raw - disc).toFixed(2));
+  const tax   = parseFloat((total * TAX / (100 + TAX)).toFixed(2));
+  const sub   = parseFloat((total - tax).toFixed(2));
+  return { items, raw, disc, total, tax, sub };
+}
+
+function redrawCart() {
+  const { items, raw, disc, total, tax, sub } = getCartTotals();
+  const hasItems = items.length > 0;
+
+  document.getElementById('cartList').innerHTML = hasItems
     ? items.map(i => `<div class="ci">
         <span class="ci-name">${i.name}</span>
         <div class="ci-qty">
-          <button class="q-btn" onclick="adjQty('${i.id}',-1)">−</button>
-          <span style="min-width:18px;text-align:center">${i.qty}</span>
+          <button class="q-btn" onclick="adjQty('${i.id}',-1)">&#8722;</button>
+          <span class="ci-qty-num">${i.qty}</span>
           <button class="q-btn" onclick="adjQty('${i.id}',1)">+</button>
         </div>
         <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
       </div>`).join('')
     : `<div class="cart-empty">Cart is empty</div>`;
 
-  const tot = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
-  const tax = parseFloat((tot * TAX / (100 + TAX)).toFixed(2));
-  const sub = parseFloat((tot - tax).toFixed(2));
   document.getElementById('tSub').textContent = CUR + sub.toFixed(2);
   document.getElementById('tTax').textContent = CUR + tax.toFixed(2);
-  document.getElementById('tTot').textContent = CUR + tot.toFixed(2);
-  updatePaySection();
-}
+  document.getElementById('tTot').textContent = CUR + total.toFixed(2);
 
-// ── Checkout ───────────────────────────────────────────────────────────────────
-function updatePaySection() {
-  const items = Object.values(cart);
-  const haItems = items.length > 0;
-  document.getElementById('paySection').style.display = haItems ? '' : 'none';
-  document.getElementById('btnCO').disabled = !haItems;
-  if (haItems) {
-    const tot = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
+  const discRow = document.getElementById('tDiscRow');
+  if (disc > 0) {
+    discRow.style.display = '';
+    document.getElementById('tDisc').textContent = '−' + CUR + disc.toFixed(2);
+  } else {
+    discRow.style.display = 'none';
+  }
+
+  document.getElementById('discSection').classList.toggle('show', hasItems);
+  document.getElementById('paySection').style.display = hasItems ? '' : 'none';
+  document.getElementById('btnCO').disabled = !hasItems;
+
+  if (hasItems) {
     const denoms = [50, 100, 200, 500, 1000];
-    const higher = denoms.filter(a => a >= tot);
-    const quickAmounts = higher.length ? higher.slice(0, 3) : denoms.slice(-3);
-    document.getElementById('quickRow').innerHTML = quickAmounts.map(a =>
+    const higher = denoms.filter(a => a >= total);
+    const qAmounts = higher.length ? higher.slice(0, 3) : denoms.slice(-3);
+    document.getElementById('quickRow').innerHTML = qAmounts.map(a =>
       `<button class="q-cash" onclick="setCash(${a})">${CUR}${a}</button>`
     ).join('');
     document.getElementById('cashSection').style.display = payMeth === 'Cash' ? '' : 'none';
   }
 }
 
+// ── Discount ──────────────────────────────────────────────────────────────
+function onDiscPct() {
+  discPct = parseFloat(document.getElementById('discPct').value) || 0;
+  discAmt = 0; document.getElementById('discAmt').value = '';
+  redrawCart();
+}
+function onDiscAmt() {
+  discAmt = parseFloat(document.getElementById('discAmt').value) || 0;
+  discPct = 0; document.getElementById('discPct').value = '';
+  redrawCart();
+}
+
+// ── Payment ───────────────────────────────────────────────────────────────
 function setCash(a) { document.getElementById('tendered').value = a; calcChange(); }
 
 function setMethod(m, btn) {
@@ -422,43 +583,43 @@ function setMethod(m, btn) {
 }
 
 function calcChange() {
-  const items = Object.values(cart);
-  const tot = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
+  const { total } = getCartTotals();
   const recv = parseFloat(document.getElementById('tendered').value) || 0;
-  const chg = recv - tot;
-  const el = document.getElementById('chgDisp');
+  const chg  = recv - total;
+  const el   = document.getElementById('chgDisp');
   if (recv > 0) {
     el.style.color = chg >= 0 ? '#10b981' : '#ef4444';
     el.textContent = chg >= 0 ? `Change: ${CUR}${chg.toFixed(2)}` : `Short: ${CUR}${Math.abs(chg).toFixed(2)}`;
-  } else {
-    el.textContent = '';
-  }
+  } else { el.textContent = ''; }
 }
 
+// ── Confirm Order ─────────────────────────────────────────────────────────
 async function confirmOrder() {
-  const items = Object.values(cart).map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty }));
-  const tot    = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
-  const tax    = parseFloat((tot * TAX / (100 + TAX)).toFixed(2));
-  const sub    = parseFloat((tot - tax).toFixed(2));
-  const tender = payMeth === 'Cash' ? parseFloat(document.getElementById('tendered').value) || 0 : tot;
-  const chg    = payMeth === 'Cash' ? parseFloat((tender - tot).toFixed(2)) : 0;
+  const { items, raw, disc, total, tax, sub } = getCartTotals();
+  const tender = payMeth === 'Cash' ? parseFloat(document.getElementById('tendered').value) || 0 : total;
+  const change = payMeth === 'Cash' ? parseFloat((tender - total).toFixed(2)) : 0;
+  const dPct   = discAmt > 0 && raw > 0 ? parseFloat(((disc / raw) * 100).toFixed(2)) : discPct;
 
-  if (payMeth === 'Cash' && tender < tot) { alert('Amount tendered is less than total.'); return; }
+  if (payMeth === 'Cash' && tender < total) { alert('Amount tendered is less than total.'); return; }
 
-  if (IS_DEMO) {
-    showReceipt({ order_id: 'DEMO', items, subtotal: sub, tax, total: tot, tendered: tender, change: chg, method: payMeth, cashier: CASHIER_NAME });
-    return;
-  }
+  const receiptData = { order_id: 'DEMO', items, sub, tax, total, disc, tender, change, method: payMeth, cashier: CASHIER_NAME, orderType, tableNo, isKOT };
 
-  // Save order to Supabase
+  if (IS_DEMO) { showReceipt(receiptData); return; }
+
   const { data: ord, error: oErr } = await _sb.from('orders').insert({
-    store_id: STORE_ID,
-    cashier_name: CASHIER_NAME,
-    subtotal: sub, tax, total: tot,
-    payment_method: payMeth,
+    store_id:        STORE_ID,
+    cashier_name:    CASHIER_NAME,
+    subtotal:        sub,
+    tax,
+    total,
+    payment_method:  payMeth,
     amount_tendered: tender,
-    change_given: chg,
-    discount_pct: 0,
+    change_given:    change,
+    discount_pct:    dPct,
+    discount_amt:    disc,
+    order_type:      orderType,
+    table_no:        tableNo,
+    is_kot:          isKOT,
   }).select('id').single();
 
   if (oErr) { alert(oErr.message); return; }
@@ -467,16 +628,23 @@ async function confirmOrder() {
     items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
   );
 
-  showReceipt({ order_id: ord.id, items, subtotal: sub, tax, total: tot, tendered: tender, change: chg, method: payMeth, cashier: CASHIER_NAME });
+  receiptData.order_id = ord.id;
+  showReceipt(receiptData);
 }
 
 function buildReceiptText(d) {
   const ln = '─'.repeat(32);
-  const storeName = STORE?.name || 'POSMaker';
-  let s = `${storeName}\n${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\nCashier: ${d.cashier}\n${ln}\n`;
+  const store = STORE?.name || 'POSMaker';
+  let s = store + '\n';
+  if (d.isKOT) s += '*** KITCHEN ORDER TICKET ***\n';
+  s += `${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\n`;
+  s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
+  s += `Cashier: ${d.cashier}\n${ln}\n`;
   d.items.forEach(i => s += `${i.name}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`);
-  s += `${ln}\nSubtotal: ${CUR}${d.subtotal.toFixed(2)}\nVAT:      ${CUR}${d.tax.toFixed(2)}\nTOTAL:    ${CUR}${d.total.toFixed(2)}\n`;
-  if (d.method === 'Cash') s += `Cash:     ${CUR}${d.tendered.toFixed(2)}\nChange:   ${CUR}${d.change.toFixed(2)}\n`;
+  s += `${ln}\nSubtotal: ${CUR}${d.sub.toFixed(2)}\n`;
+  if (d.disc > 0) s += `Discount: -${CUR}${d.disc.toFixed(2)}\n`;
+  s += `VAT:      ${CUR}${d.tax.toFixed(2)}\nTOTAL:    ${CUR}${d.total.toFixed(2)}\n`;
+  if (d.method === 'Cash') s += `Cash:     ${CUR}${d.tender.toFixed(2)}\nChange:   ${CUR}${d.change.toFixed(2)}\n`;
   else s += `Paid via: ${d.method}\n`;
   s += `${ln}\n${STORE?.receipt_footer || 'Thank you!'}`;
   return s;
@@ -493,22 +661,111 @@ function doPrint() {
   const txt = document.getElementById('receiptTxt').textContent;
   const w = window.open('', '', 'width=300,height=500');
   w.document.write('<pre style="font-family:monospace;font-size:12px">' + txt + '</pre>');
-  w.print();
-  w.close();
+  w.print(); w.close();
   newOrder();
 }
 
 function newOrder() {
   cart = {}; payMeth = 'Cash';
+  discPct = 0; discAmt = 0;
   document.getElementById('tendered').value = '';
   document.getElementById('chgDisp').textContent = '';
-  document.querySelectorAll('.m-btn').forEach((b, i) => { b.classList.toggle('active', i === 0); });
+  document.getElementById('discPct').value = '';
+  document.getElementById('discAmt').value = '';
+  document.querySelectorAll('.m-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+  isKOT = false;
+  document.getElementById('btnKOT').classList.remove('on');
+  document.getElementById('btnKOT').textContent = '\u{1F468}‍\u{1F373} KOT';
   redrawCart();
   closeM('mConfirm');
 }
+
 function closeM(id) { document.getElementById(id).classList.remove('show'); }
 
-// ── Utils ──────────────────────────────────────────────────────────────────────
+// ── Draft Orders ──────────────────────────────────────────────────────────
+async function showDrafts() {
+  document.getElementById('mDraft').classList.add('show');
+  await loadDraftList();
+}
+
+async function loadDraftList() {
+  const el = document.getElementById('draftList');
+  if (IS_DEMO || !STORE_ID) {
+    el.innerHTML = '<div style="color:#555;text-align:center;padding:20px;font-size:12px">Drafts not available in demo mode.</div>';
+    return;
+  }
+  el.innerHTML = '<div style="color:#555;text-align:center;padding:12px;font-size:12px"><span class="spinner"></span> Loading...</div>';
+
+  const { data, error } = await _sb.from('draft_orders')
+    .select('id,cashier_name,order_type,table_no,items_json,created_at')
+    .eq('store_id', STORE_ID)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  if (error || !data?.length) {
+    el.innerHTML = '<div style="color:#555;text-align:center;padding:20px;font-size:12px">No drafts saved.</div>';
+    return;
+  }
+
+  el.innerHTML = data.map(d => {
+    let items = [];
+    try { items = JSON.parse(d.items_json || '[]'); } catch(e) {}
+    const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+    const cnt   = items.reduce((s, i) => s + i.qty, 0);
+    const ts    = new Date(d.created_at).toLocaleString();
+    return `<div class="draft-item" onclick="loadDraft('${d.id}')">
+      <button class="draft-del" onclick="event.stopPropagation();deleteDraft('${d.id}')">&#10005;</button>
+      <div class="draft-top">${d.order_type}${d.table_no ? ' &mdash; ' + d.table_no : ''} &middot; ${cnt} item${cnt !== 1 ? 's' : ''} &middot; ${CUR}${total.toFixed(2)}</div>
+      <div class="draft-sub">${d.cashier_name} &middot; ${ts}</div>
+    </div>`;
+  }).join('');
+}
+
+async function saveDraft() {
+  const items = Object.values(cart);
+  if (!items.length) { alert('Cart is empty.'); return; }
+  if (IS_DEMO || !STORE_ID) { alert('Drafts not available in demo mode.'); return; }
+
+  const { error } = await _sb.from('draft_orders').insert({
+    store_id:     STORE_ID,
+    cashier_name: CASHIER_NAME,
+    order_type:   orderType,
+    table_no:     tableNo,
+    items_json:   JSON.stringify(items),
+  });
+
+  if (error) { alert(error.message); return; }
+  await loadDraftList();
+}
+
+async function loadDraft(id) {
+  const { data, error } = await _sb.from('draft_orders').select('*').eq('id', id).single();
+  if (error || !data) { alert('Draft not found.'); return; }
+
+  let items = [];
+  try { items = JSON.parse(data.items_json || '[]'); } catch(e) {}
+  cart = {};
+  items.forEach(i => { cart[i.id] = { id: i.id, name: i.name, price: parseFloat(i.price), qty: i.qty }; });
+
+  orderType = data.order_type || 'Dine In';
+  tableNo   = data.table_no   || '';
+  updateTableBtn();
+
+  document.querySelectorAll('.ot-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.type === orderType);
+  });
+
+  await _sb.from('draft_orders').delete().eq('id', id);
+  closeM('mDraft');
+  redrawCart();
+}
+
+async function deleteDraft(id) {
+  await _sb.from('draft_orders').delete().eq('id', id);
+  await loadDraftList();
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────
 async function sha256(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
