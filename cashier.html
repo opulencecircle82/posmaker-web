@@ -503,11 +503,21 @@ async function doLogout() {
 
 // ── Products ─────────────────────────────────────────────────────────────
 async function loadProds() {
-  const { data } = await _sb.from('products')
+  let { data, error } = await _sb.from('products')
     .select('id,name,price,category,image_b64,sku,unit,stock,inv_links')
     .eq('store_id', STORE_ID)
     .eq('available', true)
     .order('category').order('name');
+
+  // Fallback: if inv_links column missing, retry without it
+  if (error && error.message && error.message.toLowerCase().includes('column')) {
+    ({ data, error } = await _sb.from('products')
+      .select('id,name,price,category,image_b64,sku,unit,stock')
+      .eq('store_id', STORE_ID)
+      .eq('available', true)
+      .order('category').order('name'));
+  }
+
   prods = data || [];
   buildCats();
   renderProds('All');
