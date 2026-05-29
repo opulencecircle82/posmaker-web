@@ -167,7 +167,11 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="login-title" id="loginTitle">POS</div>
     <div class="login-sub" id="loginSub">Cashier Login</div>
     <input class="inp" id="lu" type="text" placeholder="Username" autocomplete="username">
-    <input class="inp" id="lp" type="password" placeholder="Password" autocomplete="current-password">
+    <div style="position:relative">
+      <input class="inp" id="lp" type="password" placeholder="Password" autocomplete="current-password" style="padding-right:48px">
+      <button type="button" onclick="togglePw()" id="showPwBtn"
+        style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;line-height:1;color:#888;padding:4px">👁</button>
+    </div>
     <div id="loginErr"></div>
     <button class="btn-login" onclick="doLogin()">Login</button>
   </div>
@@ -441,6 +445,7 @@ function applyPosTheme(s) {
 
 // ── Auth ─────────────────────────────────────────────────────────────────
 document.getElementById('lp').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+function togglePw(){ const f=document.getElementById('lp'); f.type=f.type==='password'?'text':'password'; }
 document.getElementById('mQtyVal').addEventListener('keydown', e => { if (e.key === 'Enter') confirmQty(); });
 
 async function doLogin() {
@@ -450,16 +455,30 @@ async function doLogin() {
   errEl.textContent = '';
   if (!username || !pw) { errEl.textContent = 'Enter username and password.'; return; }
 
-  const hash = await sha256(pw);
-  const { data, error } = await _sb.from('store_users')
-    .select('id,username,full_name,role')
+  // Step 1: check if username exists in this store
+  const { data: found } = await _sb.from('store_users')
+    .select('id,username,full_name,role,password_hash,active')
     .eq('store_id', STORE_ID)
     .eq('username', username)
-    .eq('password_hash', hash)
-    .eq('active', true)
     .single();
 
-  if (error || !data) { errEl.textContent = 'Invalid username or password.'; return; }
+  if (!found) {
+    errEl.textContent = `Username "${username}" not found. Ask your manager to check your account.`;
+    return;
+  }
+  if (!found.active) {
+    errEl.textContent = 'This account is deactivated. Contact your manager.';
+    return;
+  }
+
+  // Step 2: verify password
+  const hash = await sha256(pw);
+  if (found.password_hash !== hash) {
+    errEl.textContent = 'Wrong password. Try again or ask your manager to reset it.';
+    return;
+  }
+
+  const data = found;
 
   CASHIER = data;
   _sb.from('staff_logs').insert({ store_id: STORE_ID, staff_id: data.id, username: data.username, login_at: new Date().toISOString() });
