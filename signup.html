@@ -140,12 +140,19 @@ async function doSignup() {
     return;
   }
 
-  // 2. Create store record
-  const { data: store, error: storeErr } = await _sb
+  // 2. Create store record (fallback without business_type if column not yet in DB)
+  let { data: store, error: storeErr } = await _sb
     .from('stores')
     .insert({ name: storeName, owner_id: authData.user.id, currency, tax_rate: taxRate, business_type: bizType })
-    .select()
-    .single();
+    .select().single();
+
+  if (storeErr && storeErr.message && storeErr.message.toLowerCase().includes('column')) {
+    // business_type column not yet added — create without it
+    ({ data: store, error: storeErr } = await _sb
+      .from('stores')
+      .insert({ name: storeName, owner_id: authData.user.id, currency, tax_rate: taxRate })
+      .select().single());
+  }
 
   if (storeErr) {
     errEl.textContent = storeErr.message;
