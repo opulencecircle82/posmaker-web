@@ -147,10 +147,10 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="sb-store" id="sbStore">Loading...</div>
   <div class="sb-nav">
     <div class="sb-item active" onclick="nav('dashboard')"><span class="ico">&#128202;</span> Dashboard</div>
-    <div class="sb-item" onclick="nav('orders')"><span class="ico">&#128221;</span> Orders</div>
-    <div class="sb-item" onclick="nav('inventory')"><span class="ico">&#128230;</span> Inventory</div>
+    <div class="sb-item" id="navOrders"    onclick="nav('orders')"><span class="ico">&#128221;</span> <span id="navOrdersLbl">Orders</span></div>
+    <div class="sb-item" id="navInventory" onclick="nav('inventory')"><span class="ico">&#128230;</span> <span id="navInventoryLbl">Inventory</span></div>
     <div class="sb-item" onclick="nav('categories')"><span class="ico">&#128194;</span> Categories</div>
-    <div class="sb-item" onclick="nav('products')"><span class="ico">&#127991;</span> Products</div>
+    <div class="sb-item" id="navProducts"  onclick="nav('products')"><span class="ico">&#127991;</span> <span id="navProductsLbl">Products</span></div>
     <div class="sb-item" onclick="nav('staff')"><span class="ico">&#128101;</span> Staff</div>
     <div class="sb-item" onclick="nav('salesreport')"><span class="ico">&#128202;</span> Sales Report</div>
     <div class="sb-item" onclick="nav('settings')"><span class="ico">&#9881;</span> Settings</div>
@@ -736,6 +736,7 @@ function _sig(ms = 12000) {
   STORE = store; CUR = store.currency || '&#8369;'; TAX = store.tax_rate || 12;
   localStorage.setItem('pm_store_id', store.id);
   document.getElementById('sbStore').textContent = store.name;
+  adaptDashboardToBizType(store.business_type);
 
   document.getElementById('loadingPage').style.display = 'none';
   const appWrap = document.getElementById('appWrap');
@@ -773,6 +774,48 @@ function _sig(ms = 12000) {
 
 // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',salesreport:'Sales Report',settings:'Settings',access:'Cashier Link'};
+// ── Business-type adaptation ───────────────────────────────────────────────────
+const RESTAURANT_BIZ = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
+  'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
+const SERVICE_BIZ = new Set(['Salon / Barbershop','Laundry','Printing / Photocopy','Auto Parts','School Supplies']);
+
+function adaptDashboardToBizType(bizType) {
+  if (!bizType) return;
+  const isRestaurant = RESTAURANT_BIZ.has(bizType);
+  const isService    = SERVICE_BIZ.has(bizType);
+
+  // Sidebar labels
+  if (!isRestaurant && !isService) {
+    // Retail mode (hardware, bigasan, drug store, etc.)
+    document.getElementById('navOrdersLbl').textContent    = 'Transactions';
+    document.getElementById('navInventoryLbl').textContent = 'Stock Management';
+    document.getElementById('navProductsLbl').textContent  = 'Products / Stock';
+  } else if (isService) {
+    document.getElementById('navOrdersLbl').textContent    = 'Transactions';
+    document.getElementById('navProductsLbl').textContent  = 'Services & Prices';
+    document.getElementById('navInventoryLbl').textContent = 'Supplies';
+  } else {
+    // Restaurant — defaults already correct
+    document.getElementById('navProductsLbl').textContent  = 'Menu Items';
+    document.getElementById('navInventoryLbl').textContent = 'Raw Materials';
+  }
+
+  // Show business type badge in sidebar below store name
+  const badge = document.createElement('div');
+  badge.style.cssText = 'font-size:10px;color:var(--accent);font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:0 16px 8px;opacity:.8';
+  badge.textContent = bizType;
+  const sbStore = document.getElementById('sbStore');
+  sbStore.parentNode.insertBefore(badge, sbStore.nextSibling);
+
+  // Dashboard stat label adaptation
+  if (!isRestaurant) {
+    const el1 = document.querySelector('#tdOrders')?.closest('.stat-card')?.querySelector('.sc-label');
+    const el2 = document.querySelector('#moOrders')?.closest('.stat-card')?.querySelector('.sc-label');
+    if (el1) el1.textContent = "Today's Sales";
+    if (el2) el2.textContent = 'Month Sales';
+  }
+}
+
 function nav(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));

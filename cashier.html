@@ -311,6 +311,10 @@ let discPct = 0, discAmt = 0;
   setStoreUI();
 })();
 
+// Business types that use restaurant-mode features (order type tabs, table, KOT)
+const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
+  'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
+
 function setStoreUI() {
   document.getElementById('loginTitle').textContent = STORE.name;
   document.getElementById('taxLabel').textContent   = `VAT (${STORE.tax_rate}%)`;
@@ -320,7 +324,17 @@ function setStoreUI() {
     const li = document.getElementById('loginLogo'); li.src = src; li.style.display = 'block';
     const hi = document.getElementById('hdrLogo');   hi.src = src; hi.style.display = 'block';
   }
+  adaptCashierMode(STORE.business_type);
   applyPosTheme(STORE);
+}
+
+function adaptCashierMode(bizType) {
+  const isRestaurant = !bizType || RESTAURANT_TYPES.has(bizType);
+  // Hide order type tabs (Dine In / Take Away / Delivery) for non-restaurant
+  document.querySelector('.ot-bar').style.display = isRestaurant ? '' : 'none';
+  // Hide Table and KOT buttons for non-restaurant
+  document.getElementById('btnTable').style.display = isRestaurant ? '' : 'none';
+  document.getElementById('btnKOT').style.display   = isRestaurant ? '' : 'none';
 }
 
 function applyPosTheme(s) {

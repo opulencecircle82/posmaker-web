@@ -153,9 +153,60 @@ async function doSignup() {
     return;
   }
 
-  // Store the store_id locally for the dashboard
+  // Auto-create default product categories based on business type
+  const prodCats = getDefaultProdCats(bizType);
+  const invCats  = getDefaultInvCats(bizType);
+  if (prodCats.length) {
+    await _sb.from('categories').insert(prodCats.map(n => ({ store_id: store.id, name: n, type: 'prod' })));
+  }
+  if (invCats.length) {
+    await _sb.from('categories').insert(invCats.map(n => ({ store_id: store.id, name: n, type: 'inv' })));
+  }
+
   localStorage.setItem('pm_store_id', store.id);
   location.href = 'dashboard.html';
+}
+
+// Default product categories per business type
+function getDefaultProdCats(biz) {
+  const map = {
+    'Fast Food':          ['Burger','Chicken','Fries','Drinks','Combo Meals','Desserts'],
+    'Carinderya':         ['Viand','Soup','Rice / Pasta','Drinks','Snacks'],
+    'Coffee Shop':        ['Coffee','Tea','Frappe','Pastries','Snacks'],
+    'Bakery':             ['Bread','Cakes','Pastries','Drinks','Other'],
+    'Lechon':             ['Lechon','Chicharon','Rice','Sides','Drinks'],
+    'Pizza / Pasta':      ['Pizza','Pasta','Sides','Drinks','Desserts'],
+    'Seafood':            ['Fish','Shellfish','Shrimp','Squid','Sides','Drinks'],
+    'Milk Tea / Drinks':  ['Milk Tea','Coffee','Fruit Tea','Lemonade','Snacks'],
+    'Karinderya / Buffet':['Rice','Viand','Soup','Dessert','Drinks'],
+    'Snack Bar':          ['Snacks','Sandwiches','Drinks','Sweets'],
+    'Sari-Sari Store':    ['Canned Goods','Beverages','Snacks','Personal Care','Condiments'],
+    'Bigasan':            ['Rice','Grains','Other'],
+    'Hardware':           ['Tools','Electrical','Plumbing','Paint','Construction Materials','Accessories'],
+    'Agri Supply':        ['Seeds','Fertilizer','Pesticide','Tools','Other'],
+    'Drug Store':         ['Prescription','OTC Medicines','Vitamins','Personal Care','Medical Supplies'],
+    'Pet Store':          ['Dog','Cat','Fish','Birds','Accessories','Grooming'],
+    'Clothing':           ['Men','Women','Kids','Accessories','Shoes'],
+    'Electronics':        ['Phones','Accessories','Gadgets','Audio','Cables'],
+    'Furniture':          ['Living Room','Bedroom','Dining','Office','Decor'],
+    'Salon / Barbershop': ['Haircut','Hair Color','Treatment','Nails','Other Services'],
+    'Laundry':            ['Wash','Dry & Fold','Iron','Dry Clean'],
+    'Printing / Photocopy':['Printing','Photocopy','Lamination','Binding','Other'],
+    'Auto Parts':         ['Engine Parts','Electrical','Body Parts','Oils & Fluids','Accessories'],
+    'School Supplies':    ['Notebooks','Pens & Pencils','Art Supplies','Bags','Others'],
+  };
+  return map[biz] || ['General'];
+}
+
+// Default inventory categories per business type
+function getDefaultInvCats(biz) {
+  const foodTypes = ['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon','Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar'];
+  if (foodTypes.includes(biz)) return ['Ingredients','Packaging','Beverages','Condiments'];
+  if (biz === 'Hardware')      return ['Tools','Electrical','Plumbing','Paint'];
+  if (biz === 'Agri Supply')   return ['Seeds','Fertilizer','Pesticide'];
+  if (biz === 'Drug Store')    return ['Medicines','Personal Care','Medical Supplies'];
+  if (biz === 'Salon / Barbershop') return ['Hair Products','Nail Products','Consumables'];
+  return [];
 }
 
 // Allow Enter key
