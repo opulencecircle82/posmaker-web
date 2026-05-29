@@ -1378,13 +1378,25 @@ async function loadPOSTerminals() {
   const list = document.getElementById('posTerminalList');
   if (list) list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Loading...</div>';
   const [{ data: stores }, { data: devices }] = await Promise.all([
-    _sb.from('stores').select('id,name,business_type,created_at').order('created_at').abortSignal(_sig()),
+    _sb.from('stores').select('id,name,business_type,store_code,created_at').order('created_at').abortSignal(_sig()),
     _sb.from('pos_devices').select('store_id,device_id,device_name,platform,registered_at').abortSignal(_sig())
   ]);
   allStores  = stores  || [];
   posDevices = devices || [];
+  // Auto-generate store_code for stores that don't have one yet
+  for (const s of allStores) {
+    if (!s.store_code) {
+      const code = genStoreCode(s.name);
+      await _sb.from('stores').update({ store_code: code }).eq('id', s.id);
+      s.store_code = code;
+    }
+  }
   renderPOSTerminals();
   updateAddPOSBtn();
+}
+function genStoreCode(name) {
+  const prefix = (name || 'STORE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  return prefix + String(Math.floor(1000 + Math.random() * 9000));
 }
 function renderPOSTerminals() {
   const list = document.getElementById('posTerminalList');
@@ -1409,22 +1421,30 @@ function renderPOSTerminals() {
            <div style="font-size:11px;color:var(--muted);margin-top:2px">Download the app below and run setup to lock this POS to one device.</div>
          </div>`;
     return `<div class="info-card" style="margin-bottom:12px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
         <div>
           <div style="font-size:15px;font-weight:700">&#128187; POS #${i+1} &mdash; ${s.name}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:monospace">Store ID: ${shortId}&hellip;</div>
           ${s.business_type?`<div style="font-size:11px;color:var(--accent);margin-top:3px">${s.business_type}</div>`:''}
         </div>
         <span class="badge" style="background:#0a2a1a;color:#10b981">&#9679; Active</span>
       </div>
+
+      <!-- STORE CODE — prominent -->
+      <div style="background:linear-gradient(135deg,rgba(0,180,216,.12),rgba(0,180,216,.04));border:2px solid rgba(0,180,216,.35);border-radius:12px;padding:16px;margin-bottom:14px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">&#128273; Your Store Code</div>
+        <div style="font-size:30px;font-weight:900;color:var(--accent);letter-spacing:5px;font-family:monospace">${s.store_code||'—'}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">Share this code with your cashiers.<br>They enter it once on first launch to connect their POS.</div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+          <button class="btn btn-accent btn-sm" onclick="navigator.clipboard.writeText('${s.store_code||''}');showToast('Store code copied!')">&#128203; Copy Code</button>
+          <button class="btn btn-ghost btn-sm" onclick="editStoreCode('${s.id}','${s.store_code||''}')">&#9998; Edit Code</button>
+        </div>
+      </div>
+
       ${devBlock}
       <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">CASHIER URL (browser / PWA)</div>
-      <div class="link-box" style="font-size:11px;margin:0 0 8px">${url}</div>
-      <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">STORE ID (for APK / tablet setup)</div>
-      <div class="link-box" style="font-size:11px;margin:0 0 12px;font-family:monospace;letter-spacing:.5px">${s.id}</div>
+      <div class="link-box" style="font-size:11px;margin:0 0 12px">${url}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-accent btn-sm" onclick="downloadStoreConfig()">&#128190; Download Config (.exe)</button>
-        <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${s.id}');showToast('Store ID copied!')">&#128203; Copy Store ID</button>
         <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${url}');showToast('Cashier link copied!')">&#128203; Copy Link</button>
         <a class="btn btn-ghost btn-sm" href="${url}" target="_blank">Open in Browser</a>
       </div>
@@ -1436,6 +1456,19 @@ async function resetPOSDevice(storeId) {
   const { error } = await _sb.from('pos_devices').delete().eq('store_id', storeId);
   if (error) { showToast('Error: ' + error.message, true); return; }
   showToast('Device reset. You can now activate on a new device.');
+  loadPOSTerminals();
+}
+async function editStoreCode(storeId, currentCode) {
+  const newCode = prompt('Enter a new store code (letters & numbers only, 4–12 chars):\n\nCurrent: ' + (currentCode || 'none'), currentCode || '');
+  if (newCode === null) return;
+  const clean = newCode.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+  if (clean.length < 4) { showToast('Code too short. Minimum 4 characters.', true); return; }
+  // Check if taken by another store
+  const { data: existing } = await _sb.from('stores').select('id').eq('store_code', clean).maybeSingle();
+  if (existing && existing.id !== storeId) { showToast('That code is already taken. Try another.', true); return; }
+  const { error } = await _sb.from('stores').update({ store_code: clean }).eq('id', storeId);
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  showToast('Store code updated to: ' + clean);
   loadPOSTerminals();
 }
 function downloadStoreConfig() {
