@@ -525,25 +525,21 @@ input:checked + .slider:before{transform:translateX(18px)}
       </div>
     </div>
     <div class="row2">
-      <div class="field"><label>Initial Stock</label><input id="invStock" type="number" min="0" step="0.01" placeholder="0" value="0" oninput="qcCalc()"></div>
       <div class="field">
-        <label>Cost per <span id="invUnitHint">unit</span></label>
-        <input id="invCost" type="number" min="0" step="0.0001" placeholder="0.0000" value="0">
-        <div style="margin-top:6px;background:#0d0d1e;border:1px dashed #2a2a45;border-radius:6px;padding:7px 10px">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Quick-calc (bought a batch?)</div>
-          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-            <span style="font-size:12px;color:var(--muted)">Paid</span>
-            <input id="invQcPrice" type="number" min="0" step="0.01" placeholder="e.g. 300" oninput="qcCalc()"
-              style="width:76px;padding:5px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:Inter,sans-serif;outline:none">
-            <span style="font-size:12px;color:var(--muted)">for</span>
-            <input id="invQcQty" type="number" min="0" step="0.01" placeholder="e.g. 500" oninput="qcCalc()"
-              style="width:76px;padding:5px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:Inter,sans-serif;outline:none">
-            <span id="invQcUnit" style="font-size:12px;color:var(--muted)">pc</span>
-            <span id="invQcResult" style="font-size:12px;color:#00b4d8;font-weight:600"></span>
-          </div>
-        </div>
+        <label>Stock Qty (bought)</label>
+        <input id="invStock" type="number" min="0" step="0.01" placeholder="e.g. 500" value="0" oninput="qcCalc()">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px" id="invStockUnitLabel">grams, kg, pcs…</div>
+      </div>
+      <div class="field">
+        <label>Total Purchase Price (<span id="invUnitHint">unit</span>s)</label>
+        <input id="invQcPrice" type="number" min="0" step="0.01" placeholder="e.g. 300" oninput="qcCalc()"
+          style="width:100%;padding:11px 14px;background:#09090f;border:1.5px solid #252540;border-radius:8px;color:#f0f0f8;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s">
+        <div id="invQcResult" style="margin-top:6px;font-size:13px;color:#00b4d8;font-weight:600;min-height:18px"></div>
       </div>
     </div>
+    <input type="hidden" id="invCost" value="0">
+    <input type="hidden" id="invQcQty" value="0">
+    <input type="hidden" id="invQcUnit" value="pc">
     <div class="field"><label>Low Stock Alert (qty)</label><input id="invLowStock" type="number" min="0" step="1" placeholder="e.g. 5" value="5"></div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('invModal')">Cancel</button>
@@ -1773,15 +1769,19 @@ function openInvModal(item){
   document.getElementById('invName').value=item?item.name:'';
   document.getElementById('invSku').value=item?(item.sku||''):'';
   const u=item?(item.unit||'pc'):'pc';
+  const stk=item?(item.stock??0):0;
+  const costPer=item?(item.cost_price??0):0;
   document.getElementById('invUnit').value=u;
-  document.getElementById('invStock').value=item?(item.stock??0):0;
-  document.getElementById('invCost').value=item?(item.cost_price??0):0;
+  document.getElementById('invStock').value=stk;
+  document.getElementById('invCost').value=costPer;
   document.getElementById('invLowStock').value=item?(item.low_stock_threshold??5):5;
   document.getElementById('invUnitHint').textContent=u;
-  document.getElementById('invQcUnit').textContent=u;
-  document.getElementById('invQcPrice').value='';
-  document.getElementById('invQcQty').value='';
-  document.getElementById('invQcResult').textContent='';
+  document.getElementById('invStockUnitLabel').textContent=u;
+  // Pre-fill purchase price = cost_per_unit × stock (best estimate when editing)
+  const estPrice=costPer>0&&stk>0?(costPer*stk).toFixed(2):'';
+  document.getElementById('invQcPrice').value=estPrice;
+  document.getElementById('invQcResult').textContent=costPer>0?`= ${CUR}${parseFloat(costPer).toFixed(4)} per ${u}`:'';
+  document.getElementById('invQcUnit').value=u;
   populateInvCatSelect(document.getElementById('invCat'),item?item.category:'');
   document.getElementById('invModal').classList.add('show');
   setTimeout(()=>document.getElementById('invName').focus(),50);
@@ -1795,19 +1795,22 @@ async function openInvCatQuick(){
 }
 function qcCalc(){
   const price=parseFloat(document.getElementById('invQcPrice').value)||0;
-  const qty=parseFloat(document.getElementById('invQcQty').value)||0;
+  const stock=parseFloat(document.getElementById('invStock').value)||0;
   const unit=document.getElementById('invUnit').value;
   const res=document.getElementById('invQcResult');
-  if(price>0&&qty>0){
-    const perUnit=price/qty;
-    document.getElementById('invCost').value=perUnit.toFixed(4);
-    res.textContent=`= ${CUR}${perUnit.toFixed(4)}/${unit}`;
-  }else{res.textContent='';}
+  if(price>0&&stock>0){
+    const perUnit=price/stock;
+    document.getElementById('invCost').value=perUnit.toFixed(6);
+    res.textContent=`= ${CUR}${perUnit.toFixed(4)} per ${unit}`;
+  }else{
+    document.getElementById('invCost').value=0;
+    res.textContent='';
+  }
 }
 function qcUnitSync(){
   const u=document.getElementById('invUnit').value;
   document.getElementById('invUnitHint').textContent=u;
-  document.getElementById('invQcUnit').textContent=u;
+  document.getElementById('invStockUnitLabel').textContent=u;
   qcCalc();
 }
 async function saveInvItem(){
