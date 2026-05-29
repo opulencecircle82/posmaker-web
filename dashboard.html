@@ -244,7 +244,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input class="search" id="invSearch" placeholder="Search..." oninput="filterInv()" style="width:130px">
             <select class="search" id="invCatFilter" onchange="filterInv()" style="width:130px"><option value="">All Categories</option></select>
-            <button class="btn btn-accent btn-sm" onclick="openInvModal()">+ Add Item</button>
+            <button class="btn btn-accent btn-sm" id="btnAddInv" onclick="openInvModal()">+ Add Item</button>
           </div>
         </div>
         <table>
@@ -279,7 +279,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <h3>Products</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <input class="search" id="prodSearch" placeholder="Search..." oninput="filterProds()">
-            <button class="btn btn-accent btn-sm" onclick="openProdModal()">+ Add</button>
+            <button class="btn btn-accent btn-sm" id="btnAddProd" onclick="openProdModal()">+ Add</button>
           </div>
         </div>
         <table>
@@ -590,6 +590,24 @@ input:checked + .slider:before{transform:translateX(18px)}
   </div>
 </div>
 
+<!-- UPGRADE / FREE LIMIT MODAL -->
+<div class="modal" id="upgradeModal">
+  <div class="mbox" style="width:min(400px,100%);text-align:center">
+    <div style="font-size:48px;margin-bottom:12px">&#128274;</div>
+    <h3 style="font-size:20px;margin-bottom:8px">Free Plan Limit Reached</h3>
+    <p id="upgradeMsg" style="color:var(--muted);font-size:14px;margin-bottom:20px;line-height:1.6"></p>
+    <div style="background:rgba(0,180,216,.08);border:1px solid #00b4d8;border-radius:10px;padding:16px;margin-bottom:20px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">FREE PLAN</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text)">3 Products &amp; 3 Inventory Items</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:8px">Upgrade to Pro for unlimited products, inventory items, staff accounts, and more.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-direction:column">
+      <button class="btn btn-accent btn-full" style="opacity:.5;cursor:not-allowed" disabled>&#128640; Upgrade to Pro — Coming Soon</button>
+      <button class="btn btn-ghost btn-full" onclick="closeModal('upgradeModal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- ORDER DETAIL MODAL -->
 <div class="modal" id="ordModal">
   <div class="mbox" style="width:min(560px,100%)">
@@ -740,6 +758,9 @@ let pendingProdImg = null;
 let pInvLinks = []; // array of {id, qty} — qty = amount used per 1 order
 let dbCats = [], dbInvCats = [], catTab = 'prod'; // loaded from categories table
 let invItems = [];
+
+const FREE_PROD_LIMIT = 3;
+const FREE_INV_LIMIT  = 3;
 
 function _sig(ms = 12000) {
   const c = new AbortController();
@@ -1194,6 +1215,7 @@ async function loadProducts() {
   if (error) { console.error('loadProducts error:', error); }
   allProds = data || [];
   renderProds(allProds);
+  updateAddBtnLabels();
 }
 function filterProds() {
   const q = document.getElementById('prodSearch').value.toLowerCase();
@@ -1241,7 +1263,30 @@ function openCatFromProd() {
   document.getElementById('catModal').classList.add('show');
   setTimeout(()=>document.getElementById('catName').focus(),50);
 }
+function showUpgradeModal(type, count, limit) {
+  const label = type === 'product' ? 'products' : 'inventory items';
+  document.getElementById('upgradeMsg').innerHTML =
+    `You have <strong>${count}/${limit}</strong> ${label} — that's the free plan limit.<br>Delete an existing ${type === 'product' ? 'product' : 'item'} to make room, or upgrade to Pro for unlimited access.`;
+  document.getElementById('upgradeModal').classList.add('show');
+}
+function updateAddBtnLabels() {
+  const pb = document.getElementById('btnAddProd');
+  if (pb) {
+    const c = allProds.length;
+    const over = c >= FREE_PROD_LIMIT;
+    pb.textContent = over ? `+ Add (${c}/${FREE_PROD_LIMIT} — Full)` : `+ Add (${c}/${FREE_PROD_LIMIT})`;
+    pb.style.background = over ? '#6b7280' : '';
+  }
+  const ib = document.getElementById('btnAddInv');
+  if (ib) {
+    const c = invItems.length;
+    const over = c >= FREE_INV_LIMIT;
+    ib.textContent = over ? `+ Add Item (${c}/${FREE_INV_LIMIT} — Full)` : `+ Add Item (${c}/${FREE_INV_LIMIT})`;
+    ib.style.background = over ? '#6b7280' : '';
+  }
+}
 function openProdModal(p) {
+  if (!p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
   document.getElementById('prodModalTitle').textContent=p?'Edit Product':'Add Product';
   document.getElementById('prodId').value=p?p.id:'';
   document.getElementById('pName').value=p?p.name:'';
@@ -1739,6 +1784,7 @@ async function loadInventory() {
   const sel=document.getElementById('invCatFilter');
   sel.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
   renderInv(invItems);
+  updateAddBtnLabels();
 }
 function filterInv() {
   const q=document.getElementById('invSearch').value.toLowerCase();
@@ -1785,6 +1831,7 @@ function openInvFromProd(){
   openInvModal(null);
 }
 function openInvModal(item){
+  if (!item && invItems.length >= FREE_INV_LIMIT) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
   document.getElementById('invModalTitle').textContent=item?'Edit Item':'Add Inventory Item';
   document.getElementById('invItemId').value=item?item.id:'';
   document.getElementById('invName').value=item?item.name:'';
