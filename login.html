@@ -78,9 +78,12 @@ async function doLogin() {
 
   // Load the user's store
   const { data: store } = await _sb.from('stores').select('id').eq('owner_id', data.user.id).single();
-  if (store) localStorage.setItem('pm_store_id', store.id);
-
-  location.href = 'dashboard.html';
+  if (store) {
+    localStorage.setItem('pm_store_id', store.id);
+    location.href = 'dashboard.html';
+  } else {
+    location.href = 'signup.html';
+  }
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
@@ -88,7 +91,14 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); })
 // Auto-redirect if already logged in
 (async () => {
   const { data: { session } } = await _sb.auth.getSession();
-  if (session) location.href = 'dashboard.html';
+  if (!session) return;
+  const { data: store } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).single();
+  if (store) {
+    localStorage.setItem('pm_store_id', store.id);
+    location.href = 'dashboard.html';
+  } else {
+    location.href = 'signup.html';
+  }
 })();
 </script>
 </body>

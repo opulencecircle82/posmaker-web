@@ -40,7 +40,10 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
   <div class="logo">POS<span>Maker</span></div>
   <div class="card">
     <h1>Create your store</h1>
-    <p class="sub">Set up your POS in under a minute — it's free.</p>
+    <p class="sub" id="subMsg">Set up your POS in under a minute — it's free.</p>
+    <div id="sessionBanner" style="display:none;background:rgba(0,180,216,.1);border:1px solid #00b4d8;border-radius:8px;padding:10px 14px;font-size:13px;color:#00b4d8;margin-bottom:16px">
+      ✓ You're logged in. Just fill in your store details below — email &amp; password not needed.
+    </div>
 
     <div class="field">
       <label>Store Name</label>
@@ -248,6 +251,16 @@ function getDefaultInvCats(biz) {
 
 // Allow Enter key
 document.addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
+
+// If already logged in, hide email/password and show banner
+(async () => {
+  const { data: { session } } = await _sb.auth.getSession();
+  if (!session) return;
+  document.getElementById('sessionBanner').style.display = 'block';
+  document.getElementById('email').closest('.field').style.display = 'none';
+  document.getElementById('pw').closest('.field').style.display = 'none';
+  document.querySelector('.divider').style.display = 'none';
+})();
 </script>
 </body>
 </html>
