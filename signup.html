@@ -21,6 +21,8 @@ label{display:block;font-size:13px;font-weight:600;color:#aaa;margin-bottom:6px}
 input,select{width:100%;padding:11px 14px;background:#09090f;border:1.5px solid #252540;border-radius:8px;color:#f0f0f8;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
 input:focus,select:focus{border-color:#00b4d8}
 input::placeholder{color:#44445a}
+select option{background:#111120;color:#f0f0f8}
+select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .btn{width:100%;padding:13px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;font-family:'Inter',sans-serif;transition:opacity .15s}
 .btn:hover{opacity:.88}
@@ -43,6 +45,43 @@ input::placeholder{color:#44445a}
     <div class="field">
       <label>Store Name</label>
       <input id="storeName" type="text" placeholder="e.g. Jollibee Taguig" autocomplete="organization">
+    </div>
+    <div class="field">
+      <label>Type of Business</label>
+      <select id="bizType">
+        <option value="">— Select your business type —</option>
+        <optgroup label="Food &amp; Beverage">
+          <option value="Fast Food">🍔 Fast Food / Burger Shop</option>
+          <option value="Carinderya">🍛 Carinderya / Turo-Turo</option>
+          <option value="Coffee Shop">☕ Coffee Shop / Café</option>
+          <option value="Bakery">🥖 Bakery / Panaderya</option>
+          <option value="Lechon">🍖 Lechon / Ihaw-Ihaw</option>
+          <option value="Pizza / Pasta">🍕 Pizza / Pasta</option>
+          <option value="Seafood">🦐 Seafood / Paluto</option>
+          <option value="Milk Tea / Drinks">🧋 Milk Tea / Drinks</option>
+          <option value="Karinderya / Buffet">🍽 Buffet / Eat All You Can</option>
+          <option value="Snack Bar">🍡 Snack Bar / Merienda</option>
+        </optgroup>
+        <optgroup label="Retail &amp; Supplies">
+          <option value="Sari-Sari Store">🏪 Sari-Sari Store / Grocery</option>
+          <option value="Bigasan">🌾 Bigasan / Rice Store</option>
+          <option value="Hardware">🔧 Hardware Store</option>
+          <option value="Agri Supply">🌱 Agri Supply / Farm Supplies</option>
+          <option value="Drug Store">💊 Drug Store / Pharmacy</option>
+          <option value="Pet Store">🐾 Pet Store / Veterinary</option>
+          <option value="Clothing">👗 Clothing / Fashion</option>
+          <option value="Electronics">📱 Electronics / Gadgets</option>
+          <option value="Furniture">🪑 Furniture / Home Decor</option>
+        </optgroup>
+        <optgroup label="Services">
+          <option value="Salon / Barbershop">✂️ Salon / Barbershop</option>
+          <option value="Laundry">🧺 Laundry Shop</option>
+          <option value="Printing / Photocopy">🖨 Printing / Photocopy</option>
+          <option value="Auto Parts">🚗 Auto Parts / Accessories</option>
+          <option value="School Supplies">📚 School / Office Supplies</option>
+        </optgroup>
+        <option value="Other">📦 Other</option>
+      </select>
     </div>
     <div class="row2">
       <div class="field">
@@ -76,6 +115,7 @@ const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 async function doSignup() {
   const storeName = document.getElementById('storeName').value.trim();
+  const bizType   = document.getElementById('bizType').value;
   const currency  = document.getElementById('currency').value.trim() || '₱';
   const taxRate   = parseFloat(document.getElementById('taxRate').value) || 0;
   const email     = document.getElementById('email').value.trim();
@@ -85,6 +125,7 @@ async function doSignup() {
 
   errEl.textContent = '';
   if (!storeName) { errEl.textContent = 'Store name is required.'; return; }
+  if (!bizType)   { errEl.textContent = 'Please select a business type.'; return; }
   if (!email)     { errEl.textContent = 'Email is required.'; return; }
   if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
 
@@ -102,7 +143,7 @@ async function doSignup() {
   // 2. Create store record
   const { data: store, error: storeErr } = await _sb
     .from('stores')
-    .insert({ name: storeName, owner_id: authData.user.id, currency, tax_rate: taxRate })
+    .insert({ name: storeName, owner_id: authData.user.id, currency, tax_rate: taxRate, business_type: bizType })
     .select()
     .single();
 
