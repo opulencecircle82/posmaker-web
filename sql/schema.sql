@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS products (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 -- Add columns to existing products (safe to re-run)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS stock      INTEGER DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS available  BOOLEAN DEFAULT TRUE;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS sku        TEXT    DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS unit       TEXT    DEFAULT 'pc';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS image_b64  TEXT    DEFAULT '';
@@ -62,13 +64,20 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS default_usage_qty NUMERIC DEFAULT 1;
+
 ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS inv_owner      ON inventory_items;
-DROP POLICY IF EXISTS inv_anon_read  ON inventory_items;
+DROP POLICY IF EXISTS inv_owner        ON inventory_items;
+DROP POLICY IF EXISTS inv_anon_read    ON inventory_items;
+DROP POLICY IF EXISTS inv_anon_update  ON inventory_items;
 
 CREATE POLICY inv_owner ON inventory_items FOR ALL TO authenticated
   USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
   WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+
+-- Cashier (anon) needs to read stock and deduct after sale
+CREATE POLICY inv_anon_read   ON inventory_items FOR SELECT TO anon USING (TRUE);
+CREATE POLICY inv_anon_update ON inventory_items FOR UPDATE TO anon USING (TRUE) WITH CHECK (TRUE);
 
 -- Orders
 CREATE TABLE IF NOT EXISTS orders (
@@ -225,3 +234,23 @@ CREATE POLICY draft_owner ON draft_orders FOR ALL TO authenticated
   WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
 CREATE POLICY draft_anon ON draft_orders FOR ALL TO anon
   USING (TRUE) WITH CHECK (TRUE);
+
+-- POS Device Registry (locks each POS terminal to one device)
+CREATE TABLE IF NOT EXISTS pos_devices (
+  id            UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id      UUID        REFERENCES stores NOT NULL,
+  device_id     TEXT        NOT NULL,
+  device_name   TEXT        DEFAULT '',
+  platform      TEXT        DEFAULT 'windows',
+  registered_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (store_id, device_id)
+);
+ALTER TABLE pos_devices ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS pd_owner        ON pos_devices;
+DROP POLICY IF EXISTS pd_anon_select  ON pos_devices;
+DROP POLICY IF EXISTS pd_anon_insert  ON pos_devices;
+CREATE POLICY pd_owner ON pos_devices FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+CREATE POLICY pd_anon_select ON pos_devices FOR SELECT TO anon USING (TRUE);
+CREATE POLICY pd_anon_insert ON pos_devices FOR INSERT TO anon WITH CHECK (TRUE);
