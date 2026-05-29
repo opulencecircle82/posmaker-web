@@ -503,12 +503,38 @@ async function doLogout() {
 
 // ── Products ─────────────────────────────────────────────────────────────
 async function loadProds() {
-  const { data } = await _sb.from('products')
+  const { data, error } = await _sb.from('products')
     .select('id,name,price,category,image_b64,sku,unit,stock')
     .eq('store_id', STORE_ID)
     .eq('available', true)
     .order('category').order('name');
+
+  if (error) {
+    document.getElementById('grid').innerHTML =
+      `<div style="color:#ef4444;padding:20px;font-size:13px">Error loading products:<br><strong>${error.message}</strong></div>`;
+    return;
+  }
+
   prods = data || [];
+
+  if (!prods.length) {
+    // Extra check: are there products in this store at all (including unavailable)?
+    const { data: all, error: e2 } = await _sb.from('products')
+      .select('id,available').eq('store_id', STORE_ID);
+    const total = all ? all.length : 0;
+    const hidden = all ? all.filter(p => !p.available).length : 0;
+    if (total > 0 && hidden > 0) {
+      document.getElementById('grid').innerHTML =
+        `<div style="color:#f59e0b;padding:20px;font-size:13px">${total} product(s) found but ${hidden} are set to <strong>Unavailable</strong>. Go to Dashboard → Menu Items and enable them.</div>`;
+      return;
+    }
+    if (e2) {
+      document.getElementById('grid').innerHTML =
+        `<div style="color:#ef4444;padding:20px;font-size:13px">Could not verify products: ${e2.message}</div>`;
+      return;
+    }
+  }
+
   buildCats();
   renderProds('All');
 }
