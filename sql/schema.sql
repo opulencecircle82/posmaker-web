@@ -254,7 +254,3 @@ CREATE POLICY pd_owner ON pos_devices FOR ALL TO authenticated
   WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
 CREATE POLICY pd_anon_select ON pos_devices FOR SELECT TO anon USING (TRUE);
 CREATE POLICY pd_anon_insert ON pos_devices FOR INSERT TO anon WITH CHECK (TRUE);
-
--- Store Code (unique short code owners share with cashiers to connect POS)
-ALTER TABLE stores ADD COLUMN IF NOT EXISTS store_code TEXT DEFAULT '';
-CREATE UNIQUE INDEX IF NOT EXISTS stores_store_code_idx ON stores(store_code) WHERE store_code != '';

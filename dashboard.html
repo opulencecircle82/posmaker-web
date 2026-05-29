@@ -435,7 +435,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <!-- DOWNLOAD / INSTALL SECTION -->
       <div style="margin-top:24px">
         <div style="font-size:14px;font-weight:700;margin-bottom:4px">&#128640; Download &amp; Install</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Download the POS app for Windows or Android. Enter your store code on first launch to connect.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Download the POS app for Windows or Android. Each setup is locked to one device only.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
 
           <!-- WINDOWS -->
@@ -443,32 +443,34 @@ input:checked + .slider:before{transform:translateX(18px)}
             <div style="position:absolute;top:12px;right:12px;font-size:10px;background:rgba(0,180,216,.15);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:700">AVAILABLE</div>
             <div style="font-size:22px;margin-bottom:8px">&#128187;</div>
             <div style="font-size:14px;font-weight:700;margin-bottom:4px">Windows PC App</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Download the app ZIP, extract, and run <strong style="color:var(--text)">POSMaker.exe</strong>. Enter your store code on first launch — locked to this device only.</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Download the app ZIP and your store config file. Place the config next to <strong style="color:var(--text)">POSMaker.exe</strong> — it auto-connects to your store, no login needed.</div>
             <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.9;margin-bottom:12px">
               1&#65039;&#8419; Download &amp; extract the <strong style="color:var(--accent)">ZIP</strong><br>
-              2&#65039;&#8419; Run <strong style="color:var(--accent)">POSMaker.exe</strong><br>
-              3&#65039;&#8419; Enter your <strong style="color:var(--accent)">Store Code</strong> from My POS<br>
-              4&#65039;&#8419; Locked to this PC &#8212; ready to use! &#128274;
+              2&#65039;&#8419; Download your <strong style="color:var(--accent)">Store Config</strong> file<br>
+              3&#65039;&#8419; Place <strong style="color:var(--accent)">posmaker-store.json</strong> next to POSMaker.exe<br>
+              4&#65039;&#8419; Run <strong style="color:var(--accent)">POSMaker.exe</strong> &#8212; opens your store! &#128274;
             </div>
             <div style="display:flex;gap:6px">
               <a class="btn btn-accent btn-sm" style="flex:1;justify-content:center;text-decoration:none" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMaker-Windows.zip" target="_blank">&#11015; Download ZIP</a>
+              <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="downloadStoreConfig()">&#128190; Download Config</button>
             </div>
           </div>
 
           <!-- ANDROID -->
-          <div style="background:var(--s1);border:1px solid #00b4d8;border-radius:12px;padding:18px;position:relative">
-            <div style="position:absolute;top:12px;right:12px;font-size:10px;background:rgba(0,180,216,.15);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:700">AVAILABLE</div>
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative">
+            <div style="position:absolute;top:12px;right:12px;font-size:10px;background:rgba(245,158,11,.12);color:#f59e0b;padding:2px 8px;border-radius:8px;font-weight:700">PWA</div>
             <div style="font-size:22px;margin-bottom:8px">&#129354;</div>
-            <div style="font-size:14px;font-weight:700;margin-bottom:4px">Android APK</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Download and install the APK on any Android tablet or phone. Enter your store code on first launch.</div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:4px">Android App</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Open the Cashier Link in <strong style="color:var(--text)">Chrome</strong> on Android. Tap "Add to Home Screen" to install as an app — no APK file needed.</div>
             <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.9;margin-bottom:12px">
-              1&#65039;&#8419; Download &amp; install <strong style="color:var(--accent)">POSMaker-Android.apk</strong><br>
-              2&#65039;&#8419; Allow installs from unknown sources if asked<br>
-              3&#65039;&#8419; Open app &#8594; enter your <strong style="color:var(--accent)">Store Code</strong><br>
-              4&#65039;&#8419; Done &#8212; opens your store on every launch! &#128274;
+              1&#65039;&#8419; Open Cashier Link in <strong style="color:var(--accent)">Chrome</strong><br>
+              2&#65039;&#8419; Tap &#8942; menu &#8594; <strong style="color:var(--accent)">Add to Home Screen</strong><br>
+              3&#65039;&#8419; Tap <strong style="color:var(--accent)">Install</strong> &#8212; appears on home screen!<br>
+              4&#65039;&#8419; Or generate a proper APK via PWABuilder &#128230;
             </div>
             <div style="display:flex;gap:6px">
-              <a class="btn btn-accent btn-sm" style="flex:1;justify-content:center;text-decoration:none" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMaker-Android.apk" target="_blank">&#11015; Download APK</a>
+              <button class="btn btn-accent btn-sm" style="flex:1;justify-content:center" onclick="showInstallModal('Android')">View Steps</button>
+              <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="openPWABuilder()">&#128230; APK</button>
             </div>
           </div>
 
@@ -1376,25 +1378,13 @@ async function loadPOSTerminals() {
   const list = document.getElementById('posTerminalList');
   if (list) list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Loading...</div>';
   const [{ data: stores }, { data: devices }] = await Promise.all([
-    _sb.from('stores').select('id,name,business_type,store_code,created_at').order('created_at').abortSignal(_sig()),
+    _sb.from('stores').select('id,name,business_type,created_at').order('created_at').abortSignal(_sig()),
     _sb.from('pos_devices').select('store_id,device_id,device_name,platform,registered_at').abortSignal(_sig())
   ]);
   allStores  = stores  || [];
   posDevices = devices || [];
-  // Auto-generate store_code for stores that don't have one yet
-  for (const s of allStores) {
-    if (!s.store_code) {
-      const code = genStoreCode(s.name);
-      await _sb.from('stores').update({ store_code: code }).eq('id', s.id);
-      s.store_code = code;
-    }
-  }
   renderPOSTerminals();
   updateAddPOSBtn();
-}
-function genStoreCode(name) {
-  const prefix = (name || 'STORE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-  return prefix + String(Math.floor(1000 + Math.random() * 9000));
 }
 function renderPOSTerminals() {
   const list = document.getElementById('posTerminalList');
@@ -1419,30 +1409,19 @@ function renderPOSTerminals() {
            <div style="font-size:11px;color:var(--muted);margin-top:2px">Download the app below and run setup to lock this POS to one device.</div>
          </div>`;
     return `<div class="info-card" style="margin-bottom:12px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
         <div>
           <div style="font-size:15px;font-weight:700">&#128187; POS #${i+1} &mdash; ${s.name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:monospace">Store ID: ${shortId}&hellip;</div>
           ${s.business_type?`<div style="font-size:11px;color:var(--accent);margin-top:3px">${s.business_type}</div>`:''}
         </div>
         <span class="badge" style="background:#0a2a1a;color:#10b981">&#9679; Active</span>
       </div>
-
-      <!-- STORE CODE — prominent -->
-      <div style="background:linear-gradient(135deg,rgba(0,180,216,.12),rgba(0,180,216,.04));border:2px solid rgba(0,180,216,.35);border-radius:12px;padding:16px;margin-bottom:14px;text-align:center">
-        <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">&#128273; Your Store Code</div>
-        <div style="font-size:30px;font-weight:900;color:var(--accent);letter-spacing:5px;font-family:monospace">${s.store_code||'—'}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">Share this code with your cashiers.<br>They enter it once on first launch to connect their POS.</div>
-        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
-          <button class="btn btn-accent btn-sm" onclick="navigator.clipboard.writeText('${s.store_code||''}');showToast('Store code copied!')">&#128203; Copy Code</button>
-          <button class="btn btn-ghost btn-sm" onclick="editStoreCode('${s.id}','${s.store_code||''}')">&#9998; Edit Code</button>
-        </div>
-      </div>
-
       ${devBlock}
       <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">CASHIER URL (browser / PWA)</div>
       <div class="link-box" style="font-size:11px;margin:0 0 12px">${url}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-accent btn-sm" onclick="downloadStoreConfig()">&#128190; Download Config (.exe)</button>
+        <button class="btn btn-accent btn-sm" onclick="downloadStoreConfig()">&#128190; Download My Config</button>
         <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${url}');showToast('Cashier link copied!')">&#128203; Copy Link</button>
         <a class="btn btn-ghost btn-sm" href="${url}" target="_blank">Open in Browser</a>
       </div>
@@ -1450,23 +1429,10 @@ function renderPOSTerminals() {
   }).join('');
 }
 async function resetPOSDevice(storeId) {
-  if (!confirm('Reset the registered device for this POS?\n\nAfter reset, it can be activated on a new device.')) return;
+  if (!confirm('Reset the registered device for this POS terminal?\n\nAfter this, it can be set up on a new device.')) return;
   const { error } = await _sb.from('pos_devices').delete().eq('store_id', storeId);
   if (error) { showToast('Error: ' + error.message, true); return; }
-  showToast('Device reset. You can now activate on a new device.');
-  loadPOSTerminals();
-}
-async function editStoreCode(storeId, currentCode) {
-  const newCode = prompt('Enter a new store code (letters & numbers only, 4–12 chars):\n\nCurrent: ' + (currentCode || 'none'), currentCode || '');
-  if (newCode === null) return;
-  const clean = newCode.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
-  if (clean.length < 4) { showToast('Code too short. Minimum 4 characters.', true); return; }
-  // Check if taken by another store
-  const { data: existing } = await _sb.from('stores').select('id').eq('store_code', clean).maybeSingle();
-  if (existing && existing.id !== storeId) { showToast('That code is already taken. Try another.', true); return; }
-  const { error } = await _sb.from('stores').update({ store_code: clean }).eq('id', storeId);
-  if (error) { showToast('Error: ' + error.message, true); return; }
-  showToast('Store code updated to: ' + clean);
+  showToast('Device reset. Maaari na mag-setup ng bagong device.');
   loadPOSTerminals();
 }
 function downloadStoreConfig() {
