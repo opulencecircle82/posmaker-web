@@ -435,7 +435,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <!-- DOWNLOAD / INSTALL SECTION -->
       <div style="margin-top:24px">
         <div style="font-size:14px;font-weight:700;margin-bottom:4px">&#128640; Download &amp; Install</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">I-download ang POS app para sa Windows o Android. Ang bawat setup ay naka-lock sa isang device lamang.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Download the POS app for Windows or Android. Enter your store code on first launch to connect.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
 
           <!-- WINDOWS -->
@@ -443,34 +443,32 @@ input:checked + .slider:before{transform:translateX(18px)}
             <div style="position:absolute;top:12px;right:12px;font-size:10px;background:rgba(0,180,216,.15);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:700">AVAILABLE</div>
             <div style="font-size:22px;margin-bottom:8px">&#128187;</div>
             <div style="font-size:14px;font-weight:700;margin-bottom:4px">Windows PC App</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Download the app ZIP and your store config file. Place the config next to <strong style="color:var(--text)">POSMaker.exe</strong> — it auto-connects to your store, no login needed.</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Download the app ZIP, extract, and run <strong style="color:var(--text)">POSMaker.exe</strong>. Enter your store code on first launch — locked to this device only.</div>
             <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.9;margin-bottom:12px">
               1&#65039;&#8419; Download &amp; extract the <strong style="color:var(--accent)">ZIP</strong><br>
-              2&#65039;&#8419; Download your <strong style="color:var(--accent)">Store Config</strong> file<br>
-              3&#65039;&#8419; Place <strong style="color:var(--accent)">posmaker-store.json</strong> next to POSMaker.exe<br>
-              4&#65039;&#8419; Run <strong style="color:var(--accent)">POSMaker.exe</strong> &#8212; opens your store! &#128274;
+              2&#65039;&#8419; Run <strong style="color:var(--accent)">POSMaker.exe</strong><br>
+              3&#65039;&#8419; Enter your <strong style="color:var(--accent)">Store Code</strong> from My POS<br>
+              4&#65039;&#8419; Locked to this PC &#8212; ready to use! &#128274;
             </div>
             <div style="display:flex;gap:6px">
               <a class="btn btn-accent btn-sm" style="flex:1;justify-content:center;text-decoration:none" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMaker-Windows.zip" target="_blank">&#11015; Download ZIP</a>
-              <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="downloadStoreConfig()">&#128190; Download Config</button>
             </div>
           </div>
 
           <!-- ANDROID -->
-          <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative">
-            <div style="position:absolute;top:12px;right:12px;font-size:10px;background:rgba(245,158,11,.12);color:#f59e0b;padding:2px 8px;border-radius:8px;font-weight:700">PWA</div>
+          <div style="background:var(--s1);border:1px solid #00b4d8;border-radius:12px;padding:18px;position:relative">
+            <div style="position:absolute;top:12px;right:12px;font-size:10px;background:rgba(0,180,216,.15);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:700">AVAILABLE</div>
             <div style="font-size:22px;margin-bottom:8px">&#129354;</div>
-            <div style="font-size:14px;font-weight:700;margin-bottom:4px">Android App</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Open the Cashier Link in <strong style="color:var(--text)">Chrome</strong> on Android. Tap "Add to Home Screen" to install as an app — no APK file needed.</div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:4px">Android APK</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Download and install the APK on any Android tablet or phone. Enter your store code on first launch.</div>
             <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.9;margin-bottom:12px">
-              1&#65039;&#8419; Open Cashier Link in <strong style="color:var(--accent)">Chrome</strong><br>
-              2&#65039;&#8419; Tap &#8942; menu &#8594; <strong style="color:var(--accent)">Add to Home Screen</strong><br>
-              3&#65039;&#8419; Tap <strong style="color:var(--accent)">Install</strong> &#8212; appears on home screen!<br>
-              4&#65039;&#8419; Or generate a proper APK via PWABuilder &#128230;
+              1&#65039;&#8419; Download &amp; install <strong style="color:var(--accent)">POSMaker-Android.apk</strong><br>
+              2&#65039;&#8419; Allow installs from unknown sources if asked<br>
+              3&#65039;&#8419; Open app &#8594; enter your <strong style="color:var(--accent)">Store Code</strong><br>
+              4&#65039;&#8419; Done &#8212; opens your store on every launch! &#128274;
             </div>
             <div style="display:flex;gap:6px">
-              <button class="btn btn-accent btn-sm" style="flex:1;justify-content:center" onclick="showInstallModal('Android')">View Steps</button>
-              <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="openPWABuilder()">&#128230; APK</button>
+              <a class="btn btn-accent btn-sm" style="flex:1;justify-content:center;text-decoration:none" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMaker-Android.apk" target="_blank">&#11015; Download APK</a>
             </div>
           </div>
 

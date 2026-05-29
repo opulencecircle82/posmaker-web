@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.posmaker.cashier",
+        "sha256_cert_fingerprints": ["95:DC:E6:8F:E1:E8:3E:C4:3F:17:3F:96:F7:DC:B0:84:C2:83:E2:BF:54:57:02:66:83:E6:6B:1F:38:AA:98:FF"]
+      }
+    }]
