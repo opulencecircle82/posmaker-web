@@ -466,7 +466,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="field" style="margin-bottom:6px">
       <label>Linked Inventory Items <span style="color:var(--dim);font-weight:400">(optional &#8212; for cost & income)</span></label>
       <div style="display:flex;gap:6px;margin-bottom:4px;align-items:center">
-        <select id="pInvLink" style="flex:1;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none">
+        <select id="pInvLink" onchange="autoFillUsageQty()" style="flex:1;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none">
           <option value="">&#8212; Select item &#8212;</option>
         </select>
         <input id="pInvLinkQty" type="number" min="0.001" step="0.001" value="1" placeholder="Qty"
@@ -1293,6 +1293,12 @@ function removeProdImg(){
   document.getElementById('removeProdImgBtn').style.display='none';
   document.getElementById('prodImgInput').value='';
 }
+function autoFillUsageQty(){
+  const id=document.getElementById('pInvLink').value;
+  if(!id)return;
+  const item=invItems.find(x=>x.id===id);
+  if(item&&item.default_usage_qty) document.getElementById('pInvLinkQty').value=item.default_usage_qty;
+}
 function addInvLink(){
   const sel=document.getElementById('pInvLink');
   const id=sel.value;
@@ -1793,7 +1799,7 @@ function openInvModal(item){
   document.getElementById('invUnitHint').textContent=u;
   document.getElementById('invStockUnitLabel').textContent=u;
   document.getElementById('invUsageUnit').textContent=u;
-  document.getElementById('invUsageQty').value='1';
+  document.getElementById('invUsageQty').value=item?(item.default_usage_qty??1):1;
   document.getElementById('invUsageCost').textContent='';
   // Pre-fill purchase price = cost_per_unit × stock (best estimate when editing)
   const estPrice=costPer>0&&stk>0?(costPer*stk).toFixed(2):'';
@@ -1864,12 +1870,19 @@ async function saveInvItem(){
   const stock=parseFloat(document.getElementById('invStock').value)||0;
   const cost=parseFloat(document.getElementById('invCost').value)||0;
   const lowStock=parseFloat(document.getElementById('invLowStock').value)||5;
+  const usageQty=parseFloat(document.getElementById('invUsageQty').value)||1;
   if(!name){showToast('Item name is required.',true);return;}
   if(!cat){showToast('Please select a category.',true);return;}
-  const payload={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock};
+  const payload={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock,default_usage_qty:usageQty};
   let err;
   if(id){({error:err}=await _sb.from('inventory_items').update(payload).eq('id',id));}
   else{({error:err}=await _sb.from('inventory_items').insert({store_id:STORE.id,...payload}));}
+  // Fallback if default_usage_qty column doesn't exist yet
+  if(err&&err.message&&err.message.includes('default_usage_qty')){
+    const p2={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock};
+    if(id){({error:err}=await _sb.from('inventory_items').update(p2).eq('id',id));}
+    else{({error:err}=await _sb.from('inventory_items').insert({store_id:STORE.id,...p2}));}
+  }
   if(err){showToast(err.message,true);return;}
   await loadDbCategories();
   const fromProd=document.getElementById('invModal').dataset.fromProd==='1';

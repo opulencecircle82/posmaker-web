@@ -509,9 +509,18 @@ async function loadProds() {
     .eq('available', true)
     .order('category').order('name');
 
+  // Retry with fewer columns if any column is missing in this store's DB
+  if (error && error.message && error.message.includes('does not exist')) {
+    const { data: d2, error: e2 } = await _sb.from('products')
+      .select('id,name,price,category,image_b64')
+      .eq('store_id', STORE_ID).eq('available', true)
+      .order('category').order('name');
+    if (!e2) { prods = d2 || []; buildCats(); renderProds('All'); return; }
+    error = e2;
+  }
   if (error) {
     document.getElementById('grid').innerHTML =
-      `<div style="color:#ef4444;padding:20px;font-size:13px">Error loading products:<br><strong>${error.message}</strong></div>`;
+      `<div style="color:#ef4444;padding:20px;font-size:13px">Error loading products:<br><strong>${error.message}</strong><br><br>Run the schema SQL in Supabase to fix this.</div>`;
     return;
   }
 
