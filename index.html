@@ -447,8 +447,8 @@ function openDemo() {
   const cur  = document.getElementById('idxCurrency').value.trim() || '₱';
   const tax  = document.getElementById('idxTax').value || '12';
   localStorage.setItem('pm_demo_prods', JSON.stringify(demoProd));
-  const p = new URLSearchParams({ demo:'1', dname: name, dcur: cur, dtax: tax });
-  window.open('cashier.html?' + p.toString(), '_blank');
+  const p = new URLSearchParams({ dname: name, dcur: cur, dtax: tax });
+  window.open('demo.html?' + p.toString(), '_blank');
 }
 </script>
 </body>
