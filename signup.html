@@ -126,31 +126,61 @@ async function doSignup() {
   errEl.textContent = '';
   if (!storeName) { errEl.textContent = 'Store name is required.'; return; }
   if (!bizType)   { errEl.textContent = 'Please select a business type.'; return; }
-  if (!email)     { errEl.textContent = 'Email is required.'; return; }
-  if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Creating store…';
 
-  // 1. Create Supabase Auth user
-  const { data: authData, error: authErr } = await _sb.auth.signUp({ email, password: pw });
-  if (authErr) {
-    errEl.textContent = authErr.message;
-    btn.disabled = false; btn.textContent = 'Create Store & Continue →';
-    return;
+  let userId;
+
+  // Check if user is already authenticated (previous signup failed mid-way)
+  const { data: { session: existingSession } } = await _sb.auth.getSession();
+  if (existingSession) {
+    userId = existingSession.user.id;
+  } else {
+    // Normal path: email + password required
+    if (!email)          { errEl.textContent = 'Email is required.'; btn.disabled = false; btn.textContent = 'Create Store & Continue →'; return; }
+    if (pw.length < 6)   { errEl.textContent = 'Password must be at least 6 characters.'; btn.disabled = false; btn.textContent = 'Create Store & Continue →'; return; }
+
+    const { data: authData, error: authErr } = await _sb.auth.signUp({ email, password: pw });
+    if (authErr) {
+      // If already registered, try signing in instead
+      if (authErr.message.toLowerCase().includes('already registered') || authErr.message.toLowerCase().includes('already been registered')) {
+        const { data: signIn, error: signInErr } = await _sb.auth.signInWithPassword({ email, password: pw });
+        if (signInErr) {
+          errEl.textContent = 'This email is already registered. Please log in instead.';
+          btn.disabled = false; btn.textContent = 'Create Store & Continue →';
+          // Show link to login
+          errEl.innerHTML = 'This email is already registered. <a href="login.html" style="color:#00b4d8;font-weight:600">Log in here</a> — then complete your store setup from the dashboard.';
+          return;
+        }
+        userId = signIn.user.id;
+      } else {
+        errEl.textContent = authErr.message;
+        btn.disabled = false; btn.textContent = 'Create Store & Continue →';
+        return;
+      }
+    } else {
+      userId = authData.user.id;
+    }
   }
 
-  // 2. Create store record (fallback without business_type if column not yet in DB)
+  // Check if this user already has a store
+  const { data: existing } = await _sb.from('stores').select('id').eq('owner_id', userId).single();
+  if (existing) {
+    localStorage.setItem('pm_store_id', existing.id);
+    location.href = 'dashboard.html'; return;
+  }
+
+  // Create store record (fallback without business_type if column not yet in DB)
   let { data: store, error: storeErr } = await _sb
     .from('stores')
-    .insert({ name: storeName, owner_id: authData.user.id, currency, tax_rate: taxRate, business_type: bizType })
+    .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate, business_type: bizType })
     .select().single();
 
   if (storeErr && storeErr.message && storeErr.message.toLowerCase().includes('column')) {
-    // business_type column not yet added — create without it
     ({ data: store, error: storeErr } = await _sb
       .from('stores')
-      .insert({ name: storeName, owner_id: authData.user.id, currency, tax_rate: taxRate })
+      .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate })
       .select().single());
   }
 
