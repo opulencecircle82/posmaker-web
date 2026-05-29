@@ -211,10 +211,11 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="section" id="sec-orders">
       <div class="tbl-wrap">
         <div class="tbl-head" style="flex-wrap:wrap;gap:8px">
-          <h3>Orders</h3>
+          <h3>Orders &mdash; <span id="ordHdrLabel" style="font-weight:400;color:var(--muted);font-size:13px"></span></h3>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="hidden" id="ordFrom">
             <input type="hidden" id="ordTo">
+            <button class="btn btn-accent btn-sm" id="ordBtnToday" onclick="setOrdToday()">Today</button>
             <div class="datepick">
               <button class="btn btn-ghost btn-sm datepick-btn" onclick="toggleDP('dpOrdFrom');event.stopPropagation()"><span id="dpOrdFromLabel">From</span> &#9660;</button>
               <div class="datepick-drop" id="dpOrdFromDrop" data-input="ordFrom" data-placeholder="From" data-cb="loadOrders"></div>
@@ -223,7 +224,7 @@ input:checked + .slider:before{transform:translateX(18px)}
               <button class="btn btn-ghost btn-sm datepick-btn" onclick="toggleDP('dpOrdTo');event.stopPropagation()"><span id="dpOrdToLabel">To</span> &#9660;</button>
               <div class="datepick-drop" id="dpOrdToDrop" data-input="ordTo" data-placeholder="To" data-cb="loadOrders"></div>
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="clearOrdFilter()">All</button>
+            <button class="btn btn-ghost btn-sm" id="ordBtnAll" onclick="clearOrdFilter()">All</button>
             <button class="btn btn-ghost btn-sm" onclick="exportOrdCSV()">&#8595; CSV</button>
           </div>
         </div>
@@ -803,21 +804,45 @@ async function doLogout() {
 async function loadDashboard() {
   if (!STORE) return;
   const _tbody = document.getElementById('ordersTbody');
-  _tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading orders...</td></tr>';
-  const _rt = setTimeout(() => {
-    if (_tbody.textContent.trim().startsWith('Loading')) {
-      _tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px"><div style="color:#f59e0b;margin-bottom:8px">Supabase is taking too long to respond.</div><button class="btn btn-accent btn-sm" onclick="loadDashboard()">&#8635; Retry</button></td></tr>';
-    }
-  }, 8000);
-  try {
-    const today = new Date().toISOString().slice(0, 10);
-    const month = today.slice(0, 7);
 
+  // Show spinners in stat cards
+  const spin = `<div class="spinner" style="width:18px;height:18px;border-width:2px;display:inline-block;vertical-align:middle"></div>`;
+  ['tdOrders','tdRev','moOrders','moRev'].forEach(id => document.getElementById(id).innerHTML = spin);
+
+  _tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:28px">
+    <div class="spinner" style="width:22px;height:22px;border-width:2px;display:inline-block;margin-bottom:10px"></div>
+    <div style="color:var(--muted);font-size:13px">Connecting to database...</div>
+  </td></tr>`;
+
+  // After 10s still loading → show cold-start tip + retry
+  const _rt = setTimeout(() => {
+    if (_tbody.querySelector('.spinner') || _tbody.textContent.includes('Connecting')) {
+      _tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px">
+        <div style="color:#f59e0b;font-weight:600;margin-bottom:6px">&#9203; Database is waking up...</div>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:12px">Supabase free tier sleeps after inactivity.<br>First load can take up to 60 seconds.</div>
+        <button class="btn btn-accent btn-sm" onclick="loadDashboard()">&#8635; Retry Now</button>
+      </td></tr>`;
+    }
+  }, 10000);
+
+  try {
+    // Use LOCAL date boundaries (fixes UTC+8 / Philippines timezone issue)
+    const now        = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
+    const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).toISOString();
+
+    // Fetch today's orders (full data — used for both stat cards AND the table)
     const { data: todayOrders, error: e1 } = await _sb.from('orders')
-      .select('total').eq('store_id', STORE.id).gte('timestamp', today + 'T00:00:00').abortSignal(_sig());
+      .select('id,timestamp,cashier_name,total,payment_method')
+      .eq('store_id', STORE.id)
+      .gte('timestamp', todayStart).lte('timestamp', todayEnd)
+      .order('id', { ascending: false })
+      .abortSignal(_sig(60000));
     if (e1) throw e1;
+
     const { data: monthOrders, error: e2 } = await _sb.from('orders')
-      .select('total').eq('store_id', STORE.id).gte('timestamp', month + '-01T00:00:00').abortSignal(_sig());
+      .select('total').eq('store_id', STORE.id).gte('timestamp', monthStart).abortSignal(_sig(60000));
     if (e2) throw e2;
 
     const tdCnt = todayOrders.length;
@@ -830,9 +855,9 @@ async function loadDashboard() {
     document.getElementById('moOrders').textContent = moCnt;
     document.getElementById('moRev').textContent    = CUR + moRev.toFixed(2);
 
-    // Low stock alert — check inventory_items table (has low_stock_threshold)
+    // Low stock alert
     const { data: invForAlert } = await _sb.from('inventory_items')
-      .select('name,unit,stock,low_stock_threshold').eq('store_id', STORE.id).abortSignal(_sig());
+      .select('name,unit,stock,low_stock_threshold').eq('store_id', STORE.id).abortSignal(_sig(30000));
     const lowItems = (invForAlert || []).filter(i => parseFloat(i.stock ?? 0) <= parseFloat(i.low_stock_threshold ?? 5));
     const alertEl = document.getElementById('lowStockAlert');
     if (lowItems.length) {
@@ -840,19 +865,18 @@ async function loadDashboard() {
       alertEl.style.display = 'block';
     } else { alertEl.style.display = 'none'; }
 
-    const { data: recent, error: rErr } = await _sb.from('orders')
-      .select('id,timestamp,cashier_name,total,payment_method')
-      .eq('store_id', STORE.id).order('id', { ascending: false }).limit(50).abortSignal(_sig());
+    // Update table header with today's date
+    const dateLabel = now.toLocaleDateString('en-PH', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+    document.querySelector('#sec-dashboard .tbl-head h3').textContent = "Today's Orders — " + dateLabel;
 
     const tbody = document.getElementById('ordersTbody');
-    if (rErr) { clearTimeout(_rt); tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px">Error: ${rErr.message}</td></tr>`; return; }
-    if (!recent || !recent.length) {
+    if (!todayOrders.length) {
       clearTimeout(_rt);
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No orders yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:28px">No orders today yet.</td></tr>';
       return;
     }
-    tbody.innerHTML = recent.map(o => {
-      const dt = new Date(o.timestamp).toLocaleString('en-PH', {month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    tbody.innerHTML = todayOrders.map(o => {
+      const dt = new Date(o.timestamp).toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'});
       const m  = (o.payment_method || 'Cash').toLowerCase();
       const bg = m === 'cash' ? 'bg-cash' : m === 'card' ? 'bg-card' : 'bg-gcash';
       return `<tr>
@@ -867,8 +891,12 @@ async function loadDashboard() {
   } catch(e) {
     clearTimeout(_rt);
     console.error('loadDashboard error:', e);
-    document.getElementById('ordersTbody').innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px"><div style="color:#ef4444;margin-bottom:8px">Error: ${e.message||'Connection failed'}</div><button class="btn btn-accent btn-sm" onclick="loadDashboard()">&#8635; Retry</button></td></tr>`;
-    ['tdOrders','tdRev','moOrders','moRev'].forEach(id => document.getElementById(id).textContent = '?');
+    document.getElementById('ordersTbody').innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px">
+      <div style="color:#ef4444;margin-bottom:8px">&#10006; ${e.message || 'Connection failed'}</div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px">Check your internet connection and try again.</div>
+      <button class="btn btn-accent btn-sm" onclick="loadDashboard()">&#8635; Retry</button>
+    </td></tr>`;
+    ['tdOrders','tdRev','moOrders','moRev'].forEach(id => document.getElementById(id).textContent = '—');
   }
 }
 
@@ -1461,14 +1489,25 @@ async function loadOrders() {
   if (!STORE) return;
   const from = document.getElementById('ordFrom').value;
   const to   = document.getElementById('ordTo').value;
-  let q = _sb.from('orders').select('*').eq('store_id', STORE.id).order('id', { ascending: false }).limit(500);
-  if (from) q = q.gte('timestamp', from + 'T00:00:00');
-  if (to)   q = q.lte('timestamp', to   + 'T23:59:59');
-  const { data } = await q.abortSignal(_sig());
+
+  // Default to today (local timezone) when no filter set
+  const now = new Date();
+  const todayISO = now.toLocaleDateString('en-CA'); // YYYY-MM-DD local
+  const useFrom = from || todayISO;
+  const useTo   = to   || todayISO;
+
+  // Use local date → convert to ISO for Supabase
+  const fromDt = new Date(useFrom + 'T00:00:00').toISOString();
+  const toDt   = new Date(useTo   + 'T23:59:59').toISOString();
+
+  let q = _sb.from('orders').select('*').eq('store_id', STORE.id)
+    .gte('timestamp', fromDt).lte('timestamp', toDt)
+    .order('id', { ascending: false });
+  const { data } = await q.abortSignal(_sig(60000));
   allOrders = data || [];
   if (allOrders.length) {
     const ids = allOrders.map(o => o.id);
-    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids).abortSignal(_sig());
+    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids).abortSignal(_sig(30000));
     const imap = {};
     (items || []).forEach(i => {
       if (!imap[i.order_id]) imap[i.order_id] = [];
@@ -1476,7 +1515,28 @@ async function loadOrders() {
     });
     allOrders.forEach(o => { o._items = imap[o.id] || []; });
   }
+
+  // Update header label
+  const isToday = useFrom === todayISO && useTo === todayISO;
+  const isAll   = !from && !to && false; // all mode only via clearOrdFilter
+  const hdr = isToday
+    ? 'Today — ' + now.toLocaleDateString('en-PH', {weekday:'long',month:'long',day:'numeric',year:'numeric'})
+    : (useFrom === useTo ? new Date(useFrom + 'T12:00:00').toLocaleDateString('en-PH',{weekday:'long',month:'long',day:'numeric',year:'numeric'}) : useFrom + ' → ' + useTo);
+  document.getElementById('ordHdrLabel').textContent = hdr;
+
+  // Button highlight
+  document.getElementById('ordBtnToday').className = 'btn btn-sm ' + (isToday ? 'btn-accent' : 'btn-ghost');
+  document.getElementById('ordBtnAll').className   = 'btn btn-sm btn-ghost';
+
   renderOrders(allOrders);
+}
+
+function setOrdToday() {
+  document.getElementById('ordFrom').value = '';
+  document.getElementById('ordTo').value   = '';
+  document.getElementById('dpOrdFromLabel').textContent = 'From';
+  document.getElementById('dpOrdToLabel').textContent   = 'To';
+  loadOrders();
 }
 function renderOrders(orders) {
   const tbody = document.getElementById('ordTbody');
@@ -1537,12 +1597,30 @@ async function viewOrder(ordId) {
     </div>`;
   document.getElementById('ordModal').classList.add('show');
 }
-function clearOrdFilter() {
+async function clearOrdFilter() {
+  if (!STORE) return;
   document.getElementById('ordFrom').value = '';
   document.getElementById('ordTo').value   = '';
   document.getElementById('dpOrdFromLabel').textContent = 'From';
   document.getElementById('dpOrdToLabel').textContent   = 'To';
-  loadOrders();
+  document.getElementById('ordBtnToday').className = 'btn btn-sm btn-ghost';
+  document.getElementById('ordBtnAll').className   = 'btn btn-sm btn-accent';
+  document.getElementById('ordHdrLabel').textContent = 'All Orders';
+  // Load without date filter
+  let q = _sb.from('orders').select('*').eq('store_id', STORE.id).order('id', { ascending: false });
+  const { data } = await q.abortSignal(_sig(60000));
+  allOrders = data || [];
+  if (allOrders.length) {
+    const ids = allOrders.map(o => o.id);
+    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids).abortSignal(_sig(30000));
+    const imap = {};
+    (items || []).forEach(i => {
+      if (!imap[i.order_id]) imap[i.order_id] = [];
+      imap[i.order_id].push(i.qty > 1 ? `${i.name} x${i.qty}` : i.name);
+    });
+    allOrders.forEach(o => { o._items = imap[o.id] || []; });
+  }
+  renderOrders(allOrders);
 }
 function exportOrdCSV() {
   if (!allOrders.length) { showToast('No orders to export.', true); return; }
