@@ -357,6 +357,9 @@ const params   = new URLSearchParams(location.search);
 let   STORE_ID = params.get('store') || localStorage.getItem('pm_store_id') || null;
 const IS_DEMO  = params.get('demo') === '1';
 
+// Hide login immediately if demo — must run synchronously before any async code
+if (IS_DEMO) document.getElementById('loginWrap').style.display = 'none';
+
 let STORE = null, CUR = '&#8369;', TAX = 0, CASHIER = null, CASHIER_NAME = '';
 let prods = [], cart = {}, payMeth = 'Cash';
 let orderType = 'Dine In', tableNo = '', isKOT = false;
