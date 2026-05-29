@@ -485,7 +485,7 @@ async function doLogout() {
 // ── Products ─────────────────────────────────────────────────────────────
 async function loadProds() {
   const { data } = await _sb.from('products')
-    .select('id,name,price,category,image_b64,sku,unit,stock')
+    .select('id,name,price,category,image_b64,sku,unit,stock,inv_links')
     .eq('store_id', STORE_ID)
     .eq('available', true)
     .order('category').order('name');
@@ -771,6 +771,23 @@ async function confirmOrder() {
   await _sb.from('order_items').insert(
     items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
   );
+
+  // Auto-deduct inventory stock based on inv_links
+  const deductions = {};
+  for (const item of items) {
+    const prod = prods.find(p => p.id === item.id);
+    if (!prod?.inv_links) continue;
+    let links; try { links = JSON.parse(prod.inv_links); } catch { continue; }
+    for (const link of links) {
+      const invId = typeof link === 'string' ? link : link.id;
+      const useQty = typeof link === 'object' ? (link.qty || 1) : 1;
+      deductions[invId] = (deductions[invId] || 0) + useQty * item.qty;
+    }
+  }
+  for (const [invId, totalUse] of Object.entries(deductions)) {
+    const { data: row } = await _sb.from('inventory_items').select('stock').eq('id', invId).single();
+    if (row != null) await _sb.from('inventory_items').update({ stock: Math.max(0, (row.stock || 0) - totalUse) }).eq('id', invId);
+  }
 
   receiptData.order_id = ord.id;
   showReceipt(receiptData);
