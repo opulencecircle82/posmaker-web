@@ -163,6 +163,12 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 /* SPINNER */
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── STORE ACTIVATION ───────────────────────────────────── */
+#activateWrap{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:1000;flex-direction:column}
+#activateWrap.show{display:flex}
+.act-note{font-size:11px;color:#555;text-align:center;margin-top:14px;line-height:1.7}
+.act-note a{color:var(--accent);text-decoration:none}
 </style>
 </head>
 <body>
@@ -179,6 +185,18 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <div style="display:flex;gap:8px">
     <button onclick="document.getElementById('installBar').style.display='none'" style="padding:7px 14px;background:transparent;border:1px solid #252540;color:#8888aa;border-radius:7px;cursor:pointer;font-size:12px">Later</button>
     <button onclick="installPWA()" style="padding:7px 16px;background:#00b4d8;border:none;color:#fff;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">&#10515; Install</button>
+  </div>
+</div>
+
+<!-- ── STORE ACTIVATION (first launch from APK / no URL param) ── -->
+<div id="activateWrap">
+  <div class="login-box">
+    <div class="login-title" style="margin-bottom:6px">&#128279; Connect to Store</div>
+    <div class="login-sub">Paste your Store ID or full Cashier URL to activate this POS terminal.</div>
+    <input class="inp" id="actInput" type="text" placeholder="Store ID or Cashier URL..." autocomplete="off" style="margin-top:4px">
+    <div id="actErr" style="color:#ef4444;font-size:12px;min-height:16px;margin-bottom:6px;text-align:center"></div>
+    <button class="btn-login" id="actBtn" onclick="doActivateStore()">&#10003; Connect</button>
+    <p class="act-note">Find your Store ID in your owner dashboard<br>under <strong style="color:#f0f0f8">My POS Terminals</strong></p>
   </div>
 </div>
 
@@ -336,7 +354,7 @@ const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const params   = new URLSearchParams(location.search);
-const STORE_ID = params.get('store');
+let   STORE_ID = params.get('store') || localStorage.getItem('pm_store_id') || null;
 const IS_DEMO  = params.get('demo') === '1';
 
 let STORE = null, CUR = '&#8369;', TAX = 0, CASHIER = null, CASHIER_NAME = '';
@@ -367,15 +385,18 @@ let discPct = 0, discAmt = 0;
   }
 
   if (!STORE_ID) {
-    document.getElementById('loginTitle').textContent = 'Invalid Link';
-    document.getElementById('loginSub').textContent = 'No store ID in URL. Ask your manager for the correct cashier link.';
+    document.getElementById('loginWrap').style.display = 'none';
+    document.getElementById('activateWrap').classList.add('show');
     return;
   }
 
   const { data: store } = await _sb.from('stores').select('*').eq('id', STORE_ID).single();
   if (!store) {
-    document.getElementById('loginTitle').textContent = 'Store Not Found';
-    document.getElementById('loginSub').textContent = 'This store ID does not exist.';
+    localStorage.removeItem('pm_store_id');
+    STORE_ID = null;
+    document.getElementById('loginWrap').style.display = 'none';
+    document.getElementById('activateWrap').classList.add('show');
+    document.getElementById('actErr').textContent = 'Store not found. Please check your Store ID.';
     return;
   }
   STORE = store; CUR = store.currency || '₱'; TAX = parseFloat(store.tax_rate) || 0;
@@ -1116,6 +1137,40 @@ async function sha256(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+// ── Store Activation (APK / no URL param) ────────────────────────────────
+async function doActivateStore() {
+  let raw = (document.getElementById('actInput').value || '').trim();
+  const errEl = document.getElementById('actBtn');
+  const err   = document.getElementById('actErr');
+  err.textContent = '';
+  if (!raw) { err.textContent = 'Please paste your Store ID or Cashier URL.'; return; }
+
+  // Accept full URL — extract ?store= param
+  try { const u = new URL(raw); const s = u.searchParams.get('store'); if (s) raw = s; } catch {}
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+    err.textContent = 'Invalid Store ID format. Check your owner dashboard.';
+    return;
+  }
+
+  errEl.disabled = true;
+  errEl.innerHTML = '<span class="spinner"></span> Connecting...';
+
+  const { data: store } = await _sb.from('stores').select('id,name').eq('id', raw).single();
+  if (!store) {
+    err.textContent = 'Store not found. Check the Store ID and try again.';
+    errEl.disabled = false; errEl.innerHTML = '&#10003; Connect';
+    return;
+  }
+
+  localStorage.setItem('pm_store_id', raw);
+  location.replace(location.pathname + '?store=' + raw);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('activateWrap').classList.contains('show')) doActivateStore();
+});
 
 // ── PWA Install ───────────────────────────────────────────────────────────
 let _pwaPrompt = null;

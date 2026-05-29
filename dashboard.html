@@ -1418,10 +1418,13 @@ function renderPOSTerminals() {
         <span class="badge" style="background:#0a2a1a;color:#10b981">&#9679; Active</span>
       </div>
       ${devBlock}
-      <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">CASHIER URL (para sa browser / PWA)</div>
-      <div class="link-box" style="font-size:11px;margin:0 0 12px">${url}</div>
+      <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">CASHIER URL (browser / PWA)</div>
+      <div class="link-box" style="font-size:11px;margin:0 0 8px">${url}</div>
+      <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">STORE ID (for APK / tablet setup)</div>
+      <div class="link-box" style="font-size:11px;margin:0 0 12px;font-family:monospace;letter-spacing:.5px">${s.id}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-accent btn-sm" onclick="downloadStoreConfig()">&#128190; Download My Config</button>
+        <button class="btn btn-accent btn-sm" onclick="downloadStoreConfig()">&#128190; Download Config (.exe)</button>
+        <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${s.id}');showToast('Store ID copied!')">&#128203; Copy Store ID</button>
         <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${url}');showToast('Cashier link copied!')">&#128203; Copy Link</button>
         <a class="btn btn-ghost btn-sm" href="${url}" target="_blank">Open in Browser</a>
       </div>
@@ -1429,10 +1432,10 @@ function renderPOSTerminals() {
   }).join('');
 }
 async function resetPOSDevice(storeId) {
-  if (!confirm('I-reset ang registered device para sa POS na ito?\n\nPagkatapos, maaari na itong i-setup sa bagong device.')) return;
+  if (!confirm('Reset the registered device for this POS?\n\nAfter reset, it can be activated on a new device.')) return;
   const { error } = await _sb.from('pos_devices').delete().eq('store_id', storeId);
   if (error) { showToast('Error: ' + error.message, true); return; }
-  showToast('Device reset. Maaari na mag-setup ng bagong device.');
+  showToast('Device reset. You can now activate on a new device.');
   loadPOSTerminals();
 }
 function downloadStoreConfig() {
