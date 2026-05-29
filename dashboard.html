@@ -1878,10 +1878,12 @@ async function saveInvItem(){
   if(id){({error:err}=await _sb.from('inventory_items').update(payload).eq('id',id));}
   else{({error:err}=await _sb.from('inventory_items').insert({store_id:STORE.id,...payload}));}
   // Fallback if default_usage_qty column doesn't exist yet
-  if(err&&err.message&&err.message.includes('default_usage_qty')){
+  let usageNotSaved=false;
+  if(err&&err.message&&(err.message.includes('default_usage_qty')||err.message.includes('column'))){
     const p2={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock};
     if(id){({error:err}=await _sb.from('inventory_items').update(p2).eq('id',id));}
     else{({error:err}=await _sb.from('inventory_items').insert({store_id:STORE.id,...p2}));}
+    usageNotSaved=true;
   }
   if(err){showToast(err.message,true);return;}
   await loadDbCategories();
@@ -1896,7 +1898,11 @@ async function saveInvItem(){
     if(newItem&&!pInvLinks.some(l=>l.id===newItem.id)){pInvLinks.push({id:newItem.id,qty:1});renderInvLinkList();updateProfitPreview();}
     document.getElementById('prodModal').classList.add('show');
   }
-  showToast('Item saved.');
+  if(usageNotSaved){
+    showToast('Item saved. To save the "I use" value, run this SQL in Supabase: ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS default_usage_qty NUMERIC DEFAULT 1;',true);
+  }else{
+    showToast('Item saved.');
+  }
 }
 async function adjInvStock(id,delta){
   const item=invItems.find(x=>x.id===id);if(!item)return;
