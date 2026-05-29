@@ -366,17 +366,23 @@ let discPct = 0, discAmt = 0;
 (async () => {
   if (IS_DEMO) {
     document.getElementById('demoBanner').style.display = '';
-    STORE = { id: null, name: 'Demo Store', currency: '₱', tax_rate: 12, receipt_footer: 'Thank you!', logo_b64: '' };
-    CUR = '₱'; TAX = 12;
+    const dname = params.get('dname') || 'Demo Store';
+    const dcur  = params.get('dcur')  || '₱';
+    const dtax  = parseFloat(params.get('dtax') || '12');
+    const dlogo = params.get('dlogo') || '';
+    STORE = { id: null, name: dname, currency: dcur, tax_rate: dtax, receipt_footer: 'Thank you!', logo_b64: dlogo,
+              pos_font:'', pos_accent:'', pos_bg:'', pos_card:'', pos_text:'', pos_radius:10,
+              pos_bg_img:'', pos_btn_style:'default', pos_bg_scale:'cover', pos_bg_opacity:18, business_type:'' };
+    CUR = dcur; TAX = dtax;
     prods = [
-      { id: 'd1', name: 'Burger',        category: 'Food',   price: 120, image_b64: '' },
-      { id: 'd2', name: 'Fries',         category: 'Food',   price: 60,  image_b64: '' },
-      { id: 'd3', name: 'Fried Chicken', category: 'Food',   price: 150, image_b64: '' },
-      { id: 'd4', name: 'Rice',          category: 'Food',   price: 35,  image_b64: '' },
-      { id: 'd5', name: 'Coke',          category: 'Drinks', price: 50,  image_b64: '' },
-      { id: 'd6', name: 'Juice',         category: 'Drinks', price: 45,  image_b64: '' },
-      { id: 'd7', name: 'Water',         category: 'Drinks', price: 30,  image_b64: '' },
-      { id: 'd8', name: 'Coffee',        category: 'Drinks', price: 75,  image_b64: '' },
+      { id: 'd1', name: 'Burger',        category: 'Food',   price: 120, image_b64: '', available: true, stock: 99, unit: 'pc' },
+      { id: 'd2', name: 'Fries',         category: 'Food',   price: 60,  image_b64: '', available: true, stock: 99, unit: 'pc' },
+      { id: 'd3', name: 'Fried Chicken', category: 'Food',   price: 150, image_b64: '', available: true, stock: 99, unit: 'pc' },
+      { id: 'd4', name: 'Rice',          category: 'Food',   price: 35,  image_b64: '', available: true, stock: 99, unit: 'pc' },
+      { id: 'd5', name: 'Coke',          category: 'Drinks', price: 50,  image_b64: '', available: true, stock: 99, unit: 'pc' },
+      { id: 'd6', name: 'Juice',         category: 'Drinks', price: 45,  image_b64: '', available: true, stock: 99, unit: 'pc' },
+      { id: 'd7', name: 'Water',         category: 'Drinks', price: 30,  image_b64: '', available: true, stock: 99, unit: 'pc' },
+      { id: 'd8', name: 'Coffee',        category: 'Drinks', price: 75,  image_b64: '', available: true, stock: 99, unit: 'pc' },
     ];
     setStoreUI();
     CASHIER = { full_name: 'Demo Cashier', role: 'cashier' };

@@ -294,7 +294,7 @@ footer p{font-size:13px;color:var(--dim)}
         <div class="cf-field"><label>Tax Rate (%)</label><input id="idxTax" type="number" value="12" min="0" max="100" oninput="updatePreview()"></div>
       </div>
       <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-        <a href="cashier.html?demo=1" target="_blank" class="btn btn-accent" style="flex:1;justify-content:center">🧪 Test Your POS</a>
+        <button onclick="openDemo()" class="btn btn-accent" style="flex:1;justify-content:center">&#129514; Test Your POS</button>
         <a href="signup.html" class="btn btn-ghost" style="flex:1;justify-content:center">Create Real Store →</a>
       </div>
     </div>
@@ -375,6 +375,16 @@ function handleIdxLogo(e) {
     ppLogo.innerHTML = `<img src="${ev.target.result}">`;
   };
   reader.readAsDataURL(file);
+}
+function openDemo() {
+  const name = document.getElementById('idxStoreName').value.trim() || 'Demo Store';
+  const cur  = document.getElementById('idxCurrency').value.trim() || '₱';
+  const tax  = document.getElementById('idxTax').value || '12';
+  const logo = document.getElementById('idxLogoImg').style.display !== 'none'
+               ? document.getElementById('idxLogoImg').src : '';
+  const p = new URLSearchParams({ demo:'1', dname: name, dcur: cur, dtax: tax });
+  if (logo) p.set('dlogo', logo);
+  window.open('cashier.html?' + p.toString(), '_blank');
 }
 function updatePreview() {
   const name = document.getElementById('idxStoreName').value || 'My Store';
