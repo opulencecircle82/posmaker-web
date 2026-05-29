@@ -443,12 +443,12 @@ input:checked + .slider:before{transform:translateX(18px)}
             <div style="position:absolute;top:12px;right:12px;font-size:10px;background:rgba(0,180,216,.15);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:700">AVAILABLE</div>
             <div style="font-size:22px;margin-bottom:8px">&#128187;</div>
             <div style="font-size:14px;font-weight:700;margin-bottom:4px">Windows PC App</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">I-download, i-extract ang ZIP, at i-run ang <strong style="color:var(--text)">POSMaker.exe</strong>. Sa unang beses, i-paste ang iyong Cashier Link para ma-lock sa device na ito.</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Download and extract the ZIP, then run <strong style="color:var(--text)">POSMaker.exe</strong>. On first launch, paste your Cashier Link to lock it to this device.</div>
             <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.9;margin-bottom:12px">
-              1&#65039;&#8419; I-download ang ZIP sa baba<br>
-              2&#65039;&#8419; I-extract at buksan ang <strong style="color:var(--accent)">POSMaker.exe</strong><br>
-              3&#65039;&#8419; I-paste ang <strong style="color:var(--accent)">Cashier URL</strong> ng iyong POS<br>
-              4&#65039;&#8419; Auto-lock sa device na ito &#8212; tapos na! &#128274;
+              1&#65039;&#8419; Download the ZIP below<br>
+              2&#65039;&#8419; Extract and open <strong style="color:var(--accent)">POSMaker.exe</strong><br>
+              3&#65039;&#8419; Paste your <strong style="color:var(--accent)">Cashier URL</strong><br>
+              4&#65039;&#8419; Auto-locked to this device &#8212; done! &#128274;
             </div>
             <a class="btn btn-accent btn-sm" style="width:100%;justify-content:center;text-decoration:none" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMaker-Windows.zip" target="_blank">&#11015; Download Windows ZIP</a>
           </div>
@@ -458,12 +458,12 @@ input:checked + .slider:before{transform:translateX(18px)}
             <div style="position:absolute;top:12px;right:12px;font-size:10px;background:rgba(245,158,11,.12);color:#f59e0b;padding:2px 8px;border-radius:8px;font-weight:700">PWA</div>
             <div style="font-size:22px;margin-bottom:8px">&#129354;</div>
             <div style="font-size:14px;font-weight:700;margin-bottom:4px">Android App</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Buksan ang Cashier Link sa <strong style="color:var(--text)">Chrome</strong> sa Android. I-tap ang "Add to Home Screen" para mag-install bilang app &#8212; walang APK file na kailangan.</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Open the Cashier Link in <strong style="color:var(--text)">Chrome</strong> on Android. Tap "Add to Home Screen" to install as an app — no APK file needed.</div>
             <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.9;margin-bottom:12px">
-              1&#65039;&#8419; Buksan ang Cashier Link sa <strong style="color:var(--accent)">Chrome</strong><br>
+              1&#65039;&#8419; Open Cashier Link in <strong style="color:var(--accent)">Chrome</strong><br>
               2&#65039;&#8419; Tap &#8942; menu &#8594; <strong style="color:var(--accent)">Add to Home Screen</strong><br>
-              3&#65039;&#8419; Tap <strong style="color:var(--accent)">Install</strong> &#8212; lalabas sa home screen!<br>
-              4&#65039;&#8419; O kaya i-generate ang APK sa PWABuilder &#128230;
+              3&#65039;&#8419; Tap <strong style="color:var(--accent)">Install</strong> &#8212; appears on home screen!<br>
+              4&#65039;&#8419; Or generate a proper APK via PWABuilder &#128230;
             </div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-accent btn-sm" style="flex:1;justify-content:center" onclick="showInstallModal('Android')">View Steps</button>
@@ -1403,7 +1403,7 @@ function renderPOSTerminals() {
          </div>`
       : `<div style="background:#2a1a00;border:1px solid #f59e0b;border-radius:8px;padding:10px 12px;margin-bottom:12px">
            <div style="font-size:12px;color:#f59e0b;font-weight:600">&#9888; No device registered yet</div>
-           <div style="font-size:11px;color:var(--muted);margin-top:2px">I-download ang app sa baba at i-setup para ma-lock sa isang device.</div>
+           <div style="font-size:11px;color:var(--muted);margin-top:2px">Download the app below and run setup to lock this POS to one device.</div>
          </div>`;
     return `<div class="info-card" style="margin-bottom:12px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
@@ -1444,8 +1444,8 @@ function showInstallModal(type) {
   document.getElementById('posInstallType').textContent = type;
   document.getElementById('posInstallUrl').textContent = url;
   const steps = type === 'Android'
-    ? '1️⃣ Buksan ang link sa <strong>Chrome</strong> sa Android phone<br>2️⃣ I-tap ang <strong>⋮ menu</strong> (tatlong tuldok sa itaas)<br>3️⃣ I-tap ang <strong style="color:var(--accent)">Add to Home Screen</strong><br>4️⃣ I-tap ang <strong style="color:var(--accent)">Install</strong> — tapos na! 🎉<br><br><em style="color:var(--muted)">Lalabas ang app icon sa iyong home screen katulad ng isang APK.</em>'
-    : '1️⃣ Buksan ang link sa <strong>Edge o Chrome</strong> sa PC<br>2️⃣ Hanapin ang <strong style="color:var(--accent)">⬇ install icon</strong> sa address bar (kanan)<br>3️⃣ I-click ang <strong style="color:var(--accent)">Install</strong><br>4️⃣ Magbubukas ang POS sa sariling window — tapos na! 🎉<br><br><em style="color:var(--muted)">Makikita sa Start Menu at Taskbar tulad ng normal na app.</em>';
+    ? '1️⃣ Open Cashier Link in <strong>Chrome</strong> on your Android phone<br>2️⃣ Tap the <strong>⋮ menu</strong> (three dots, top right)<br>3️⃣ Tap <strong style="color:var(--accent)">Add to Home Screen</strong><br>4️⃣ Tap <strong style="color:var(--accent)">Install</strong> — done! 🎉<br><br><em style="color:var(--muted)">The app icon will appear on your home screen just like a native app.</em>'
+    : '1️⃣ Open Cashier Link in <strong>Edge or Chrome</strong> on your PC<br>2️⃣ Click the <strong style="color:var(--accent)">⬇ install icon</strong> in the address bar (right side)<br>3️⃣ Click <strong style="color:var(--accent)">Install</strong><br>4️⃣ The POS opens in its own window — done! 🎉<br><br><em style="color:var(--muted)">Appears in Start Menu and Taskbar like a normal app.</em>';
   document.getElementById('posInstallStepList').innerHTML = steps;
   document.getElementById('posInstallModal').classList.add('show');
 }
