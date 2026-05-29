@@ -127,75 +127,119 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
 .pm-cashier{font-size:11px;color:rgba(255,255,255,.8)}
 .pm-body{flex:1;display:flex;overflow:hidden;position:relative;z-index:1}
 .pm-left{flex:1;display:flex;flex-direction:column;overflow:hidden}
+/* Order type tabs */
+.pm-ot-bar{
+  background:var(--pm-s1,#111120);
+  border-bottom:2px solid var(--pm-border,#252540);
+  display:flex;flex-shrink:0;
+}
+.pm-ot-btn{
+  flex:1;padding:7px 4px;
+  border:none;background:transparent;
+  color:#555;font-size:9px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px;
+  border-bottom:2px solid transparent;margin-bottom:-2px;
+  cursor:pointer;text-align:center;
+}
+.pm-ot-btn.active{color:var(--pm-accent,#00b4d8);border-bottom-color:var(--pm-accent,#00b4d8)}
+
+/* Category tabs */
 .pm-cats{
   background:var(--pm-s1,#111120);
   border-bottom:1px solid var(--pm-border,#252540);
-  padding:7px 10px;display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;
+  padding:5px 7px;display:flex;gap:4px;flex-shrink:0;overflow:hidden;
 }
 .pm-cat{
-  padding:4px 12px;border-radius:20px;font-size:10px;font-weight:600;
+  padding:5px 10px;border-radius:5px;font-size:9px;font-weight:700;
   cursor:pointer;background:var(--pm-s2,#191929);
-  color:var(--pm-muted,#8888aa);border:1px solid var(--pm-border,#252540);
-  transition:all .15s;
+  color:#666;border:1px solid var(--pm-border,#252540);
+  text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;
 }
 .pm-cat.active{background:var(--pm-accent,#00b4d8);color:#fff;border-color:transparent}
+
+/* Product grid — large image cards */
 .pm-grid{
-  flex:1;padding:8px;
-  display:grid;grid-template-columns:repeat(4,1fr);gap:7px;
-  overflow-y:auto;align-content:start;
+  flex:1;padding:7px;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+  overflow:hidden;align-content:start;
 }
 .pm-card{
   background:var(--pm-s1,#111120);
   border:1.5px solid var(--pm-border,#252540);
   border-radius:var(--pm-radius,10px);
-  padding:12px 8px;text-align:center;cursor:pointer;
+  cursor:pointer;overflow:hidden;
+  display:flex;flex-direction:column;
   transition:transform .12s,box-shadow .12s,border-color .12s;
 }
-.pm-card:hover{transform:translateY(-1px)}
-.pm-card-name{font-size:10px;font-weight:600;color:var(--pm-text,#f0f0f8);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pm-card-price{font-size:13px;font-weight:800;color:var(--pm-accent,#00b4d8)}
+.pm-card:hover{transform:scale(.97)}
+.pm-card-img{
+  width:100%;height:58px;
+  background:var(--pm-s2,#191929);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;
+}
+.pm-card-info{padding:5px 6px 6px}
+.pm-card-name{font-size:9px;font-weight:600;color:var(--pm-text,#f0f0f8);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm-card-price{font-size:11px;font-weight:800;color:var(--pm-accent,#00b4d8)}
+
+/* Cart */
 .pm-cart{
-  width:215px;flex-shrink:0;
+  width:210px;flex-shrink:0;
   background:var(--pm-s1,#111120);
   border-left:1px solid var(--pm-border,#252540);
-  display:flex;flex-direction:column;padding:10px;
+  display:flex;flex-direction:column;
 }
-.pm-cart-title{font-size:11px;font-weight:700;color:var(--pm-muted,#8888aa);margin-bottom:8px}
+/* Cart action row */
+.pm-cart-acts{
+  display:flex;gap:4px;padding:5px 6px;
+  border-bottom:1px solid var(--pm-border,#252540);flex-shrink:0;
+}
+.pm-act-btn{
+  flex:1;padding:4px 2px;border:1px solid var(--pm-border,#252540);
+  background:var(--pm-s2,#191929);color:#666;
+  border-radius:4px;font-size:8px;font-weight:700;
+  text-align:center;letter-spacing:.3px;
+}
+/* Cart items area */
+.pm-cart-body{flex:1;padding:5px 7px;overflow:hidden}
 .pm-cart-item{
-  font-size:10px;color:var(--pm-text,#f0f0f8);
+  font-size:9px;color:var(--pm-text,#f0f0f8);
   display:flex;justify-content:space-between;
-  padding:4px 0;border-bottom:1px solid var(--pm-border,#252540);
+  padding:3px 0;border-bottom:1px solid var(--pm-border,#252540);
 }
 .pm-spacer{flex:1}
+/* Totals */
+.pm-totals{padding:6px 8px;border-top:1px solid var(--pm-border,#252540)}
 .pm-total-row{
   display:flex;justify-content:space-between;align-items:center;
-  padding:7px 0;border-top:2px solid var(--pm-border,#252540);margin-top:4px;
+  padding:3px 0;
 }
-.pm-total-label{font-size:10px;color:var(--pm-muted,#8888aa)}
-.pm-total-val{font-size:16px;font-weight:800;color:var(--pm-accent,#00b4d8)}
+.pm-total-label{font-size:9px;color:var(--pm-muted,#8888aa)}
+.pm-total-val{font-size:9px;font-weight:700;color:var(--pm-muted,#8888aa)}
+.pm-total-row.big .pm-total-label{font-size:11px;font-weight:800;color:var(--pm-accent,#00b4d8)}
+.pm-total-row.big .pm-total-val{font-size:14px;font-weight:800;color:var(--pm-accent,#00b4d8)}
 .pm-btn{
   background:var(--pm-accent,#00b4d8);color:#fff;
   border:none;border-radius:var(--pm-radius,10px);
-  padding:9px;font-size:12px;font-weight:700;
-  cursor:pointer;font-family:inherit;margin-top:7px;
-  width:100%;transition:transform .12s,box-shadow .12s;
+  padding:8px;font-size:11px;font-weight:700;
+  cursor:pointer;font-family:inherit;margin:6px 7px 7px;
+  width:calc(100% - 14px);transition:transform .12s,box-shadow .12s;
 }
 
 /* ── Button Style Overrides (data-bs on .pos-mock) ───────────────── */
 /* 3D Push */
 .pos-mock[data-bs="3d"] .pm-card{
-  transform:translateY(-3px);
-  box-shadow:0 5px 0 rgba(0,0,0,.5),0 8px 16px rgba(0,0,0,.3);
-  border-bottom-width:0;
+  transform:translateY(-2px);
+  box-shadow:0 4px 0 rgba(0,0,0,.5),0 6px 12px rgba(0,0,0,.3);
 }
 .pos-mock[data-bs="3d"] .pm-btn{
-  transform:translateY(-3px);
+  transform:translateY(-2px);
   box-shadow:0 4px 0 rgba(0,0,0,.45);
 }
 /* Neon Glow */
 .pos-mock[data-bs="neon"] .pm-card{
   border-color:var(--pm-accent);
-  box-shadow:0 0 8px var(--pm-accent),0 0 22px var(--pm-accent);
+  box-shadow:0 0 6px var(--pm-accent),0 0 16px var(--pm-accent);
 }
 .pos-mock[data-bs="neon"] .pm-btn{
   box-shadow:0 0 10px var(--pm-accent),0 0 24px var(--pm-accent);
@@ -218,9 +262,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
   backdrop-filter:blur(6px);
 }
 /* Pill */
-.pos-mock[data-bs="pill"] .pm-card{border-radius:50px!important}
+.pos-mock[data-bs="pill"] .pm-card{border-radius:24px!important}
 .pos-mock[data-bs="pill"] .pm-btn{border-radius:50px!important}
-.pos-mock[data-bs="pill"] .pm-cat{border-radius:50px!important}
+.pos-mock[data-bs="pill"] .pm-cat{border-radius:20px!important}
 
 /* TOAST */
 .toast{position:fixed;bottom:20px;right:20px;background:#1a3a2a;border:1px solid #10b981;color:#10b981;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;z-index:500;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
@@ -381,32 +425,52 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
     <div class="cz-preview-canvas">
       <div class="pos-mock" id="posMock" data-bs="default">
         <div class="pm-bgimg" id="pmBgImg"></div>
+        <!-- Header -->
         <div class="pm-hdr">
           <div class="pm-logo" id="pmLogo">P</div>
           <span class="pm-storename" id="pmStoreName">My Store</span>
           <span class="pm-cashier">&#128100; Cashier</span>
         </div>
+        <!-- Order type tabs -->
+        <div class="pm-ot-bar">
+          <div class="pm-ot-btn active">&#127869; Dine In</div>
+          <div class="pm-ot-btn">Take Away</div>
+          <div class="pm-ot-btn">Delivery</div>
+        </div>
+        <!-- Body -->
         <div class="pm-body">
           <div class="pm-left">
+            <!-- Category tabs -->
             <div class="pm-cats">
               <div class="pm-cat active">All</div>
               <div class="pm-cat">Food</div>
               <div class="pm-cat">Drinks</div>
               <div class="pm-cat">Snacks</div>
             </div>
+            <!-- Product grid (large image cards) -->
             <div class="pm-grid" id="pmGrid"></div>
           </div>
+          <!-- Cart -->
           <div class="pm-cart">
-            <div class="pm-cart-title">&#128722; Order</div>
-            <div class="pm-cart-item"><span>Chicken Rice</span><span>&#8369;88</span></div>
-            <div class="pm-cart-item"><span>Coke x2</span><span>&#8369;60</span></div>
-            <div class="pm-cart-item"><span>Fries</span><span>&#8369;65</span></div>
-            <div class="pm-spacer"></div>
-            <div class="pm-total-row">
-              <span class="pm-total-label">TOTAL</span>
-              <span class="pm-total-val">&#8369;213.00</span>
+            <!-- Action row -->
+            <div class="pm-cart-acts">
+              <div class="pm-act-btn">Drafts</div>
+              <div class="pm-act-btn">Table: &#8212;</div>
+              <div class="pm-act-btn">KOT</div>
             </div>
-            <button class="pm-btn">Confirm Order</button>
+            <!-- Items -->
+            <div class="pm-cart-body">
+              <div class="pm-cart-item"><span>Chicken Rice</span><span>&#8369;88</span></div>
+              <div class="pm-cart-item"><span>Coke x2</span><span>&#8369;60</span></div>
+              <div class="pm-cart-item"><span>Fries</span><span>&#8369;65</span></div>
+            </div>
+            <!-- Totals -->
+            <div class="pm-totals">
+              <div class="pm-total-row"><span class="pm-total-label">Subtotal</span><span class="pm-total-val">&#8369;190.18</span></div>
+              <div class="pm-total-row"><span class="pm-total-label">VAT (12%)</span><span class="pm-total-val">&#8369;22.82</span></div>
+              <div class="pm-total-row big"><span class="pm-total-label">TOTAL</span><span class="pm-total-val">&#8369;213.00</span></div>
+            </div>
+            <button class="pm-btn">&#10004; Confirm Order</button>
           </div>
         </div>
       </div>
@@ -458,8 +522,15 @@ const MOCKS = [
   {n:'Chicken',p:88},{n:'Rice',p:35},{n:'Coke',p:30},{n:'Water',p:20},
   {n:'Fries',p:65},{n:'Burger',p:120},{n:'Juice',p:45},{n:'Coffee',p:55},
 ];
-document.getElementById('pmGrid').innerHTML = MOCKS.map(m =>
-  `<div class="pm-card"><div class="pm-card-name">${m.n}</div><div class="pm-card-price">&#8369;${m.p}</div></div>`
+const MOCK_ICONS = ['&#127829;','&#127859;','&#127866;','&#128167;','&#127839;','&#127828;','&#127818;','&#9749;'];
+document.getElementById('pmGrid').innerHTML = MOCKS.map((m, i) =>
+  `<div class="pm-card">
+    <div class="pm-card-img">${MOCK_ICONS[i % MOCK_ICONS.length]}</div>
+    <div class="pm-card-info">
+      <div class="pm-card-name">${m.n}</div>
+      <div class="pm-card-price">&#8369;${m.p}</div>
+    </div>
+  </div>`
 ).join('');
 
 // ── Build Template Cards ──────────────────────────────────────────────────────
