@@ -151,6 +151,8 @@ DROP POLICY IF EXISTS prod_owner        ON products;
 DROP POLICY IF EXISTS prod_anon_read    ON products;
 DROP POLICY IF EXISTS ord_owner         ON orders;
 DROP POLICY IF EXISTS ord_anon_insert   ON orders;
+DROP POLICY IF EXISTS ord_anon_select   ON orders;
+DROP POLICY IF EXISTS oi_anon_select    ON order_items;
 DROP POLICY IF EXISTS oi_owner          ON order_items;
 DROP POLICY IF EXISTS oi_anon_insert    ON order_items;
 
@@ -185,7 +187,11 @@ CREATE POLICY ord_owner ON orders FOR ALL TO authenticated
   USING (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
 
 -- Orders: anon insert (cashier submits orders)
-CREATE POLICY ord_anon_insert ON orders FOR INSERT TO anon WITH CHECK (TRUE);
+CREATE POLICY ord_anon_insert  ON orders FOR INSERT TO anon WITH CHECK (TRUE);
+-- Orders: anon select own store's orders (needed for offline sync check)
+CREATE POLICY ord_anon_select  ON orders FOR SELECT TO anon USING (TRUE);
+-- Order items: anon select (needed for offline sync)
+CREATE POLICY oi_anon_select   ON order_items FOR SELECT TO anon USING (TRUE);
 
 -- Order items: owner full access
 CREATE POLICY oi_owner ON order_items FOR ALL TO authenticated
