@@ -1311,7 +1311,7 @@ if ('serviceWorker' in navigator) {
 let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null;
 let mnModel = null, prodEmbeddings = [], _visualRaf = null, _lastVisualT = 0;
 let _scanCooldown = {}, _tfLoading = false, _visPending = null;
-const SCAN_COOLDOWN = 2000, VIS_SHOW = 0.60, VIS_MS = 750;
+const SCAN_COOLDOWN = 2000, VIS_SHOW = 0.82, VIS_MS = 750;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
 function setCooldown(id){ _scanCooldown[id] = Date.now(); }
@@ -1449,7 +1449,7 @@ function startVisualLoop(video){
         if(btn){ btn.style.display='block'; btn.textContent='✓ Add: '+best.name+' ('+Math.round(bestS*100)+'%)'; }
         camStat('Tap green button to confirm');
       }else if(!_visPending){
-        camStat(best ? '&#129501; '+best.name+' ('+Math.round(bestS*100)+'%) — keep scanning' : 'Scanning...');
+        camStat(best && bestS>=0.65 ? '&#129501; '+best.name+' ('+Math.round(bestS*100)+'%) — not sure, try barcode' : 'Scanning — point at product or barcode');
       }
     }catch(_){}
   }
