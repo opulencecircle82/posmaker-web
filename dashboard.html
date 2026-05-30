@@ -243,7 +243,7 @@ input:checked + .slider:before{transform:translateX(18px)}
 
         <div onclick="nav('inventory')" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
           <div style="font-size:28px;line-height:1">📦</div>
-          <div style="font-size:13px;font-weight:700">Raw Materials</div>
+          <div style="font-size:13px;font-weight:700" id="qaInvLbl">Raw Materials</div>
           <div style="font-size:11px;color:var(--muted);line-height:1.4">Inventory stock &amp; usage tracking</div>
           <div style="margin-top:auto;font-size:11px;color:var(--accent);font-weight:600" id="qaInvCount">—</div>
         </div>
@@ -1042,14 +1042,17 @@ function adaptDashboardToBizType(bizType) {
     document.getElementById('navOrdersLbl').textContent    = 'Transactions';
     document.getElementById('navInventoryLbl').textContent = 'Stock Management';
     document.getElementById('navProductsLbl').textContent  = 'Products / Stock';
+    if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = 'Stock Management';
   } else if (isService) {
     document.getElementById('navOrdersLbl').textContent    = 'Transactions';
     document.getElementById('navProductsLbl').textContent  = 'Services & Prices';
     document.getElementById('navInventoryLbl').textContent = 'Supplies';
+    if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = 'Supplies';
   } else {
     // Restaurant — defaults already correct
     document.getElementById('navProductsLbl').textContent  = 'Menu Items';
     document.getElementById('navInventoryLbl').textContent = 'Raw Materials';
+    if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = 'Raw Materials';
   }
 
   // Show business type badge in sidebar below store name
