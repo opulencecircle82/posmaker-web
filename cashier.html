@@ -1418,13 +1418,20 @@ async function buildEmbeddings(){
   const ctx=c.getContext('2d');
   for(const p of prods){
     if(!p.image_b64) continue;
-    try{
-      const img=new Image(); img.src='data:image/jpeg;base64,'+p.image_b64;
-      await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; setTimeout(rej,3000); });
-      ctx.drawImage(img,0,0,224,224);
-      const t=mnModel.infer(c,true); const d=Array.from(await t.data()); t.dispose();
-      prodEmbeddings.push({ id:p.id, name:p.name, emb:d });
-    }catch(_){}
+    // Support single base64 string OR JSON array of base64 strings (multi-angle)
+    let imgs=[];
+    if(p.image_b64.trimStart().startsWith('[')){
+      try{ imgs=JSON.parse(p.image_b64); }catch(_){ imgs=[p.image_b64]; }
+    } else { imgs=[p.image_b64]; }
+    for(const b64 of imgs){
+      try{
+        const img=new Image(); img.src='data:image/jpeg;base64,'+b64;
+        await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; setTimeout(rej,3000); });
+        ctx.drawImage(img,0,0,224,224);
+        const t=mnModel.infer(c,true); const d=Array.from(await t.data()); t.dispose();
+        prodEmbeddings.push({ id:p.id, name:p.name, emb:d });
+      }catch(_){}
+    }
   }
 }
 

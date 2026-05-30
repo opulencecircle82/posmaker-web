@@ -673,10 +673,12 @@ input:checked + .slider:before{transform:translateX(18px)}
     <h3 id="invModalTitle">Add Inventory Item</h3>
     <input type="hidden" id="invItemId">
     <!-- Camera capture row -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px">
-      <button type="button" class="btn btn-accent btn-sm" style="flex:0 0 auto" onclick="openDashCam('inventory','invSku')">&#128247; Camera</button>
-      <span style="font-size:11px;color:var(--dim);flex:1">Take 1-2 photos of the product. Barcode auto-detected.</span>
-      <img id="invImgPreview" style="display:none;height:44px;width:60px;border-radius:6px;object-fit:cover;border:1px solid var(--border);cursor:pointer" onclick="invImgPreview.style.display='none';_invPendingImg=null" title="Click to remove">
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button type="button" class="btn btn-accent btn-sm" style="flex:0 0 auto" id="btnInvCam" onclick="openDashCam('inventory','invSku')">&#128247; Camera</button>
+        <span id="invCamHint" style="font-size:11px;color:var(--dim);flex:1">Take up to 4 photos from different angles. Barcode auto-detected.</span>
+      </div>
+      <div id="invImgThumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
     </div>
     <div class="row2">
       <div class="field"><label>Item Name</label><input id="invName" type="text" placeholder="e.g. Chicken Breast"></div>
@@ -2464,9 +2466,8 @@ function openInvFromProd(){
 }
 function openInvModal(item){
   if (!item && invItems.length >= FREE_INV_LIMIT) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
-  _invPendingImg=null;
-  const invPrev=document.getElementById('invImgPreview');
-  if(invPrev){ invPrev.src=''; invPrev.style.display='none'; }
+  _invPendingImgs=[];
+  renderInvThumbs();
   document.getElementById('invModalTitle').textContent=item?'Edit Item':'Add Inventory Item';
   document.getElementById('invItemId').value=item?item.id:'';
   document.getElementById('invName').value=item?item.name:'';
@@ -2568,12 +2569,13 @@ async function saveInvItem(){
     usageNotSaved=true;
   }
   if(err){showToast(err.message,true);return;}
-  // If a photo was captured, save it to the matching product for visual scanner
-  if(_invPendingImg){
-    const imgB64=_invPendingImg; _invPendingImg=null;
+  // Save captured photos (up to 4) to matching product for visual scanner
+  if(_invPendingImgs.length>0){
+    const imgs=_invPendingImgs.slice(); _invPendingImgs=[];
+    const imgData=JSON.stringify(imgs);
     _sb.from('products').select('id').eq('store_id',STORE.id).eq('name',name).maybeSingle()
       .then(({data:mp})=>{
-        if(mp) _sb.from('products').update({image_b64:imgB64}).eq('id',mp.id);
+        if(mp) _sb.from('products').update({image_b64:imgData}).eq('id',mp.id);
       });
   }
   await loadDbCategories();
@@ -2762,7 +2764,7 @@ async function sha256(text) {
 let _dashStream = null, _dashBcLoopId = null, _dashZxing = null, _dashBarcode = null;
 let _dashCamMode = 'photo'; // 'photo' | 'barcode' | 'inventory'
 let _dashBcTarget = 'pSku'; // which input to fill with barcode
-let _invPendingImg = null;  // captured photo for inventory item
+let _invPendingImgs = [];  // captured photos for inventory item (up to 4)
 
 async function openDashCam(mode, targetField){
   _dashCamMode = mode || 'photo';
@@ -2778,7 +2780,7 @@ async function openDashCam(mode, targetField){
     document.querySelector('#dashCamModal h3').textContent = '📷 Scan Barcode';
   } else if(_dashCamMode === 'inventory'){
     captureBtn.style.display = '';
-    captureBtn.textContent = '📷 Capture Photo';
+    captureBtn.textContent = '📷 Capture ('+_invPendingImgs.length+'/4)';
     bcBtn.style.display = 'none';
     document.querySelector('#dashCamModal h3').textContent = '📷 Product Camera';
   } else {
@@ -2847,15 +2849,15 @@ function captureDashPhoto(){
   const b64=c.toDataURL('image/jpeg',0.82).split(',')[1];
 
   if(_dashCamMode==='inventory'){
-    // Save photo for inventory item; keep camera open for retake / barcode
-    _invPendingImg=b64;
-    const prev=document.getElementById('invImgPreview');
-    prev.src='data:image/jpeg;base64,'+b64; prev.style.display='block';
+    if(_invPendingImgs.length>=4){ showToast('Max 4 photos. Tap × on a thumbnail to remove.',true); return; }
+    _invPendingImgs.push(b64);
+    renderInvThumbs();
     if(_dashBarcode) document.getElementById('invSku').value=_dashBarcode;
-    // Show retake option
-    document.getElementById('dashCamCapture').innerHTML='&#8635; Retake';
-    showToast(_dashBarcode?'Photo captured! Barcode '+_dashBarcode+' auto-filled.':'Photo captured! Move product to show barcode if needed.');
-    return; // keep camera open so user can scan barcode or retake
+    const n=_invPendingImgs.length;
+    const capBtn=document.getElementById('dashCamCapture');
+    if(n>=4){ showToast('4 photos captured!'); if(capBtn) capBtn.textContent='✓ Done (4/4)'; closeDashCam(); }
+    else{ if(capBtn) capBtn.textContent='📷 Capture ('+(n)+'/4)'; showToast('Photo '+n+'/4 captured! Move to next angle.'); }
+    return;
   }
 
   // product photo mode
@@ -2871,6 +2873,24 @@ function captureDashPhoto(){
     showToast('Photo captured!');
   }
   closeDashCam();
+}
+
+function renderInvThumbs(){
+  const el=document.getElementById('invImgThumbs'); if(!el) return;
+  const hint=document.getElementById('invCamHint');
+  if(_invPendingImgs.length===0){
+    el.innerHTML='';
+    if(hint) hint.textContent='Take up to 4 photos from different angles. Barcode auto-detected.';
+    const capBtn=document.getElementById('dashCamCapture');
+    if(capBtn) capBtn.innerHTML='&#128247; Capture';
+    return;
+  }
+  el.innerHTML=_invPendingImgs.map((b,i)=>`<div style="position:relative"><img src="data:image/jpeg;base64,${b}" style="height:44px;width:58px;border-radius:5px;object-fit:cover;border:1px solid var(--border)"><button onclick="removeInvImg(${i})" style="position:absolute;top:-5px;right:-5px;background:#ef4444;border:none;color:#fff;border-radius:50%;width:17px;height:17px;font-size:11px;cursor:pointer;line-height:17px;padding:0;text-align:center">×</button></div>`).join('');
+  if(hint) hint.textContent=_invPendingImgs.length+'/4 photos. Tap × to remove, Camera to add more.';
+}
+function removeInvImg(idx){
+  _invPendingImgs.splice(idx,1);
+  renderInvThumbs();
 }
 
 function useBarcodeOnly(){
