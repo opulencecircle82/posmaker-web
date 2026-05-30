@@ -1080,7 +1080,7 @@ function openSidebar()  { document.getElementById('sidebar').classList.add('open
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbOverlay').classList.remove('show'); }
 
 // ── Expenses ─────────────────────────────────────────────────────────────
-let _expFrom = null, _expTo = null;
+let _expFrom = null, _expTo = null, _expPeriod = 'monthly';
 
 async function loadExpenses(period) {
   if (!STORE) return;
@@ -1103,7 +1103,7 @@ async function loadExpenses(period) {
     from = new Date(f + 'T00:00:00');
     to   = new Date(t + 'T23:59:59');
   }
-  _expFrom = from; _expTo = to;
+  _expFrom = from; _expTo = to; _expPeriod = period;
   ['expDaily','expWeekly','expMonthly'].forEach(bid => document.getElementById(bid).className = 'btn btn-ghost btn-sm');
   if (period !== 'custom') document.getElementById('exp' + period.charAt(0).toUpperCase() + period.slice(1)).className = 'btn btn-accent btn-sm';
 
@@ -1222,7 +1222,7 @@ async function saveExpense() {
   if (error) { showToast('Error: ' + error.message, true); return; }
   closeModal('expModal');
   showToast(id ? 'Expense updated.' : 'Expense added.');
-  loadExpenses(_expFrom ? 'custom' : 'monthly');
+  loadExpenses(_expPeriod);
 }
 
 async function deleteExpense(id) {
@@ -1230,7 +1230,7 @@ async function deleteExpense(id) {
   const { error } = await _sb.from('expenses').delete().eq('id', id);
   if (error) { showToast('Error: ' + error.message, true); return; }
   showToast('Expense deleted.');
-  loadExpenses(_expFrom ? 'custom' : 'monthly');
+  loadExpenses(_expPeriod);
 }
 
 // â”€â”€ Logout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
