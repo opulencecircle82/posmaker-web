@@ -671,14 +671,17 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="mbox">
     <h3 id="invModalTitle">Add Inventory Item</h3>
     <input type="hidden" id="invItemId">
+    <!-- Camera capture row -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px">
+      <button type="button" class="btn btn-accent btn-sm" style="flex:0 0 auto" onclick="openDashCam('inventory','invSku')">&#128247; Camera</button>
+      <span style="font-size:11px;color:var(--dim);flex:1">Take 1-2 photos of the product. Barcode auto-detected.</span>
+      <img id="invImgPreview" style="display:none;height:44px;width:60px;border-radius:6px;object-fit:cover;border:1px solid var(--border);cursor:pointer" onclick="invImgPreview.style.display='none';_invPendingImg=null" title="Click to remove">
+    </div>
     <div class="row2">
       <div class="field"><label>Item Name</label><input id="invName" type="text" placeholder="e.g. Chicken Breast"></div>
       <div class="field">
         <label>SKU <span style="color:var(--dim);font-weight:400">(optional)</span></label>
-        <div style="display:flex;gap:6px">
-          <input id="invSku" type="text" placeholder="e.g. CHK-001" style="flex:1">
-          <button type="button" class="btn btn-accent btn-sm" style="white-space:nowrap;padding:0 10px" onclick="openDashCam('barcode','invSku')" title="Scan barcode with camera">&#128247; Scan</button>
-        </div>
+        <input id="invSku" type="text" placeholder="e.g. CHK-001">
       </div>
     </div>
     <div class="row2">
@@ -2460,6 +2463,9 @@ function openInvFromProd(){
 }
 function openInvModal(item){
   if (!item && invItems.length >= FREE_INV_LIMIT) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
+  _invPendingImg=null;
+  const invPrev=document.getElementById('invImgPreview');
+  if(invPrev){ invPrev.src=''; invPrev.style.display='none'; }
   document.getElementById('invModalTitle').textContent=item?'Edit Item':'Add Inventory Item';
   document.getElementById('invItemId').value=item?item.id:'';
   document.getElementById('invName').value=item?item.name:'';
@@ -2561,6 +2567,14 @@ async function saveInvItem(){
     usageNotSaved=true;
   }
   if(err){showToast(err.message,true);return;}
+  // If a photo was captured, save it to the matching product for visual scanner
+  if(_invPendingImg){
+    const imgB64=_invPendingImg; _invPendingImg=null;
+    _sb.from('products').select('id').eq('store_id',STORE.id).eq('name',name).maybeSingle()
+      .then(({data:mp})=>{
+        if(mp) _sb.from('products').update({image_b64:imgB64}).eq('id',mp.id);
+      });
+  }
   await loadDbCategories();
   const fromProd=document.getElementById('invModal').dataset.fromProd==='1';
   document.getElementById('invModal').dataset.fromProd='';
@@ -2745,8 +2759,9 @@ async function sha256(text) {
 
 // ── Dashboard Camera (product photo + barcode detection) ─────────────────
 let _dashStream = null, _dashBcLoopId = null, _dashZxing = null, _dashBarcode = null;
-let _dashCamMode = 'photo'; // 'photo' | 'barcode'
+let _dashCamMode = 'photo'; // 'photo' | 'barcode' | 'inventory'
 let _dashBcTarget = 'pSku'; // which input to fill with barcode
+let _invPendingImg = null;  // captured photo for inventory item
 
 async function openDashCam(mode, targetField){
   _dashCamMode = mode || 'photo';
@@ -2758,10 +2773,16 @@ async function openDashCam(mode, targetField){
   const bcBtn = document.getElementById('dashCamUseBc');
   if(_dashCamMode === 'barcode'){
     captureBtn.style.display = 'none';
-    bcBtn.style.display = 'none'; // shown only after barcode detected
+    bcBtn.style.display = 'none';
     document.querySelector('#dashCamModal h3').textContent = '📷 Scan Barcode';
+  } else if(_dashCamMode === 'inventory'){
+    captureBtn.style.display = '';
+    captureBtn.textContent = '📷 Capture Photo';
+    bcBtn.style.display = 'none';
+    document.querySelector('#dashCamModal h3').textContent = '📷 Product Camera';
   } else {
     captureBtn.style.display = '';
+    captureBtn.innerHTML = '📷 Capture Photo';
     bcBtn.style.display = 'none';
     document.querySelector('#dashCamModal h3').textContent = '📷 Take Product Photo';
   }
@@ -2823,6 +2844,20 @@ function captureDashPhoto(){
   c.width=video.videoWidth||640; c.height=video.videoHeight||480;
   c.getContext('2d').drawImage(video,0,0);
   const b64=c.toDataURL('image/jpeg',0.82).split(',')[1];
+
+  if(_dashCamMode==='inventory'){
+    // Save photo for inventory item; keep camera open for retake / barcode
+    _invPendingImg=b64;
+    const prev=document.getElementById('invImgPreview');
+    prev.src='data:image/jpeg;base64,'+b64; prev.style.display='block';
+    if(_dashBarcode) document.getElementById('invSku').value=_dashBarcode;
+    // Show retake option
+    document.getElementById('dashCamCapture').innerHTML='&#8635; Retake';
+    showToast(_dashBarcode?'Photo captured! Barcode '+_dashBarcode+' auto-filled.':'Photo captured! Move product to show barcode if needed.');
+    return; // keep camera open so user can scan barcode or retake
+  }
+
+  // product photo mode
   pendingProdImg=b64;
   const prev=document.getElementById('prodImgPreview');
   prev.src='data:image/jpeg;base64,'+b64; prev.style.display='block';
