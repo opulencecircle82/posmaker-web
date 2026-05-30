@@ -573,12 +573,13 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div class="dash-scanbar"></div>
     </div>
     <div id="dashBcBadge" style="display:none;background:#0a2218;border:1px solid #1a5c38;border-radius:7px;padding:7px 12px;font-size:12px;margin-bottom:10px;color:#4ade80">
-      &#127380; Barcode detected: <strong id="dashBcVal"></strong> &mdash; will be saved as SKU
+      &#127380; Barcode: <strong id="dashBcVal"></strong>
     </div>
     <div style="color:var(--dim);font-size:11px;text-align:center;margin-bottom:10px">Point camera at product. Barcode is auto-detected.</div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-ghost" style="flex:1" onclick="closeDashCam()">Cancel</button>
-      <button class="btn btn-accent" style="flex:2" onclick="captureDashPhoto()">&#128247; Capture Photo</button>
+      <button id="dashCamUseBc" class="btn btn-ghost" style="flex:1;display:none" onclick="useBarcodeOnly()">&#127380; Use Barcode</button>
+      <button id="dashCamCapture" class="btn btn-accent" style="flex:2" onclick="captureDashPhoto()">&#128247; Capture Photo</button>
     </div>
   </div>
 </div>
@@ -672,7 +673,13 @@ input:checked + .slider:before{transform:translateX(18px)}
     <input type="hidden" id="invItemId">
     <div class="row2">
       <div class="field"><label>Item Name</label><input id="invName" type="text" placeholder="e.g. Chicken Breast"></div>
-      <div class="field"><label>SKU <span style="color:var(--dim);font-weight:400">(optional)</span></label><input id="invSku" type="text" placeholder="e.g. CHK-001"></div>
+      <div class="field">
+        <label>SKU <span style="color:var(--dim);font-weight:400">(optional)</span></label>
+        <div style="display:flex;gap:6px">
+          <input id="invSku" type="text" placeholder="e.g. CHK-001" style="flex:1">
+          <button type="button" class="btn btn-accent btn-sm" style="white-space:nowrap;padding:0 10px" onclick="openDashCam('barcode','invSku')" title="Scan barcode with camera">&#128247; Scan</button>
+        </div>
+      </div>
     </div>
     <div class="row2">
       <div class="field">
@@ -2738,10 +2745,26 @@ async function sha256(text) {
 
 // ── Dashboard Camera (product photo + barcode detection) ─────────────────
 let _dashStream = null, _dashBcLoopId = null, _dashZxing = null, _dashBarcode = null;
+let _dashCamMode = 'photo'; // 'photo' | 'barcode'
+let _dashBcTarget = 'pSku'; // which input to fill with barcode
 
-async function openDashCam(){
+async function openDashCam(mode, targetField){
+  _dashCamMode = mode || 'photo';
+  _dashBcTarget = targetField || 'pSku';
   _dashBarcode = null;
   document.getElementById('dashBcBadge').style.display = 'none';
+  // Show/hide buttons based on mode
+  const captureBtn = document.getElementById('dashCamCapture');
+  const bcBtn = document.getElementById('dashCamUseBc');
+  if(_dashCamMode === 'barcode'){
+    captureBtn.style.display = 'none';
+    bcBtn.style.display = 'none'; // shown only after barcode detected
+    document.querySelector('#dashCamModal h3').textContent = '📷 Scan Barcode';
+  } else {
+    captureBtn.style.display = '';
+    bcBtn.style.display = 'none';
+    document.querySelector('#dashCamModal h3').textContent = '📷 Take Product Photo';
+  }
   document.getElementById('dashCamModal').classList.add('show');
   const video = document.getElementById('dashCamVid');
   try {
@@ -2783,6 +2806,11 @@ function startDashBcLoop(video){
           _dashBarcode=r.getText();
           document.getElementById('dashBcVal').textContent=_dashBarcode;
           document.getElementById('dashBcBadge').style.display='block';
+          // In barcode-only mode: show "Use Barcode" button
+          if(_dashCamMode==='barcode'){
+            document.getElementById('dashCamUseBc').style.display='';
+            document.getElementById('dashCamCapture').style.display='none';
+          }
         }
       }catch(_){}
     }
@@ -2809,6 +2837,14 @@ function captureDashPhoto(){
   }else{
     showToast('Photo captured!');
   }
+  closeDashCam();
+}
+
+function useBarcodeOnly(){
+  if(!_dashBarcode) return;
+  const el = document.getElementById(_dashBcTarget);
+  if(el) el.value = _dashBarcode;
+  showToast('Barcode ' + _dashBarcode + ' saved as SKU.');
   closeDashCam();
 }
 </script>
