@@ -515,6 +515,7 @@ const SCALES = [
   {id:'contain', name:'Contain'},
   {id:'tile',    name:'Tile'},
   {id:'stretch', name:'Stretch'},
+  {id:'fitbg',   name:'Fit to BG'},
 ];
 
 // ── Mock products ─────────────────────────────────────────────────────────────
@@ -678,10 +679,11 @@ function applyPreview() {
   bi.style.backgroundImage = `url(${bgImgData})`;
   bi.style.opacity = opacity / 100;
   switch (bgScale) {
-    case 'cover':   bi.style.backgroundSize = 'cover';     bi.style.backgroundRepeat = 'no-repeat'; bi.style.backgroundPosition = 'center'; break;
-    case 'contain': bi.style.backgroundSize = 'contain';   bi.style.backgroundRepeat = 'no-repeat'; bi.style.backgroundPosition = 'center'; break;
-    case 'tile':    bi.style.backgroundSize = 'auto';      bi.style.backgroundRepeat = 'repeat';    bi.style.backgroundPosition = '0 0';    break;
-    case 'stretch': bi.style.backgroundSize = '100% 100%'; bi.style.backgroundRepeat = 'no-repeat'; bi.style.backgroundPosition = '0 0';    break;
+    case 'cover':   bi.style.backgroundSize = 'cover';     bi.style.backgroundRepeat = 'no-repeat'; bi.style.backgroundPosition = 'center';     break;
+    case 'contain': bi.style.backgroundSize = 'contain';   bi.style.backgroundRepeat = 'no-repeat'; bi.style.backgroundPosition = 'center';     break;
+    case 'tile':    bi.style.backgroundSize = 'auto';      bi.style.backgroundRepeat = 'repeat';    bi.style.backgroundPosition = '0 0';         break;
+    case 'stretch': bi.style.backgroundSize = '100% 100%'; bi.style.backgroundRepeat = 'no-repeat'; bi.style.backgroundPosition = '0 0';         break;
+    case 'fitbg':   bi.style.backgroundSize = '100% auto'; bi.style.backgroundRepeat = 'no-repeat'; bi.style.backgroundPosition = 'center top';  break;
   }
 }
 

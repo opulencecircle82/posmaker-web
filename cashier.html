@@ -477,10 +477,11 @@ function applyPosTheme(s) {
     const overlay = `rgba(${pr},${pg},${pb},${(1-opacity).toFixed(2)})`;
     const scale = s.pos_bg_scale || 'cover';
     let sz, rp, pos;
-    if (scale==='contain'){sz='contain';rp='no-repeat';pos='center';}
-    else if(scale==='tile'){sz='auto';rp='repeat';pos='0 0';}
-    else if(scale==='stretch'){sz='100% 100%';rp='no-repeat';pos='0 0';}
-    else{sz='cover';rp='no-repeat';pos='center';}
+    if      (scale==='contain'){sz='contain';   rp='no-repeat';pos='center';}
+    else if (scale==='tile')   {sz='auto';      rp='repeat';   pos='0 0';}
+    else if (scale==='stretch'){sz='100% 100%'; rp='no-repeat';pos='0 0';}
+    else if (scale==='fitbg')  {sz='100% auto'; rp='no-repeat';pos='center top';}
+    else                       {sz='cover';     rp='no-repeat';pos='center';}
     // Support both full data URL (new format) and raw base64 (old format)
     const imgSrc = s.pos_bg_img.startsWith('data:') ? s.pos_bg_img : `data:image/jpeg;base64,${s.pos_bg_img}`;
     document.body.style.backgroundImage    = `linear-gradient(${overlay},${overlay}),url("${imgSrc}")`;
