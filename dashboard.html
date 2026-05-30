@@ -1376,12 +1376,18 @@ function genStoreCode(name) {
 async function loadPOSTerminals() {
   const list = document.getElementById('posTerminalList');
   if (list) list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Loading...</div>';
-  const [{ data: stores }, { data: devices }] = await Promise.all([
+  const [storesRes, devicesRes] = await Promise.all([
     _sb.from('stores').select('id,name,business_type,store_code,created_at').order('created_at').abortSignal(_sig()),
     _sb.from('pos_devices').select('store_id,device_id,device_name,platform,registered_at').abortSignal(_sig())
   ]);
-  allStores  = stores  || [];
-  posDevices = devices || [];
+  // If store_code column is missing, fall back to query without it
+  if (storesRes.error && storesRes.error.message && storesRes.error.message.includes('store_code')) {
+    const { data: fallback } = await _sb.from('stores').select('id,name,business_type,created_at').order('created_at').abortSignal(_sig());
+    allStores = (fallback || []).map(s => ({ ...s, store_code: '' }));
+  } else {
+    allStores = storesRes.data || [];
+  }
+  posDevices = devicesRes.data || [];
   // Auto-generate store codes for stores that don't have one
   for (const s of allStores) {
     if (!s.store_code) {

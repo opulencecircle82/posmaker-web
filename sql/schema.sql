@@ -215,6 +215,8 @@ ALTER TABLE stores ADD COLUMN IF NOT EXISTS business_type  TEXT    DEFAULT '';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_btn_style  TEXT    DEFAULT 'default';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_bg_scale   TEXT    DEFAULT 'cover';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_bg_opacity NUMERIC DEFAULT 18;
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS store_code     TEXT    DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_stores_store_code ON stores(store_code);
 
 -- Restaurant POS columns on orders
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type   TEXT    DEFAULT 'Dine In';
