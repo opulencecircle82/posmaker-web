@@ -1123,7 +1123,11 @@ async function loadExpenses(period) {
 
   const toDate   = to.toISOString().split('T')[0];
   const fromDate = from.toISOString().split('T')[0];
-  const days     = Math.max(1, Math.round((to - from) / 86400000) + 1);
+  // For custom range, count actual calendar days; for standard periods use fixed values
+  const PERIOD_DAYS = { daily: 1, weekly: 7, monthly: 30 };
+  const CYCLE_DAYS  = { daily: 1, weekly: 7, monthly: 30 };
+  const customDays  = Math.max(1, Math.round((to - from) / 86400000));
+  const viewDays    = period === 'custom' ? customDays : (PERIOD_DAYS[period] || 30);
 
   const [{ data: rawExps }, { data: orders }] = await Promise.all([
     _sb.from('expenses').select('*').eq('store_id', STORE.id)
@@ -1142,10 +1146,10 @@ async function loadExpenses(period) {
     if (cycle === 'one-time') {
       if (e.expense_date < fromDate || e.expense_date > toDate) return null;
       prorated = base;
-    } else if (cycle === 'daily')   { prorated = base * days; }
-    else if (cycle === 'weekly')    { prorated = base * (days / 7); }
-    else if (cycle === 'monthly')   { prorated = base * (days / 30); }
-    else { prorated = base; }
+    } else {
+      const cycleDays = CYCLE_DAYS[cycle] || 30;
+      prorated = base * (viewDays / cycleDays);
+    }
     return { ...e, prorated, cycleLabel: CYCLE_LABELS[cycle] || cycle };
   }).filter(Boolean);
 
