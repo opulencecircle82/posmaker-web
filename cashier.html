@@ -1320,18 +1320,26 @@ async function openScanner(){
   scannerOpen = true;
   document.getElementById('camOverlay').style.display = 'block';
   document.getElementById('btnCam').style.opacity = '1';
-  camStat('Starting camera...');
+  camStat('Allow camera access if prompted...');
   try {
-    _camStream = await navigator.mediaDevices.getUserMedia({
+    // 15-second timeout so the app never hangs waiting for camera
+    const camReq = navigator.mediaDevices.getUserMedia({
       video:{ facingMode:{ ideal:'environment' }, width:{ ideal:640 } }
     });
+    const timeout = new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 15000));
+    _camStream = await Promise.race([camReq, timeout]);
     const v = document.getElementById('camVideo');
-    v.srcObject = _camStream; await v.play();
+    v.srcObject = _camStream;
+    try { await v.play(); } catch(_){}
+    // Start barcode scan immediately
     startBcLoop(v);
-    ensureTF(v);
     camStat('Scanning — point camera at product or barcode');
+    // Defer AI model loading so camera shows first (avoids UI freeze on tablet)
+    setTimeout(() => { if(scannerOpen) ensureTF(v); }, 2000);
   } catch(e){
-    camStat('Camera blocked — allow camera access in browser settings');
+    camStat(e.message==='timeout'
+      ? 'Camera timed out — tap Allow when browser asks for camera permission'
+      : 'Camera blocked — allow camera access in browser settings');
   }
 }
 
@@ -1374,6 +1382,7 @@ function handleBarcode(code){
   if(isOnCooldown(p.id)) return;
   setCooldown(p.id); addItem(p.id);
   flashMatch(p.name,'&#127380; barcode');
+  setTimeout(()=>closeScanner(), 800);
 }
 
 // ─ TF.js visual AI ──────────────────────────────────────────────────────
@@ -1433,6 +1442,7 @@ function startVisualLoop(video){
       if(bestS>=VIS_AUTO&&best&&!isOnCooldown(best.id)){
         setCooldown(best.id); addItem(best.id);
         flashMatch(best.name,'&#129501; '+Math.round(bestS*100)+'%');
+        setTimeout(()=>closeScanner(), 800);
       }else if(best){
         camStat('&#129501; Best: <strong>'+best.name+'</strong> ('+Math.round(bestS*100)+'%) &mdash; keep scanning');
       }
