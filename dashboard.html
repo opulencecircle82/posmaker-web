@@ -199,6 +199,53 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div class="stat-card"><div class="sc-label">Month Orders</div><div class="sc-val" id="moOrders">&#8212;</div><div class="sc-sub">this month</div></div>
         <div class="stat-card"><div class="sc-label">Month Revenue</div><div class="sc-val" id="moRev">&#8212;</div><div class="sc-sub">this month</div></div>
       </div>
+      <!-- Quick Access Tiles -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">
+
+        <div onclick="nav('salesreport')" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
+          <div style="font-size:28px;line-height:1">📊</div>
+          <div style="font-size:13px;font-weight:700">Sales Report</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.4">Revenue, top items &amp; daily summary</div>
+          <div style="margin-top:auto;font-size:11px;color:var(--accent);font-weight:600" id="qaSalesAmt">—</div>
+        </div>
+
+        <div onclick="nav('pos')" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
+          <div style="font-size:28px;line-height:1">🖥️</div>
+          <div style="font-size:13px;font-weight:700">My POS</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.4">Device lock, store code &amp; downloads</div>
+          <div style="margin-top:auto;font-size:11px;color:var(--accent);font-weight:600;letter-spacing:2px;font-family:monospace" id="qaStoreCode">—</div>
+        </div>
+
+        <div onclick="location.href='customize.html'" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
+          <div style="font-size:28px;line-height:1">🎨</div>
+          <div style="font-size:13px;font-weight:700">Customize POS</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.4">Theme, colors, font &amp; layout</div>
+          <div style="margin-top:auto;font-size:11px;color:var(--accent);font-weight:600">Open editor →</div>
+        </div>
+
+        <div onclick="nav('products')" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
+          <div style="font-size:28px;line-height:1">🏷️</div>
+          <div style="font-size:13px;font-weight:700">Menu Items</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.4">Add, edit &amp; manage products</div>
+          <div style="margin-top:auto;font-size:11px;color:var(--accent);font-weight:600" id="qaProductCount">—</div>
+        </div>
+
+        <div onclick="nav('staff')" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
+          <div style="font-size:28px;line-height:1">👥</div>
+          <div style="font-size:13px;font-weight:700">Staff</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.4">Cashiers, managers &amp; login logs</div>
+          <div style="margin-top:auto;font-size:11px;color:var(--accent);font-weight:600" id="qaStaffCount">—</div>
+        </div>
+
+        <div onclick="nav('inventory')" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
+          <div style="font-size:28px;line-height:1">📦</div>
+          <div style="font-size:13px;font-weight:700">Raw Materials</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.4">Inventory stock &amp; usage tracking</div>
+          <div style="margin-top:auto;font-size:11px;color:var(--accent);font-weight:600" id="qaInvCount">—</div>
+        </div>
+
+      </div>
+
       <div class="tbl-wrap">
         <div class="tbl-head"><h3>Recent Orders</h3></div>
         <table id="ordersTable">
@@ -1030,6 +1077,20 @@ async function loadDashboard() {
     document.getElementById('tdRev').textContent    = CUR + tdRev.toFixed(2);
     document.getElementById('moOrders').textContent = moCnt;
     document.getElementById('moRev').textContent    = CUR + moRev.toFixed(2);
+
+    // Quick-access tile stats (non-blocking)
+    const qaEl = id => document.getElementById(id);
+    if (qaEl('qaSalesAmt'))  qaEl('qaSalesAmt').textContent  = CUR + moRev.toFixed(2) + ' this month';
+    if (qaEl('qaStoreCode')) qaEl('qaStoreCode').textContent = STORE.store_code || '—';
+    _sb.from('products').select('id', { count:'exact', head:true }).eq('store_id', STORE.id).then(({count}) => {
+      if (qaEl('qaProductCount')) qaEl('qaProductCount').textContent = (count || 0) + ' items';
+    });
+    _sb.from('store_users').select('id', { count:'exact', head:true }).eq('store_id', STORE.id).then(({count}) => {
+      if (qaEl('qaStaffCount')) qaEl('qaStaffCount').textContent = (count || 0) + ' staff';
+    });
+    _sb.from('inventory_items').select('id', { count:'exact', head:true }).eq('store_id', STORE.id).then(({count}) => {
+      if (qaEl('qaInvCount')) qaEl('qaInvCount').textContent = (count || 0) + ' items';
+    });
 
     // Low stock alert
     const { data: invForAlert } = await _sb.from('inventory_items')
