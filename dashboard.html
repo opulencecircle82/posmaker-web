@@ -161,7 +161,7 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="sb-bottom">
     <div class="sb-user" id="sbUser"></div>
     <div class="sb-logout" onclick="doLogout()">
-      <span class="ico">ðŸšª</span> Logout
+      <span class="ico">&#x1F6AA;</span> Logout
     </div>
   </div>
 </div>
@@ -876,7 +876,7 @@ document.addEventListener('click', e => {
     document.querySelectorAll('.datepick-drop.open').forEach(d => d.classList.remove('open'));
 });
 
-let STORE = null, CUR = '&#8369;', TAX = 12;
+let STORE = null, CUR = '₱', TAX = 12;
 let allProds = [], allStaff = [];
 let pendingLogob64 = null;
 let pendingProdImg = null;
@@ -911,7 +911,7 @@ function _sig(ms = 12000) {
     location.href = 'signup.html'; return;
   }
 
-  STORE = store; CUR = store.currency || '&#8369;'; TAX = store.tax_rate || 12;
+  STORE = store; CUR = store.currency || '₱'; TAX = store.tax_rate || 12;
   localStorage.setItem('pm_store_id', store.id);
   document.getElementById('sbStore').textContent = store.name;
   adaptDashboardToBizType(store.business_type);
