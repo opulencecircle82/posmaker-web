@@ -174,16 +174,29 @@ async function doSignup() {
     location.href = 'dashboard.html'; return;
   }
 
+  // Generate unique store code
+  async function genUniqueCode(name) {
+    const prefix = (name||'STORE').toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,6).padEnd(3,'X');
+    let code, taken = true;
+    while (taken) {
+      code = prefix + String(Math.floor(1000 + Math.random() * 9000));
+      const { data } = await _sb.from('stores').select('id').eq('store_code', code).maybeSingle();
+      taken = !!data;
+    }
+    return code;
+  }
+  const storeCode = await genUniqueCode(storeName);
+
   // Create store record (fallback without business_type if column not yet in DB)
   let { data: store, error: storeErr } = await _sb
     .from('stores')
-    .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate, business_type: bizType })
+    .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate, business_type: bizType, store_code: storeCode })
     .select().single();
 
   if (storeErr && storeErr.message && storeErr.message.toLowerCase().includes('column')) {
     ({ data: store, error: storeErr } = await _sb
       .from('stores')
-      .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate })
+      .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate, store_code: storeCode })
       .select().single());
   }
 
