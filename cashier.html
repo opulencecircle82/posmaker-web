@@ -180,8 +180,11 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 @keyframes camScan{0%,100%{top:2px}50%{top:110px}}
 #camFlash{position:absolute;left:0;right:0;top:0;height:118px;display:none;align-items:center;justify-content:center;background:rgba(16,185,129,.32);font-size:32px;color:#10b981;pointer-events:none}
 #camStatus{padding:4px 9px;font-size:10px;color:#777;min-height:24px;text-align:center;line-height:1.4}
-#camConfirm{display:none;padding:5px 8px;background:#10b981;border:none;color:#fff;font-size:11px;font-weight:700;width:100%;cursor:pointer;text-align:left;line-height:1.3}
+#camConfirmRow{display:none;flex-direction:row}
+#camConfirm{flex:1;padding:6px 8px;background:#10b981;border:none;color:#fff;font-size:11px;font-weight:700;cursor:pointer;text-align:left;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #camConfirm:active{background:#059669}
+#camSkip{width:36px;padding:6px;background:#374151;border:none;color:#ccc;font-size:14px;cursor:pointer;flex-shrink:0}
+#camSkip:active{background:#1f2937}
 </style>
 </head>
 <body>
@@ -1307,10 +1310,11 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
-// ── Camera Scanner (barcode + TF.js visual AI) ────────────────────────────
+// ── Camera Scanner (barcode + text OCR + TF.js visual AI) ────────────────
 let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null;
 let mnModel = null, prodEmbeddings = [], _visualRaf = null, _lastVisualT = 0;
 let _scanCooldown = {}, _tfLoading = false, _visPending = null;
+let _textDetector = null, _txtLoopId = null;
 const SCAN_COOLDOWN = 2000, VIS_SHOW = 0.82, VIS_MS = 750;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
@@ -1335,6 +1339,7 @@ async function openScanner(){
     try { await v.play(); } catch(_){}
     // Start barcode scan immediately
     startBcLoop(v);
+    startTextLoop(v);
     camStat('Scanning — point camera at product or barcode');
     // Defer AI model loading so camera shows first (avoids UI freeze on tablet)
     setTimeout(() => { if(scannerOpen) ensureTF(v); }, 2000);
@@ -1348,11 +1353,12 @@ async function openScanner(){
 function closeScanner(){
   scannerOpen = false;
   _visPending = null;
-  const btn=document.getElementById('camConfirm'); if(btn) btn.style.display='none';
+  const row=document.getElementById('camConfirmRow'); if(row) row.style.display='none';
   document.getElementById('camOverlay').style.display = 'none';
   document.getElementById('btnCam').style.opacity = '0.75';
   if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
   if(_bcLoopId){ clearTimeout(_bcLoopId); _bcLoopId=null; }
+  if(_txtLoopId){ clearTimeout(_txtLoopId); _txtLoopId=null; }
   if(_visualRaf){ cancelAnimationFrame(_visualRaf); _visualRaf=null; }
 }
 
@@ -1443,26 +1449,78 @@ function startVisualLoop(video){
       const t=mnModel.infer(c,true); const emb=Array.from(await t.data()); t.dispose();
       let best=null,bestS=0;
       for(const pe of prodEmbeddings){ const s=cosSim(emb,pe.emb); if(s>bestS){bestS=s;best=pe;} }
+      if(_visPending) return;
       if(bestS>=VIS_SHOW&&best&&!isOnCooldown(best.id)){
-        _visPending = best;
-        const btn=document.getElementById('camConfirm');
-        if(btn){ btn.style.display='block'; btn.textContent='✓ Add: '+best.name+' ('+Math.round(bestS*100)+'%)'; }
-        camStat('Tap green button to confirm');
-      }else if(!_visPending){
-        camStat(best && bestS>=0.65 ? '&#129501; '+best.name+' ('+Math.round(bestS*100)+'%) — not sure, try barcode' : 'Scanning — point at product or barcode');
+        showConfirm(best,'&#129501; Visual match ('+Math.round(bestS*100)+'%) — tap to confirm or ✗ skip');
+      }else{
+        camStat(best && bestS>=0.65 ? '&#129501; '+best.name+' ('+Math.round(bestS*100)+'%) — try barcode' : 'Scanning...');
       }
     }catch(_){}
   }
   _visualRaf=requestAnimationFrame(loop);
 }
 
+function showConfirm(product, label){
+  _visPending = product;
+  const row=document.getElementById('camConfirmRow');
+  const btn=document.getElementById('camConfirm');
+  if(btn) btn.textContent='✓ Add: '+product.name;
+  if(row) row.style.display='flex';
+  camStat(label);
+}
+
 function confirmVisualAdd(){
   if(!_visPending) return;
   const p=_visPending; _visPending=null;
-  const btn=document.getElementById('camConfirm'); if(btn) btn.style.display='none';
+  const row=document.getElementById('camConfirmRow'); if(row) row.style.display='none';
   setCooldown(p.id); addItem(p.id);
-  flashMatch(p.name,'&#129501; visual');
+  flashMatch(p.name,'&#129501;');
   setTimeout(()=>closeScanner(), 800);
+}
+
+function skipVisualMatch(){
+  if(_visPending){ setCooldown(_visPending.id); _visPending=null; }
+  const row=document.getElementById('camConfirmRow'); if(row) row.style.display='none';
+  camStat('Scanning — point at product or barcode');
+}
+
+// ── Text detection (Chrome Shape Detection API) ─────────────────────────
+function startTextLoop(video){
+  if(!('TextDetector' in window)) return;
+  try{ _textDetector = new TextDetector(); }catch(_){ return; }
+  async function loop(){
+    if(!scannerOpen){ _txtLoopId=null; return; }
+    if(!_visPending && video.readyState>=2 && video.videoWidth>0){
+      try{
+        const c=document.createElement('canvas');
+        c.width=video.videoWidth; c.height=video.videoHeight;
+        c.getContext('2d').drawImage(video,0,0,c.width,c.height);
+        const blocks=await _textDetector.detect(c);
+        if(blocks.length && !_visPending){
+          const allText=blocks.map(b=>b.rawValue).join(' ');
+          const m=matchTextToProduct(allText);
+          if(m && !isOnCooldown(m.id)){
+            showConfirm(m,'&#128221; Text match — tap to confirm or ✗ skip');
+          }
+        }
+      }catch(_){}
+    }
+    _txtLoopId=setTimeout(loop, 2500);
+  }
+  setTimeout(loop, 1000);
+}
+
+function matchTextToProduct(ocrText){
+  const norm=t=>t.toLowerCase().replace(/[^a-z0-9]/g,' ').trim();
+  const ocrN=norm(ocrText);
+  let best=null;
+  for(const p of prods){
+    const pw=norm(p.name||'').split(/\s+/).filter(x=>x.length>=5);
+    if(pw.length && pw.every(w=>ocrN.includes(w))){
+      if(!best||p.name.length>best.name.length) best=p;
+    }
+  }
+  return best;
 }
 
 function flashMatch(name,method){
@@ -1494,7 +1552,10 @@ function loadScript(src){
     <div id="camFlash">&#10003;</div>
   </div>
   <div id="camStatus">Ready</div>
-  <button id="camConfirm" onclick="confirmVisualAdd()"></button>
+  <div id="camConfirmRow" style="display:none;gap:0">
+    <button id="camConfirm" onclick="confirmVisualAdd()"></button>
+    <button id="camSkip" onclick="skipVisualMatch()">&#10005;</button>
+  </div>
 </div>
 </body>
 </html>
