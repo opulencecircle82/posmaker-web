@@ -1163,6 +1163,16 @@ async function loadExpenses(period) {
   const totalRev = (orders || []).reduce((s, o) => s + parseFloat(o.total || 0), 0);
   const netProfit = totalRev - totalExp;
 
+  // Daily break-even: convert every recurring expense to its daily rate
+  const dailyTarget = (rawExps || []).reduce((s, e) => {
+    const cycle = e.billing_cycle || 'one-time';
+    const amt   = parseFloat(e.amount);
+    if (cycle === 'daily')   return s + amt;
+    if (cycle === 'weekly')  return s + amt / 7;
+    if (cycle === 'monthly') return s + amt / 30;
+    return s;
+  }, 0);
+
   if (!expList.length) {
     el.innerHTML = `<div style="padding:28px;text-align:center;color:var(--muted)">No expenses recorded for this period.<br><button class="btn btn-accent btn-sm" style="margin-top:12px" onclick="openExpenseModal()">&#43; Add First Expense</button></div>`;
   } else {
@@ -1216,6 +1226,15 @@ async function loadExpenses(period) {
           <div style="font-size:26px;font-weight:900;color:${netProfit>=0?'#10b981':'#e53e3e'}">${netProfit>=0?'+':''}${CUR}${netProfit.toFixed(2)}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px">${netProfit>=0?'&#128994; Profitable':'&#128308; Loss'}</div>
         </div>
+        ${dailyTarget > 0 ? `
+        <div style="text-align:center;background:rgba(245,158,11,.08);border-radius:10px;padding:16px;border:1.5px solid #f59e0b">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">&#127919; Daily Target</div>
+          <div style="font-size:22px;font-weight:900;color:#f59e0b">${CUR}${dailyTarget.toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">needed per day to break even</div>
+          ${period === 'daily' ? `<div style="margin-top:8px;font-size:12px;font-weight:700;color:${totalRev>=dailyTarget?'#10b981':'#e53e3e'}">
+            ${totalRev>=dailyTarget?'&#9989; Goal met today!':'&#9888;&#65039; '+CUR+(dailyTarget-totalRev).toFixed(2)+' more needed'}
+          </div>` : ''}
+        </div>` : ''}
       </div>
     </div>`;
 }
