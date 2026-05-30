@@ -2794,14 +2794,11 @@ function startDashBcLoop(video){
     document.head.appendChild(s); return;
   }
   _dashZxing = new ZXingBrowser.BrowserMultiFormatReader();
-  const c=document.createElement('canvas'); c.width=320; c.height=240;
-  const ctx=c.getContext('2d');
   async function loop(){
     if(!_dashStream){ _dashBcLoopId=null; return; }
-    if(video.readyState>=2){
-      ctx.drawImage(video,0,0,320,240);
+    if(video.readyState>=2 && video.videoWidth>0){
       try{
-        const r = await _dashZxing.decodeFromImageElement(c);
+        const r = await _dashZxing.decodeFromImageElement(video);
         if(r){
           _dashBarcode=r.getText();
           document.getElementById('dashBcVal').textContent=_dashBarcode;
@@ -2814,9 +2811,9 @@ function startDashBcLoop(video){
         }
       }catch(_){}
     }
-    _dashBcLoopId=setTimeout(loop,180);
+    _dashBcLoopId=setTimeout(loop,200);
   }
-  loop();
+  setTimeout(loop,600); // let video stabilize first
 }
 
 function captureDashPhoto(){

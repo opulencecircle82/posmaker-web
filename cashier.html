@@ -1309,7 +1309,7 @@ if ('serviceWorker' in navigator) {
 let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null;
 let mnModel = null, prodEmbeddings = [], _visualRaf = null, _lastVisualT = 0;
 let _scanCooldown = {}, _tfLoading = false;
-const SCAN_COOLDOWN = 2000, VIS_THRESH = 0.82, VIS_MS = 750;
+const SCAN_COOLDOWN = 2000, VIS_AUTO = 0.80, VIS_CONFIRM = 0.55, VIS_MS = 750;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
 function setCooldown(id){ _scanCooldown[id] = Date.now(); }
@@ -1353,20 +1353,18 @@ function startBcLoop(video){
       .then(()=>startBcLoop(video)); return;
   }
   _zxingReader = new ZXingBrowser.BrowserMultiFormatReader();
-  const c=document.createElement('canvas'); c.width=320; c.height=240;
-  const ctx=c.getContext('2d');
   async function loop(){
     if(!scannerOpen){ _bcLoopId=null; return; }
-    if(video.readyState>=2){
-      ctx.drawImage(video,0,0,320,240);
+    if(video.readyState>=2 && video.videoWidth>0){
       try{
-        const r = await _zxingReader.decodeFromImageElement(c);
+        // Pass video element directly — more reliable than canvas conversion
+        const r = await _zxingReader.decodeFromImageElement(video);
         if(r) handleBarcode(r.getText());
       }catch(_){}
     }
-    _bcLoopId = setTimeout(loop, 150);
+    _bcLoopId = setTimeout(loop, 200);
   }
-  loop();
+  setTimeout(loop, 600); // let video stabilize before first scan
 }
 
 function handleBarcode(code){
@@ -1432,9 +1430,14 @@ function startVisualLoop(video){
       const t=mnModel.infer(c,true); const emb=Array.from(await t.data()); t.dispose();
       let best=null,bestS=0;
       for(const pe of prodEmbeddings){ const s=cosSim(emb,pe.emb); if(s>bestS){bestS=s;best=pe;} }
-      if(bestS>=VIS_THRESH&&best&&!isOnCooldown(best.id)){
+      if(bestS>=VIS_AUTO&&best&&!isOnCooldown(best.id)){
         setCooldown(best.id); addItem(best.id);
         flashMatch(best.name,'&#129501; visual '+Math.round(bestS*100)+'%');
+      }else if(bestS>=VIS_CONFIRM&&best&&!isOnCooldown(best.id)){
+        // Medium confidence — show confirm button instead of auto-adding
+        camStat('&#129501; Looks like <strong>'+best.name+'</strong> ('+Math.round(bestS*100)+'%) &nbsp;'
+          +'<button onclick="confirmVisAdd(\''+best.id+'\',\''+best.name+'\')" '
+          +'style="background:#10b981;border:none;color:#fff;padding:3px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700">&#10003; Add</button>');
       }else if(best){
         camStat('Best: '+best.name+' ('+Math.round(bestS*100)+'%) — keep scanning');
       }
@@ -1449,6 +1452,11 @@ function flashMatch(name,method){
   camStat('&#10003; Added: <strong>'+name+'</strong> &mdash; '+method);
   const ov=document.getElementById('camOverlay');
   ov.style.borderColor='#10b981'; setTimeout(()=>ov.style.borderColor='var(--accent)',650);
+}
+function confirmVisAdd(id,name){
+  if(isOnCooldown(id)) return;
+  setCooldown(id); addItem(id);
+  flashMatch(name,'&#129501; visual confirmed');
 }
 
 function loadScript(src){
