@@ -180,6 +180,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 @keyframes camScan{0%,100%{top:2px}50%{top:110px}}
 #camFlash{position:absolute;left:0;right:0;top:0;height:118px;display:none;align-items:center;justify-content:center;background:rgba(16,185,129,.32);font-size:32px;color:#10b981;pointer-events:none}
 #camStatus{padding:4px 9px;font-size:10px;color:#777;min-height:24px;text-align:center;line-height:1.4}
+#camConfirm{display:none;padding:5px 8px;background:#10b981;border:none;color:#fff;font-size:11px;font-weight:700;width:100%;cursor:pointer;text-align:left;line-height:1.3}
+#camConfirm:active{background:#059669}
 </style>
 </head>
 <body>
@@ -1308,8 +1310,8 @@ if ('serviceWorker' in navigator) {
 // ── Camera Scanner (barcode + TF.js visual AI) ────────────────────────────
 let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null;
 let mnModel = null, prodEmbeddings = [], _visualRaf = null, _lastVisualT = 0;
-let _scanCooldown = {}, _tfLoading = false;
-const SCAN_COOLDOWN = 2000, VIS_AUTO = 0.65, VIS_MS = 750;
+let _scanCooldown = {}, _tfLoading = false, _visPending = null;
+const SCAN_COOLDOWN = 2000, VIS_SHOW = 0.60, VIS_MS = 750;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
 function setCooldown(id){ _scanCooldown[id] = Date.now(); }
@@ -1345,6 +1347,8 @@ async function openScanner(){
 
 function closeScanner(){
   scannerOpen = false;
+  _visPending = null;
+  const btn=document.getElementById('camConfirm'); if(btn) btn.style.display='none';
   document.getElementById('camOverlay').style.display = 'none';
   document.getElementById('btnCam').style.opacity = '0.75';
   if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
@@ -1439,16 +1443,26 @@ function startVisualLoop(video){
       const t=mnModel.infer(c,true); const emb=Array.from(await t.data()); t.dispose();
       let best=null,bestS=0;
       for(const pe of prodEmbeddings){ const s=cosSim(emb,pe.emb); if(s>bestS){bestS=s;best=pe;} }
-      if(bestS>=VIS_AUTO&&best&&!isOnCooldown(best.id)){
-        setCooldown(best.id); addItem(best.id);
-        flashMatch(best.name,'&#129501; '+Math.round(bestS*100)+'%');
-        setTimeout(()=>closeScanner(), 800);
-      }else if(best){
-        camStat('&#129501; Best: <strong>'+best.name+'</strong> ('+Math.round(bestS*100)+'%) &mdash; keep scanning');
+      if(bestS>=VIS_SHOW&&best&&!isOnCooldown(best.id)){
+        _visPending = best;
+        const btn=document.getElementById('camConfirm');
+        if(btn){ btn.style.display='block'; btn.textContent='✓ Add: '+best.name+' ('+Math.round(bestS*100)+'%)'; }
+        camStat('Tap green button to confirm');
+      }else if(!_visPending){
+        camStat(best ? '&#129501; '+best.name+' ('+Math.round(bestS*100)+'%) — keep scanning' : 'Scanning...');
       }
     }catch(_){}
   }
   _visualRaf=requestAnimationFrame(loop);
+}
+
+function confirmVisualAdd(){
+  if(!_visPending) return;
+  const p=_visPending; _visPending=null;
+  const btn=document.getElementById('camConfirm'); if(btn) btn.style.display='none';
+  setCooldown(p.id); addItem(p.id);
+  flashMatch(p.name,'&#129501; visual');
+  setTimeout(()=>closeScanner(), 800);
 }
 
 function flashMatch(name,method){
@@ -1480,6 +1494,7 @@ function loadScript(src){
     <div id="camFlash">&#10003;</div>
   </div>
   <div id="camStatus">Ready</div>
+  <button id="camConfirm" onclick="confirmVisualAdd()"></button>
 </div>
 </body>
 </html>
