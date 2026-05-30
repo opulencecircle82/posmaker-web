@@ -365,6 +365,25 @@ let prods = [], cart = {}, payMeth = 'Cash';
 let orderType = 'Dine In', tableNo = '', isKOT = false;
 let discPct = 0, discAmt = 0;
 
+// ── Web device lock ───────────────────────────────────────────────────────
+function getBrowserDevId() {
+  let id = localStorage.getItem('pm_dev_id');
+  if (!id) { id = 'web-' + crypto.randomUUID(); localStorage.setItem('pm_dev_id', id); }
+  return id;
+}
+async function checkWebDevice(storeId) {
+  if (navigator.userAgent.includes('Electron')) return 'ok';
+  const devId = getBrowserDevId();
+  try {
+    const { data: rows } = await _sb.from('pos_devices').select('device_id').eq('store_id', storeId).limit(1);
+    if (!rows || rows.length === 0) {
+      await _sb.from('pos_devices').insert({ store_id: storeId, device_id: devId, device_name: 'Web Browser', platform: 'web' });
+      return 'ok';
+    }
+    return rows[0].device_id === devId ? 'ok' : 'locked';
+  } catch { return 'ok'; }
+}
+
 // ── Page init ────────────────────────────────────────────────────────────
 (async () => {
   if (IS_DEMO) {
@@ -410,6 +429,14 @@ let discPct = 0, discAmt = 0;
     document.getElementById('loginWrap').style.display = 'none';
     document.getElementById('activateWrap').classList.add('show');
     document.getElementById('actErr').textContent = 'Store not found. Please check your Store ID.';
+    return;
+  }
+  const devStatus = await checkWebDevice(STORE_ID);
+  if (devStatus === 'locked') {
+    localStorage.removeItem('pm_store_id');
+    document.getElementById('loginWrap').style.display = 'none';
+    document.getElementById('activateWrap').classList.add('show');
+    document.getElementById('actErr').textContent = 'This POS is already active on another device. Ask your store manager to reset it from the dashboard.';
     return;
   }
   STORE = store; CUR = store.currency || '₱'; TAX = parseFloat(store.tax_rate) || 0;
@@ -1171,6 +1198,12 @@ async function doActivateStore() {
     return;
   }
 
+  const lockStatus = await checkWebDevice(store.id);
+  if (lockStatus === 'locked') {
+    err.textContent = 'This POS is already active on another device. Ask your store manager to reset it from the dashboard.';
+    btn.disabled = false; btn.innerHTML = '&#10003; Connect';
+    return;
+  }
   localStorage.setItem('pm_store_id', store.id);
   location.replace(location.pathname + '?store=' + store.id);
 }
