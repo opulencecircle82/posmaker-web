@@ -169,6 +169,17 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 #activateWrap.show{display:flex}
 .act-note{font-size:11px;color:#555;text-align:center;margin-top:14px;line-height:1.7}
 .act-note a{color:var(--accent);text-decoration:none}
+
+/* ── CAMERA SCANNER ─────────────────────────────────────── */
+#camOverlay{position:fixed;bottom:70px;right:14px;z-index:9100;background:#111120;border:2px solid var(--accent);border-radius:12px;width:268px;box-shadow:0 8px 32px rgba(0,0,0,.75);overflow:hidden;display:none}
+.cam-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#191929;border-bottom:1px solid #252540}
+.cam-hdr-ttl{font-size:12px;font-weight:700;color:var(--accent)}
+.cam-cls{background:none;border:none;color:#888;cursor:pointer;font-size:20px;line-height:1;padding:0 3px}
+#camVideo{width:100%;height:168px;object-fit:cover;display:block;background:#000}
+.cam-line{position:absolute;left:0;right:0;height:2px;background:rgba(0,180,216,.85);box-shadow:0 0 8px #00b4d8;animation:camScan 2s linear infinite;pointer-events:none}
+@keyframes camScan{0%,100%{top:34px}50%{top:198px}}
+#camFlash{position:absolute;left:0;right:0;top:34px;height:168px;display:none;align-items:center;justify-content:center;background:rgba(16,185,129,.32);font-size:38px;color:#10b981;pointer-events:none}
+#camStatus{padding:6px 12px;font-size:11px;color:#777;min-height:30px;text-align:center;line-height:1.4}
 </style>
 </head>
 <body>
@@ -225,6 +236,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <span class="hdr-title" id="hdrTitle">POSMaker</span>
   <span id="netStatus" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(0,0,0,.3);margin-left:8px;letter-spacing:.3px"></span>
   <span class="hdr-cashier" id="hdrCashier"></span>
+  <button id="btnCam" onclick="toggleScanner()" title="Camera Scanner (barcode + AI visual)" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Camera scanner">&#128247;</button>
   <button class="btn-logout" onclick="doLogout()">Logout</button>
 </div>
 <div id="syncBar" style="display:none;background:#1a3a1a;color:#4ade80;font-size:12px;font-weight:600;padding:5px 16px;text-align:center;border-bottom:1px solid #2a5a2a"></div>
@@ -671,6 +683,8 @@ async function loadProds() {
 
   buildCats();
   renderProds('All');
+  // Rebuild visual embeddings when product list changes
+  if (mnModel) buildEmbeddings();
 }
 
 function buildCats() {
@@ -1290,6 +1304,174 @@ async function installPWA() {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
+
+// ── Camera Scanner (barcode + TF.js visual AI) ────────────────────────────
+let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null;
+let mnModel = null, prodEmbeddings = [], _visualRaf = null, _lastVisualT = 0;
+let _scanCooldown = {}, _tfLoading = false;
+const SCAN_COOLDOWN = 2000, VIS_THRESH = 0.82, VIS_MS = 750;
+
+function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
+function setCooldown(id){ _scanCooldown[id] = Date.now(); }
+
+async function toggleScanner(){ scannerOpen ? closeScanner() : await openScanner(); }
+
+async function openScanner(){
+  scannerOpen = true;
+  document.getElementById('camOverlay').style.display = 'block';
+  document.getElementById('btnCam').style.opacity = '1';
+  camStat('Starting camera...');
+  try {
+    _camStream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:'environment' }, width:{ ideal:640 } }
+    });
+    const v = document.getElementById('camVideo');
+    v.srcObject = _camStream; await v.play();
+    startBcLoop(v);
+    ensureTF(v);
+    camStat('Scanning — point camera at product or barcode');
+  } catch(e){
+    camStat('Camera blocked — allow camera access in browser settings');
+  }
+}
+
+function closeScanner(){
+  scannerOpen = false;
+  document.getElementById('camOverlay').style.display = 'none';
+  document.getElementById('btnCam').style.opacity = '0.75';
+  if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
+  if(_bcLoopId){ clearTimeout(_bcLoopId); _bcLoopId=null; }
+  if(_visualRaf){ cancelAnimationFrame(_visualRaf); _visualRaf=null; }
+}
+
+function camStat(msg){ const el=document.getElementById('camStatus'); if(el) el.innerHTML=msg; }
+
+// ─ ZXing barcode loop ────────────────────────────────────────────────────
+function startBcLoop(video){
+  if(typeof ZXingBrowser==='undefined'){
+    loadScript('https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.4/umd/index.min.js')
+      .then(()=>startBcLoop(video)); return;
+  }
+  _zxingReader = new ZXingBrowser.BrowserMultiFormatReader();
+  const c=document.createElement('canvas'); c.width=320; c.height=240;
+  const ctx=c.getContext('2d');
+  async function loop(){
+    if(!scannerOpen){ _bcLoopId=null; return; }
+    if(video.readyState>=2){
+      ctx.drawImage(video,0,0,320,240);
+      try{
+        const r = await _zxingReader.decodeFromImageElement(c);
+        if(r) handleBarcode(r.getText());
+      }catch(_){}
+    }
+    _bcLoopId = setTimeout(loop, 150);
+  }
+  loop();
+}
+
+function handleBarcode(code){
+  if(!code) return;
+  const p = prods.find(x=>x.sku && x.sku===code);
+  if(!p){ camStat('Barcode <strong>'+code+'</strong> — no product match'); return; }
+  if(isOnCooldown(p.id)) return;
+  setCooldown(p.id); addItem(p.id);
+  flashMatch(p.name,'&#127380; barcode');
+}
+
+// ─ TF.js visual AI ──────────────────────────────────────────────────────
+async function ensureTF(video){
+  if(mnModel){ startVisualLoop(video); return; }
+  if(_tfLoading) return;
+  _tfLoading = true;
+  camStat('Loading AI model (one-time, ~4 MB)...');
+  try{
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js');
+    mnModel = await mobilenet.load({ version:1, alpha:0.25 });
+    await buildEmbeddings();
+    if(scannerOpen){ camStat('AI ready — scanning...'); startVisualLoop(video); }
+  }catch(e){
+    camStat('AI unavailable — barcode scanning still active');
+  }finally{ _tfLoading=false; }
+}
+
+async function buildEmbeddings(){
+  prodEmbeddings = [];
+  const c=document.createElement('canvas'); c.width=224; c.height=224;
+  const ctx=c.getContext('2d');
+  for(const p of prods){
+    if(!p.image_b64) continue;
+    try{
+      const img=new Image(); img.src='data:image/jpeg;base64,'+p.image_b64;
+      await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; setTimeout(rej,3000); });
+      ctx.drawImage(img,0,0,224,224);
+      const t=mnModel.infer(c,true); const d=Array.from(await t.data()); t.dispose();
+      prodEmbeddings.push({ id:p.id, name:p.name, emb:d });
+    }catch(_){}
+  }
+}
+
+function cosSim(a,b){
+  let dot=0,na=0,nb=0;
+  for(let i=0;i<a.length;i++){ dot+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; }
+  return na&&nb ? dot/(Math.sqrt(na)*Math.sqrt(nb)) : 0;
+}
+
+function startVisualLoop(video){
+  if(!mnModel||!prodEmbeddings.length) return;
+  const c=document.createElement('canvas'); c.width=224; c.height=224;
+  const ctx=c.getContext('2d');
+  async function loop(){
+    if(!scannerOpen){ _visualRaf=null; return; }
+    _visualRaf=requestAnimationFrame(loop);
+    const now=Date.now();
+    if(now-_lastVisualT<VIS_MS||video.readyState<2) return;
+    _lastVisualT=now;
+    try{
+      ctx.drawImage(video,0,0,224,224);
+      const t=mnModel.infer(c,true); const emb=Array.from(await t.data()); t.dispose();
+      let best=null,bestS=0;
+      for(const pe of prodEmbeddings){ const s=cosSim(emb,pe.emb); if(s>bestS){bestS=s;best=pe;} }
+      if(bestS>=VIS_THRESH&&best&&!isOnCooldown(best.id)){
+        setCooldown(best.id); addItem(best.id);
+        flashMatch(best.name,'&#129501; visual '+Math.round(bestS*100)+'%');
+      }else if(best){
+        camStat('Best: '+best.name+' ('+Math.round(bestS*100)+'%) — keep scanning');
+      }
+    }catch(_){}
+  }
+  _visualRaf=requestAnimationFrame(loop);
+}
+
+function flashMatch(name,method){
+  const fl=document.getElementById('camFlash');
+  if(fl){ fl.style.display='flex'; setTimeout(()=>fl.style.display='none',700); }
+  camStat('&#10003; Added: <strong>'+name+'</strong> &mdash; '+method);
+  const ov=document.getElementById('camOverlay');
+  ov.style.borderColor='#10b981'; setTimeout(()=>ov.style.borderColor='var(--accent)',650);
+}
+
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector('script[src="'+src+'"]')){ res(); return; }
+    const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej;
+    document.head.appendChild(s);
+  });
+}
 </script>
+
+<!-- ── Camera Scanner Overlay ── -->
+<div id="camOverlay">
+  <div class="cam-hdr">
+    <span class="cam-hdr-ttl">&#128247; Product Scanner</span>
+    <button class="cam-cls" onclick="closeScanner()" title="Close">&#215;</button>
+  </div>
+  <div style="position:relative">
+    <video id="camVideo" autoplay muted playsinline></video>
+    <div class="cam-line"></div>
+    <div id="camFlash">&#10003;</div>
+  </div>
+  <div id="camStatus">Ready</div>
+</div>
 </body>
 </html>

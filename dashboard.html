@@ -556,6 +556,33 @@ input:checked + .slider:before{transform:translateX(18px)}
 </div>
 </div>
 
+<!-- DASHBOARD CAMERA MODAL -->
+<style>
+#dashCamModal .mbox{max-width:370px}
+@keyframes dashScan{0%,100%{top:8px}50%{top:208px}}
+.dash-scanbar{position:absolute;left:0;right:0;height:2px;background:rgba(0,180,216,.85);box-shadow:0 0 8px #00b4d8;animation:dashScan 2s linear infinite;pointer-events:none}
+</style>
+<div class="modal" id="dashCamModal">
+  <div class="mbox">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h3 style="margin:0">&#128247; Take Product Photo</h3>
+      <button onclick="closeDashCam()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1">&#215;</button>
+    </div>
+    <div style="position:relative;background:#000;border-radius:8px;overflow:hidden;margin-bottom:10px">
+      <video id="dashCamVid" style="width:100%;height:220px;object-fit:cover;display:block" autoplay muted playsinline></video>
+      <div class="dash-scanbar"></div>
+    </div>
+    <div id="dashBcBadge" style="display:none;background:#0a2218;border:1px solid #1a5c38;border-radius:7px;padding:7px 12px;font-size:12px;margin-bottom:10px;color:#4ade80">
+      &#127380; Barcode detected: <strong id="dashBcVal"></strong> &mdash; will be saved as SKU
+    </div>
+    <div style="color:var(--dim);font-size:11px;text-align:center;margin-bottom:10px">Point camera at product. Barcode is auto-detected.</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeDashCam()">Cancel</button>
+      <button class="btn btn-accent" style="flex:2" onclick="captureDashPhoto()">&#128247; Capture Photo</button>
+    </div>
+  </div>
+</div>
+
 <!-- PRODUCT MODAL -->
 <div class="modal" id="prodModal">
   <div class="mbox">
@@ -567,13 +594,15 @@ input:checked + .slider:before{transform:translateX(18px)}
     <!-- Product image upload -->
     <div class="field" style="margin-bottom:14px">
       <label>Product Image <span style="color:var(--dim);font-weight:400">(optional)</span></label>
-      <div id="prodImgArea" onclick="document.getElementById('prodImgInput').click()"
-           style="cursor:pointer;border:2px dashed var(--border);border-radius:8px;padding:10px;text-align:center;position:relative;min-height:74px;display:flex;align-items:center;justify-content:center;gap:10px;transition:border-color .2s"
-           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <button type="button" class="btn btn-accent btn-sm" style="flex:1;font-size:12px" onclick="openDashCam()">&#128247; Camera <span style="opacity:.75;font-weight:400">(auto-detect barcode)</span></button>
+        <button type="button" class="btn btn-ghost btn-sm" style="flex:1;font-size:12px" onclick="document.getElementById('prodImgInput').click()">&#128193; Upload File</button>
+      </div>
+      <div id="prodImgArea" style="border:2px dashed var(--border);border-radius:8px;padding:10px;text-align:center;position:relative;min-height:74px;display:flex;align-items:center;justify-content:center;gap:10px">
         <img id="prodImgPreview" style="display:none;max-height:60px;max-width:100px;border-radius:6px;object-fit:cover">
-        <span id="prodImgHint" style="color:var(--dim);font-size:13px">&#128247; Click to upload image</span>
-        <button type="button" id="removeProdImgBtn" onclick="event.stopPropagation();removeProdImg()"
-                style="display:none;position:absolute;top:5px;right:7px;background:#e53e3e;border:none;border-radius:4px;color:#fff;cursor:pointer;padding:1px 8px;font-size:13px;line-height:1.6">Ã—</button>
+        <span id="prodImgHint" style="color:var(--dim);font-size:13px">No image selected</span>
+        <button type="button" id="removeProdImgBtn" onclick="removeProdImg()"
+                style="display:none;position:absolute;top:5px;right:7px;background:#e53e3e;border:none;border-radius:4px;color:#fff;cursor:pointer;padding:1px 8px;font-size:13px;line-height:1.6">&#215;</button>
       </div>
       <input type="file" id="prodImgInput" accept="image/*" style="display:none" onchange="handleProdImg(this)">
     </div>
@@ -2705,6 +2734,82 @@ function showToast(msg, isErr) {
 async function sha256(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Dashboard Camera (product photo + barcode detection) ─────────────────
+let _dashStream = null, _dashBcLoopId = null, _dashZxing = null, _dashBarcode = null;
+
+async function openDashCam(){
+  _dashBarcode = null;
+  document.getElementById('dashBcBadge').style.display = 'none';
+  document.getElementById('dashCamModal').classList.add('show');
+  const video = document.getElementById('dashCamVid');
+  try {
+    _dashStream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:'environment' }, width:{ ideal:640 } }
+    });
+    video.srcObject = _dashStream; await video.play();
+    startDashBcLoop(video);
+  } catch(e) {
+    alert('Camera access denied. Please allow camera in browser settings.');
+    closeDashCam();
+  }
+}
+
+function closeDashCam(){
+  document.getElementById('dashCamModal').classList.remove('show');
+  if(_dashStream){ _dashStream.getTracks().forEach(t=>t.stop()); _dashStream=null; }
+  if(_dashBcLoopId){ clearTimeout(_dashBcLoopId); _dashBcLoopId=null; }
+  if(_dashZxing){ try{ _dashZxing.reset(); }catch(_){} _dashZxing=null; }
+}
+
+function startDashBcLoop(video){
+  if(typeof ZXingBrowser==='undefined'){
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.4/umd/index.min.js';
+    s.onload=()=>startDashBcLoop(video);
+    document.head.appendChild(s); return;
+  }
+  _dashZxing = new ZXingBrowser.BrowserMultiFormatReader();
+  const c=document.createElement('canvas'); c.width=320; c.height=240;
+  const ctx=c.getContext('2d');
+  async function loop(){
+    if(!_dashStream){ _dashBcLoopId=null; return; }
+    if(video.readyState>=2){
+      ctx.drawImage(video,0,0,320,240);
+      try{
+        const r = await _dashZxing.decodeFromImageElement(c);
+        if(r){
+          _dashBarcode=r.getText();
+          document.getElementById('dashBcVal').textContent=_dashBarcode;
+          document.getElementById('dashBcBadge').style.display='block';
+        }
+      }catch(_){}
+    }
+    _dashBcLoopId=setTimeout(loop,180);
+  }
+  loop();
+}
+
+function captureDashPhoto(){
+  const video=document.getElementById('dashCamVid');
+  if(!video.srcObject){ showToast('Camera not started.',true); return; }
+  const c=document.createElement('canvas');
+  c.width=video.videoWidth||640; c.height=video.videoHeight||480;
+  c.getContext('2d').drawImage(video,0,0);
+  const b64=c.toDataURL('image/jpeg',0.82).split(',')[1];
+  pendingProdImg=b64;
+  const prev=document.getElementById('prodImgPreview');
+  prev.src='data:image/jpeg;base64,'+b64; prev.style.display='block';
+  document.getElementById('prodImgHint').style.display='none';
+  document.getElementById('removeProdImgBtn').style.display='block';
+  if(_dashBarcode){
+    document.getElementById('pSku').value=_dashBarcode;
+    showToast('Photo captured. Barcode '+_dashBarcode+' saved as SKU.');
+  }else{
+    showToast('Photo captured!');
+  }
+  closeDashCam();
 }
 </script>
 </body>
