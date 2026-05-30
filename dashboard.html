@@ -1119,7 +1119,7 @@ async function loadExpenses(period) {
        .lte('expense_date', to.toISOString().split('T')[0])
        .order('expense_date', { ascending: false }),
     _sb.from('orders').select('total').eq('store_id', STORE.id)
-       .gte('created_at', fromISO).lte('created_at', toISO)
+       .gte('timestamp', fromISO).lte('timestamp', toISO)
   ]);
 
   const expList  = exps || [];
