@@ -911,7 +911,8 @@ function _sig(ms = 12000) {
     location.href = 'signup.html'; return;
   }
 
-  STORE = store; CUR = store.currency || '₱'; TAX = store.tax_rate || 12;
+  STORE = store; TAX = store.tax_rate || 12;
+  { const _t = document.createElement('textarea'); _t.innerHTML = store.currency || '₱'; CUR = _t.value || '₱'; }
   localStorage.setItem('pm_store_id', store.id);
   document.getElementById('sbStore').textContent = store.name;
   adaptDashboardToBizType(store.business_type);
