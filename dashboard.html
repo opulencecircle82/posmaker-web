@@ -771,6 +771,16 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="field" style="margin-top:14px"><label>Expense Name</label><input id="expName" type="text" placeholder="e.g. Electricity Bill, Cashier Salary"></div>
     <div class="row2">
       <div class="field"><label>Amount</label><input id="expAmount" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Billing Cycle</label>
+        <select id="expCycle" style="padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;width:100%;outline:none">
+          <option value="one-time">One-time (on a specific date)</option>
+          <option value="daily">Daily (every day)</option>
+          <option value="weekly">Weekly (every week)</option>
+          <option value="monthly">Monthly (every month)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row2">
       <div class="field"><label>Category</label>
         <select id="expCategory" style="padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;width:100%;outline:none">
           <option>Bills</option>
@@ -782,11 +792,9 @@ input:checked + .slider:before{transform:translateX(18px)}
           <option>Other</option>
         </select>
       </div>
+      <div class="field"><label>Date <span style="color:var(--dim);font-weight:400">(one-time / start date)</span></label><input id="expDate" type="date"></div>
     </div>
-    <div class="row2">
-      <div class="field"><label>Date</label><input id="expDate" type="date"></div>
-      <div class="field"><label>Notes <span style="color:var(--dim);font-weight:400">(optional)</span></label><input id="expNotes" type="text" placeholder="Optional details"></div>
-    </div>
+    <div class="field"><label>Notes <span style="color:var(--dim);font-weight:400">(optional)</span></label><input id="expNotes" type="text" placeholder="Optional details"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
       <button class="btn btn-ghost" onclick="closeModal('expModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveExpense()">Save Expense</button>
@@ -1113,17 +1121,35 @@ async function loadExpenses(period) {
   const fromISO = from.toISOString();
   const toISO   = to.toISOString();
 
-  const [{ data: exps }, { data: orders }] = await Promise.all([
+  const toDate   = to.toISOString().split('T')[0];
+  const fromDate = from.toISOString().split('T')[0];
+  const days     = Math.max(1, Math.round((to - from) / 86400000) + 1);
+
+  const [{ data: rawExps }, { data: orders }] = await Promise.all([
     _sb.from('expenses').select('*').eq('store_id', STORE.id)
-       .gte('expense_date', from.toISOString().split('T')[0])
-       .lte('expense_date', to.toISOString().split('T')[0])
+       .lte('expense_date', toDate)
        .order('expense_date', { ascending: false }),
     _sb.from('orders').select('total').eq('store_id', STORE.id)
        .gte('timestamp', fromISO).lte('timestamp', toISO)
   ]);
 
-  const expList  = exps || [];
-  const totalExp = expList.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+  // Pro-rate amounts based on billing cycle and selected period
+  const CYCLE_LABELS = { 'one-time':'One-time', daily:'Daily', weekly:'Weekly', monthly:'Monthly' };
+  const expList = (rawExps || []).map(e => {
+    const cycle  = e.billing_cycle || 'one-time';
+    const base   = parseFloat(e.amount);
+    let prorated;
+    if (cycle === 'one-time') {
+      if (e.expense_date < fromDate || e.expense_date > toDate) return null;
+      prorated = base;
+    } else if (cycle === 'daily')   { prorated = base * days; }
+    else if (cycle === 'weekly')    { prorated = base * (days / 7); }
+    else if (cycle === 'monthly')   { prorated = base * (days / 30); }
+    else { prorated = base; }
+    return { ...e, prorated, cycleLabel: CYCLE_LABELS[cycle] || cycle };
+  }).filter(Boolean);
+
+  const totalExp = expList.reduce((s, e) => s + e.prorated, 0);
   const totalRev = (orders || []).reduce((s, o) => s + parseFloat(o.total || 0), 0);
   const netProfit = totalRev - totalExp;
 
@@ -1142,10 +1168,10 @@ async function loadExpenses(period) {
       <tbody>
         ${expList.map(e => `<tr style="border-top:1px solid var(--border);font-size:13px">
           <td style="padding:10px 14px;color:var(--muted)">${e.expense_date}</td>
-          <td style="padding:10px 14px;font-weight:600">${e.name}</td>
+          <td style="padding:10px 14px;font-weight:600">${e.name}<br><span style="font-size:10px;color:var(--muted);font-weight:400">Base: ${CUR}${parseFloat(e.amount).toFixed(2)} / ${e.cycleLabel}</span></td>
           <td style="padding:10px 14px"><span style="background:rgba(0,180,216,.12);color:var(--accent);padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700">${e.category||'Other'}</span></td>
           <td style="padding:10px 14px;color:var(--muted);font-size:12px">${e.notes||'&mdash;'}</td>
-          <td style="padding:10px 14px;text-align:right;font-weight:700;color:#e53e3e">${CUR}${parseFloat(e.amount).toFixed(2)}</td>
+          <td style="padding:10px 14px;text-align:right;font-weight:700;color:#e53e3e">${CUR}${e.prorated.toFixed(2)}</td>
           <td style="padding:10px 14px;text-align:center">
             <div style="display:flex;gap:6px;justify-content:center">
               <button class="btn btn-ghost btn-sm" onclick="openExpenseModal('${e.id}')">Edit</button>
@@ -1189,6 +1215,7 @@ function openExpenseModal(id) {
   document.getElementById('expModalTitle').textContent = id ? 'Edit Expense' : 'Add Expense';
   document.getElementById('expName').value     = '';
   document.getElementById('expAmount').value   = '';
+  document.getElementById('expCycle').value    = 'one-time';
   document.getElementById('expCategory').value = 'Bills';
   document.getElementById('expDate').value     = new Date().toISOString().split('T')[0];
   document.getElementById('expNotes').value    = '';
@@ -1197,6 +1224,7 @@ function openExpenseModal(id) {
       if (!e) return;
       document.getElementById('expName').value     = e.name;
       document.getElementById('expAmount').value   = e.amount;
+      document.getElementById('expCycle').value    = e.billing_cycle || 'one-time';
       document.getElementById('expCategory').value = e.category || 'Other';
       document.getElementById('expDate').value     = e.expense_date;
       document.getElementById('expNotes').value    = e.notes || '';
@@ -1209,13 +1237,14 @@ async function saveExpense() {
   const id     = document.getElementById('expId').value;
   const name   = document.getElementById('expName').value.trim();
   const amount = parseFloat(document.getElementById('expAmount').value);
+  const cycle  = document.getElementById('expCycle').value;
   const cat    = document.getElementById('expCategory').value;
   const date   = document.getElementById('expDate').value;
   const notes  = document.getElementById('expNotes').value.trim();
   if (!name)           { showToast('Enter expense name.', true); return; }
   if (!amount || amount <= 0) { showToast('Enter a valid amount.', true); return; }
   if (!date)           { showToast('Select a date.', true); return; }
-  const row = { store_id: STORE.id, name, amount, category: cat, expense_date: date, notes };
+  const row = { store_id: STORE.id, name, amount, billing_cycle: cycle, category: cat, expense_date: date, notes };
   const { error } = id
     ? await _sb.from('expenses').update(row).eq('id', id)
     : await _sb.from('expenses').insert(row);
