@@ -553,38 +553,46 @@ async function doLogin() {
   const username = document.getElementById('lu').value.trim().toLowerCase();
   const pw       = document.getElementById('lp').value;
   const errEl    = document.getElementById('loginErr');
+  const btn      = document.querySelector('#loginWrap .btn-login');
   errEl.textContent = '';
   if (!username || !pw) { errEl.textContent = 'Enter username and password.'; return; }
 
-  // Step 1: check if username exists in this store
-  const { data: found } = await _sb.from('store_users')
-    .select('id,username,full_name,role,password_hash,active')
-    .eq('store_id', STORE_ID)
-    .eq('username', username)
-    .single();
+  btn.disabled = true;
+  btn.textContent = 'Logging in…';
+  try {
+    const { data: found, error: qErr } = await _sb.from('store_users')
+      .select('id,username,full_name,role,password_hash,active')
+      .eq('store_id', STORE_ID)
+      .eq('username', username)
+      .single();
 
-  if (!found) {
-    errEl.textContent = `Username "${username}" not found. Ask your manager to check your account.`;
-    return;
+    if (qErr && qErr.code !== 'PGRST116') throw new Error(qErr.message);
+
+    if (!found) {
+      errEl.textContent = `Username "${username}" not found. Ask your manager to check your account.`;
+      return;
+    }
+    if (!found.active) {
+      errEl.textContent = 'This account is deactivated. Contact your manager.';
+      return;
+    }
+
+    const hash = await sha256(pw);
+    if (found.password_hash !== hash) {
+      errEl.textContent = 'Wrong password. Try again or ask your manager to reset it.';
+      return;
+    }
+
+    CASHIER = found;
+    _sb.from('staff_logs').insert({ store_id: STORE_ID, staff_id: found.id, username: found.username, login_at: new Date().toISOString() });
+    await loadProds();
+    showPOS(found.full_name || found.username);
+  } catch(e) {
+    errEl.textContent = 'Login error: ' + (e.message || 'Check your internet connection.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Login';
   }
-  if (!found.active) {
-    errEl.textContent = 'This account is deactivated. Contact your manager.';
-    return;
-  }
-
-  // Step 2: verify password
-  const hash = await sha256(pw);
-  if (found.password_hash !== hash) {
-    errEl.textContent = 'Wrong password. Try again or ask your manager to reset it.';
-    return;
-  }
-
-  const data = found;
-
-  CASHIER = data;
-  _sb.from('staff_logs').insert({ store_id: STORE_ID, staff_id: data.id, username: data.username, login_at: new Date().toISOString() });
-  await loadProds();
-  showPOS(data.full_name || data.username);
 }
 
 function showPOS(name) {
@@ -684,8 +692,6 @@ async function loadProds() {
 
   buildCats();
   renderProds('All');
-  // Rebuild visual embeddings when product list changes
-  if (mnModel) buildEmbeddings();
 }
 
 function buildCats() {
@@ -1331,7 +1337,7 @@ async function openScanner(){
       await new Promise(res=>{ v.onloadeddata=res; setTimeout(res,2000); });
     }
     if(!scannerOpen) return;
-    camStat('Scanning — point camera at product or barcode');
+    camStat(_scanModes());
     startBcLoop(v); startTextLoop(v); return;
   }
   // First open or stream died — request camera
@@ -1354,7 +1360,7 @@ async function openScanner(){
     if(!scannerOpen) return;
     try{ await v.play(); }catch(_){}
     startBcLoop(v); startTextLoop(v);
-    camStat('Scanning — point camera at product or barcode');
+    camStat(_scanModes());
   } catch(e){
     camStat(e.message==='timeout'
       ? 'Camera timed out — tap Allow when browser asks for camera permission'
@@ -1412,6 +1418,13 @@ function handleBarcode(code){
 }
 
 // ── Text detection (Google ML Kit via Chrome Shape Detection API) ────────
+function _scanModes(){
+  const hasML = 'TextDetector' in window;
+  return hasML
+    ? '&#127380; barcode + &#128220; ML Kit text — point at label'
+    : '&#127380; barcode only (ML Kit not available on this browser)';
+}
+
 function startTextLoop(video){
   if(!('TextDetector' in window)) return;
   try{ _textDetector = new TextDetector(); }catch(_){ return; }
@@ -1420,8 +1433,11 @@ function startTextLoop(video){
     if(!scannerOpen||_scanSession!==sess){ _txtLoopId=null; return; }
     if(video.readyState>=2 && video.videoWidth>0){
       try{
+        // Downscale to 480px wide max — ML Kit processes faster on smaller images
+        const scale = Math.min(1, 480 / video.videoWidth);
         const c=document.createElement('canvas');
-        c.width=video.videoWidth; c.height=video.videoHeight;
+        c.width=Math.round(video.videoWidth*scale);
+        c.height=Math.round(video.videoHeight*scale);
         c.getContext('2d').drawImage(video,0,0,c.width,c.height);
         const blocks=await _textDetector.detect(c);
         if(_scanSession!==sess) return;
@@ -1430,15 +1446,15 @@ function startTextLoop(video){
           const m=matchTextToProduct(allText);
           if(m && !isOnCooldown(m.id)){
             setCooldown(m.id); addItem(m.id);
-            flashMatch(m.name,'&#128221; text');
+            flashMatch(m.name,'&#128221; ML Kit');
             setTimeout(()=>closeScanner(), 800);
           }
         }
       }catch(_){}
     }
-    _txtLoopId=setTimeout(loop, 2500);
+    _txtLoopId=setTimeout(loop, 1200);
   }
-  setTimeout(loop, 1000);
+  setTimeout(loop, 800);
 }
 
 function matchTextToProduct(ocrText){

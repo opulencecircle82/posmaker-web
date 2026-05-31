@@ -1857,17 +1857,37 @@ function renderPOSTerminals() {
     </div>`;
   }).join('');
 }
-async function editStoreCode(storeId, currentCode) {
-  const newCode = prompt('Enter new store code (letters and numbers only, max 10 chars):', currentCode);
-  if (!newCode) return;
-  const clean = newCode.toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10);
-  if (clean.length < 4) { showToast('Code must be at least 4 characters.', true); return; }
-  const { data: existing } = await _sb.from('stores').select('id').eq('store_code', clean).maybeSingle();
-  if (existing && existing.id !== storeId) { showToast('That code is already taken. Try another.', true); return; }
-  const { error } = await _sb.from('stores').update({ store_code: clean }).eq('id', storeId);
-  if (error) { showToast('Error: ' + error.message, true); return; }
-  showToast('Store code updated to ' + clean);
-  loadPOSTerminals();
+function editStoreCode(storeId, currentCode) {
+  const existing = document.getElementById('_editCodeModal');
+  if (existing) existing.remove();
+  const d = document.createElement('div');
+  d.id = '_editCodeModal';
+  d.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
+  d.innerHTML = `<div style="background:#1a1a2e;border:1px solid #333;border-radius:14px;padding:24px;max-width:340px;width:100%">
+    <div style="font-size:15px;font-weight:700;color:#e0e0f0;margin-bottom:16px">&#9998; Edit Store Code</div>
+    <div style="font-size:12px;color:#888;margin-bottom:8px">Letters and numbers only, 4–10 characters</div>
+    <input id="_editCodeInp" type="text" maxlength="10" value="${currentCode}"
+      style="width:100%;padding:12px;background:#252540;border:1px solid #444;color:#fff;border-radius:8px;font-size:18px;font-weight:700;letter-spacing:4px;font-family:monospace;text-transform:uppercase;margin-bottom:16px">
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('_editCodeModal').remove()" style="flex:1;padding:12px;background:#252540;border:1px solid #333;color:#aaa;border-radius:8px;font-size:14px;cursor:pointer">Cancel</button>
+      <button id="_editCodeOk" style="flex:1;padding:12px;background:var(--accent,#00b4d8);border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Save</button>
+    </div>
+  </div>`;
+  document.body.appendChild(d);
+  const inp = document.getElementById('_editCodeInp');
+  inp.focus(); inp.select();
+  inp.oninput = () => { inp.value = inp.value.toUpperCase().replace(/[^A-Z0-9]/g,''); };
+  document.getElementById('_editCodeOk').onclick = async () => {
+    const clean = inp.value.toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10);
+    if (clean.length < 4) { showToast('Code must be at least 4 characters.', true); return; }
+    const { data: taken } = await _sb.from('stores').select('id').eq('store_code', clean).maybeSingle();
+    if (taken && taken.id !== storeId) { showToast('That code is already taken. Try another.', true); return; }
+    const { error } = await _sb.from('stores').update({ store_code: clean }).eq('id', storeId);
+    if (error) { showToast('Error: ' + error.message, true); return; }
+    d.remove();
+    showToast('Store code updated to ' + clean);
+    loadPOSTerminals();
+  };
 }
 async function resetPOSDevice(storeId) {
   showConfirmModal('Reset registered device?\n\nAfter this, the POS can be set up on a new device.', async () => {
