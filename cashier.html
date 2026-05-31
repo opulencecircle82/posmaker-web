@@ -1328,20 +1328,22 @@ async function openScanner(){
   document.getElementById('btnCam').style.opacity = '1';
   camStat('Allow camera access if prompted...');
   try {
-    // 15-second timeout so the app never hangs waiting for camera
+    // Clear old stream from video element first so Android releases camera fully
+    const v = document.getElementById('camVideo');
+    v.srcObject = null;
+    // Small delay to let Android camera hardware fully release
+    await new Promise(r => setTimeout(r, 250));
+    if(!scannerOpen) return;
     const camReq = navigator.mediaDevices.getUserMedia({
       video:{ facingMode:{ ideal:'environment' }, width:{ ideal:640 } }
     });
     const timeout = new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 15000));
     _camStream = await Promise.race([camReq, timeout]);
-    const v = document.getElementById('camVideo');
     v.srcObject = _camStream;
     try { await v.play(); } catch(_){}
-    // Start barcode scan immediately
     startBcLoop(v);
     startTextLoop(v);
     camStat('Scanning — point camera at product or barcode');
-    // Defer AI model loading so camera shows first (avoids UI freeze on tablet)
     setTimeout(() => { if(scannerOpen) ensureTF(v); }, 2000);
   } catch(e){
     camStat(e.message==='timeout'
@@ -1358,6 +1360,7 @@ function closeScanner(){
   document.getElementById('camOverlay').style.display = 'none';
   document.getElementById('btnCam').style.opacity = '0.75';
   if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
+  _zxingReader = null;
   if(_bcLoopId){ clearTimeout(_bcLoopId); _bcLoopId=null; }
   if(_txtLoopId){ clearTimeout(_txtLoopId); _txtLoopId=null; }
   if(_visualRaf){ cancelAnimationFrame(_visualRaf); _visualRaf=null; }
@@ -1511,7 +1514,9 @@ function startTextLoop(video){
           const allText=blocks.map(b=>b.rawValue).join(' ');
           const m=matchTextToProduct(allText);
           if(m && !isOnCooldown(m.id)){
-            showConfirm(m,'&#128221; Text match — tap to confirm or ✗ skip');
+            setCooldown(m.id); addItem(m.id);
+            flashMatch(m.name,'&#128221; text');
+            setTimeout(()=>closeScanner(), 800);
           }
         }
       }catch(_){}
