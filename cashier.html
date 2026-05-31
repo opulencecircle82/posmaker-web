@@ -1483,9 +1483,9 @@ function matchTextToProduct(ocrText){
   return best;
 }
 
-// ── Visual product matching: color grid + structure hash + multi-scale ────
-// Each product gets: aHash (32x32 structure) + colorGrid (8x8 RGB = 192 vals)
-// Camera frame is tested at 3 crop scales to handle near/far products.
+// ── Visual product matching: shape (Sobel edges) + color (HSV) + structure ─
+// Features per photo: aHash (structure) + edgeHash (shape) + colorHist (HSV hue+value)
+// Frame tested at 3 scales (close / mid / far) for distance-independent matching.
 
 async function buildImgHashes() {
   _prodHashes = [];
@@ -1497,8 +1497,7 @@ async function buildImgHashes() {
     const features=(await Promise.all(srcs.filter(Boolean).map(_computeFeatures))).filter(Boolean);
     if(features.length) _prodHashes.push({ id:p.id, features });
   }
-  // If scanner already open before hashes were ready, start visual loop now
-  if(scannerOpen && !_visLoopId) {
+  if(scannerOpen && !_visLoopId){
     const v=document.getElementById('camVideo');
     if(v && v.videoWidth>0) startVisualLoop(v);
   }
@@ -1508,54 +1507,78 @@ function _computeFeatures(src) {
   return new Promise(res => {
     const img=new Image();
     img.onload=()=>{
-      try{
-        // Structure hash: 32x32 grayscale aHash (1024 bits)
-        const c32=document.createElement('canvas'); c32.width=c32.height=32;
-        c32.getContext('2d').drawImage(img,0,0,32,32);
-        const px32=c32.getContext('2d').getImageData(0,0,32,32).data;
-        const g=[]; for(let i=0;i<1024;i++) g.push(.299*px32[i*4]+.587*px32[i*4+1]+.114*px32[i*4+2]);
-        const avg=g.reduce((a,b)=>a+b)/1024;
-        const aHash=g.map(v=>v>avg?1:0);
-
-        // Color grid: 8x8 = 64 zones, average RGB per zone (192 values, 0-1)
-        const c8=document.createElement('canvas'); c8.width=c8.height=8;
-        c8.getContext('2d').drawImage(img,0,0,8,8);
-        const px8=c8.getContext('2d').getImageData(0,0,8,8).data;
-        const colorGrid=[];
-        for(let i=0;i<64;i++) colorGrid.push(px8[i*4]/255, px8[i*4+1]/255, px8[i*4+2]/255);
-
-        res({ aHash, colorGrid });
-      }catch{ res(null); }
+      try{ res(_featuresFromCanvas(img, img.naturalWidth, img.naturalHeight)); }
+      catch{ res(null); }
     };
     img.onerror=()=>res(null);
     img.src=src;
   });
 }
 
+function _featuresFromCanvas(source, sw, sh) {
+  // ── 1. aHash: 32×32 grayscale intensity structure (1024 bits) ──
+  const c32=document.createElement('canvas'); c32.width=c32.height=32;
+  c32.getContext('2d').drawImage(source,0,0,sw,sh,0,0,32,32);
+  const px32=c32.getContext('2d').getImageData(0,0,32,32).data;
+  const gray=[]; for(let i=0;i<1024;i++) gray.push(.299*px32[i*4]+.587*px32[i*4+1]+.114*px32[i*4+2]);
+  const gAvg=gray.reduce((a,b)=>a+b)/1024;
+  const aHash=gray.map(v=>v>gAvg?1:0);
+
+  // ── 2. Edge hash: Sobel filter → hash edges (shape / contours) ──
+  const edges=new Array(1024);
+  for(let y=1;y<31;y++) for(let x=1;x<31;x++){
+    const idx=(y*32+x);
+    const gx = -gray[(y-1)*32+(x-1)] - 2*gray[y*32+(x-1)] - gray[(y+1)*32+(x-1)]
+               +gray[(y-1)*32+(x+1)] + 2*gray[y*32+(x+1)] + gray[(y+1)*32+(x+1)];
+    const gy = -gray[(y-1)*32+(x-1)] - 2*gray[(y-1)*32+x] - gray[(y-1)*32+(x+1)]
+               +gray[(y+1)*32+(x-1)] + 2*gray[(y+1)*32+x] + gray[(y+1)*32+(x+1)];
+    edges[idx]=Math.sqrt(gx*gx+gy*gy);
+  }
+  const eAvg=edges.reduce((a,b)=>a+(b||0),0)/1024;
+  const edgeHash=edges.map(v=>(v||0)>eAvg?1:0);
+
+  // ── 3. Color histogram: HSV hue (16 bins) + value (8 bins) = 24 values ──
+  // Hue bins ignore near-grey pixels (S<0.12); value bins capture light/dark
+  const hBins=new Array(16).fill(0), vBins=new Array(8).fill(0);
+  let colorPx=0, totalPx=px32.length/4;
+  for(let i=0;i<totalPx;i++){
+    const r=px32[i*4]/255,g=px32[i*4+1]/255,b=px32[i*4+2]/255;
+    const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+    vBins[Math.min(7,Math.floor(mx*8))]++;
+    if(d>=0.12&&mx>=0.1){
+      let h=mx===r?((g-b)/d+6)%6:mx===g?(b-r)/d+2:(r-g)/d+4;
+      hBins[Math.min(15,Math.floor(h/6*16))]++;
+      colorPx++;
+    }
+  }
+  const colorHist=[
+    ...hBins.map(v=>colorPx>0?v/colorPx:0),
+    ...vBins.map(v=>v/totalPx)
+  ];
+
+  return { aHash, edgeHash, colorHist };
+}
+
 function _extractFrameFeatures(video, scale) {
   const sw=Math.round(video.videoWidth*scale), sh=Math.round(video.videoHeight*scale);
   const sx=Math.round(video.videoWidth*(1-scale)/2), sy=Math.round(video.videoHeight*(1-scale)/2);
-  const c32=document.createElement('canvas'); c32.width=c32.height=32;
-  c32.getContext('2d').drawImage(video,sx,sy,sw,sh,0,0,32,32);
-  const px32=c32.getContext('2d').getImageData(0,0,32,32).data;
-  const g=[]; for(let i=0;i<1024;i++) g.push(.299*px32[i*4]+.587*px32[i*4+1]+.114*px32[i*4+2]);
-  const avg=g.reduce((a,b)=>a+b)/1024;
-  const aHash=g.map(v=>v>avg?1:0);
-  const c8=document.createElement('canvas'); c8.width=c8.height=8;
-  c8.getContext('2d').drawImage(video,sx,sy,sw,sh,0,0,8,8);
-  const px8=c8.getContext('2d').getImageData(0,0,8,8).data;
-  const colorGrid=[];
-  for(let i=0;i<64;i++) colorGrid.push(px8[i*4]/255, px8[i*4+1]/255, px8[i*4+2]/255);
-  return { aHash, colorGrid };
+  const tmp=document.createElement('canvas'); tmp.width=video.videoWidth; tmp.height=video.videoHeight;
+  tmp.getContext('2d').drawImage(video,0,0);
+  // Crop to a fresh canvas then pass as source
+  const crop=document.createElement('canvas'); crop.width=sw; crop.height=sh;
+  crop.getContext('2d').drawImage(tmp,sx,sy,sw,sh,0,0,sw,sh);
+  return _featuresFromCanvas(crop,sw,sh);
 }
 
 function _featureScore(f1, f2) {
-  // Structure: hamming distance normalized
+  // Structure (aHash): Hamming distance, normalized 0-1
   const aDist=f1.aHash.reduce((n,b,i)=>n+(b!==f2.aHash[i]?1:0),0)/1024;
-  // Color: L2 distance normalized
-  const cDist=Math.sqrt(f1.colorGrid.reduce((s,v,i)=>s+(v-f2.colorGrid[i])**2,0)/192);
-  // 40% structure + 60% color (color is more stable across distances)
-  return 0.4*aDist + 0.6*cDist;
+  // Shape (edgeHash): Hamming distance on edge map, normalized 0-1
+  const eDist=f1.edgeHash.reduce((n,b,i)=>n+(b!==f2.edgeHash[i]?1:0),0)/1024;
+  // Color (HSV histogram): L1 distance — hue part max 2, value part max 2 → total max 4 → /4
+  const hDist=f1.colorHist.reduce((s,v,i)=>s+Math.abs(v-f2.colorHist[i]),0)/4;
+  // Weights: 20% structure + 30% shape/edges + 50% color
+  return 0.2*aDist + 0.3*eDist + 0.5*hDist;
 }
 
 function startVisualLoop(video) {
@@ -1565,7 +1588,6 @@ function startVisualLoop(video) {
     if(!scannerOpen||_scanSession!==sess){ _visLoopId=null; return; }
     if(video.readyState>=2&&video.videoWidth>0){
       try{
-        // Multi-scale: 40% (close-up), 65% (mid), 85% (far away)
         let best=null, bestScore=9999, secScore=9999;
         for(const scale of [0.4, 0.65, 0.85]){
           const ff=_extractFrameFeatures(video, scale);
@@ -1587,9 +1609,9 @@ function startVisualLoop(video) {
           }
         } else {
           _visConf={};
-          if(best&&bestScore<=0.35&&scannerOpen){
+          if(best&&bestScore<=0.38&&scannerOpen){
             const prod=prods.find(p=>p.id===best.id);
-            if(prod) camStat('&#128247; Scanning… '+prod.name+'? '+pct+'%');
+            if(prod) camStat('&#128247; '+prod.name+'? '+pct+'%');
           }
         }
       }catch(_){}
