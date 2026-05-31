@@ -68,21 +68,26 @@ async function doLogin() {
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Signing in…';
+  errEl.textContent = '';
 
-  const { data, error } = await _sb.auth.signInWithPassword({ email, password: pw });
-  if (error) {
-    errEl.textContent = error.message;
+  const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Connection timed out. Check your internet and try again.')), 15000));
+  try {
+    const { data, error } = await Promise.race([
+      _sb.auth.signInWithPassword({ email, password: pw }),
+      timeout
+    ]);
+    if (error) { errEl.textContent = error.message; btn.disabled = false; btn.textContent = 'Log In →'; return; }
+
+    // Load the user's store
+    const { data: store } = await Promise.race([
+      _sb.from('stores').select('id').eq('owner_id', data.user.id).maybeSingle(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('Connection timed out.')), 10000))
+    ]);
+    localStorage.setItem('pm_store_id', store?.id || '');
+    location.href = store ? 'dashboard.html' : 'signup.html';
+  } catch(e) {
+    errEl.textContent = e.message;
     btn.disabled = false; btn.textContent = 'Log In →';
-    return;
-  }
-
-  // Load the user's store
-  const { data: store } = await _sb.from('stores').select('id').eq('owner_id', data.user.id).single();
-  if (store) {
-    localStorage.setItem('pm_store_id', store.id);
-    location.href = 'dashboard.html';
-  } else {
-    location.href = 'signup.html';
   }
 }
 
