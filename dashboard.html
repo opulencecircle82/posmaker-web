@@ -1721,7 +1721,7 @@ function renderProds(prods) {
     <td><div style="color:var(--accent);font-weight:700">${CUR}${parseFloat(p.price).toFixed(2)}</div>${p.cost_price?`<div style="color:var(--dim);font-size:11px">Cost: ${CUR}${parseFloat(p.cost_price).toFixed(2)}</div>`:''}</td>
     <td><label class="toggle"><input type="checkbox" ${p.available?'checked':''} onchange="toggleProd('${p.id}',this.checked)"><span class="slider"></span></label></td>
     <td style="white-space:nowrap">
-      <button class="btn btn-ghost btn-sm" onclick="openProdModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">Edit</button>
+      <button class="btn btn-ghost btn-sm" onclick="openProdModal('${p.id}')">Edit</button>
       <button class="btn btn-danger btn-sm" onclick="deleteProd('${p.id}')">Del</button>
     </td>
   </tr>`).join('');
@@ -1944,6 +1944,7 @@ function updateAddPOSBtn() {
   if (badge) badge.textContent = `${allStores.length}/${FREE_POS_LIMIT}`;
 }
 function openProdModal(p) {
+  if(typeof p === 'string') p = allProds.find(x => x.id === p) || null;
   if (!p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
   document.getElementById('prodModalTitle').textContent=p?'Edit Product':'Add Product';
   document.getElementById('prodId').value=p?p.id:'';
