@@ -2508,6 +2508,10 @@ async function openInvModal(item){
       try{ const a=JSON.parse(mp.image_b64); _invPendingImgs=Array.isArray(a)?[...a]:[mp.image_b64]; }
       catch(_){ _invPendingImgs=[mp.image_b64]; }
     }
+    // fallback: load from localStorage by item ID (covers name-mismatch or save failures)
+    if(_invPendingImgs.length===0 && item.id){
+      try{ const loc=localStorage.getItem('invImg_'+item.id); if(loc){ const a=JSON.parse(loc); if(Array.isArray(a)&&a.length) _invPendingImgs=[...a]; } }catch(_){}
+    }
   }
   renderInvThumbs();
   document.getElementById('invModalTitle').textContent=item?'Edit Item':'Add Inventory Item';
@@ -2611,14 +2615,14 @@ async function saveInvItem(){
     usageNotSaved=true;
   }
   if(err){showToast(err.message,true);return;}
-  // Save captured photos (up to 4) to matching product for visual scanner
+  // Save captured photos — always store by item ID, also sync to matching product for visual scanner
   if(_invPendingImgs.length>0){
     const imgs=_invPendingImgs.slice(); _invPendingImgs=[];
     const imgData=JSON.stringify(imgs);
-    _sb.from('products').select('id').eq('store_id',STORE.id).eq('name',name).maybeSingle()
-      .then(({data:mp})=>{
-        if(mp) _sb.from('products').update({image_b64:imgData}).eq('id',mp.id);
-      });
+    const savedId=id||( (await _sb.from('inventory_items').select('id').eq('store_id',STORE.id).eq('name',name).maybeSingle()).data?.id );
+    if(savedId) localStorage.setItem('invImg_'+savedId, imgData);
+    const {data:mp}=await _sb.from('products').select('id').eq('store_id',STORE.id).eq('name',name).maybeSingle();
+    if(mp) await _sb.from('products').update({image_b64:imgData}).eq('id',mp.id);
   }
   await loadDbCategories();
   const fromProd=document.getElementById('invModal').dataset.fromProd==='1';
