@@ -1331,18 +1331,26 @@ async function openScanner(){
   const v = document.getElementById('camVideo');
   const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
   if(isLive){
-    // Re-attach stream and resume play (Android pauses video when overlay is hidden)
+    // Re-attach stream in case the video element lost it while hidden
     if(v.srcObject !== _camStream) v.srcObject = _camStream;
     camStat('Camera resuming...');
-    try { await v.play(); } catch(_) {}
-    if(v.readyState < 2 || v.videoWidth === 0){
-      await new Promise(res=>{ v.onloadeddata=res; setTimeout(res,2500); });
+    // v.play() can hang forever on Android — race it against a 1.5s timeout
+    await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,1500))]);
+    // Wait for video to produce frames (max 2s)
+    if(v.videoWidth === 0){
+      await new Promise(res=>{ v.onloadeddata=res; setTimeout(res,2000); });
     }
     if(!scannerOpen) return;
-    camStat(_scanModes());
-    startBcLoop(v); startTextLoop(v); return;
+    // If video still not producing frames after the wait, fall through to full restart
+    if(v.videoWidth > 0){
+      camStat(_scanModes());
+      startBcLoop(v); startTextLoop(v); return;
+    }
+    // Stream alive but video frozen — stop it and do a fresh getUserMedia below
+    _camStream.getTracks().forEach(t=>t.stop()); _camStream=null;
+    v.srcObject = null;
   }
-  // First open or stream died — request camera
+  // First open or stream died/frozen — request camera
   if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
   v.srcObject = null;
   await new Promise(r=>setTimeout(r,300));
@@ -1360,7 +1368,7 @@ async function openScanner(){
       v.onloadeddata=res; setTimeout(res,3000);
     });
     if(!scannerOpen) return;
-    try{ await v.play(); }catch(_){}
+    await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,2000))]);
     startBcLoop(v); startTextLoop(v);
     camStat(_scanModes());
   } catch(e){
