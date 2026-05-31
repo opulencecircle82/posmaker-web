@@ -1434,9 +1434,12 @@ function handleBarcode(code){
 // ── Text detection (Google ML Kit via Chrome Shape Detection API) ────────
 function _scanModes(){
   const hasML = 'TextDetector' in window;
-  return hasML
-    ? '&#127380; barcode + &#128220; ML Kit text — point at label'
-    : '&#127380; barcode only (ML Kit not available on this browser)';
+  const hasVis = _prodHashes.length > 0;
+  const parts = ['&#127380; barcode'];
+  if(hasML) parts.push('&#128220; ML Kit text');
+  if(hasVis) parts.push('&#128247; visual ('+_prodHashes.length+' products)');
+  if(!hasML && !hasVis) parts.push('(upload product photos for visual detection)');
+  return parts.join(' + ');
 }
 
 function startTextLoop(video){
