@@ -1317,9 +1317,20 @@ async function installPWA() {
   if (outcome === 'accepted') _pwaPrompt = null;
 }
 
-// ── Service Worker ────────────────────────────────────────────────────────
+// ── Service Worker — auto-update, no button needed ───────────────────────
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    function _applyUpdate(w){ w.postMessage({type:'SKIP_WAITING'}); }
+    if(reg.waiting) _applyUpdate(reg.waiting);
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      nw.addEventListener('statechange', () => {
+        if(nw.state==='installed' && navigator.serviceWorker.controller) _applyUpdate(nw);
+      });
+    });
+    reg.update().catch(()=>{}); // force check on every open
+  }).catch(()=>{});
+  navigator.serviceWorker.addEventListener('controllerchange', () => setTimeout(()=>location.reload(), 400));
 }
 
 // ── Camera Scanner (barcode + ML Kit text + visual photo matching) ───────

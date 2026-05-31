@@ -93,6 +93,17 @@ async function doLogin() {
 
 document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
+// Auto-update service worker on every open
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    function _au(w){w.postMessage({type:'SKIP_WAITING'});}
+    if(reg.waiting) _au(reg.waiting);
+    reg.addEventListener('updatefound',()=>{const n=reg.installing;n.addEventListener('statechange',()=>{if(n.state==='installed'&&navigator.serviceWorker.controller)_au(n);});});
+    reg.update().catch(()=>{});
+  }).catch(()=>{});
+  navigator.serviceWorker.addEventListener('controllerchange',()=>setTimeout(()=>location.reload(),400));
+}
+
 // Auto-redirect if already logged in
 (async () => {
   const { data: { session } } = await _sb.auth.getSession();
