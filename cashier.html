@@ -1447,7 +1447,7 @@ function _scanModes(){
   const hasVis = _prodHashes.length > 0;
   const hasAI = !!_cocoModel;
   const parts = ['&#127380; barcode'];
-  if(hasML) parts.push('&#128220; ML text');
+  if(hasML) parts.push('&#128220; ML Kit text');
   if(hasVis) parts.push('&#128247; visual ('+_prodHashes.length+')');
   if(hasAI) parts.push('&#129302; AI');
   if(!hasML && !hasVis && !hasAI) parts.push('(upload product photos for visual detection)');
