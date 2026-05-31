@@ -1709,11 +1709,16 @@ function filterProds() {
   const q = document.getElementById('prodSearch').value.toLowerCase();
   renderProds(q ? allProds.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)) : allProds);
 }
+function _imgSrc(b64){
+  if(!b64) return null;
+  try{ const a=JSON.parse(b64); if(Array.isArray(a)&&a.length) return 'data:image/jpeg;base64,'+a[0]; }catch(_){}
+  return 'data:image/jpeg;base64,'+b64;
+}
 function renderProds(prods) {
   const tbody = document.getElementById('prodTbody');
   if (!prods.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No products. Click + Add to create one.</td></tr>'; return; }
   tbody.innerHTML = prods.map(p => `<tr>
-    <td style="width:44px">${p.image_b64?`<img src="data:image/jpeg;base64,${p.image_b64}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;display:block">`:'<div style="width:36px;height:36px;border-radius:6px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:18px">ðŸ›’</div>'}</td>
+    <td style="width:44px">${p.image_b64?`<img src="${_imgSrc(p.image_b64)}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;display:block">`:’<div style="width:36px;height:36px;border-radius:6px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:18px">ðŸ›’</div>’}</td>
     <td style="font-weight:600">${p.name}</td>
     <td style="color:var(--muted)">${p.category}</td>
     <td><div style="color:var(--accent);font-weight:700">${CUR}${parseFloat(p.price).toFixed(2)}</div>${p.cost_price?`<div style="color:var(--dim);font-size:11px">Cost: ${CUR}${parseFloat(p.cost_price).toFixed(2)}</div>`:''}</td>
@@ -1959,7 +1964,7 @@ function openProdModal(p) {
   const imgHint=document.getElementById('prodImgHint');
   const removeBtn=document.getElementById('removeProdImgBtn');
   if(p&&p.image_b64){
-    imgPrev.src='data:image/jpeg;base64,'+p.image_b64;
+    imgPrev.src=_imgSrc(p.image_b64);
     imgPrev.style.display='block';imgHint.style.display='none';removeBtn.style.display='block';
   }else{
     imgPrev.src='';imgPrev.style.display='none';imgHint.style.display='';removeBtn.style.display='none';
@@ -2486,9 +2491,16 @@ function openInvFromProd(){
   document.getElementById('invModal').dataset.fromProd='1';
   openInvModal(null);
 }
-function openInvModal(item){
+async function openInvModal(item){
   if (!item && invItems.length >= FREE_INV_LIMIT) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
   _invPendingImgs=[];
+  if(item && item.name){
+    const {data:mp}=await _sb.from('products').select('image_b64').eq('store_id',STORE.id).eq('name',item.name).maybeSingle();
+    if(mp && mp.image_b64){
+      try{ const a=JSON.parse(mp.image_b64); _invPendingImgs=Array.isArray(a)?[...a]:[mp.image_b64]; }
+      catch(_){ _invPendingImgs=[mp.image_b64]; }
+    }
+  }
   renderInvThumbs();
   document.getElementById('invModalTitle').textContent=item?'Edit Item':'Add Inventory Item';
   document.getElementById('invItemId').value=item?item.id:'';
