@@ -601,7 +601,8 @@ function showPOS(name) {
   document.getElementById('hdrCashier').textContent = '\u{1F464} ' + name;
   redrawCart();
   updateNetStatus();
-  syncOfflineQueue(); // Upload any queued orders from previous session
+  syncOfflineQueue();
+  setTimeout(openScanner, 600); // auto-open camera on login
 }
 
 async function doLogout() {
@@ -1420,11 +1421,10 @@ function startBcLoop(video){
 function handleBarcode(code){
   if(!code) return;
   const p = prods.find(x=>x.sku && x.sku===code);
-  if(!p){ camStat('Barcode <strong>'+code+'</strong> — no product match'); return; }
+  if(!p){ camStat('Barcode <strong>'+code+'</strong> — no match'); return; }
   if(isOnCooldown(p.id)) return;
   setCooldown(p.id); addItem(p.id);
   flashMatch(p.name,'&#127380; barcode');
-  setTimeout(()=>closeScanner(), 800);
 }
 
 // ── Text detection (Google ML Kit via Chrome Shape Detection API) ────────
@@ -1457,7 +1457,6 @@ function startTextLoop(video){
           if(m && !isOnCooldown(m.id)){
             setCooldown(m.id); addItem(m.id);
             flashMatch(m.name,'&#128221; ML Kit');
-            setTimeout(()=>closeScanner(), 800);
           }
         }
       }catch(_){}
@@ -1483,9 +1482,10 @@ function matchTextToProduct(ocrText){
 function flashMatch(name,method){
   const fl=document.getElementById('camFlash');
   if(fl){ fl.style.display='flex'; setTimeout(()=>fl.style.display='none',700); }
-  camStat('&#10003; Added: <strong>'+name+'</strong> &mdash; '+method);
+  camStat('&#10003; Added: <strong>'+name+'</strong>');
   const ov=document.getElementById('camOverlay');
   ov.style.borderColor='#10b981'; setTimeout(()=>ov.style.borderColor='var(--accent)',650);
+  setTimeout(()=>{ if(scannerOpen) camStat(_scanModes()); }, 2000);
 }
 
 function loadScript(src){
