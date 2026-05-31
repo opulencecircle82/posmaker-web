@@ -237,6 +237,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <span id="netStatus" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(0,0,0,.3);margin-left:8px;letter-spacing:.3px"></span>
   <span class="hdr-cashier" id="hdrCashier"></span>
   <button id="btnCam" onclick="toggleScanner()" title="Camera Scanner (barcode + AI visual)" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Camera scanner">&#128247;</button>
+  <button id="btnSync" onclick="syncProds()" title="Refresh products" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Refresh products">&#128260;</button>
   <button class="btn-logout" onclick="doLogout()">Logout</button>
 </div>
 <div id="syncBar" style="display:none;background:#1a3a1a;color:#4ade80;font-size:12px;font-weight:600;padding:5px 16px;text-align:center;border-bottom:1px solid #2a5a2a"></div>
@@ -615,6 +616,12 @@ async function doLogout() {
 }
 
 // ── Products ─────────────────────────────────────────────────────────────
+async function syncProds() {
+  const btn = document.getElementById('btnSync');
+  if(btn){ btn.style.animation='spin .6s linear infinite'; btn.disabled=true; }
+  await loadProds();
+  if(btn){ btn.style.animation=''; btn.disabled=false; }
+}
 async function loadProds() {
   const { data, error } = await _sb.from('products')
     .select('id,name,price,category,image_b64,sku,unit,stock,inv_links')
