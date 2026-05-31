@@ -602,6 +602,7 @@ function showPOS(name) {
 }
 
 async function doLogout() {
+  closeScanner(); stopCamera();
   cart = {}; CASHIER = null;
   document.getElementById('lu').value = '';
   document.getElementById('lp').value = '';
@@ -1324,16 +1325,23 @@ async function toggleScanner(){ scannerOpen ? closeScanner() : await openScanner
 
 async function openScanner(){
   scannerOpen = true;
+  _scanSession++;
+  _visPending = null;
+  const row=document.getElementById('camConfirmRow'); if(row) row.style.display='none';
   document.getElementById('camOverlay').style.display = 'block';
   document.getElementById('btnCam').style.opacity = '1';
+  const v = document.getElementById('camVideo');
+  // Reuse existing live stream — avoids Android black screen on re-open
+  const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
+  if(isLive){
+    camStat('Scanning — point camera at product or barcode');
+    startBcLoop(v);
+    startTextLoop(v);
+    setTimeout(() => { if(scannerOpen) ensureTF(v); }, 500);
+    return;
+  }
   camStat('Allow camera access if prompted...');
   try {
-    // Clear old stream from video element first so Android releases camera fully
-    const v = document.getElementById('camVideo');
-    v.srcObject = null;
-    // Small delay to let Android camera hardware fully release
-    await new Promise(r => setTimeout(r, 250));
-    if(!scannerOpen) return;
     const camReq = navigator.mediaDevices.getUserMedia({
       video:{ facingMode:{ ideal:'environment' }, width:{ ideal:640 } }
     });
@@ -1354,16 +1362,20 @@ async function openScanner(){
 
 function closeScanner(){
   scannerOpen = false;
-  _scanSession++;           // invalidates any in-flight async loops from this session
+  _scanSession++;
   _visPending = null;
   const row=document.getElementById('camConfirmRow'); if(row) row.style.display='none';
   document.getElementById('camOverlay').style.display = 'none';
   document.getElementById('btnCam').style.opacity = '0.75';
-  if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
-  _zxingReader = null;
+  // Keep _camStream alive — stops Android black screen on re-open
   if(_bcLoopId){ clearTimeout(_bcLoopId); _bcLoopId=null; }
   if(_txtLoopId){ clearTimeout(_txtLoopId); _txtLoopId=null; }
   if(_visualRaf){ cancelAnimationFrame(_visualRaf); _visualRaf=null; }
+}
+
+function stopCamera(){
+  if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
+  _zxingReader = null;
 }
 
 function camStat(msg){ const el=document.getElementById('camStatus'); if(el) el.innerHTML=msg; }
