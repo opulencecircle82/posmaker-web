@@ -701,6 +701,7 @@ async function loadProds() {
   buildCats();
   renderProds('All');
   buildImgHashes(); // background — compute visual hashes from product photos
+  if(_mnModel) buildAiEmbeds(); // rebuild AI embeddings when products reload
 }
 
 function buildCats() {
@@ -1325,7 +1326,7 @@ if ('serviceWorker' in navigator) {
 let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null;
 let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 0;
 let _visLoopId = null, _prodHashes = [], _visConf = {};
-let _aiLoopId = null, _cocoModel = null;
+let _aiLoopId = null, _mnModel = null, _prodEmbeds = [], _mnConf = {};
 const SCAN_COOLDOWN = 2000;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
@@ -1356,7 +1357,7 @@ async function openScanner(){
     if(v.videoWidth > 0){
       camStat(_scanModes());
       startBcLoop(v); startTextLoop(v); startVisualLoop(v);
-      _loadCocoModel().then(ok=>{ if(ok&&scannerOpen){ startAiLoop(v); camStat(_scanModes()); } }); return;
+      _loadMnModel().then(ok=>{ if(ok&&scannerOpen) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } }); }); return;
     }
     // Stream alive but video frozen — stop it and do a fresh getUserMedia below
     _camStream.getTracks().forEach(t=>t.stop()); _camStream=null;
@@ -1399,7 +1400,7 @@ function closeScanner(){
   if(_txtLoopId){ clearTimeout(_txtLoopId); _txtLoopId=null; }
   if(_visLoopId){ clearTimeout(_visLoopId); _visLoopId=null; }
   if(_aiLoopId){ clearTimeout(_aiLoopId); _aiLoopId=null; }
-  _visConf = {};
+  _visConf = {}; _mnConf = {};
   // Keep stream alive — prevents Android camera permission prompt on re-open
 }
 
@@ -1445,11 +1446,11 @@ function handleBarcode(code){
 function _scanModes(){
   const hasML = 'TextDetector' in window;
   const hasVis = _prodHashes.length > 0;
-  const hasAI = !!_cocoModel;
+  const hasAI = _prodEmbeds.length > 0;
   const parts = ['&#127380; barcode'];
   if(hasML) parts.push('&#128220; ML Kit text');
   if(hasVis) parts.push('&#128247; visual ('+_prodHashes.length+')');
-  if(hasAI) parts.push('&#129302; AI');
+  if(hasAI) parts.push('&#129302; AI ('+_prodEmbeds.length+')');
   if(!hasML && !hasVis && !hasAI) parts.push('(upload product photos for visual detection)');
   return parts.join(' + ');
 }
@@ -1636,39 +1637,70 @@ function startVisualLoop(video) {
   setTimeout(loop,1200);
 }
 
-// ── TensorFlow.js COCO-SSD object detection ──────────────────────────────
-async function _loadCocoModel(){
-  if(_cocoModel) return true;
+// ── TensorFlow.js MobileNet — photo embedding matching ───────────────────
+async function _loadMnModel(){
+  if(_mnModel) return true;
   try{
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js');
-    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
-    _cocoModel = await cocoSsd.load({base:'lite_mobilenet_v2'});
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js');
+    _mnModel = await mobilenet.load({version:1, alpha:0.25});
     return true;
   }catch(e){ return false; }
 }
 
+function _cosSim(a,b){
+  let dot=0,na=0,nb=0;
+  for(let i=0;i<a.length;i++){dot+=a[i]*b[i];na+=a[i]*a[i];nb+=b[i]*b[i];}
+  return dot/(Math.sqrt(na)*Math.sqrt(nb)||1);
+}
+
+async function buildAiEmbeds(){
+  if(!_mnModel) return;
+  _prodEmbeds=[];
+  const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
+  const ctx=cv.getContext('2d');
+  for(const p of prods){
+    if(!p.image_b64) continue;
+    let srcs=[];
+    try{const j=JSON.parse(p.image_b64);srcs=Array.isArray(j)?j:[p.image_b64];}catch{srcs=[p.image_b64];}
+    const vecs=[];
+    for(const b of srcs.slice(0,4)){
+      try{
+        const img=new Image();
+        await new Promise(r=>{img.onload=r;img.src='data:image/jpeg;base64,'+b;});
+        ctx.drawImage(img,0,0,224,224);
+        const t=_mnModel.infer(cv,true); const d=await t.data(); t.dispose();
+        vecs.push(Array.from(d));
+      }catch(_){}
+    }
+    if(vecs.length) _prodEmbeds.push({id:p.id, vecs});
+  }
+}
+
 function startAiLoop(video){
-  if(!_cocoModel) return;
+  if(!_mnModel||!_prodEmbeds.length) return;
+  const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
+  const ctx=cv.getContext('2d');
   const sess=_scanSession;
   async function loop(){
     if(!scannerOpen||_scanSession!==sess){ _aiLoopId=null; return; }
     if(video.readyState>=2&&video.videoWidth>0){
       try{
-        const preds=await _cocoModel.detect(video);
-        if(preds.length){
-          const top=preds.reduce((a,b)=>b.score>a.score?b:a);
-          if(top.score>0.55){
-            const lbl=top.class.toLowerCase();
-            const hit=prods.find(p=>{
-              const n=p.name.toLowerCase();
-              return n===lbl||n.includes(lbl)||lbl.includes(n)||
-                     n.split(/\W+/).some(w=>w.length>3&&(lbl.includes(w)||w.includes(lbl)));
-            });
-            if(hit&&!isOnCooldown(hit.id)){
-              setCooldown(hit.id); addItem(hit.id); flashMatch(hit.name,'&#129302; AI');
-            }
-          }
+        ctx.drawImage(video,0,0,224,224);
+        const ft=_mnModel.infer(cv,true); const fv=Array.from(await ft.data()); ft.dispose();
+        let best=null, bestSim=0;
+        for(const pe of _prodEmbeds){
+          const sim=Math.max(...pe.vecs.map(v=>_cosSim(fv,v)));
+          if(sim>bestSim){bestSim=sim;best=pe;}
         }
+        const prod=best?prods.find(p=>p.id===best.id):null;
+        if(best&&bestSim>0.87){
+          _mnConf[best.id]=(_mnConf[best.id]||0)+1;
+          if(prod) camStat('&#129302; AI: <strong>'+prod.name+'</strong> '+(bestSim*100).toFixed(0)+'%');
+          if(_mnConf[best.id]>=2&&!isOnCooldown(best.id)){
+            _mnConf={}; setCooldown(best.id); addItem(best.id); flashMatch(prod.name,'&#129302; AI');
+          }
+        }else{ _mnConf={}; }
       }catch(_){}
     }
     _aiLoopId=setTimeout(loop,2500);
