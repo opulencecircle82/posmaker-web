@@ -178,7 +178,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <button class="sb-toggle" onclick="openSidebar()">â˜°</button>
       <span class="topbar-title" id="topbarTitle">Dashboard</span>
     </div>
-    <button id="btnUpdate" onclick="applyUpdate()" style="display:none;background:#f59e0b;border:none;color:#fff;border-radius:8px;padding:6px 14px;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.3px">&#8593; New Update</button>
+    <button id="btnUpdate" onclick="applyUpdate()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 14px;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s">&#8635; Update</button>
   </div>
   <div class="content" id="content">
 
@@ -2963,12 +2963,16 @@ function useBarcodeOnly(){
 
 // ── Service Worker + Update Detection ────────────────────────────────────
 let _swReg = null;
-function _showUpdateBtn(){ document.getElementById('btnUpdate').style.display=''; }
+function _showUpdateBtn(){
+  const b=document.getElementById('btnUpdate');
+  b.textContent='⬆ New Update!';
+  b.style.cssText='background:#f59e0b;border:none;color:#fff;border-radius:8px;padding:6px 14px;font-weight:700;font-size:13px;cursor:pointer;animation:pulse 1.5s infinite';
+}
 function applyUpdate(){
   if(_swReg && _swReg.waiting){
     _swReg.waiting.postMessage({type:'SKIP_WAITING'});
   } else {
-    location.reload();
+    location.reload(true);
   }
 }
 if('serviceWorker' in navigator){
