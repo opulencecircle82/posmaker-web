@@ -1871,10 +1871,11 @@ async function editStoreCode(storeId, currentCode) {
 }
 async function resetPOSDevice(storeId) {
   showConfirmModal('Reset registered device?\n\nAfter this, the POS can be set up on a new device.', async () => {
-    const { error } = await _sb.from('pos_devices').delete().eq('store_id', storeId);
-    if (error) { showToast('Error: ' + error.message, true); return; }
+    // Use RPC to bypass RLS (SECURITY DEFINER function in Supabase)
+    const { error } = await _sb.rpc('reset_pos_device', { p_store_id: storeId });
+    if (error) { showToast('Reset failed: ' + error.message, true); return; }
     showToast('Device reset. You can now set up a new device.');
-    loadPOSTerminals();
+    setTimeout(() => loadPOSTerminals(), 600);
   });
 }
 function downloadStoreConfig() {
