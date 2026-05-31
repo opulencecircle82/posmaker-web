@@ -1321,30 +1321,38 @@ async function openScanner(){
   _scanSession++;
   document.getElementById('camOverlay').style.display = 'block';
   document.getElementById('btnCam').style.opacity = '1';
-  camStat('Starting camera...');
+  _zxingReader = null; // always fresh reader to avoid stale state
   const v = document.getElementById('camVideo');
-  // Always stop old stream so Android fully releases the camera
+  const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
+  if(isLive){
+    // Reuse stream — no permission prompt
+    if(v.readyState < 2){
+      camStat('Camera resuming...');
+      await new Promise(res=>{ v.onloadeddata=res; setTimeout(res,2000); });
+    }
+    if(!scannerOpen) return;
+    camStat('Scanning — point camera at product or barcode');
+    startBcLoop(v); startTextLoop(v); return;
+  }
+  // First open or stream died — request camera
   if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
   v.srcObject = null;
-  _zxingReader = null;
-  // Wait for hardware to release before requesting again
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise(r=>setTimeout(r,300));
   if(!scannerOpen) return;
+  camStat('Allow camera access if prompted...');
   try {
     const camReq = navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:{ ideal:'environment' }, width:{ ideal:640 } }
+      video:{ facingMode:{ideal:'environment'}, width:{ideal:640} }
     });
-    const timeout = new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 15000));
+    const timeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000));
     _camStream = await Promise.race([camReq, timeout]);
     v.srcObject = _camStream;
-    // Wait for video to have actual frame data before scanning
-    await new Promise(res => {
-      if(v.readyState >= 2){ res(); return; }
-      v.onloadeddata = res;
-      setTimeout(res, 3000);
+    await new Promise(res=>{
+      if(v.readyState>=2){ res(); return; }
+      v.onloadeddata=res; setTimeout(res,3000);
     });
     if(!scannerOpen) return;
-    try { await v.play(); } catch(_){}
+    try{ await v.play(); }catch(_){}
     startBcLoop(v); startTextLoop(v);
     camStat('Scanning — point camera at product or barcode');
   } catch(e){
@@ -1361,6 +1369,7 @@ function closeScanner(){
   document.getElementById('btnCam').style.opacity = '0.75';
   if(_bcLoopId){ clearTimeout(_bcLoopId); _bcLoopId=null; }
   if(_txtLoopId){ clearTimeout(_txtLoopId); _txtLoopId=null; }
+  // Keep stream alive — prevents Android camera permission prompt on re-open
 }
 
 function stopCamera(){
