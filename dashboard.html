@@ -178,6 +178,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <button class="sb-toggle" onclick="openSidebar()">â˜°</button>
       <span class="topbar-title" id="topbarTitle">Dashboard</span>
     </div>
+    <button id="btnUpdate" onclick="applyUpdate()" style="display:none;background:#f59e0b;border:none;color:#fff;border-radius:8px;padding:6px 14px;font-weight:700;font-size:13px;cursor:pointer;letter-spacing:.3px">&#8593; New Update</button>
   </div>
   <div class="content" id="content">
 
@@ -2958,6 +2959,30 @@ function useBarcodeOnly(){
   if(el) el.value = _dashBarcode;
   showToast('Barcode ' + _dashBarcode + ' saved as SKU.');
   closeDashCam();
+}
+
+// ── Service Worker + Update Detection ────────────────────────────────────
+let _swReg = null;
+function _showUpdateBtn(){ document.getElementById('btnUpdate').style.display=''; }
+function applyUpdate(){
+  if(_swReg && _swReg.waiting){
+    _swReg.waiting.postMessage({type:'SKIP_WAITING'});
+  } else {
+    location.reload();
+  }
+}
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    _swReg = reg;
+    if(reg.waiting) _showUpdateBtn();
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      nw.addEventListener('statechange', () => {
+        if(nw.state === 'installed' && navigator.serviceWorker.controller) _showUpdateBtn();
+      });
+    });
+  }).catch(()=>{});
+  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
 }
 </script>
 </body>

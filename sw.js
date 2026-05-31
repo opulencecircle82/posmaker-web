@@ -9,6 +9,10 @@ const STATIC = [
   'icon-512.png'
 ];
 
+self.addEventListener('message', e => {
+  if(e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(c => c.addAll(STATIC)).then(() => self.skipWaiting())
