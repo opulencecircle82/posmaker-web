@@ -1483,7 +1483,10 @@ function matchTextToProduct(ocrText){
   return best;
 }
 
-// ── Visual product matching (perceptual image hash) ───────────────────────
+// ── Visual product matching: color grid + structure hash + multi-scale ────
+// Each product gets: aHash (32x32 structure) + colorGrid (8x8 RGB = 192 vals)
+// Camera frame is tested at 3 crop scales to handle near/far products.
+
 async function buildImgHashes() {
   _prodHashes = [];
   for(const p of prods) {
@@ -1491,27 +1494,68 @@ async function buildImgHashes() {
     let srcs = [];
     try { const j=JSON.parse(p.image_b64); srcs=Array.isArray(j)?j:[p.image_b64]; }
     catch { srcs=[p.image_b64]; }
-    const hashes = (await Promise.all(srcs.filter(Boolean).map(_aHash))).filter(Boolean);
-    if(hashes.length) _prodHashes.push({ id:p.id, hashes });
+    const features=(await Promise.all(srcs.filter(Boolean).map(_computeFeatures))).filter(Boolean);
+    if(features.length) _prodHashes.push({ id:p.id, features });
+  }
+  // If scanner already open before hashes were ready, start visual loop now
+  if(scannerOpen && !_visLoopId) {
+    const v=document.getElementById('camVideo');
+    if(v && v.videoWidth>0) startVisualLoop(v);
   }
 }
 
-function _aHash(src) {
+function _computeFeatures(src) {
   return new Promise(res => {
     const img=new Image();
     img.onload=()=>{
       try{
-        const c=document.createElement('canvas'); c.width=c.height=32;
-        c.getContext('2d').drawImage(img,0,0,32,32);
-        const px=c.getContext('2d').getImageData(0,0,32,32).data;
-        const g=[]; for(let i=0;i<1024;i++) g.push(.299*px[i*4]+.587*px[i*4+1]+.114*px[i*4+2]);
+        // Structure hash: 32x32 grayscale aHash (1024 bits)
+        const c32=document.createElement('canvas'); c32.width=c32.height=32;
+        c32.getContext('2d').drawImage(img,0,0,32,32);
+        const px32=c32.getContext('2d').getImageData(0,0,32,32).data;
+        const g=[]; for(let i=0;i<1024;i++) g.push(.299*px32[i*4]+.587*px32[i*4+1]+.114*px32[i*4+2]);
         const avg=g.reduce((a,b)=>a+b)/1024;
-        res(g.map(v=>v>avg?1:0));
+        const aHash=g.map(v=>v>avg?1:0);
+
+        // Color grid: 8x8 = 64 zones, average RGB per zone (192 values, 0-1)
+        const c8=document.createElement('canvas'); c8.width=c8.height=8;
+        c8.getContext('2d').drawImage(img,0,0,8,8);
+        const px8=c8.getContext('2d').getImageData(0,0,8,8).data;
+        const colorGrid=[];
+        for(let i=0;i<64;i++) colorGrid.push(px8[i*4]/255, px8[i*4+1]/255, px8[i*4+2]/255);
+
+        res({ aHash, colorGrid });
       }catch{ res(null); }
     };
     img.onerror=()=>res(null);
     img.src=src;
   });
+}
+
+function _extractFrameFeatures(video, scale) {
+  const sw=Math.round(video.videoWidth*scale), sh=Math.round(video.videoHeight*scale);
+  const sx=Math.round(video.videoWidth*(1-scale)/2), sy=Math.round(video.videoHeight*(1-scale)/2);
+  const c32=document.createElement('canvas'); c32.width=c32.height=32;
+  c32.getContext('2d').drawImage(video,sx,sy,sw,sh,0,0,32,32);
+  const px32=c32.getContext('2d').getImageData(0,0,32,32).data;
+  const g=[]; for(let i=0;i<1024;i++) g.push(.299*px32[i*4]+.587*px32[i*4+1]+.114*px32[i*4+2]);
+  const avg=g.reduce((a,b)=>a+b)/1024;
+  const aHash=g.map(v=>v>avg?1:0);
+  const c8=document.createElement('canvas'); c8.width=c8.height=8;
+  c8.getContext('2d').drawImage(video,sx,sy,sw,sh,0,0,8,8);
+  const px8=c8.getContext('2d').getImageData(0,0,8,8).data;
+  const colorGrid=[];
+  for(let i=0;i<64;i++) colorGrid.push(px8[i*4]/255, px8[i*4+1]/255, px8[i*4+2]/255);
+  return { aHash, colorGrid };
+}
+
+function _featureScore(f1, f2) {
+  // Structure: hamming distance normalized
+  const aDist=f1.aHash.reduce((n,b,i)=>n+(b!==f2.aHash[i]?1:0),0)/1024;
+  // Color: L2 distance normalized
+  const cDist=Math.sqrt(f1.colorGrid.reduce((s,v,i)=>s+(v-f2.colorGrid[i])**2,0)/192);
+  // 40% structure + 60% color (color is more stable across distances)
+  return 0.4*aDist + 0.6*cDist;
 }
 
 function startVisualLoop(video) {
@@ -1521,37 +1565,31 @@ function startVisualLoop(video) {
     if(!scannerOpen||_scanSession!==sess){ _visLoopId=null; return; }
     if(video.readyState>=2&&video.videoWidth>0){
       try{
-        // Hash center 60% of frame — product usually fills the center
-        const sw=Math.round(video.videoWidth*.6), sh=Math.round(video.videoHeight*.6);
-        const sx=Math.round(video.videoWidth*.2), sy=Math.round(video.videoHeight*.2);
-        const c=document.createElement('canvas'); c.width=c.height=32;
-        c.getContext('2d').drawImage(video,sx,sy,sw,sh,0,0,32,32);
-        const px=c.getContext('2d').getImageData(0,0,32,32).data;
-        const g=[]; for(let i=0;i<1024;i++) g.push(.299*px[i*4]+.587*px[i*4+1]+.114*px[i*4+2]);
-        const avg=g.reduce((a,b)=>a+b)/1024;
-        const fh=g.map(v=>v>avg?1:0);
-
-        let best=null,bestD=9999,secD=9999;
-        for(const ph of _prodHashes){
-          const d=Math.min(...ph.hashes.map(h=>h.reduce((n,b,i)=>n+(b!==fh[i]?1:0),0)));
-          if(d<bestD){secD=bestD;bestD=d;best=ph;}else if(d<secD) secD=d;
+        // Multi-scale: 40% (close-up), 65% (mid), 85% (far away)
+        let best=null, bestScore=9999, secScore=9999;
+        for(const scale of [0.4, 0.65, 0.85]){
+          const ff=_extractFrameFeatures(video, scale);
+          for(const ph of _prodHashes){
+            const s=Math.min(...ph.features.map(f=>_featureScore(ff,f)));
+            if(s<bestScore){secScore=bestScore;bestScore=s;best=ph;}
+            else if(s<secScore) secScore=s;
+          }
         }
-
-        if(best&&bestD<=260&&(secD-bestD)>=25){
+        const pct=Math.round((1-bestScore)*100);
+        if(best&&bestScore<=0.22&&(secScore-bestScore)>=0.04){
           _visConf[best.id]=(_visConf[best.id]||0)+1;
           const prod=prods.find(p=>p.id===best.id);
-          const pct=Math.round((1024-bestD)/1024*100);
           if(prod) camStat('&#128247; <strong>'+prod.name+'</strong> '+pct+'% — hold still…');
           if(_visConf[best.id]>=2&&!isOnCooldown(best.id)){
             _visConf={};
             setCooldown(best.id); addItem(best.id);
-            if(prod) flashMatch(prod.name,'&#128247; photo');
+            if(prod) flashMatch(prod.name,'&#128247; visual');
           }
         } else {
           _visConf={};
-          if(best&&bestD<=400){
+          if(best&&bestScore<=0.35&&scannerOpen){
             const prod=prods.find(p=>p.id===best.id);
-            if(prod&&scannerOpen) camStat('&#128247; Scanning… ('+prod.name+'? '+Math.round((1024-bestD)/1024*100)+'%)');
+            if(prod) camStat('&#128247; Scanning… '+prod.name+'? '+pct+'%');
           }
         }
       }catch(_){}
