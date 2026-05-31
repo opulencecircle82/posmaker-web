@@ -693,6 +693,7 @@ async function loadProds() {
 
   buildCats();
   renderProds('All');
+  buildImgHashes(); // background — compute visual hashes from product photos
 }
 
 function buildCats() {
@@ -1313,9 +1314,10 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
-// ── Camera Scanner (barcode + Google ML Kit text detection) ──────────────
+// ── Camera Scanner (barcode + ML Kit text + visual photo matching) ───────
 let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null;
 let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 0;
+let _visLoopId = null, _prodHashes = [], _visConf = {};
 const SCAN_COOLDOWN = 2000;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
@@ -1345,7 +1347,7 @@ async function openScanner(){
     // If video still not producing frames after the wait, fall through to full restart
     if(v.videoWidth > 0){
       camStat(_scanModes());
-      startBcLoop(v); startTextLoop(v); return;
+      startBcLoop(v); startTextLoop(v); startVisualLoop(v); return;
     }
     // Stream alive but video frozen — stop it and do a fresh getUserMedia below
     _camStream.getTracks().forEach(t=>t.stop()); _camStream=null;
@@ -1370,7 +1372,7 @@ async function openScanner(){
     });
     if(!scannerOpen) return;
     await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,2000))]);
-    startBcLoop(v); startTextLoop(v);
+    startBcLoop(v); startTextLoop(v); startVisualLoop(v);
     camStat(_scanModes());
   } catch(e){
     camStat(e.message==='timeout'
@@ -1386,6 +1388,8 @@ function closeScanner(){
   document.getElementById('btnCam').style.opacity = '0.75';
   if(_bcLoopId){ clearTimeout(_bcLoopId); _bcLoopId=null; }
   if(_txtLoopId){ clearTimeout(_txtLoopId); _txtLoopId=null; }
+  if(_visLoopId){ clearTimeout(_visLoopId); _visLoopId=null; }
+  _visConf = {};
   // Keep stream alive — prevents Android camera permission prompt on re-open
 }
 
@@ -1477,6 +1481,84 @@ function matchTextToProduct(ocrText){
     }
   }
   return best;
+}
+
+// ── Visual product matching (perceptual image hash) ───────────────────────
+async function buildImgHashes() {
+  _prodHashes = [];
+  for(const p of prods) {
+    if(!p.image_b64) continue;
+    let srcs = [];
+    try { const j=JSON.parse(p.image_b64); srcs=Array.isArray(j)?j:[p.image_b64]; }
+    catch { srcs=[p.image_b64]; }
+    const hashes = (await Promise.all(srcs.filter(Boolean).map(_aHash))).filter(Boolean);
+    if(hashes.length) _prodHashes.push({ id:p.id, hashes });
+  }
+}
+
+function _aHash(src) {
+  return new Promise(res => {
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        const c=document.createElement('canvas'); c.width=c.height=32;
+        c.getContext('2d').drawImage(img,0,0,32,32);
+        const px=c.getContext('2d').getImageData(0,0,32,32).data;
+        const g=[]; for(let i=0;i<1024;i++) g.push(.299*px[i*4]+.587*px[i*4+1]+.114*px[i*4+2]);
+        const avg=g.reduce((a,b)=>a+b)/1024;
+        res(g.map(v=>v>avg?1:0));
+      }catch{ res(null); }
+    };
+    img.onerror=()=>res(null);
+    img.src=src;
+  });
+}
+
+function startVisualLoop(video) {
+  if(!_prodHashes.length) return;
+  const sess=_scanSession;
+  function loop() {
+    if(!scannerOpen||_scanSession!==sess){ _visLoopId=null; return; }
+    if(video.readyState>=2&&video.videoWidth>0){
+      try{
+        // Hash center 60% of frame — product usually fills the center
+        const sw=Math.round(video.videoWidth*.6), sh=Math.round(video.videoHeight*.6);
+        const sx=Math.round(video.videoWidth*.2), sy=Math.round(video.videoHeight*.2);
+        const c=document.createElement('canvas'); c.width=c.height=32;
+        c.getContext('2d').drawImage(video,sx,sy,sw,sh,0,0,32,32);
+        const px=c.getContext('2d').getImageData(0,0,32,32).data;
+        const g=[]; for(let i=0;i<1024;i++) g.push(.299*px[i*4]+.587*px[i*4+1]+.114*px[i*4+2]);
+        const avg=g.reduce((a,b)=>a+b)/1024;
+        const fh=g.map(v=>v>avg?1:0);
+
+        let best=null,bestD=9999,secD=9999;
+        for(const ph of _prodHashes){
+          const d=Math.min(...ph.hashes.map(h=>h.reduce((n,b,i)=>n+(b!==fh[i]?1:0),0)));
+          if(d<bestD){secD=bestD;bestD=d;best=ph;}else if(d<secD) secD=d;
+        }
+
+        if(best&&bestD<=260&&(secD-bestD)>=25){
+          _visConf[best.id]=(_visConf[best.id]||0)+1;
+          const prod=prods.find(p=>p.id===best.id);
+          const pct=Math.round((1024-bestD)/1024*100);
+          if(prod) camStat('&#128247; <strong>'+prod.name+'</strong> '+pct+'% — hold still…');
+          if(_visConf[best.id]>=2&&!isOnCooldown(best.id)){
+            _visConf={};
+            setCooldown(best.id); addItem(best.id);
+            if(prod) flashMatch(prod.name,'&#128247; photo');
+          }
+        } else {
+          _visConf={};
+          if(best&&bestD<=400){
+            const prod=prods.find(p=>p.id===best.id);
+            if(prod&&scannerOpen) camStat('&#128247; Scanning… ('+prod.name+'? '+Math.round((1024-bestD)/1024*100)+'%)');
+          }
+        }
+      }catch(_){}
+    }
+    _visLoopId=setTimeout(loop,1500);
+  }
+  setTimeout(loop,1200);
 }
 
 function flashMatch(name,method){
