@@ -1325,6 +1325,7 @@ if ('serviceWorker' in navigator) {
 let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null;
 let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 0;
 let _visLoopId = null, _prodHashes = [], _visConf = {};
+let _aiLoopId = null, _cocoModel = null;
 const SCAN_COOLDOWN = 2000;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
@@ -1354,7 +1355,8 @@ async function openScanner(){
     // If video still not producing frames after the wait, fall through to full restart
     if(v.videoWidth > 0){
       camStat(_scanModes());
-      startBcLoop(v); startTextLoop(v); startVisualLoop(v); return;
+      startBcLoop(v); startTextLoop(v); startVisualLoop(v);
+      _loadCocoModel().then(ok=>{ if(ok&&scannerOpen){ startAiLoop(v); camStat(_scanModes()); } }); return;
     }
     // Stream alive but video frozen — stop it and do a fresh getUserMedia below
     _camStream.getTracks().forEach(t=>t.stop()); _camStream=null;
@@ -1396,6 +1398,7 @@ function closeScanner(){
   if(_bcLoopId){ clearTimeout(_bcLoopId); _bcLoopId=null; }
   if(_txtLoopId){ clearTimeout(_txtLoopId); _txtLoopId=null; }
   if(_visLoopId){ clearTimeout(_visLoopId); _visLoopId=null; }
+  if(_aiLoopId){ clearTimeout(_aiLoopId); _aiLoopId=null; }
   _visConf = {};
   // Keep stream alive — prevents Android camera permission prompt on re-open
 }
@@ -1442,10 +1445,12 @@ function handleBarcode(code){
 function _scanModes(){
   const hasML = 'TextDetector' in window;
   const hasVis = _prodHashes.length > 0;
+  const hasAI = !!_cocoModel;
   const parts = ['&#127380; barcode'];
-  if(hasML) parts.push('&#128220; ML Kit text');
-  if(hasVis) parts.push('&#128247; visual ('+_prodHashes.length+' products)');
-  if(!hasML && !hasVis) parts.push('(upload product photos for visual detection)');
+  if(hasML) parts.push('&#128220; ML text');
+  if(hasVis) parts.push('&#128247; visual ('+_prodHashes.length+')');
+  if(hasAI) parts.push('&#129302; AI');
+  if(!hasML && !hasVis && !hasAI) parts.push('(upload product photos for visual detection)');
   return parts.join(' + ');
 }
 
@@ -1629,6 +1634,46 @@ function startVisualLoop(video) {
     _visLoopId=setTimeout(loop,1500);
   }
   setTimeout(loop,1200);
+}
+
+// ── TensorFlow.js COCO-SSD object detection ──────────────────────────────
+async function _loadCocoModel(){
+  if(_cocoModel) return true;
+  try{
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
+    _cocoModel = await cocoSsd.load({base:'lite_mobilenet_v2'});
+    return true;
+  }catch(e){ return false; }
+}
+
+function startAiLoop(video){
+  if(!_cocoModel) return;
+  const sess=_scanSession;
+  async function loop(){
+    if(!scannerOpen||_scanSession!==sess){ _aiLoopId=null; return; }
+    if(video.readyState>=2&&video.videoWidth>0){
+      try{
+        const preds=await _cocoModel.detect(video);
+        if(preds.length){
+          const top=preds.reduce((a,b)=>b.score>a.score?b:a);
+          if(top.score>0.55){
+            const lbl=top.class.toLowerCase();
+            const hit=prods.find(p=>{
+              const n=p.name.toLowerCase();
+              return n===lbl||n.includes(lbl)||lbl.includes(n)||
+                     n.split(/\W+/).some(w=>w.length>3&&(lbl.includes(w)||w.includes(lbl)));
+            });
+            if(hit&&!isOnCooldown(hit.id)){
+              setCooldown(hit.id); addItem(hit.id); flashMatch(hit.name,'&#129302; AI');
+            }
+          }
+        }
+      }catch(_){}
+    }
+    _aiLoopId=setTimeout(loop,2500);
+  }
+  loop();
 }
 
 function flashMatch(name,method){
