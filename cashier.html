@@ -1321,14 +1321,15 @@ async function openScanner(){
   _scanSession++;
   document.getElementById('camOverlay').style.display = 'block';
   document.getElementById('btnCam').style.opacity = '1';
+  camStat('Starting camera...');
   const v = document.getElementById('camVideo');
-  // Reuse live stream — avoids Android black screen on re-open
-  const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
-  if(isLive){
-    camStat('Scanning — point camera at product or barcode');
-    startBcLoop(v); startTextLoop(v); return;
-  }
-  camStat('Allow camera access if prompted...');
+  // Always stop old stream so Android fully releases the camera
+  if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
+  v.srcObject = null;
+  _zxingReader = null;
+  // Wait for hardware to release before requesting again
+  await new Promise(r => setTimeout(r, 500));
+  if(!scannerOpen) return;
   try {
     const camReq = navigator.mediaDevices.getUserMedia({
       video:{ facingMode:{ ideal:'environment' }, width:{ ideal:640 } }
@@ -1336,6 +1337,13 @@ async function openScanner(){
     const timeout = new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 15000));
     _camStream = await Promise.race([camReq, timeout]);
     v.srcObject = _camStream;
+    // Wait for video to have actual frame data before scanning
+    await new Promise(res => {
+      if(v.readyState >= 2){ res(); return; }
+      v.onloadeddata = res;
+      setTimeout(res, 3000);
+    });
+    if(!scannerOpen) return;
     try { await v.play(); } catch(_){}
     startBcLoop(v); startTextLoop(v);
     camStat('Scanning — point camera at product or barcode');
