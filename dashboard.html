@@ -1997,8 +1997,10 @@ function handleProdImg(input){
   const file=input.files[0];if(!file)return;
   if(_prodPendingImgs.length>=4){showToast('Max 4 photos.',true);return;}
   const reader=new FileReader();
-  reader.onload=ev=>{
-    _prodPendingImgs.push(ev.target.result.split(',')[1]);
+  reader.onload=async ev=>{
+    const b64=ev.target.result.split(',')[1];
+    const compressed=await _compressImg(b64);
+    _prodPendingImgs.push(compressed);
     renderProdThumbs();
   };
   reader.readAsDataURL(file);
@@ -2080,12 +2082,27 @@ async function saveProd(){
   const avail=document.getElementById('pAvail').checked;
   if(!name||isNaN(price)||price<0){showToast('Name and price are required.',true);return;}
   if(!cat){showToast('Please select a category.',true);return;}
-  let imgPayload={image_b64:_prodPendingImgs.length>0?JSON.stringify(_prodPendingImgs):null};
+  // Compress photos — skip if already small (already compressed)
+  const imgs=await Promise.all(_prodPendingImgs.map(b=>b.length>15000?_compressImg(b):Promise.resolve(b)));
+  let imgPayload={image_b64:imgs.length>0?JSON.stringify(imgs):null};
   const payload={name,sku,category:cat,unit,price,cost_price:costPrice,inv_links:JSON.stringify(pInvLinks),available:avail,...imgPayload};
-  let err;
+  let err, savedId=id;
   if(id){({error:err}=await _sb.from('products').update(payload).eq('id',id));}
-  else{({error:err}=await _sb.from('products').insert({store_id:STORE.id,...payload,available:true}));}
+  else{
+    let nr;
+    ({data:nr,error:err}=await _sb.from('products').insert({store_id:STORE.id,...payload,available:true}).select('id').single());
+    if(nr) savedId=nr.id;
+  }
   if(err){showToast(err.message,true);return;}
+  // Compute + save embeddings in background (the visual brain)
+  if(imgs.length>0&&savedId){
+    _loadDashMn().then(ok=>{
+      if(!ok)return;
+      _computeEmbeds(imgs).then(vecs=>{
+        if(vecs) _sb.from('products').update({embeddings:JSON.stringify(vecs)}).eq('id',savedId).then(()=>{});
+      });
+    });
+  }
   _prodPendingImgs=[];
   closeModal('prodModal');await loadProducts();loadCategories();showToast('Product saved.');
 }
@@ -2916,9 +2933,10 @@ function captureDashPhoto(){
   const video=document.getElementById('dashCamVid');
   if(!video.srcObject){ showToast('Camera not started.',true); return; }
   const c=document.createElement('canvas');
-  c.width=video.videoWidth||640; c.height=video.videoHeight||480;
-  c.getContext('2d').drawImage(video,0,0);
-  const b64=c.toDataURL('image/jpeg',0.82).split(',')[1];
+  c.width=200; c.height=200;
+  const _ctx=c.getContext('2d'),_vw=video.videoWidth||640,_vh=video.videoHeight||480;
+  const _s=Math.min(_vw,_vh); _ctx.drawImage(video,(_vw-_s)/2,(_vh-_s)/2,_s,_s,0,0,200,200);
+  const b64=c.toDataURL('image/jpeg',0.72).split(',')[1];
 
   if(_dashCamMode==='inventory'){
     if(_invPendingImgs.length>=4){ showToast('Max 4 photos. Tap × on a thumbnail to remove.',true); return; }
@@ -2967,6 +2985,57 @@ function useBarcodeOnly(){
   if(el) el.value = _dashBarcode;
   showToast('Barcode ' + _dashBarcode + ' saved as SKU.');
   closeDashCam();
+}
+
+// ── Visual Brain — image compression + MobileNet embeddings ──────────────
+function _compressImg(b64, size=200, q=0.72){
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=()=>{
+      const cv=document.createElement('canvas');
+      const r=Math.min(size/img.width,size/img.height,1);
+      cv.width=Math.round(img.width*r); cv.height=Math.round(img.height*r);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      res(cv.toDataURL('image/jpeg',q).split(',')[1]);
+    };
+    img.onerror=()=>res(b64); // fallback: return original if error
+    img.src='data:image/jpeg;base64,'+b64;
+  });
+}
+
+let _dashMn=null;
+function _loadDashMn(){
+  if(_dashMn) return Promise.resolve(true);
+  return new Promise(res=>{
+    const s1=document.createElement('script');
+    s1.src='https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js';
+    s1.onload=()=>{
+      const s2=document.createElement('script');
+      s2.src='https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js';
+      s2.onload=()=>mobilenet.load({version:1,alpha:0.25}).then(m=>{_dashMn=m;res(true);}).catch(()=>res(false));
+      s2.onerror=()=>res(false);
+      document.head.appendChild(s2);
+    };
+    s1.onerror=()=>res(false);
+    document.head.appendChild(s1);
+  });
+}
+
+async function _computeEmbeds(imgs){
+  if(!_dashMn) return null;
+  const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
+  const ctx=cv.getContext('2d');
+  const vecs=[];
+  for(const b64 of imgs.slice(0,4)){
+    try{
+      const img=new Image();
+      await new Promise(r=>{img.onload=r; img.src='data:image/jpeg;base64,'+b64;});
+      ctx.drawImage(img,0,0,224,224);
+      const t=_dashMn.infer(cv,true); const d=await t.data(); t.dispose();
+      vecs.push(Array.from(d));
+    }catch(_){}
+  }
+  return vecs.length?vecs:null;
 }
 
 // ── Service Worker + Update Detection ────────────────────────────────────

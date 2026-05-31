@@ -624,7 +624,7 @@ async function syncProds() {
 }
 async function loadProds() {
   const { data, error } = await _sb.from('products')
-    .select('id,name,price,category,image_b64,sku,unit,stock,inv_links')
+    .select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings')
     .eq('store_id', STORE_ID)
     .eq('available', true)
     .order('category').order('name');
@@ -1671,6 +1671,14 @@ async function buildAiEmbeds(){
   const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
   const ctx=cv.getContext('2d');
   for(const p of prods){
+    // Use pre-computed embeddings stored by dashboard — no image processing needed
+    if(p.embeddings){
+      try{
+        const vecs=JSON.parse(p.embeddings);
+        if(Array.isArray(vecs)&&vecs.length){ _prodEmbeds.push({id:p.id,vecs}); continue; }
+      }catch(_){}
+    }
+    // Fallback: compute from image_b64 (products saved before embedding feature)
     if(!p.image_b64) continue;
     let srcs=[];
     try{const j=JSON.parse(p.image_b64);srcs=Array.isArray(j)?j:[p.image_b64];}catch{srcs=[p.image_b64];}
@@ -1684,7 +1692,7 @@ async function buildAiEmbeds(){
         vecs.push(Array.from(d));
       }catch(_){}
     }
-    if(vecs.length) _prodEmbeds.push({id:p.id, vecs});
+    if(vecs.length) _prodEmbeds.push({id:p.id,vecs});
   }
 }
 
