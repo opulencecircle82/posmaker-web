@@ -1331,10 +1331,12 @@ async function openScanner(){
   const v = document.getElementById('camVideo');
   const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
   if(isLive){
-    // Reuse stream — no permission prompt
-    if(v.readyState < 2){
-      camStat('Camera resuming...');
-      await new Promise(res=>{ v.onloadeddata=res; setTimeout(res,2000); });
+    // Re-attach stream and resume play (Android pauses video when overlay is hidden)
+    if(v.srcObject !== _camStream) v.srcObject = _camStream;
+    camStat('Camera resuming...');
+    try { await v.play(); } catch(_) {}
+    if(v.readyState < 2 || v.videoWidth === 0){
+      await new Promise(res=>{ v.onloadeddata=res; setTimeout(res,2500); });
     }
     if(!scannerOpen) return;
     camStat(_scanModes());
