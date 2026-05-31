@@ -2502,13 +2502,19 @@ function openInvFromProd(){
 async function openInvModal(item){
   if (!item && invItems.length >= FREE_INV_LIMIT) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
   _invPendingImgs=[];
-  if(item && item.name){
-    const {data:mp}=await _sb.from('products').select('image_b64').eq('store_id',STORE.id).eq('name',item.name).maybeSingle();
-    if(mp && mp.image_b64){
-      try{ const a=JSON.parse(mp.image_b64); _invPendingImgs=Array.isArray(a)?[...a]:[mp.image_b64]; }
-      catch(_){ _invPendingImgs=[mp.image_b64]; }
+  if(item){
+    // Primary: load directly from inventory_items.image_b64
+    if(item.image_b64){
+      try{ const a=JSON.parse(item.image_b64); _invPendingImgs=Array.isArray(a)?[...a]:[item.image_b64]; }catch(_){ _invPendingImgs=[item.image_b64]; }
     }
-    // fallback: load from localStorage by item ID (covers name-mismatch or save failures)
+    // Fallback 1: matching product by name (for items saved before column was added)
+    if(_invPendingImgs.length===0 && item.name){
+      const {data:mp}=await _sb.from('products').select('image_b64').eq('store_id',STORE.id).eq('name',item.name).maybeSingle();
+      if(mp && mp.image_b64){
+        try{ const a=JSON.parse(mp.image_b64); _invPendingImgs=Array.isArray(a)?[...a]:[mp.image_b64]; }catch(_){ _invPendingImgs=[mp.image_b64]; }
+      }
+    }
+    // Fallback 2: localStorage
     if(_invPendingImgs.length===0 && item.id){
       try{ const loc=localStorage.getItem('invImg_'+item.id); if(loc){ const a=JSON.parse(loc); if(Array.isArray(a)&&a.length) _invPendingImgs=[...a]; } }catch(_){}
     }
@@ -2602,27 +2608,25 @@ async function saveInvItem(){
   const usageQty=parseFloat(document.getElementById('invUsageQty').value)||1;
   if(!name){showToast('Item name is required.',true);return;}
   if(!cat){showToast('Please select a category.',true);return;}
-  const payload={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock,default_usage_qty:usageQty};
+  const imgData=_invPendingImgs.length>0?JSON.stringify(_invPendingImgs):null;
+  const payload={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock,default_usage_qty:usageQty,...(imgData?{image_b64:imgData}:{})};
   let err;
   if(id){({error:err}=await _sb.from('inventory_items').update(payload).eq('id',id));}
   else{({error:err}=await _sb.from('inventory_items').insert({store_id:STORE.id,...payload}));}
-  // Fallback if default_usage_qty column doesn't exist yet
+  // Fallback if optional columns don't exist yet
   let usageNotSaved=false;
-  if(err&&err.message&&(err.message.includes('default_usage_qty')||err.message.includes('column'))){
+  if(err&&err.message&&(err.message.includes('default_usage_qty')||err.message.includes('image_b64')||err.message.includes('column'))){
     const p2={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock};
     if(id){({error:err}=await _sb.from('inventory_items').update(p2).eq('id',id));}
     else{({error:err}=await _sb.from('inventory_items').insert({store_id:STORE.id,...p2}));}
     usageNotSaved=true;
   }
   if(err){showToast(err.message,true);return;}
-  // Save captured photos — always store by item ID, also sync to matching product for visual scanner
-  if(_invPendingImgs.length>0){
-    const imgs=_invPendingImgs.slice(); _invPendingImgs=[];
-    const imgData=JSON.stringify(imgs);
-    const savedId=id||( (await _sb.from('inventory_items').select('id').eq('store_id',STORE.id).eq('name',name).maybeSingle()).data?.id );
-    if(savedId) localStorage.setItem('invImg_'+savedId, imgData);
-    const {data:mp}=await _sb.from('products').select('id').eq('store_id',STORE.id).eq('name',name).maybeSingle();
-    if(mp) await _sb.from('products').update({image_b64:imgData}).eq('id',mp.id);
+  // Sync photos to matching product for visual scanner (best effort, non-blocking)
+  if(imgData){
+    _invPendingImgs=[];
+    _sb.from('products').select('id').eq('store_id',STORE.id).eq('name',name).maybeSingle()
+      .then(({data:mp})=>{ if(mp) _sb.from('products').update({image_b64:imgData}).eq('id',mp.id).then(()=>{}); });
   }
   await loadDbCategories();
   const fromProd=document.getElementById('invModal').dataset.fromProd==='1';
