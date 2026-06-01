@@ -1125,6 +1125,15 @@ async function confirmOrder() {
     }
   } catch (_) { /* stock deduction is best-effort */ }
 
+  _sb.from('activity_logs').insert({
+    store_id:    STORE_ID,
+    actor_name:  CASHIER_NAME,
+    actor_role:  CASHIER?.role || 'cashier',
+    action:      'SALE',
+    target_name: `Order #${ord.id}`,
+    details:     `Total: ${CUR}${total.toFixed(2)} | ${items.length} item(s) | ${payMeth}`
+  }).then(() => {});
+
   receiptData.order_id = ord.id;
   showReceipt(receiptData);
 }
