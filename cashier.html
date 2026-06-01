@@ -585,7 +585,7 @@ async function doLogin() {
     }
 
     CASHIER = found;
-    _sb.rpc('log_staff_login', { p_store_id: STORE_ID, p_staff_id: found.id, p_username: found.username });
+    _sb.rpc('log_staff_login', { p_store_id: STORE_ID, p_staff_id: found.id, p_username: found.username }).then(() => {});
     await loadProds();
     showPOS(found.full_name || found.username);
   } catch(e) {
@@ -599,9 +599,9 @@ async function doLogin() {
 let _pingInterval = null;
 function startPing() {
   if (_pingInterval) clearInterval(_pingInterval);
-  if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id });
-  _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }); }, 30 * 1000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }); });
+  if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
+  _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); }, 30 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); });
 }
 
 function showPOS(name) {
@@ -617,7 +617,7 @@ function showPOS(name) {
 
 async function doLogout() {
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
-  if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id });
+  if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
   closeScanner(); stopCamera();
   cart = {}; CASHIER = null;
   document.getElementById('lu').value = '';

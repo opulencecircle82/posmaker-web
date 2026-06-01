@@ -190,9 +190,9 @@ async function init(){
   show('mainContent');
   await loadInv();
   if (MGR?.staff_id) {
-    _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id });
-    _pingInterval = setInterval(() => { if (MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }); }, 30 * 1000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }); });
+    _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }).then(() => {});
+    _pingInterval = setInterval(() => { if (MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }).then(() => {}); }, 30 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }).then(() => {}); });
   }
 }
 
@@ -387,7 +387,7 @@ function showToast(msg, isErr){
   _toastT = setTimeout(()=>el.style.opacity='0', 2800);
 }
 
-function doLogout(){ if(_pingInterval){clearInterval(_pingInterval);_pingInterval=null;} if(MGR?.staff_id) _sb.rpc('log_staff_logout',{p_staff_id:MGR.staff_id}); localStorage.removeItem('pm_mgr'); goLogin(); }
+function doLogout(){ if(_pingInterval){clearInterval(_pingInterval);_pingInterval=null;} if(MGR?.staff_id) _sb.rpc('log_staff_logout',{p_staff_id:MGR.staff_id}).then(() => {}); localStorage.removeItem('pm_mgr'); goLogin(); }
 
 document.addEventListener('click', e=>{ if(e.target.classList.contains('modal')) closeModal(e.target.id); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show')); });
