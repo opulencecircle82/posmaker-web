@@ -585,7 +585,7 @@ async function doLogin() {
     }
 
     CASHIER = found;
-    _sb.from('staff_logs').insert({ store_id: STORE_ID, staff_id: found.id, username: found.username, login_at: new Date().toISOString() });
+    _sb.rpc('log_staff_login', { p_store_id: STORE_ID, p_staff_id: found.id, p_username: found.username });
     await loadProds();
     showPOS(found.full_name || found.username);
   } catch(e) {
