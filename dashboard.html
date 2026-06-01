@@ -2289,13 +2289,22 @@ let _activityLogs = [];
 async function loadActivityLog() {
   const tbody = document.getElementById('activityTbody');
   if (!tbody) return;
+  if (!STORE?.id) { tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:#ef4444;padding:24px”>Store not loaded. Refresh the page.</td></tr>'; return; }
   tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:var(--muted);padding:24px”>Loading...</td></tr>';
   const { data, error } = await _sb.from('activity_logs')
-    .select('id,actor_name,actor_role,action,target_name,details,created_at')
+    .select('id,actor_name,actor_role,action,target_name,details,created_at,store_id')
     .eq('store_id', STORE.id)
     .order('created_at', { ascending: false })
     .limit(500);
   if (error) { tbody.innerHTML = `<tr><td colspan=”6” style=”text-align:center;padding:20px;color:#ef4444”>Error: ${error.message}</td></tr>`; return; }
+  if (!data || data.length === 0) {
+    const { data: anyLogs } = await _sb.from('activity_logs').select('store_id,actor_name').limit(3);
+    const hint = anyLogs?.length
+      ? `DB has logs but store_id mismatch.<br>Log: ${anyLogs[0].store_id}<br>Store: ${STORE.id}`
+      : 'No logs in DB yet.';
+    tbody.innerHTML = `<tr><td colspan=”6” style=”text-align:center;padding:24px;color:var(--muted)”>No activity found.<br><small style=”color:#555;font-size:11px;line-height:1.8”>${hint}</small></td></tr>`;
+    return;
+  }
   _activityLogs = data || [];
   const actors = [...new Set(_activityLogs.map(l => l.actor_name).filter(Boolean))].sort();
   const af = document.getElementById('logActorFilter');
