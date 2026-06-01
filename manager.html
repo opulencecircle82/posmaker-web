@@ -382,7 +382,7 @@ function showToast(msg, isErr){
   _toastT = setTimeout(()=>el.style.opacity='0', 2800);
 }
 
-function doLogout(){ localStorage.removeItem('pm_mgr'); goLogin(); }
+function doLogout(){ if(MGR?.staff_id) _sb.rpc('log_staff_logout',{p_staff_id:MGR.staff_id}); localStorage.removeItem('pm_mgr'); goLogin(); }
 
 document.addEventListener('click', e=>{ if(e.target.classList.contains('modal')) closeModal(e.target.id); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show')); });

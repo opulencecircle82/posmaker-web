@@ -607,6 +607,7 @@ function showPOS(name) {
 }
 
 async function doLogout() {
+  if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id });
   closeScanner(); stopCamera();
   cart = {}; CASHIER = null;
   document.getElementById('lu').value = '';
