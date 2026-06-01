@@ -1042,17 +1042,34 @@ function _sig(ms = 12000) {
 
 // â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 (async () => {
-  const { data: { session } } = await _sb.auth.getSession();
+  // Timeout helper
+  const _tout = (ms, label) => new Promise((_, rej) => setTimeout(() => rej(new Error(label)), ms));
+
+  let session;
+  try {
+    const res = await Promise.race([_sb.auth.getSession(), _tout(15000, 'Connection timed out. Check your internet.')]);
+    session = res.data.session;
+  } catch(e) {
+    document.getElementById('loadingPage').innerHTML = `<div style="text-align:center"><div style="color:#ef4444;margin-bottom:12px">&#9888; ${e.message}</div><button onclick="location.reload()" style="padding:10px 24px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Retry</button></div>`;
+    return;
+  }
   if (!session) { location.href = 'login.html'; return; }
 
   document.getElementById('sbUser').textContent = session.user.email;
 
   // Load store
-  const { data: store, error } = await _sb.from('stores')
-    .select('*').eq('owner_id', session.user.id).single();
+  let store, storeErr;
+  try {
+    const res = await Promise.race([_sb.from('stores').select('*').eq('owner_id', session.user.id).single(), _tout(15000, 'Store load timed out. Check your internet.')]);
+    store = res.data; storeErr = res.error;
+  } catch(e) {
+    document.getElementById('loadingPage').innerHTML = `<div style="text-align:center"><div style="color:#ef4444;margin-bottom:12px">&#9888; ${e.message}</div><button onclick="location.reload()" style="padding:10px 24px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Retry</button></div>`;
+    return;
+  }
 
+  const error = storeErr;
   if (error || !store) {
-    // No store found &#8212; redirect to signup to create one
+    // No store found — redirect to signup to create one
     location.href = 'signup.html'; return;
   }
 
