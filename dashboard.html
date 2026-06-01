@@ -2330,7 +2330,10 @@ async function loadActivityLog() {
   const actors = [...new Set(_activityLogs.map(l => l.actor_name).filter(Boolean))].sort();
   const af = document.getElementById('logActorFilter');
   const curActor = af ? af.value : '';
-  if (af) af.innerHTML = '<option value=””>All Staff</option>' + actors.map(a => `<option value=”${a}” ${a===curActor?'selected':''}>${a}</option>`).join('');
+  if (af) {
+    af.innerHTML = '<option value=””>All Staff</option>' + actors.map(a => `<option value=”${a}” ${a===curActor?'selected':''}>${a}</option>`).join('');
+    if (!actors.includes(af.value)) af.value = '';
+  }
   renderActivityLog();
 }
 function renderActivityLog() {
