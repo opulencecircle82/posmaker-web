@@ -2331,7 +2331,9 @@ async function loadActivityLog() {
   const af = document.getElementById('logActorFilter');
   const curActor = af ? af.value : '';
   if (af) {
-    af.innerHTML = '<option value=””>All Staff</option>' + actors.map(a => `<option value=”${a}” ${a===curActor?'selected':''}>${a}</option>`).join('');
+    while (af.options.length > 0) af.remove(0);
+    af.add(new Option('All Staff', ''));
+    actors.forEach(a => { const o = new Option(a, a); if (a === curActor) o.selected = true; af.add(o); });
     if (!actors.includes(af.value)) af.value = '';
   }
   renderActivityLog();
