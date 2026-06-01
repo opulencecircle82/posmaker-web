@@ -596,6 +596,13 @@ async function doLogin() {
   }
 }
 
+let _pingInterval = null;
+function startPing() {
+  if (_pingInterval) clearInterval(_pingInterval);
+  if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id });
+  _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }); }, 2 * 60 * 1000);
+}
+
 function showPOS(name) {
   CASHIER_NAME = name;
   document.getElementById('loginWrap').style.display = 'none';
@@ -603,10 +610,12 @@ function showPOS(name) {
   redrawCart();
   updateNetStatus();
   syncOfflineQueue();
+  startPing();
   setTimeout(openScanner, 600); // auto-open camera on login
 }
 
 async function doLogout() {
+  if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
   if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id });
   closeScanner(); stopCamera();
   cart = {}; CASHIER = null;

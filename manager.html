@@ -174,7 +174,7 @@ const {createClient} = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 const params = new URLSearchParams(location.search);
 const SID = params.get('sid');
-let MGR = null, _allInv = [];
+let MGR = null, _allInv = [], _pingInterval = null;
 
 function goLogin(){ location.href = 'staff-login.html' + (SID ? '?sid='+SID : ''); }
 
@@ -189,6 +189,10 @@ async function init(){
   if(st) document.getElementById('storeName').textContent = st.name;
   show('mainContent');
   await loadInv();
+  if (MGR?.staff_id) {
+    _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id });
+    _pingInterval = setInterval(() => { if (MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }); }, 2 * 60 * 1000);
+  }
 }
 
 function show(id){ document.getElementById(id).style.display = ''; }
@@ -382,7 +386,7 @@ function showToast(msg, isErr){
   _toastT = setTimeout(()=>el.style.opacity='0', 2800);
 }
 
-function doLogout(){ if(MGR?.staff_id) _sb.rpc('log_staff_logout',{p_staff_id:MGR.staff_id}); localStorage.removeItem('pm_mgr'); goLogin(); }
+function doLogout(){ if(_pingInterval){clearInterval(_pingInterval);_pingInterval=null;} if(MGR?.staff_id) _sb.rpc('log_staff_logout',{p_staff_id:MGR.staff_id}); localStorage.removeItem('pm_mgr'); goLogin(); }
 
 document.addEventListener('click', e=>{ if(e.target.classList.contains('modal')) closeModal(e.target.id); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show')); });
