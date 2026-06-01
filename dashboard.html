@@ -2327,7 +2327,10 @@ async function loadActivityLog() {
     return;
   }
   _activityLogs = data || [];
-  const actors = [...new Set(_activityLogs.map(l => l.actor_name).filter(Boolean))].sort();
+  const logActors = new Set(_activityLogs.map(l => l.actor_name).filter(Boolean));
+  const staffActors = (allStaff || []).map(s => s.full_name || s.username).filter(Boolean);
+  staffActors.forEach(n => logActors.add(n));
+  const actors = [...logActors].sort();
   const af = document.getElementById('logActorFilter');
   const curActor = af ? af.value : '';
   if (af) {
