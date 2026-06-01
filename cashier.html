@@ -601,6 +601,7 @@ function startPing() {
   if (_pingInterval) clearInterval(_pingInterval);
   if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id });
   _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }); }, 30 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }); });
 }
 
 function showPOS(name) {

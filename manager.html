@@ -192,6 +192,7 @@ async function init(){
   if (MGR?.staff_id) {
     _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id });
     _pingInterval = setInterval(() => { if (MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }); }, 30 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }); });
   }
 }
 
