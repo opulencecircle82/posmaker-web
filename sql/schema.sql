@@ -282,3 +282,32 @@ CREATE POLICY pd_owner ON pos_devices FOR ALL TO authenticated
   WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
 CREATE POLICY pd_anon_select ON pos_devices FOR SELECT TO anon USING (TRUE);
 CREATE POLICY pd_anon_insert ON pos_devices FOR INSERT TO anon WITH CHECK (TRUE);
+
+-- Staff online tracking columns
+ALTER TABLE store_users ADD COLUMN IF NOT EXISTS last_seen     TIMESTAMPTZ;
+ALTER TABLE store_users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+
+-- Ping: update last_seen so dashboard can show Online indicator
+CREATE OR REPLACE FUNCTION ping_staff_online(p_staff_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  UPDATE store_users SET last_seen = NOW() WHERE id = p_staff_id;
+END;
+$$;
+
+-- Login: insert into staff_logs AND stamp last_login_at on store_users
+CREATE OR REPLACE FUNCTION log_staff_login(p_store_id UUID, p_staff_id UUID, p_username TEXT)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  INSERT INTO staff_logs (store_id, staff_id, username) VALUES (p_store_id, p_staff_id, p_username);
+  UPDATE store_users SET last_login_at = NOW() WHERE id = p_staff_id;
+END;
+$$;
+
+-- Logout: clear last_seen so staff shows as offline immediately
+CREATE OR REPLACE FUNCTION log_staff_logout(p_staff_id UUID)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  UPDATE store_users SET last_seen = NULL WHERE id = p_staff_id;
+END;
+$$;

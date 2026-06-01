@@ -2182,7 +2182,7 @@ async function loadStaff() {
   }, 8000);
   try {
     const { data, error } = await _sb.from('store_users')
-      .select('id,username,full_name,role,active,is_online,last_seen').eq('store_id', STORE.id).order('role').order('username').abortSignal(_sig());
+      .select('id,username,full_name,role,active,last_seen,last_login_at').eq('store_id', STORE.id).order('role').order('username').abortSignal(_sig());
     if (error) throw error;
     allStaff = data || [];
     if (allStaff.length) {
@@ -2205,7 +2205,7 @@ function renderStaff(staff) {
   const tbody = document.getElementById('staffTbody');
   if (!staff.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No staff. Click + Add Staff to create one.</td></tr>'; return; }
   tbody.innerHTML = staff.map(s => {
-    const _ll = s._lastLogin ? new Date(s._lastLogin) : null;
+    const _ll = s.last_login_at ? new Date(s.last_login_at) : null;
     const _isOnline = s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 2 * 60 * 1000;
     const lastLogin = _isOnline
       ? '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;box-shadow:0 0 6px #22c55e"></span><span style="color:#22c55e;font-weight:600">Online</span></span>'
