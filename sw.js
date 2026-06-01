@@ -1,4 +1,4 @@
-const CACHE = 'posmaker-v3';
+const CACHE = 'posmaker-v4';
 // HTML pages use network-first so updates deploy immediately.
 // Other static assets (icons, config) use cache-first for offline support.
 const HTML_FILES = ['cashier.html', 'dashboard.html'];

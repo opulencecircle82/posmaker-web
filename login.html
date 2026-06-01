@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>POSMaker — Admin Login</title>
+<title>POSMaker — Login</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/config.js"></script>
@@ -29,33 +29,70 @@ input::placeholder{color:#44445a}
 .signup-link a{color:#00b4d8;font-weight:600}
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
+.tabs{display:flex;gap:0;margin-bottom:24px;border-bottom:1.5px solid #252540}
+.tab-btn{flex:1;padding:10px 0;background:none;border:none;color:#8888aa;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;transition:color .15s,border-color .15s}
+.tab-btn.active{color:#00b4d8;border-bottom-color:#00b4d8}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="logo">POS<span>Maker</span></div>
   <div class="card">
-    <h1>Admin login</h1>
-    <p class="sub">Sign in to manage your store.</p>
-
-    <div class="field">
-      <label>Email</label>
-      <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-owner" onclick="switchTab('owner')">Owner</button>
+      <button class="tab-btn" id="tab-mgr" onclick="switchTab('mgr')">Manager / Staff</button>
     </div>
 
-    <div class="err" id="err"></div>
-    <button class="btn" id="btn" onclick="doLogin()">Log In →</button>
-    <div class="signup-link">Don't have a store? <a href="signup.html">Create one free</a></div>
+    <!-- Owner tab -->
+    <div class="tab-pane active" id="pane-owner">
+      <h1>Owner login</h1>
+      <p class="sub">Sign in to manage your store.</p>
+      <div class="field">
+        <label>Email</label>
+        <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+      </div>
+      <div class="err" id="err"></div>
+      <button class="btn" id="btn" onclick="doLogin()">Log In →</button>
+      <div class="signup-link">Don't have a store? <a href="signup.html">Create one free</a></div>
+    </div>
+
+    <!-- Manager / Staff tab -->
+    <div class="tab-pane" id="pane-mgr">
+      <h1>Staff login</h1>
+      <p class="sub">Enter your username and password.</p>
+      <div class="field">
+        <label>Username</label>
+        <input id="mgr-user" type="text" placeholder="username" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="mgr-pw" type="password" placeholder="Password" autocomplete="current-password">
+      </div>
+      <div class="err" id="mgr-err"></div>
+      <button class="btn" id="mgr-btn" onclick="doMgrLogin()">Log In →</button>
+    </div>
   </div>
 </div>
 
 <script>
 const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// Read ?sid= from URL (manager link from owner)
+const _urlSid = new URLSearchParams(location.search).get('sid') || '';
+
+function switchTab(tab) {
+  document.getElementById('pane-owner').classList.toggle('active', tab === 'owner');
+  document.getElementById('pane-mgr').classList.toggle('active', tab === 'mgr');
+  document.getElementById('tab-owner').classList.toggle('active', tab === 'owner');
+  document.getElementById('tab-mgr').classList.toggle('active', tab === 'mgr');
+}
 
 async function doLogin() {
   const email = document.getElementById('email').value.trim();
@@ -78,7 +115,6 @@ async function doLogin() {
     ]);
     if (error) { errEl.textContent = error.message; btn.disabled = false; btn.textContent = 'Log In →'; return; }
 
-    // Load the user's store
     const { data: store } = await Promise.race([
       _sb.from('stores').select('id').eq('owner_id', data.user.id).maybeSingle(),
       new Promise((_, rej) => setTimeout(() => rej(new Error('Connection timed out.')), 10000))
@@ -91,7 +127,55 @@ async function doLogin() {
   }
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doMgrLogin() {
+  const username = document.getElementById('mgr-user').value.trim();
+  const pw       = document.getElementById('mgr-pw').value;
+  const errEl    = document.getElementById('mgr-err');
+  const btn      = document.getElementById('mgr-btn');
+
+  errEl.textContent = '';
+  if (!username || !pw) { errEl.textContent = 'Please enter your username and password.'; return; }
+  if (!_urlSid) { errEl.textContent = 'No store ID found. Use the login link provided by your owner.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in…';
+
+  try {
+    const hash = await sha256(pw);
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Connection timed out.')), 15000));
+    const { data: staff, error } = await Promise.race([
+      _sb.from('store_users')
+        .select('id,username,full_name,role,active')
+        .eq('store_id', _urlSid)
+        .eq('username', username)
+        .eq('password_hash', hash)
+        .maybeSingle(),
+      timeout
+    ]);
+    if (error) throw error;
+    if (!staff) { errEl.textContent = 'Invalid username or password.'; btn.disabled = false; btn.textContent = 'Log In →'; return; }
+    if (!staff.active) { errEl.textContent = 'Your account has been disabled. Contact your owner.'; btn.disabled = false; btn.textContent = 'Log In →'; return; }
+
+    const session = { store_id: _urlSid, staff_id: staff.id, name: staff.full_name || staff.username, role: staff.role, ts: Date.now() };
+    localStorage.setItem('pm_mgr', JSON.stringify(session));
+    location.href = 'manager.html?sid=' + _urlSid;
+  } catch(e) {
+    errEl.textContent = e.message || 'Login failed.';
+    btn.disabled = false; btn.textContent = 'Log In →';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    if (document.getElementById('pane-mgr').classList.contains('active')) doMgrLogin();
+    else doLogin();
+  }
+});
 
 // Auto-update service worker on every open
 if('serviceWorker' in navigator){
@@ -104,8 +188,24 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('controllerchange',()=>setTimeout(()=>location.reload(),400));
 }
 
+// If ?sid= present, pre-select Manager tab
+if (_urlSid) switchTab('mgr');
+
 // Auto-redirect if already logged in
 (async () => {
+  // Check manager session
+  const mgrRaw = localStorage.getItem('pm_mgr');
+  if (mgrRaw) {
+    try {
+      const mgr = JSON.parse(mgrRaw);
+      if (mgr.ts && (Date.now() - mgr.ts) < 8 * 3600 * 1000) {
+        location.href = 'manager.html?sid=' + mgr.store_id;
+        return;
+      }
+    } catch(_) {}
+    localStorage.removeItem('pm_mgr');
+  }
+  // Check owner session
   const { data: { session } } = await _sb.auth.getSession();
   if (!session) return;
   const { data: store } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).single();

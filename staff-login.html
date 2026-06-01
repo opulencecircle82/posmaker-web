@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Staff Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#09090f;color:#f0f0f8;font-family:'Inter',sans-serif;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:min(400px,100%)}
+.logo{text-align:center;font-size:22px;font-weight:800;margin-bottom:8px}
+.logo span{color:#00b4d8}
+.store-name{text-align:center;font-size:13px;color:#8888aa;margin-bottom:28px;min-height:20px}
+.card{background:#111120;border:1px solid #252540;border-radius:16px;padding:36px}
+h1{font-size:20px;font-weight:800;margin-bottom:4px}
+.sub{font-size:13px;color:#8888aa;margin-bottom:24px}
+.field{margin-bottom:16px}
+label{display:block;font-size:12px;font-weight:600;color:#aaa;margin-bottom:6px}
+input{width:100%;padding:11px 14px;background:#09090f;border:1.5px solid #252540;border-radius:8px;color:#f0f0f8;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+input:focus{border-color:#00b4d8}
+input::placeholder{color:#44445a}
+.btn{width:100%;padding:13px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.err{color:#ef4444;font-size:13px;min-height:18px;margin-bottom:10px;text-align:center}
+.no-store{text-align:center;padding:48px 20px}
+.no-store .ico{font-size:48px;margin-bottom:16px}
+.no-store h2{font-size:18px;font-weight:700;margin-bottom:8px}
+.no-store p{font-size:13px;color:#8888aa}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">POS<span>Maker</span></div>
+  <div class="store-name" id="storeName"></div>
+
+  <!-- No store ID screen -->
+  <div id="noStore" style="display:none" class="card">
+    <div style="text-align:center;padding:24px 0">
+      <div style="font-size:40px;margin-bottom:12px">&#128279;</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">Invalid Link</div>
+      <div style="font-size:13px;color:#8888aa">Please use the login link provided by your store owner.</div>
+    </div>
+  </div>
+
+  <!-- Login form -->
+  <div class="card" id="loginCard" style="display:none">
+    <h1>&#128100; Staff Login</h1>
+    <p class="sub">Enter your username and password.</p>
+    <div class="field">
+      <label>Username</label>
+      <input id="username" type="text" placeholder="your username" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+    </div>
+    <div class="err" id="err"></div>
+    <button class="btn" id="btn" onclick="doLogin()">Log In →</button>
+  </div>
+</div>
+
+<script>
+const {createClient} = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+const SID = new URLSearchParams(location.search).get('sid') || '';
+
+async function init() {
+  if (!SID) { document.getElementById('noStore').style.display = ''; return; }
+
+  // Check existing session
+  const raw = localStorage.getItem('pm_mgr');
+  if (raw) {
+    try {
+      const s = JSON.parse(raw);
+      if (s.store_id === SID && s.ts && (Date.now() - s.ts) < 8 * 3600 * 1000) {
+        location.href = 'manager.html?sid=' + SID;
+        return;
+      }
+    } catch(_) {}
+    localStorage.removeItem('pm_mgr');
+  }
+
+  // Load store name
+  const {data: st} = await _sb.from('stores').select('name').eq('id', SID).maybeSingle();
+  if (!st) { document.getElementById('noStore').style.display = ''; return; }
+  document.getElementById('storeName').textContent = st.name;
+  document.getElementById('loginCard').style.display = '';
+  setTimeout(() => document.getElementById('username').focus(), 100);
+}
+
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin() {
+  const username = document.getElementById('username').value.trim();
+  const pw       = document.getElementById('pw').value;
+  const errEl    = document.getElementById('err');
+  const btn      = document.getElementById('btn');
+
+  errEl.textContent = '';
+  if (!username || !pw) { errEl.textContent = 'Please enter your username and password.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in…';
+
+  try {
+    const hash = await sha256(pw);
+    const { data: staff, error } = await Promise.race([
+      _sb.from('store_users')
+        .select('id,username,full_name,role,active')
+        .eq('store_id', SID)
+        .eq('username', username)
+        .eq('password_hash', hash)
+        .maybeSingle(),
+      new Promise((_,rej) => setTimeout(() => rej(new Error('Connection timed out.')), 15000))
+    ]);
+    if (error) throw error;
+    if (!staff) { errEl.textContent = 'Invalid username or password.'; btn.disabled = false; btn.textContent = 'Log In →'; return; }
+    if (!staff.active) { errEl.textContent = 'Your account is disabled. Contact your owner.'; btn.disabled = false; btn.textContent = 'Log In →'; return; }
+
+    const session = { store_id: SID, staff_id: staff.id, name: staff.full_name || staff.username, role: staff.role, ts: Date.now() };
+    localStorage.setItem('pm_mgr', JSON.stringify(session));
+    location.href = 'manager.html?sid=' + SID;
+  } catch(e) {
+    errEl.textContent = e.message || 'Login failed.';
+    btn.disabled = false; btn.textContent = 'Log In →';
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+init();
+</script>
+</body>
+</html>

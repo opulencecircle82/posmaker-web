@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--muted:#8888aa;--dim:#44445a}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+.topbar{background:var(--s1);border-bottom:1px solid var(--border);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.logo{font-size:18px;font-weight:800}.logo span{color:var(--accent)}
+.content{padding:20px;max-width:960px;margin:0 auto}
+.tabs{display:flex;gap:4px;margin-bottom:20px;background:var(--s2);border-radius:10px;padding:4px;width:fit-content}
+.tab-btn{padding:7px 18px;border-radius:7px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;font-family:'Inter',sans-serif}
+.tab-btn.active{background:var(--accent);color:#fff}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card-title{font-weight:700;margin-bottom:14px;font-size:15px;display:flex;align-items:center;justify-content:space-between}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);font-size:12px}
+td{padding:10px;border-bottom:1px solid #1a1a2e}
+tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-ok{background:#0d2e1f;color:#10b981}
+.badge-low{background:#2e1f0d;color:#f59e0b}
+.badge-out{background:#2e0d0d;color:#ef4444}
+.btn{padding:8px 16px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-size:13px;font-family:'Inter',sans-serif;transition:.15s}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{opacity:.88}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--s2)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.mbox{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:28px;width:min(420px,100%);max-height:90vh;overflow-y:auto}
+.mbox h3{font-size:17px;font-weight:700;margin-bottom:20px}
+.field{margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px}
+input,select{width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+input:focus{border-color:var(--accent)}
+.m-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.alert-bar{background:#1a0e00;border:1px solid #f59e0b55;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.act-chip{display:inline-block;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700}
+.act-add{background:#0d2e1f;color:#10b981}
+.act-edit{background:#0d1a2e;color:#00b4d8}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;pointer-events:none}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <span class="logo">POS<span>Maker</span></span>
+    <span id="storeName" style="font-size:12px;color:var(--muted);font-weight:400;margin-left:10px"></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span style="font-size:13px;color:var(--muted)">&#128100; <strong id="mgrNameDisp" style="color:var(--text)"></strong></span>
+    <button class="btn btn-ghost btn-sm" onclick="doLogout()">Logout</button>
+  </div>
+</div>
+
+<div class="content" id="mainContent" style="display:none">
+  <div id="lowStockAlert"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabInv" onclick="showTab('inv')">&#128230; Inventory</button>
+    <button class="tab-btn" id="tabLog" onclick="showTab('log')">&#128203; Activity Log</button>
+  </div>
+
+  <!-- INVENTORY -->
+  <div id="secInv">
+    <div class="card">
+      <div class="card-title">
+        Inventory Items
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="invSearch" placeholder="Search..." style="width:150px;padding:6px 10px;font-size:13px" oninput="filterInv()">
+          <button class="btn btn-accent btn-sm" onclick="openAddItem()">+ Add Item</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Item</th><th>Category</th><th>Stock</th><th>Unit</th><th>Status</th><th></th></tr></thead>
+          <tbody id="invTbody"><tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <div id="secLog" style="display:none">
+    <div class="card">
+      <div class="card-title">Your Activity Log</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Date &amp; Time</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
+          <tbody id="logTbody"><tr><td colspan="4" style="text-align:center;padding:32px;color:var(--muted)">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- No access screen -->
+<div id="noAccess" style="display:none;text-align:center;padding:80px 20px">
+  <div style="font-size:48px;margin-bottom:16px">&#128274;</div>
+  <div style="font-size:18px;font-weight:700;margin-bottom:8px">Access Denied</div>
+  <div style="color:var(--muted);margin-bottom:24px">Please log in as a manager.</div>
+  <button class="btn btn-accent" onclick="goLogin()">Go to Login</button>
+</div>
+
+<!-- ADD STOCK MODAL -->
+<div class="modal" id="addStockModal">
+  <div class="mbox">
+    <h3>&#43; Add Stock</h3>
+    <input type="hidden" id="asId">
+    <div style="background:var(--s2);border-radius:8px;padding:12px;margin-bottom:16px">
+      <div style="font-weight:700;font-size:15px" id="asItemName"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Current stock: <strong id="asCurStock" style="color:var(--text)"></strong></div>
+    </div>
+    <div class="field"><label>Quantity to Add</label><input id="asQty" type="number" min="0.01" step="any" placeholder="e.g. 10"></div>
+    <div class="field"><label>Note (optional)</label><input id="asNote" type="text" placeholder="e.g. delivery from supplier"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addStockModal')">Cancel</button>
+      <button class="btn btn-accent" id="asSaveBtn" onclick="saveAddStock()">Add Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT ITEM MODAL -->
+<div class="modal" id="editItemModal">
+  <div class="mbox">
+    <h3>&#9998; Edit Item</h3>
+    <input type="hidden" id="eiId">
+    <div class="field"><label>Item Name</label><input id="eiName" type="text"></div>
+    <div class="field"><label>Category</label><input id="eiCat" type="text"></div>
+    <div class="field"><label>Unit</label><input id="eiUnit" type="text" placeholder="e.g. pc, kg, L"></div>
+    <div class="field"><label>Low Stock Alert (qty)</label><input id="eiLow" type="number" min="0" step="any"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('editItemModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveEditItem()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ITEM MODAL -->
+<div class="modal" id="addItemModal">
+  <div class="mbox">
+    <h3>&#43; Add New Item</h3>
+    <div class="field"><label>Item Name <span style="color:#ef4444">*</span></label><input id="aiName" type="text" placeholder="e.g. SkinWhite Lotion"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label>Category</label><input id="aiCat" type="text" placeholder="e.g. Beauty"></div>
+      <div class="field"><label>Unit</label><input id="aiUnit" type="text" placeholder="e.g. pc, bottle, kg"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label>Initial Stock</label><input id="aiStock" type="number" min="0" step="any" placeholder="0"></div>
+      <div class="field"><label>Low Stock Alert (qty)</label><input id="aiLow" type="number" min="0" step="any" placeholder="5"></div>
+    </div>
+    <div class="field"><label>SKU / Barcode (optional)</label><input id="aiSku" type="text" placeholder="optional"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addItemModal')">Cancel</button>
+      <button class="btn btn-accent" id="aiSaveBtn" onclick="saveNewItem()">Add Item</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" style="opacity:0"></div>
+
+<script>
+const {createClient} = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+const params = new URLSearchParams(location.search);
+const SID = params.get('sid');
+let MGR = null, _allInv = [];
+
+function goLogin(){ location.href = 'staff-login.html' + (SID ? '?sid='+SID : ''); }
+
+async function init(){
+  const raw = localStorage.getItem('pm_mgr');
+  if(!raw){ show('noAccess'); return; }
+  try{ MGR = JSON.parse(raw); }catch{ show('noAccess'); return; }
+  if(Date.now() - MGR.ts > 8*60*60*1000){ localStorage.removeItem('pm_mgr'); goLogin(); return; }
+  if(SID && MGR.store_id !== SID){ show('noAccess'); return; }
+  document.getElementById('mgrNameDisp').textContent = MGR.name;
+  const {data:st} = await _sb.from('stores').select('name').eq('id', MGR.store_id).maybeSingle();
+  if(st) document.getElementById('storeName').textContent = st.name;
+  show('mainContent');
+  await loadInv();
+}
+
+function show(id){ document.getElementById(id).style.display = ''; }
+
+async function loadInv(){
+  const {data} = await _sb.from('inventory_items').select('*').eq('store_id', MGR.store_id).order('category').order('name');
+  _allInv = data || [];
+  renderInv(_allInv);
+  checkLowStock();
+}
+
+function filterInv(){
+  const q = document.getElementById('invSearch').value.toLowerCase();
+  renderInv(q ? _allInv.filter(i => (i.name+' '+(i.category||'')).toLowerCase().includes(q)) : _allInv);
+}
+
+function renderInv(items){
+  const tb = document.getElementById('invTbody');
+  if(!items.length){ tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No items found.</td></tr>'; return; }
+  tb.innerHTML = items.map(i => {
+    const st=parseFloat(i.stock||0), lo=parseFloat(i.low_stock_threshold||5);
+    const [sCls,sTxt] = st<=0 ? ['badge-out','Out of Stock'] : st<=lo ? ['badge-low','Low Stock'] : ['badge-ok','OK'];
+    return `<tr>
+      <td><strong>${i.name}</strong>${i.sku?`<div style="font-size:11px;color:var(--dim)">${i.sku}</div>`:''}</td>
+      <td style="color:var(--muted)">${i.category||'—'}</td>
+      <td><strong style="color:${st<=0?'#ef4444':st<=lo?'#f59e0b':'#10b981'}">${st}</strong></td>
+      <td style="color:var(--muted)">${i.unit||'—'}</td>
+      <td><span class="badge ${sCls}">${sTxt}</span></td>
+      <td style="white-space:nowrap;display:flex;gap:4px;padding:8px">
+        <button class="btn btn-accent btn-sm" onclick="openAddStock('${i.id}')">+Add</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEditItem('${i.id}')">Edit</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function checkLowStock(){
+  const low = _allInv.filter(i => parseFloat(i.stock||0) <= parseFloat(i.low_stock_threshold||5));
+  const el = document.getElementById('lowStockAlert');
+  if(!low.length){ el.innerHTML=''; return; }
+  el.innerHTML = `<div class="alert-bar">
+    <div style="font-weight:700;color:#f59e0b;margin-bottom:8px">&#9888; ${low.length} Low Stock Item${low.length>1?'s':''}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${low.map(i=>`<span style="background:var(--s2);border-radius:6px;padding:3px 8px;font-size:12px">${i.name} — <strong style="color:${parseFloat(i.stock||0)<=0?'#ef4444':'#f59e0b'}">${i.stock} ${i.unit||''}</strong></span>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ── Add Stock ──────────────────────────────────────────────────────────────
+function openAddStock(id){
+  const item = _allInv.find(x=>x.id===id); if(!item) return;
+  document.getElementById('asId').value = id;
+  document.getElementById('asItemName').textContent = item.name;
+  document.getElementById('asCurStock').textContent = item.stock + ' ' + (item.unit||'');
+  document.getElementById('asQty').value = '';
+  document.getElementById('asNote').value = '';
+  document.getElementById('asSaveBtn').disabled = false;
+  document.getElementById('asSaveBtn').textContent = 'Add Stock';
+  document.getElementById('addStockModal').classList.add('show');
+  setTimeout(()=>document.getElementById('asQty').focus(), 50);
+}
+
+async function saveAddStock(){
+  const id = document.getElementById('asId').value;
+  const qty = parseFloat(document.getElementById('asQty').value);
+  if(!qty||qty<=0){ showToast('Enter a valid quantity.',true); return; }
+  const note = document.getElementById('asNote').value.trim();
+  const item = _allInv.find(x=>x.id===id); if(!item) return;
+  const btn = document.getElementById('asSaveBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Saving...';
+  const newStock = parseFloat(item.stock||0) + qty;
+  const {error} = await _sb.from('inventory_items').update({stock:newStock}).eq('id',id);
+  if(error){ showToast('Error: '+error.message,true); btn.disabled=false; btn.textContent='Add Stock'; return; }
+  await logAction('ADD_STOCK', item.name, {added:qty, before:item.stock, after:newStock, note:note||undefined});
+  closeModal('addStockModal');
+  await loadInv();
+  showToast('+'+qty+' '+( item.unit||'')+' added to '+item.name);
+}
+
+// ── Add New Item ───────────────────────────────────────────────────────────
+function openAddItem(){
+  ['aiName','aiCat','aiUnit','aiSku'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('aiStock').value='0';
+  document.getElementById('aiLow').value='5';
+  const btn=document.getElementById('aiSaveBtn'); btn.disabled=false; btn.textContent='Add Item';
+  document.getElementById('addItemModal').classList.add('show');
+  setTimeout(()=>document.getElementById('aiName').focus(),50);
+}
+async function saveNewItem(){
+  const name=document.getElementById('aiName').value.trim();
+  if(!name){showToast('Item name is required.',true);return;}
+  const cat=document.getElementById('aiCat').value.trim();
+  const unit=document.getElementById('aiUnit').value.trim()||'pc';
+  const stock=parseFloat(document.getElementById('aiStock').value)||0;
+  const low=parseFloat(document.getElementById('aiLow').value)||5;
+  const sku=document.getElementById('aiSku').value.trim();
+  const btn=document.getElementById('aiSaveBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Saving...';
+  const payload={store_id:MGR.store_id,name,category:cat,unit,stock,low_stock_threshold:low,...(sku?{sku}:{})};
+  const {error}=await _sb.from('inventory_items').insert(payload);
+  if(error){showToast('Error: '+error.message,true);btn.disabled=false;btn.textContent='Add Item';return;}
+  await logAction('ADD_ITEM',name,{stock,unit,category:cat});
+  closeModal('addItemModal');
+  await loadInv();
+  showToast(name+' added to inventory.');
+}
+
+// ── Edit Item ──────────────────────────────────────────────────────────────
+function openEditItem(id){
+  const item = _allInv.find(x=>x.id===id); if(!item) return;
+  document.getElementById('eiId').value = id;
+  document.getElementById('eiName').value = item.name;
+  document.getElementById('eiCat').value = item.category||'';
+  document.getElementById('eiUnit').value = item.unit||'pc';
+  document.getElementById('eiLow').value = item.low_stock_threshold||5;
+  document.getElementById('editItemModal').classList.add('show');
+  setTimeout(()=>document.getElementById('eiName').focus(), 50);
+}
+
+async function saveEditItem(){
+  const id = document.getElementById('eiId').value;
+  const name = document.getElementById('eiName').value.trim();
+  const cat = document.getElementById('eiCat').value.trim();
+  const unit = document.getElementById('eiUnit').value.trim();
+  const low = parseFloat(document.getElementById('eiLow').value)||5;
+  if(!name){ showToast('Name is required.',true); return; }
+  const item = _allInv.find(x=>x.id===id);
+  const {error} = await _sb.from('inventory_items').update({name,category:cat,unit,low_stock_threshold:low}).eq('id',id);
+  if(error){ showToast('Error: '+error.message,true); return; }
+  await logAction('EDIT_ITEM', name, {old_name:item?.name, category:cat, unit, low_stock_threshold:low});
+  closeModal('editItemModal');
+  await loadInv();
+  showToast('Item updated.');
+}
+
+// ── Activity Log ───────────────────────────────────────────────────────────
+async function loadLog(){
+  const tb = document.getElementById('logTbody');
+  tb.innerHTML='<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted)">Loading...</td></tr>';
+  const {data} = await _sb.from('activity_logs')
+    .select('*').eq('store_id', MGR.store_id).eq('actor_name', MGR.name)
+    .order('created_at',{ascending:false}).limit(100);
+  if(!data||!data.length){ tb.innerHTML='<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--muted)">No activity yet.</td></tr>'; return; }
+  tb.innerHTML = data.map(l=>{
+    const dt = new Date(l.created_at);
+    const ds = dt.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})+' '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const cls = l.action==='ADD_STOCK'?'act-add':l.action==='EDIT_ITEM'?'act-edit':'';
+    let det='';
+    try{
+      const d=JSON.parse(l.details||'{}');
+      if(l.action==='ADD_STOCK') det=`+${d.added} (${d.before}→${d.after})${d.note?' · '+d.note:''}`;
+      else if(l.action==='EDIT_ITEM') det=`Unit: ${d.unit}, Low alert: ${d.low_stock_threshold}`;
+    }catch{}
+    return `<tr>
+      <td style="color:var(--muted);font-size:12px;white-space:nowrap">${ds}</td>
+      <td><span class="act-chip ${cls}">${l.action.replace('_',' ')}</span></td>
+      <td><strong>${l.target_name||'—'}</strong></td>
+      <td style="color:var(--muted);font-size:12px">${det}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function logAction(action, targetName, details){
+  await _sb.from('activity_logs').insert({
+    store_id: MGR.store_id,
+    actor_name: MGR.name,
+    actor_role: MGR.role||'manager',
+    action, target_name: targetName,
+    details: details ? JSON.stringify(details) : null
+  });
+}
+
+// ── UI Helpers ─────────────────────────────────────────────────────────────
+function showTab(tab){
+  document.getElementById('secInv').style.display = tab==='inv'?'':'none';
+  document.getElementById('secLog').style.display = tab==='log'?'':'none';
+  document.getElementById('tabInv').classList.toggle('active', tab==='inv');
+  document.getElementById('tabLog').classList.toggle('active', tab==='log');
+  if(tab==='log') loadLog();
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+let _toastT;
+function showToast(msg, isErr){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.color = isErr ? '#ef4444' : 'var(--text)';
+  el.style.opacity = '1';
+  clearTimeout(_toastT);
+  _toastT = setTimeout(()=>el.style.opacity='0', 2800);
+}
+
+function doLogout(){ localStorage.removeItem('pm_mgr'); goLogin(); }
+
+document.addEventListener('click', e=>{ if(e.target.classList.contains('modal')) closeModal(e.target.id); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show')); });
+
+init();
+</script>
+</body>
+</html>

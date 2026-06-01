@@ -151,10 +151,11 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="sb-nav">
     <div class="sb-item active" onclick="nav('dashboard')"><span class="ico">&#128202;</span> Dashboard</div>
     <div class="sb-item" id="navOrders"    onclick="nav('orders')"><span class="ico">&#128221;</span> <span id="navOrdersLbl">Orders</span></div>
-    <div class="sb-item" id="navInventory" onclick="nav('inventory')"><span class="ico">&#128230;</span> <span id="navInventoryLbl">Inventory</span></div>
+    <div class="sb-item" id="navInventory" onclick="nav('inventory')"><span class="ico">&#128230;</span> <span id="navInventoryLbl">Inventory</span> <span id="lowStockBadge" style="display:none;margin-left:auto;font-size:10px;background:#f59e0b;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
     <div class="sb-item" onclick="nav('categories')"><span class="ico">&#128194;</span> Categories</div>
     <div class="sb-item" id="navProducts"  onclick="nav('products')"><span class="ico">&#127991;</span> <span id="navProductsLbl">Products</span></div>
     <div class="sb-item" onclick="nav('staff')"><span class="ico">&#128101;</span> Staff</div>
+    <div class="sb-item" onclick="nav('activitylog')"><span class="ico">&#128203;</span> Activity Log</div>
     <div class="sb-item" onclick="nav('salesreport')"><span class="ico">&#128202;</span> Sales Report</div>
     <div class="sb-item" onclick="nav('expenses')"><span class="ico">&#128176;</span> Other Expenses</div>
     <div class="sb-item" onclick="nav('settings')"><span class="ico">&#9881;</span> Settings</div>
@@ -352,6 +353,38 @@ input:checked + .slider:before{transform:translateX(18px)}
         <table>
           <thead><tr><th>Username</th><th>Full Name</th><th>Role</th><th>Active</th><th>Last Login</th><th></th></tr></thead>
           <tbody id="staffTbody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
+        </table>
+      </div>
+      <!-- Manager Login Link -->
+      <div class="info-card" style="margin-top:16px">
+        <h3>&#128279; Manager / Staff Login Link</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Share this link with your managers and staff. They use their username &amp; password to sign in.</p>
+        <div class="link-box" id="mgrLoginLink" style="cursor:pointer" onclick="copyMgrLink()" title="Click to copy">Loading...</div>
+        <button class="btn btn-ghost btn-sm" onclick="copyMgrLink()">&#128203; Copy Link</button>
+      </div>
+    </div>
+
+    <!-- ACTIVITY LOG -->
+    <div class="section" id="sec-activitylog">
+      <div class="tbl-wrap">
+        <div class="tbl-head" style="flex-wrap:wrap;gap:8px">
+          <h3>&#128203; Staff Activity Log</h3>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <select id="logActorFilter" class="search" style="width:160px" onchange="renderActivityLog()">
+              <option value="">All Staff</option>
+            </select>
+            <select id="logActionFilter" class="search" style="width:140px" onchange="renderActivityLog()">
+              <option value="">All Actions</option>
+              <option value="ADD_STOCK">Add Stock</option>
+              <option value="EDIT_ITEM">Edit Item</option>
+              <option value="ADD_ITEM">Add New Item</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadActivityLog()">&#8635; Refresh</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Time</th><th>Staff</th><th>Role</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
+          <tbody id="activityTbody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1065,7 +1098,7 @@ function _sig(ms = 12000) {
 })();
 
 // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',salesreport:'Sales Report',expenses:'Other Expenses',settings:'Settings',access:'Cashier Link',pos:'My POS Terminals'};
+const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',activitylog:'Activity Log',salesreport:'Sales Report',expenses:'Other Expenses',settings:'Settings',access:'Cashier Link',pos:'My POS Terminals'};
 // ── Business-type adaptation ───────────────────────────────────────────────────
 const RESTAURANT_BIZ = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
   'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
@@ -1124,7 +1157,8 @@ function nav(id) {
   if (id === 'orders')     loadOrders();
   if (id === 'salesreport') loadReport('daily');
   if (id === 'inventory')  loadInventory();
-  if (id === 'staff')      loadStaff();
+  if (id === 'staff')        { loadStaff(); updateMgrLink(); }
+  if (id === 'activitylog')  loadActivityLog();
   if (id === 'categories') { loadDbCategories().then(() => loadProducts().then(loadCategories)); switchCatTab(catTab); }
   if (id === 'expenses')   loadExpenses('monthly');
   if (id === 'settings')   populatePriceCatFilter();
@@ -1416,6 +1450,7 @@ async function loadDashboard() {
       document.getElementById('lowStockList').textContent = lowItems.slice(0,5).map(i=>`${i.name} (${i.stock??0} ${i.unit||'pc'})`).join(', ') + (lowItems.length>5?` +${lowItems.length-5} more`:'');
       alertEl.style.display = 'block';
     } else { alertEl.style.display = 'none'; }
+    _updateLowStockBadge(lowItems.length);
 
     // Update table header with today's date
     const dateLabel = now.toLocaleDateString('en-PH', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
@@ -2162,6 +2197,7 @@ function renderStaff(staff) {
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-sm" onclick="viewStaffLogs('${s.id}','${s.username}')">Logs</button>
         <button class="btn btn-ghost btn-sm" onclick="openStaffModal(${JSON.stringify(s).replace(/"/g,'&quot;')})">Edit</button>
+        ${s.role==='manager'?`<button class="btn btn-sm" style="background:rgba(0,180,216,.15);color:#00b4d8;border:1px solid rgba(0,180,216,.3)" onclick="copyStaffLink()">&#128279; Link</button>`:''}
         <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">Del</button>
       </td>
     </tr>`;
@@ -2224,6 +2260,80 @@ async function deleteStaff(id) {
   if (!confirm('Delete this staff account?')) return;
   await _sb.from('store_users').delete().eq('id', id);
   await loadStaff(); showToast('Staff deleted.');
+}
+
+// ── Manager Login Link ───────────────────────────────────────────────────
+function updateMgrLink() {
+  if (!STORE) return;
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+  const url = base + 'staff-login.html?sid=' + STORE.id;
+  const el = document.getElementById('mgrLoginLink');
+  if (el) el.textContent = url;
+}
+async function copyMgrLink() {
+  const el = document.getElementById('mgrLoginLink');
+  if (!el) return;
+  try { await navigator.clipboard.writeText(el.textContent); showToast('Link copied!'); }
+  catch(_) { showToast('Copy failed — select and copy manually.', true); }
+}
+async function copyStaffLink() {
+  if (!STORE) return;
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+  const url = base + 'staff-login.html?sid=' + STORE.id;
+  try { await navigator.clipboard.writeText(url); showToast('Manager login link copied!'); }
+  catch(_) { showToast('Copy failed.', true); }
+}
+
+// ── Activity Log ─────────────────────────────────────────────────────────
+let _activityLogs = [];
+async function loadActivityLog() {
+  const tbody = document.getElementById('activityTbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:var(--muted);padding:24px”>Loading...</td></tr>';
+  const { data, error } = await _sb.from('activity_logs')
+    .select('id,actor_name,actor_role,action,target_name,details,created_at')
+    .eq('store_id', STORE.id)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) { tbody.innerHTML = `<tr><td colspan=”6” style=”text-align:center;padding:20px;color:#ef4444”>Error: ${error.message}</td></tr>`; return; }
+  _activityLogs = data || [];
+  const actors = [...new Set(_activityLogs.map(l => l.actor_name).filter(Boolean))].sort();
+  const af = document.getElementById('logActorFilter');
+  const curActor = af ? af.value : '';
+  if (af) af.innerHTML = '<option value=””>All Staff</option>' + actors.map(a => `<option value=”${a}” ${a===curActor?'selected':''}>${a}</option>`).join('');
+  renderActivityLog();
+}
+function renderActivityLog() {
+  const tbody = document.getElementById('activityTbody');
+  if (!tbody) return;
+  const actorF  = document.getElementById('logActorFilter')?.value  || '';
+  const actionF = document.getElementById('logActionFilter')?.value || '';
+  let rows = _activityLogs;
+  if (actorF)  rows = rows.filter(l => l.actor_name === actorF);
+  if (actionF) rows = rows.filter(l => l.action === actionF);
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:var(--muted);padding:24px”>No activity found.</td></tr>'; return; }
+  const actionLabel = { ADD_STOCK: '+ Add Stock', EDIT_ITEM: 'Edit Item', ADD_ITEM: '+ New Item' };
+  tbody.innerHTML = rows.map(l => {
+    const dt = new Date(l.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    let details = '';
+    try { if (l.details) { const d = JSON.parse(l.details); details = Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', '); } }
+    catch(_) { details = l.details || ''; }
+    const roleColor = l.actor_role === 'manager' ? 'background:#1a1a3a;color:#818cf8' : 'background:#0a2a1a;color:#10b981';
+    return `<tr>
+      <td style=”color:var(--muted);white-space:nowrap”>${dt}</td>
+      <td style=”font-weight:600”>${l.actor_name || '—'}</td>
+      <td><span class=”badge” style=”${roleColor}”>${l.actor_role || '—'}</span></td>
+      <td><span class=”badge” style=”background:#0a1a2a;color:#00b4d8”>${actionLabel[l.action] || l.action}</span></td>
+      <td>${l.target_name || '—'}</td>
+      <td style=”color:var(--muted);font-size:12px”>${details}</td>
+    </tr>`;
+  }).join('');
+}
+function _updateLowStockBadge(count) {
+  const b = document.getElementById('lowStockBadge');
+  if (!b) return;
+  if (count > 0) { b.textContent = count; b.style.display = 'inline-block'; }
+  else b.style.display = 'none';
 }
 
 // â”€â”€ Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2471,6 +2581,8 @@ async function loadInventory() {
   sel.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
   renderInv(invItems);
   updateAddBtnLabels();
+  const _lsCount=invItems.filter(i=>parseFloat(i.stock??0)<=parseFloat(i.low_stock_threshold??5)).length;
+  _updateLowStockBadge(_lsCount);
 }
 function filterInv() {
   const q=document.getElementById('invSearch').value.toLowerCase();
