@@ -193,27 +193,31 @@ if (_urlSid) switchTab('mgr');
 
 // Auto-redirect if already logged in
 (async () => {
-  // Check manager session
+  // Check owner session first — owner always goes to dashboard
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session) {
+    const { data: store } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).single();
+    if (store) {
+      localStorage.setItem('pm_store_id', store.id);
+      location.href = 'dashboard.html';
+      return;
+    } else {
+      location.href = 'signup.html';
+      return;
+    }
+  }
+  // Only auto-redirect manager if ?sid= is in the URL (manager came via their login link)
+  if (!_urlSid) return;
   const mgrRaw = localStorage.getItem('pm_mgr');
   if (mgrRaw) {
     try {
       const mgr = JSON.parse(mgrRaw);
-      if (mgr.ts && (Date.now() - mgr.ts) < 8 * 3600 * 1000) {
+      if (mgr.store_id === _urlSid && mgr.ts && (Date.now() - mgr.ts) < 8 * 3600 * 1000) {
         location.href = 'manager.html?sid=' + mgr.store_id;
         return;
       }
     } catch(_) {}
     localStorage.removeItem('pm_mgr');
-  }
-  // Check owner session
-  const { data: { session } } = await _sb.auth.getSession();
-  if (!session) return;
-  const { data: store } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).single();
-  if (store) {
-    localStorage.setItem('pm_store_id', store.id);
-    location.href = 'dashboard.html';
-  } else {
-    location.href = 'signup.html';
   }
 })();
 </script>
