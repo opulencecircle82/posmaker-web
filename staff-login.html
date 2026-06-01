@@ -129,7 +129,7 @@ async function doLogin() {
     const session = { store_id: SID, staff_id: staff.id, name: staff.full_name || staff.username, role: staff.role, ts: Date.now() };
     localStorage.setItem('pm_mgr', JSON.stringify(session));
     // Record login to staff_logs so dashboard shows Last Login
-    _sb.from('staff_logs').insert({ staff_id: staff.id, login_at: new Date().toISOString() }).then(() => {});
+    _sb.from('staff_logs').insert({ store_id: SID, staff_id: staff.id, login_at: new Date().toISOString() }).then(() => {});
     location.href = 'manager.html?sid=' + SID;
   } catch(e) {
     errEl.textContent = e.message || 'Login failed.';
