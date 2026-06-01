@@ -2315,7 +2315,11 @@ async function loadActivityLog() {
   if (!tbody) return;
   if (!STORE?.id) { tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:#ef4444;padding:24px”>Store not loaded. Refresh the page.</td></tr>'; return; }
   tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:var(--muted);padding:24px”>Loading...</td></tr>';
-  const { data, error } = await _sb.rpc('get_store_activity_logs', { p_store_id: STORE.id });
+  const { data, error } = await _sb.from('activity_logs')
+    .select('id,actor_name,actor_role,action,target_name,details,created_at')
+    .eq('store_id', STORE.id)
+    .order('created_at', { ascending: false })
+    .limit(500);
   if (error) { tbody.innerHTML = `<tr><td colspan=”6” style=”text-align:center;padding:20px;color:#ef4444”>Error: ${error.message}</td></tr>`; return; }
   if (!data || data.length === 0) {
     tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:var(--muted);padding:24px”>No activity found.</td></tr>';
