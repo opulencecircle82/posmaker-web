@@ -191,7 +191,7 @@ async function init(){
   await loadInv();
   if (MGR?.staff_id) {
     _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id });
-    _pingInterval = setInterval(() => { if (MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }); }, 2 * 60 * 1000);
+    _pingInterval = setInterval(() => { if (MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }); }, 30 * 1000);
   }
 }
 

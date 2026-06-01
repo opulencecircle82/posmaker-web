@@ -1164,7 +1164,7 @@ function adaptDashboardToBizType(bizType) {
 let _staffRefreshTimer = null;
 function nav(id) {
   if (_staffRefreshTimer) { clearInterval(_staffRefreshTimer); _staffRefreshTimer = null; }
-  if (id === 'staff') _staffRefreshTimer = setInterval(loadStaff, 60 * 1000);
+  if (id === 'staff') _staffRefreshTimer = setInterval(loadStaff, 30 * 1000);
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-' + id).classList.add('active');
@@ -2206,7 +2206,7 @@ function renderStaff(staff) {
   if (!staff.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No staff. Click + Add Staff to create one.</td></tr>'; return; }
   tbody.innerHTML = staff.map(s => {
     const _ll = s._lastLogin ? new Date(s._lastLogin) : null;
-    const _isOnline = s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 5 * 60 * 1000;
+    const _isOnline = s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 2 * 60 * 1000;
     const lastLogin = _isOnline
       ? '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;box-shadow:0 0 6px #22c55e"></span><span style="color:#22c55e;font-weight:600">Online</span></span>'
       : _ll
