@@ -104,6 +104,26 @@ CREATE TABLE IF NOT EXISTS order_items (
   qty        INTEGER
 );
 
+-- Activity Log (stock edits, price changes, etc. by staff)
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id    UUID        REFERENCES stores NOT NULL,
+  actor_name  TEXT        NOT NULL,
+  actor_role  TEXT        DEFAULT 'cashier',
+  action      TEXT        NOT NULL,   -- ADD_STOCK | EDIT_ITEM | ADD_ITEM
+  target_name TEXT        DEFAULT '',
+  details     TEXT        DEFAULT '',
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS al_owner   ON activity_logs;
+DROP POLICY IF EXISTS al_anon_rw ON activity_logs;
+CREATE POLICY al_owner ON activity_logs FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+CREATE POLICY al_anon_rw ON activity_logs FOR ALL TO anon
+  USING (TRUE) WITH CHECK (TRUE);
+
 -- Staff Login Logs
 CREATE TABLE IF NOT EXISTS staff_logs (
   id        UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
