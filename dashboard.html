@@ -1087,7 +1087,7 @@ function _sig(ms = 12000) {
   const cashierUrl = `${location.origin}${location.pathname.replace('dashboard.html','cashier.html')}?store=${store.id}`;
   document.getElementById('cashierLinkBox').textContent = cashierUrl;
   document.getElementById('openCashierBtn').href = cashierUrl;
-  document.getElementById('testPosBtn').href = cashierUrl;
+  const _tpb = document.getElementById('testPosBtn'); if (_tpb) _tpb.href = cashierUrl;
 
   // Fill settings form
   document.getElementById('sName').value     = store.name || '';
@@ -2316,6 +2316,7 @@ async function loadActivityLog() {
   if (!STORE?.id) { tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:#ef4444;padding:24px”>Store not loaded. Refresh the page.</td></tr>'; return; }
   tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:var(--muted);padding:24px”>Loading...</td></tr>';
   const { data, error } = await _sb.rpc('get_activity_logs', { p_store_id: STORE.id });
+  console.log('[ActivityLog] data:', data?.length, 'error:', error?.message, 'store:', STORE.id);
   if (error) { tbody.innerHTML = `<tr><td colspan=”6” style=”text-align:center;padding:20px;color:#ef4444”>Error: ${error.message}</td></tr>`; return; }
   if (!data || data.length === 0) {
     tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:var(--muted);padding:24px”>No activity found.</td></tr>';
