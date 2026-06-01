@@ -1,4 +1,4 @@
-const CACHE = 'posmaker-v4';
+const CACHE = 'posmaker-v5';
 // HTML pages use network-first so updates deploy immediately.
 // Other static assets (icons, config) use cache-first for offline support.
 const HTML_FILES = ['cashier.html', 'dashboard.html'];
@@ -31,12 +31,8 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  // Supabase API — let browser handle POST/auth directly (SW-intercepted POST breaks mobile auth)
-  if (url.includes('supabase.co')) {
-    if (e.request.method !== 'GET') return;
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-    return;
-  }
+  // Supabase API — never intercept, let browser handle all requests directly
+  if (url.includes('supabase.co')) return;
   // HTML pages — network-first so fixes deploy immediately; fallback to cache offline
   const isHtml = HTML_FILES.some(f => url.endsWith(f) || url.endsWith(f + '?') || url.includes(f + '?'));
   if (isHtml || e.request.headers.get('accept')?.includes('text/html')) {
