@@ -379,7 +379,15 @@ async function doSetup() {
     btn.disabled = false; btn.textContent = 'Create Account'; return;
   }
   showToast('Account created! Logging you in…');
-  await performLogin(user, hash);
+  try {
+    await performLogin(user, hash);
+  } catch(_) {
+    errEl.textContent = '';
+    btn.disabled = false; btn.textContent = 'Create Account';
+    show('pgLogin');
+    document.getElementById('lgUser').value = user;
+    showToast('Account created! Please log in now.');
+  }
 }
 
 // ── Login ────────────────────────────────────────────────────────────────────
