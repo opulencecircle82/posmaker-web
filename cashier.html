@@ -171,7 +171,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .act-note a{color:var(--accent);text-decoration:none}
 
 /* ── CAMERA SCANNER ─────────────────────────────────────── */
-#camOverlay{position:fixed;bottom:60px;left:10px;z-index:9100;background:#111120;border:2px solid var(--accent);border-radius:10px;width:196px;box-shadow:0 6px 24px rgba(0,0,0,.75);overflow:hidden;display:none}
+#camOverlay{position:fixed;bottom:60px;left:10px;z-index:9100;background:#111120;border:2px solid var(--accent);border-radius:10px;width:196px;box-shadow:0 6px 24px rgba(0,0,0,.75);overflow:hidden;visibility:hidden;pointer-events:none}
 .cam-hdr{display:flex;align-items:center;justify-content:space-between;padding:5px 9px;background:#191929;border-bottom:1px solid #252540}
 .cam-hdr-ttl{font-size:11px;font-weight:700;color:var(--accent)}
 .cam-cls{background:none;border:none;color:#888;cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
@@ -618,10 +618,8 @@ function showPOS(name) {
   updateNetStatus();
   syncOfflineQueue();
   startPing();
-  // Only auto-open if stream is already live (resume path — safe on all devices).
-  // If no stream yet, cashier taps 📷 — this ensures getUserMedia is called from a user gesture.
-  const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
-  if(isLive) _openScanTimer = setTimeout(openScanner, 400);
+  // Auto-open scanner; pre-warm ensures stream is live so this takes the fast resume path
+  _openScanTimer = setTimeout(openScanner, 500);
 }
 
 async function doLogout() {
@@ -1402,6 +1400,22 @@ async function installPWA() {
   if (outcome === 'accepted') _pwaPrompt = null;
 }
 
+// ── Camera pre-warm: start stream silently on page load ──────────────────
+// This ensures v.play() is already done before the user taps the camera button.
+// visibility:hidden keeps the video element "alive" so Chrome never auto-pauses it.
+async function _prewarmCamera() {
+  if (_camStream) return;
+  try {
+    _camStream = await Promise.race([
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 } } }),
+      new Promise((_, rej) => setTimeout(() => rej(), 12000))
+    ]);
+    const v = document.getElementById('camVideo');
+    if (v) { v.srcObject = _camStream; v.play().catch(() => {}); }
+  } catch (_) {}
+}
+setTimeout(_prewarmCamera, 2500);
+
 // ── Service Worker — auto-update, no button needed ───────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(reg => {
@@ -1435,9 +1449,9 @@ async function openScanner(){
   _cameraOpening = true;
   scannerOpen = true;
   _scanSession++;
-  document.getElementById('camOverlay').style.display = 'block';
+  const _ov = document.getElementById('camOverlay');
+  _ov.style.visibility = 'visible'; _ov.style.pointerEvents = 'auto';
   document.getElementById('btnCam').style.opacity = '1';
-  _zxingReader = null; // always fresh reader to avoid stale state
   const v = document.getElementById('camVideo');
   const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
   if(isLive){
@@ -1499,7 +1513,8 @@ async function openScanner(){
 function closeScanner(){
   scannerOpen = false;
   _scanSession++;
-  document.getElementById('camOverlay').style.display = 'none';
+  const _ov2 = document.getElementById('camOverlay');
+  _ov2.style.visibility = 'hidden'; _ov2.style.pointerEvents = 'none';
   document.getElementById('btnCam').style.opacity = '0.75';
   if(_bcLoopId){ clearTimeout(_bcLoopId); _bcLoopId=null; }
   if(_txtLoopId){ clearTimeout(_txtLoopId); _txtLoopId=null; }
@@ -1526,7 +1541,7 @@ function startBcLoop(video){
     loadScript('https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.4/umd/index.min.js')
       .then(()=>startBcLoop(video)); return;
   }
-  _zxingReader = new ZXingBrowser.BrowserMultiFormatReader();
+  if(!_zxingReader) _zxingReader = new ZXingBrowser.BrowserMultiFormatReader();
   // Small fixed canvas — ZXing WASM decode is synchronous; full-res camera frames
   // (1920×1080 on phones) block the main thread for 300-800ms per attempt
   const bc = document.createElement('canvas'); bc.width=480; bc.height=270;
