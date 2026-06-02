@@ -522,13 +522,9 @@ async function init() {
 
   // Check if dev_admins table exists and has entries
   try {
-    const { data, error } = await _sb.from('dev_admins').select('id', { count: 'exact', head: true });
+    const { error } = await _sb.from('dev_admins').select('id', { count: 'exact', head: true });
     if (error) {
-      // Table likely doesn't exist — show SQL setup
       showSqlSetup(); return;
-    }
-    if ((data === null) || !(await countDevAdmins())) {
-      show('pgSetup'); return;
     }
     show('pgLogin');
   } catch(_) {
