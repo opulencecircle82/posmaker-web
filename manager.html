@@ -53,6 +53,7 @@ input:focus{border-color:var(--accent)}
 .datepick-drop.open{display:block}
 .act-add{background:#0d2e1f;color:#10b981}
 .act-edit{background:#0d1a2e;color:#00b4d8}
+.act-remit{background:#2e1a0d;color:#f59e0b}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;pointer-events:none}
 </style>
 </head>
@@ -459,13 +460,14 @@ async function loadLog(){
   tb.innerHTML = data.map(l=>{
     const dt = new Date(l.created_at);
     const ds = dt.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})+' '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    const cls = l.action==='ADD_STOCK'?'act-add':l.action==='EDIT_ITEM'?'act-edit':'';
+    const cls = l.action==='ADD_STOCK'?'act-add':l.action==='EDIT_ITEM'?'act-edit':l.action==='REMITTANCE'?'act-remit':'';
     let det='';
     try{
       const d=JSON.parse(l.details||'{}');
       if(l.action==='ADD_STOCK') det=`+${d.added} (${d.before}→${d.after})${d.note?' · '+d.note:''}`;
       else if(l.action==='EDIT_ITEM') det=`Unit: ${d.unit}, Low alert: ${d.low_stock_threshold}`;
-    }catch{}
+      else if(l.action==='REMITTANCE') det=d.result+(d.note?' · '+d.note:'');
+    }catch{ det=l.details||''; }
     return `<tr>
       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${ds}</td>
       <td><span class="act-chip ${cls}">${l.action.replace('_',' ')}</span></td>
@@ -701,6 +703,8 @@ async function saveRemit() {
     status, description: desc || null
   });
   if (error) { showToast('Error: ' + error.message, true); btn.disabled = false; btn.textContent = 'Save'; return; }
+  const diffLabel = status==='short' ? `Short -₱${Math.abs(diff).toFixed(2)}` : status==='over' ? `Over +₱${Math.abs(diff).toFixed(2)}` : 'Balanced';
+  await logAction('REMITTANCE', cashier, { result: diffLabel, ...(desc ? { note: desc } : {}) });
   closeModal('remitModal');
   await loadRemit();
   showToast('Remittance recorded.');
