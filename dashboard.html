@@ -1492,6 +1492,22 @@ async function loadDashboard() {
     } else { alertEl.style.display = 'none'; }
     _updateLowStockBadge(lowItems.length);
 
+    // Auto-send Telegram low stock alert once per day
+    if (lowItems.length && STORE.telegram_bot_token && STORE.telegram_chat_id) {
+      const _tgKey = 'pm_tg_sent_' + STORE.id;
+      const _today = new Date().toDateString();
+      if (localStorage.getItem(_tgKey) !== _today) {
+        localStorage.setItem(_tgKey, _today);
+        const _lines = lowItems.map(i => {
+          const s = parseFloat(i.stock ?? 0);
+          return `• ${i.name}: <b>${s <= 0 ? 'OUT OF STOCK' : s + ' ' + (i.unit || 'pc') + ' left'}</b>`;
+        }).join('\n');
+        sendTelegramMsg(STORE.telegram_bot_token, STORE.telegram_chat_id,
+          `⚠️ <b>Low Stock Alert</b> — ${STORE.name}\n\n${_lines}\n\n<i>${new Date().toLocaleString()}</i>`
+        ).catch(() => {});
+      }
+    }
+
     // Update table header with today's date
     const dateLabel = now.toLocaleDateString('en-PH', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
     document.querySelector('#sec-dashboard .tbl-head h3').textContent = "Today's Orders — " + dateLabel;
