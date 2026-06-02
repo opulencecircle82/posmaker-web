@@ -252,11 +252,16 @@ let _paypalLoaded = false;
 
 // ── Load PayPal SDK ──────────────────────────────────────────────────────────
 function loadPayPalSDK() {
-  if (_paypalLoaded || document.getElementById('paypal-sdk')) return;
+  const existing = document.getElementById('paypal-sdk');
+  if (existing) { if (_paypalLoaded) return; existing.remove(); _paypalLoaded = false; }
   const s = document.createElement('script');
   s.id = 'paypal-sdk';
   s.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=${PAYPAL_CURRENCY}&intent=capture`;
   s.onload = () => { _paypalLoaded = true; };
+  s.onerror = () => {
+    _paypalLoaded = false;
+    document.getElementById('paypalLoading').innerHTML = 'Failed to load PayPal. <a href="#" onclick="loadPayPalSDK();renderPayPalButton();return false" style="color:var(--accent)">Retry</a>';
+  };
   document.head.appendChild(s);
 }
 loadPayPalSDK();
@@ -298,8 +303,12 @@ function renderPayPalButton() {
   const loading   = document.getElementById('paypalLoading');
   container.innerHTML = '';
 
+  let _tries = 0;
   const tryRender = () => {
-    if (typeof paypal === 'undefined') { setTimeout(tryRender, 300); return; }
+    if (typeof paypal === 'undefined') {
+      if (++_tries > 40) { loading.innerHTML = 'PayPal failed to load. <a href="#" onclick="loadPayPalSDK();renderPayPalButton();return false" style="color:var(--accent)">Retry</a>'; return; }
+      setTimeout(tryRender, 300); return;
+    }
     loading.style.display = 'none';
     paypal.Buttons({
       style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
