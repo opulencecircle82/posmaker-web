@@ -130,6 +130,9 @@ input:focus{border-color:var(--accent)}
         <button class="btn btn-ghost btn-sm datepick-btn" onclick="toggleDP('dpSfTo');event.stopPropagation()"><span id="dpSfToLabel">To</span> &#9660;</button>
         <div class="datepick-drop" id="dpSfToDrop" data-input="sfTo" data-placeholder="To" data-cb="applySalesCustomDate"></div>
       </div>
+      <select id="sfCashier" onchange="filterSalesByCashier()" style="padding:5px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;outline:none">
+        <option value="">All Cashiers</option>
+      </select>
       <button class="btn btn-accent btn-sm" onclick="downloadSalesCSV()" style="margin-left:auto">&#8595; Download Excel</button>
     </div>
     <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px">
@@ -487,7 +490,7 @@ async function logAction(action, targetName, details){
   });
 }
 
-let _salesPeriod = 'day', _salesData = [];
+let _salesPeriod = 'day', _salesData = [], _salesAllData = [];
 function setSalesPeriod(p) {
   _salesPeriod = p;
   ['day','week','month'].forEach(x => {
@@ -532,14 +535,29 @@ async function loadSales(){
   if (periodEnd)   q = q.lte('timestamp', periodEnd);
   const { data: orders } = await q;
 
-  _salesData = orders || [];
+  _salesAllData = orders || [];
+  const _sfcs = document.getElementById('sfCashier');
+  const _sfcPrev = _sfcs.value;
+  _sfcs.innerHTML = '<option value="">All Cashiers</option>';
+  [...new Set(_salesAllData.map(o=>o.cashier_name).filter(Boolean))].sort().forEach(c=>_sfcs.appendChild(new Option(c,c)));
+  if(_sfcPrev) _sfcs.value = _sfcPrev;
+  _salesData = _sfcs.value ? _salesAllData.filter(o=>o.cashier_name===_sfcs.value) : _salesAllData;
+  renderSalesData();
+}
+
+function filterSalesByCashier() {
+  const cashier = document.getElementById('sfCashier').value;
+  _salesData = cashier ? _salesAllData.filter(o=>o.cashier_name===cashier) : _salesAllData;
+  renderSalesData();
+}
+
+function renderSalesData() {
+  const CUR = '₱';
   const totalRev = _salesData.reduce((s,o) => s + (o.total||0), 0);
   const avg = _salesData.length ? totalRev / _salesData.length : 0;
-
   document.getElementById('salesCount').textContent = _salesData.length;
   document.getElementById('salesRev').textContent   = CUR + totalRev.toFixed(2);
   document.getElementById('salesAvg').textContent   = CUR + avg.toFixed(2);
-
   const tb = document.getElementById('salesTbody');
   if (!_salesData.length) { tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--muted)">No orders for this period.</td></tr>'; return; }
   tb.innerHTML = _salesData.map(o => {
@@ -549,7 +567,7 @@ async function loadSales(){
       <td style="color:var(--muted);font-size:12px">#${o.id}</td>
       <td style="font-size:12px;white-space:nowrap">${ds}</td>
       <td>${o.cashier_name||'—'}</td>
-      <td style="font-weight:700;color:var(--accent)">₱${(o.total||0).toFixed(2)}</td>
+      <td style="font-weight:700;color:var(--accent)">&#8369;${(o.total||0).toFixed(2)}</td>
       <td><span class="act-chip">${o.payment_method||'Cash'}</span></td>
     </tr>`;
   }).join('');
