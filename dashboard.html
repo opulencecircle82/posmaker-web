@@ -410,6 +410,9 @@ input:checked + .slider:before{transform:translateX(18px)}
               <div class="datepick-drop" id="dpRptToDrop" data-input="rptTo" data-placeholder="To"></div>
             </div>
             <button class="btn btn-ghost btn-sm" onclick="loadReport('custom')">Go</button>
+            <select id="rptCashier" onchange="filterReportByCashier()" style="padding:5px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;outline:none">
+              <option value="">All Cashiers</option>
+            </select>
             <button class="btn btn-accent btn-sm" id="rptDownload" onclick="downloadReport()" style="display:none">&#128229; Download Excel</button>
           </div>
         </div>
@@ -1510,6 +1513,12 @@ async function loadDashboard() {
 // ── Sales Report ────────────────────────────────────────────────────────────────
 let rptData = [];
 
+let _rptAllData = [], _rptFrom = null, _rptTo = null;
+function filterReportByCashier() {
+  const cashier = document.getElementById('rptCashier').value;
+  rptData = cashier ? _rptAllData.filter(o => o.cashier_name === cashier) : _rptAllData;
+  renderReport(rptData, _rptFrom, _rptTo);
+}
 async function loadReport(period) {
   if(!STORE){ document.getElementById('rptContent').innerHTML = '<div style="padding:20px;color:var(--muted)">Store not loaded yet. Please wait...</div>'; return; }
   const now = new Date();
@@ -1549,17 +1558,24 @@ async function loadReport(period) {
 
   if(error){ document.getElementById('rptContent').innerHTML = '<div style=”padding:20px;color:#f87171”>' + error.message + '</div>'; return; }
 
-  rptData = data || [];
-  if(rptData.length) {
-    const ids = rptData.map(o => o.id);
+  _rptAllData = data || [];
+  if(_rptAllData.length) {
+    const ids = _rptAllData.map(o => o.id);
     const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids);
     const imap = {};
     (items || []).forEach(i => {
       if(!imap[i.order_id]) imap[i.order_id] = [];
       imap[i.order_id].push(i.qty > 1 ? `${i.name} x${i.qty}` : i.name);
     });
-    rptData.forEach(o => { o._items = imap[o.id] || []; });
+    _rptAllData.forEach(o => { o._items = imap[o.id] || []; });
   }
+  _rptFrom = from; _rptTo = to;
+  const _cs = document.getElementById('rptCashier');
+  const _prev = _cs.value;
+  _cs.innerHTML = '<option value="">All Cashiers</option>';
+  [...new Set(_rptAllData.map(o => o.cashier_name).filter(Boolean))].sort().forEach(c => _cs.appendChild(new Option(c, c)));
+  if(_prev) _cs.value = _prev;
+  rptData = _cs.value ? _rptAllData.filter(o => o.cashier_name === _cs.value) : _rptAllData;
   renderReport(rptData, from, to);
 }
 
