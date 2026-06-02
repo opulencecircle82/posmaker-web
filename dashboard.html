@@ -1050,6 +1050,7 @@ let invItems = [];
 const FREE_PROD_LIMIT = 3;
 const FREE_INV_LIMIT  = 3;
 const FREE_POS_LIMIT  = 1;
+let IS_PRO = false;
 let allStores = [];
 
 function _sig(ms = 12000) {
@@ -1096,6 +1097,12 @@ function _sig(ms = 12000) {
   localStorage.setItem('pm_store_id', store.id);
   document.getElementById('sbStore').textContent = store.name;
   adaptDashboardToBizType(store.business_type);
+
+  // Check subscription → unlock pro features if active
+  const { data: _subRows } = await _sb.from('subscriptions')
+    .select('id').eq('store_id', store.id).eq('status', 'active')
+    .gte('expires_at', new Date().toISOString()).limit(1);
+  IS_PRO = !!(_subRows && _subRows.length > 0);
 
   document.getElementById('loadingPage').style.display = 'none';
   const appWrap = document.getElementById('appWrap');
@@ -1868,15 +1875,15 @@ function updateAddBtnLabels() {
   const pb = document.getElementById('btnAddProd');
   if (pb) {
     const c = allProds.length;
-    const over = c >= FREE_PROD_LIMIT;
-    pb.textContent = over ? `+ Add (${c}/${FREE_PROD_LIMIT} — Full)` : `+ Add (${c}/${FREE_PROD_LIMIT})`;
+    const over = !IS_PRO && c >= FREE_PROD_LIMIT;
+    pb.textContent = IS_PRO ? `+ Add Product` : (over ? `+ Add (${c}/${FREE_PROD_LIMIT} — Full)` : `+ Add (${c}/${FREE_PROD_LIMIT})`);
     pb.style.background = over ? '#6b7280' : '';
   }
   const ib = document.getElementById('btnAddInv');
   if (ib) {
     const c = invItems.length;
-    const over = c >= FREE_INV_LIMIT;
-    ib.textContent = over ? `+ Add Item (${c}/${FREE_INV_LIMIT} — Full)` : `+ Add Item (${c}/${FREE_INV_LIMIT})`;
+    const over = !IS_PRO && c >= FREE_INV_LIMIT;
+    ib.textContent = IS_PRO ? `+ Add Item` : (over ? `+ Add Item (${c}/${FREE_INV_LIMIT} — Full)` : `+ Add Item (${c}/${FREE_INV_LIMIT})`);
     ib.style.background = over ? '#6b7280' : '';
   }
 }
@@ -2036,6 +2043,7 @@ function showInstallModal(type) {
   document.getElementById('posInstallModal').classList.add('show');
 }
 function tryAddPOS() {
+  if (IS_PRO) { showToast('Open the Cashier Link on any new device to register it as a POS terminal.'); return; }
   document.getElementById('upgradeMsg').innerHTML =
     `You have <strong>${allStores.length}/${FREE_POS_LIMIT}</strong> POS terminal &mdash; that&apos;s the free plan limit.<br>Upgrade to Pro to run multiple POS counters or branches under one account.`;
   document.getElementById('upgradeModal').classList.add('show');
@@ -2043,15 +2051,15 @@ function tryAddPOS() {
 function updateAddPOSBtn() {
   const btn = document.getElementById('btnAddPOS');
   if (!btn) return;
-  const over = allStores.length >= FREE_POS_LIMIT;
-  btn.textContent = over ? `+ Add POS (${allStores.length}/${FREE_POS_LIMIT} — Full)` : `+ Add POS (${allStores.length}/${FREE_POS_LIMIT})`;
+  const over = !IS_PRO && allStores.length >= FREE_POS_LIMIT;
+  btn.textContent = IS_PRO ? `+ Add POS` : (over ? `+ Add POS (${allStores.length}/${FREE_POS_LIMIT} — Full)` : `+ Add POS (${allStores.length}/${FREE_POS_LIMIT})`);
   btn.style.background = over ? '#6b7280' : '';
   const badge = document.getElementById('posNavBadge');
-  if (badge) badge.textContent = `${allStores.length}/${FREE_POS_LIMIT}`;
+  if (badge) badge.textContent = IS_PRO ? `${allStores.length}` : `${allStores.length}/${FREE_POS_LIMIT}`;
 }
 function openProdModal(p) {
   if(typeof p === 'string') p = allProds.find(x => x.id === p) || null;
-  if (!p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
+  if (!IS_PRO && !p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
   document.getElementById('prodModalTitle').textContent=p?'Edit Product':'Add Product';
   document.getElementById('prodId').value=p?p.id:'';
   document.getElementById('pName').value=p?p.name:'';
@@ -2754,7 +2762,7 @@ function openInvFromProd(){
   openInvModal(null);
 }
 async function openInvModal(item){
-  if (!item && invItems.length >= FREE_INV_LIMIT) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
+  if (!IS_PRO && !item && invItems.length >= FREE_INV_LIMIT) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
   _invPendingImgs=[];
   if(item){
     // Primary: load directly from inventory_items.image_b64
