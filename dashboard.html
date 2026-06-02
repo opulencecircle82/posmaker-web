@@ -1097,6 +1097,27 @@ function _sig(ms = 12000) {
   document.getElementById('sbStore').textContent = store.name;
   adaptDashboardToBizType(store.business_type);
 
+  // ── Subscription gate ─────────────────────────────────────────────────
+  const { data: _activeSub } = await _sb.from('subscriptions')
+    .select('id,plan_name,expires_at')
+    .eq('store_id', store.id)
+    .eq('status', 'active')
+    .gte('expires_at', new Date().toISOString())
+    .maybeSingle();
+  if (!_activeSub) {
+    document.getElementById('loadingPage').innerHTML = `
+      <div style="text-align:center;max-width:380px;margin:0 auto;padding:20px">
+        <div style="font-size:52px;margin-bottom:16px">&#128274;</div>
+        <div style="font-size:22px;font-weight:800;margin-bottom:8px">Subscription Required</div>
+        <div style="font-size:14px;color:#8888aa;margin-bottom:24px;line-height:1.6">
+          Your store doesn't have an active subscription.<br>Subscribe to unlock full dashboard access.
+        </div>
+        <button onclick="window.open('pricing.html','_blank')" style="padding:12px 32px;background:#00b4d8;border:none;color:#fff;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;display:block;width:100%;margin-bottom:10px">&#128640; View Plans</button>
+        <button onclick="location.reload()" style="padding:10px;background:transparent;border:1.5px solid #252540;color:#8888aa;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;width:100%">Already subscribed? Refresh</button>
+      </div>`;
+    return;
+  }
+
   document.getElementById('loadingPage').style.display = 'none';
   const appWrap = document.getElementById('appWrap');
   appWrap.style.display = 'flex';
