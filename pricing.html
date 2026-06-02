@@ -345,10 +345,12 @@ async function saveSubscription(orderId) {
   const { data: storeId } = await _sb.rpc('get_store_id_by_email', { p_email: _selectedEmail }).catch(() => ({ data: null }));
 
   const { data, error } = await _sb.rpc('upsert_subscription', {
-    p_email:    _selectedEmail,
-    p_plan:     _selectedPlan.toLowerCase(),
-    p_order_id: orderId,
-    p_store_id: storeId || null
+    p_email:     _selectedEmail,
+    p_plan_name: _selectedPlan.toLowerCase(),
+    p_order_id:  orderId,
+    p_amount:    parseFloat(_selectedPrice),
+    p_currency:  PAYPAL_CURRENCY,
+    p_store_id:  storeId || null
   });
   if (error) { console.error('Subscription save error:', error); }
 
