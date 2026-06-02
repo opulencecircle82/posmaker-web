@@ -1441,8 +1441,10 @@ async function openScanner(){
     // Re-attach stream in case the video element lost it while hidden
     if(v.srcObject !== _camStream) v.srcObject = _camStream;
     camStat('Camera resuming...');
-    // v.play() can hang forever on Android — race it against a 1.5s timeout
-    await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,1500))]);
+    // Only call play() if actually paused — play() on Android can block the renderer thread
+    if(v.paused){
+      await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,1500))]);
+    }
     // Wait for video to produce frames (max 2s)
     if(v.videoWidth === 0){
       await new Promise(res=>{ v.onloadeddata=res; setTimeout(res,2000); });
@@ -1452,7 +1454,9 @@ async function openScanner(){
     if(v.videoWidth > 0){
       camStat(_scanModes());
       startBcLoop(v); startTextLoop(v); startVisualLoop(v);
-      _loadMnModel().then(ok=>{ if(ok&&scannerOpen) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } }); }); return;
+      // Only run AI features if model is already loaded — never trigger heavy TF.js init from scanner open
+      if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
+      return;
     }
     // Stream alive but video frozen — stop it and do a fresh getUserMedia below
     _camStream.getTracks().forEach(t=>t.stop()); _camStream=null;
@@ -1500,9 +1504,7 @@ function closeScanner(){
   if(_aiLoopId){ clearTimeout(_aiLoopId); _aiLoopId=null; }
   _visConf = {}; _mnConf = {};
   _cameraOpening = false;
-  // Pause video decoding to free GPU/CPU while overlay is hidden; stream stays alive for fast re-open
-  const _cv = document.getElementById('camVideo');
-  if(_cv && !_cv.paused) _cv.pause();
+  // Do NOT pause — calling v.play() to resume on Android can block the renderer thread
 }
 
 function stopCamera(){
