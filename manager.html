@@ -176,8 +176,23 @@ input:focus{border-color:var(--accent)}
   </div>
   </div><!-- end left col -->
 
+  <!-- RIGHT COLUMN -->
+  <div style="position:sticky;top:72px;align-self:start;display:flex;flex-direction:column;gap:12px">
+
+  <!-- CASH ON HAND SUMMARY -->
+  <div class="card" style="padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="font-weight:700;font-size:14px">&#128181; Cash on Hand</div>
+      <button onclick="loadCashSummary()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1" title="Refresh">&#8635;</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="cashSummaryDate"></div>
+    <div id="cashSummary">
+      <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">Loading...</div>
+    </div>
+  </div>
+
   <!-- MONITOR PANEL -->
-  <div class="card" style="position:sticky;top:72px;padding:16px">
+  <div class="card" style="padding:16px">
     <div style="font-weight:700;font-size:14px;margin-bottom:12px">&#128202; Stock Monitor</div>
     <div style="display:flex;gap:3px;background:var(--s2);border-radius:8px;padding:3px;margin-bottom:10px">
       <button class="tab-btn active" id="mnTabSales" onclick="setMonitorTab('sales')" style="flex:1;padding:5px 4px;font-size:11px">Top Sales</button>
@@ -193,6 +208,8 @@ input:focus{border-color:var(--accent)}
       <div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">Loading...</div>
     </div>
   </div>
+
+  </div><!-- end right col -->
   </div><!-- end grid -->
 </div>
 
@@ -316,6 +333,7 @@ async function init(){
   }
   show('mainContent');
   await loadInv();
+  loadCashSummary();
   loadMonitor();
   if (MGR?.staff_id) {
     _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }).then(() => {});
@@ -762,7 +780,58 @@ async function saveRemit() {
   await logAction('REMITTANCE', cashier, { result: diffLabel, ...(desc ? { note: desc } : {}) });
   closeModal('remitModal');
   await loadRemit();
+  loadCashSummary();
   showToast('Remittance recorded.');
+}
+
+// ── Cash on Hand Summary ────────────────────────────────────────────────────
+async function loadCashSummary() {
+  const today = new Date().toISOString().slice(0, 10);
+  const el = document.getElementById('cashSummary');
+  const dateEl = document.getElementById('cashSummaryDate');
+  if (dateEl) dateEl.textContent = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const { data } = await _sb.from('cash_remittances')
+    .select('cashier_name,cash_on_hand,pos_sales,difference,status')
+    .eq('store_id', MGR.store_id)
+    .eq('shift_date', today)
+    .order('created_at', { ascending: true });
+
+  const rows = data || [];
+  if (!rows.length) {
+    el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px">No remittances recorded today.</div>';
+    return;
+  }
+
+  const total = rows.reduce((s, r) => s + parseFloat(r.cash_on_hand || 0), 0);
+
+  el.innerHTML = `
+    <div style="background:var(--s2);border-radius:8px;padding:10px 12px;text-align:center;margin-bottom:10px">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.5px;margin-bottom:2px">TOTAL CASH COLLECTED</div>
+      <div style="font-size:26px;font-weight:800;color:#10b981">&#8369;${total.toFixed(2)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">${rows.length} cashier${rows.length > 1 ? 's' : ''}</div>
+    </div>
+    ${rows.map(r => {
+      const cash = parseFloat(r.cash_on_hand || 0);
+      const diff = parseFloat(r.difference || 0);
+      const diffColor = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : 'var(--muted)';
+      const statusBadge = r.status === 'over'
+        ? `<span style="font-size:10px;font-weight:700;color:#10b981">Over</span>`
+        : r.status === 'short'
+        ? `<span style="font-size:10px;font-weight:700;color:#ef4444">Short</span>`
+        : `<span style="font-size:10px;color:var(--muted)">OK</span>`;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:600">${r.cashier_name}</div>
+          <div style="font-size:11px;color:${diffColor}">${diff >= 0 ? '+' : ''}&#8369;${Math.abs(diff).toFixed(2)} vs POS</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:700;color:#10b981">&#8369;${cash.toFixed(2)}</div>
+          ${statusBadge}
+        </div>
+      </div>`;
+    }).join('')}
+  `;
 }
 
 // ── Monitor Panel ──────────────────────────────────────────────────────────
