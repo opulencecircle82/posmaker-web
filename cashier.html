@@ -609,6 +609,7 @@ function startPing() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); });
 }
 
+let _openScanTimer = null;
 function showPOS(name) {
   CASHIER_NAME = name;
   document.getElementById('loginWrap').style.display = 'none';
@@ -617,13 +618,16 @@ function showPOS(name) {
   updateNetStatus();
   syncOfflineQueue();
   startPing();
-  setTimeout(openScanner, 1800); // auto-open camera on login — give camera hardware time to release after logout
+  _openScanTimer = setTimeout(openScanner, 800);
 }
 
 async function doLogout() {
+  clearTimeout(_openScanTimer); _openScanTimer = null;
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
   if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
-  closeScanner(); stopCamera();
+  // Keep camera stream alive — stopping hardware then immediately requesting it again hangs Android.
+  // The resume path in openScanner() will reuse the existing stream on next login.
+  closeScanner();
   cart = {}; CASHIER = null;
   document.getElementById('lu').value = '';
   document.getElementById('lp').value = '';
@@ -1479,6 +1483,8 @@ async function openScanner(){
     camStat(e.message==='timeout'
       ? 'Camera timed out — tap Allow when browser asks for camera permission'
       : 'Camera blocked — allow camera access in browser settings');
+    _cameraOpening = false;
+    return;
   }
   _cameraOpening = false;
 }
@@ -1502,8 +1508,9 @@ function closeScanner(){
 function stopCamera(){
   if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
   const _sv = document.getElementById('camVideo');
-  if(_sv) _sv.srcObject = null;
+  if(_sv){ _sv.srcObject = null; try{ _sv.load(); }catch(_){} }
   _zxingReader = null;
+  _cameraOpening = false;
 }
 
 function camStat(msg){ const el=document.getElementById('camStatus'); if(el) el.innerHTML=msg; }
