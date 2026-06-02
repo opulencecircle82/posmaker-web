@@ -171,7 +171,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .act-note a{color:var(--accent);text-decoration:none}
 
 /* ── CAMERA SCANNER ─────────────────────────────────────── */
-#camOverlay{position:fixed;bottom:60px;left:10px;z-index:9100;background:#111120;border:2px solid var(--accent);border-radius:10px;width:196px;box-shadow:0 6px 24px rgba(0,0,0,.75);overflow:hidden;visibility:hidden;pointer-events:none}
+#camOverlay{position:fixed;bottom:60px;left:10px;z-index:9100;background:#111120;border:2px solid var(--accent);border-radius:10px;width:220px;box-shadow:0 6px 24px rgba(0,0,0,.75);overflow:hidden;visibility:hidden;pointer-events:none}
 .cam-hdr{display:flex;align-items:center;justify-content:space-between;padding:5px 9px;background:#191929;border-bottom:1px solid #252540}
 .cam-hdr-ttl{font-size:11px;font-weight:700;color:var(--accent)}
 .cam-cls{background:none;border:none;color:#888;cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
@@ -180,6 +180,11 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 @keyframes camScan{0%,100%{top:2px}50%{top:110px}}
 #camFlash{position:absolute;left:0;right:0;top:0;height:118px;display:none;align-items:center;justify-content:center;background:rgba(16,185,129,.32);font-size:32px;color:#10b981;pointer-events:none}
 #camStatus{padding:4px 9px;font-size:10px;color:#777;min-height:24px;text-align:center;line-height:1.4}
+#camSearchInp{width:100%;background:#09090f;border:1px solid #333355;color:#f0f0f8;border-radius:5px;padding:5px 8px;font-size:12px;outline:none;box-sizing:border-box}
+#camSearchInp:focus{border-color:var(--accent)}
+#camSearchInp::placeholder{color:#444466}
+.cam-sr-btn{width:100%;text-align:left;background:#16162a;border:1px solid #252540;color:#e0e0f0;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;margin-bottom:3px;display:flex;justify-content:space-between;align-items:center}
+.cam-sr-btn:active{background:#1e1e3a}
 </style>
 </head>
 <body>
@@ -1522,6 +1527,8 @@ function closeScanner(){
   if(_aiLoopId){ clearTimeout(_aiLoopId); _aiLoopId=null; }
   _visConf = {}; _mnConf = {};
   _cameraOpening = false;
+  document.getElementById('camSearchInp').value = '';
+  document.getElementById('camSearchResults').innerHTML = '';
   // Do NOT pause — calling v.play() to resume on Android can block the renderer thread
 }
 
@@ -1854,6 +1861,31 @@ function flashMatch(name,method){
   setTimeout(()=>{ if(scannerOpen) camStat(_scanModes()); }, 2000);
 }
 
+function camSearchProds(q) {
+  const res = document.getElementById('camSearchResults');
+  if (!q.trim()) { res.innerHTML = ''; return; }
+  const lq = q.toLowerCase();
+  const hits = prods.filter(p =>
+    (p.name||'').toLowerCase().includes(lq) ||
+    (p.sku||'').toLowerCase().includes(lq)
+  ).slice(0, 5);
+  res.innerHTML = hits.map(p => {
+    const sc = parseFloat(p.stock ?? 0);
+    const stockTag = sc <= 0
+      ? `<span style="color:#ef4444;font-size:10px">Out</span>`
+      : `<span style="color:#4ade80;font-size:10px">${sc}</span>`;
+    return `<button class="cam-sr-btn" onclick="camSrAdd('${p.id}')">${p.name}${stockTag}</button>`;
+  }).join('');
+}
+
+function camSrAdd(id) {
+  addItem(id);
+  const p = prods.find(x => x.id == id);
+  if (p) flashMatch(p.name, '&#128269; search');
+  document.getElementById('camSearchInp').value = '';
+  document.getElementById('camSearchResults').innerHTML = '';
+}
+
 function loadScript(src){
   return new Promise((res,rej)=>{
     if(document.querySelector('script[src="'+src+'"]')){ res(); return; }
@@ -1875,6 +1907,10 @@ function loadScript(src){
     <div id="camFlash">&#10003;</div>
   </div>
   <div id="camStatus">Ready</div>
+  <div style="padding:6px 8px;border-top:1px solid #1e1e30">
+    <input id="camSearchInp" type="text" placeholder="&#128269; Type product name…" oninput="camSearchProds(this.value)" autocomplete="off">
+    <div id="camSearchResults" style="margin-top:4px;max-height:100px;overflow-y:auto"></div>
+  </div>
 </div>
 </body>
 </html>
