@@ -248,11 +248,11 @@ const {createClient} = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let _selectedPlan = '', _selectedPrice = '', _selectedEmail = '';
-let _paypalLoaded = false;
+let _paypalLoaded = null; // null=pending, true=ok, false=error
 
 // ── Load PayPal SDK ──────────────────────────────────────────────────────────
 (function() {
-  if (document.getElementById('paypal-sdk')) return;
+  if (document.getElementById('paypal-sdk')) { _paypalLoaded = true; return; }
   const s = document.createElement('script');
   s.id = 'paypal-sdk';
   s.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=${PAYPAL_CURRENCY}&intent=capture&components=buttons`;
@@ -329,13 +329,15 @@ function renderPayPalButton() {
 
   if (typeof paypal !== 'undefined') { _doRenderButtons(); return; }
 
+  const _showPaypalErr = () => {
+    loading.innerHTML = 'PayPal blocked or failed to load.<br><small style="color:var(--muted)">Disable ad blockers then </small><a href="#" onclick="location.reload();return false" style="color:var(--accent)">refresh page</a>';
+  };
+  if (_paypalLoaded === false) { _showPaypalErr(); return; }
   let tries = 0;
   const poll = setInterval(() => {
     if (typeof paypal !== 'undefined') { clearInterval(poll); _doRenderButtons(); return; }
-    if (++tries > 50) {
-      clearInterval(poll);
-      loading.innerHTML = 'PayPal failed to load. <a href="#" onclick="location.reload();return false" style="color:var(--accent)">Refresh page</a>';
-    }
+    if (_paypalLoaded === false) { clearInterval(poll); _showPaypalErr(); return; }
+    if (++tries > 50) { clearInterval(poll); _showPaypalErr(); }
   }, 300);
 }
 
