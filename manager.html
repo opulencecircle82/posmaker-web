@@ -45,6 +45,10 @@ input:focus{border-color:var(--accent)}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .act-chip{display:inline-block;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700}
+.datepick{position:relative;display:inline-block}
+.datepick-btn{min-width:108px;justify-content:space-between;gap:6px;font-weight:500}
+.datepick-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:400;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:10px 12px;min-width:242px;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+.datepick-drop.open{display:block}
 .act-add{background:#0d2e1f;color:#10b981}
 .act-edit{background:#0d1a2e;color:#00b4d8}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;pointer-events:none}
@@ -109,18 +113,18 @@ input:focus{border-color:var(--accent)}
       <button class="tab-btn active" id="sfDay"   onclick="setSalesPeriod('day')">Daily</button>
       <button class="tab-btn"        id="sfWeek"  onclick="setSalesPeriod('week')">Weekly</button>
       <button class="tab-btn"        id="sfMonth" onclick="setSalesPeriod('month')">Monthly</button>
-      <div style="display:flex;gap:6px;align-items:center;margin-left:8px">
-        <div style="position:relative;display:inline-block">
-          <input type="date" id="sfFrom" style="padding:6px 32px 6px 10px;font-size:13px;width:155px;cursor:pointer" onchange="setSalesPeriod('custom')">
-          <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:14px">📅</span>
-        </div>
-        <span style="color:var(--muted);font-size:13px">to</span>
-        <div style="position:relative;display:inline-block">
-          <input type="date" id="sfTo" style="padding:6px 32px 6px 10px;font-size:13px;width:155px;cursor:pointer" onchange="setSalesPeriod('custom')">
-          <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:14px">📅</span>
-        </div>
+      <input type="hidden" id="sfFrom">
+      <input type="hidden" id="sfTo">
+      <div class="datepick">
+        <button class="btn btn-ghost btn-sm datepick-btn" onclick="toggleDP('dpSfFrom');event.stopPropagation()"><span id="dpSfFromLabel">From</span> &#9660;</button>
+        <div class="datepick-drop" id="dpSfFromDrop" data-input="sfFrom" data-placeholder="From" data-cb="applySalesCustomDate"></div>
       </div>
-      <button class="btn btn-accent btn-sm" onclick="downloadSalesCSV()" style="margin-left:auto">&#11123; Download Excel</button>
+      <span style="color:var(--muted);font-size:13px">to</span>
+      <div class="datepick">
+        <button class="btn btn-ghost btn-sm datepick-btn" onclick="toggleDP('dpSfTo');event.stopPropagation()"><span id="dpSfToLabel">To</span> &#9660;</button>
+        <div class="datepick-drop" id="dpSfToDrop" data-input="sfTo" data-placeholder="To" data-cb="applySalesCustomDate"></div>
+      </div>
+      <button class="btn btn-accent btn-sm" onclick="downloadSalesCSV()" style="margin-left:auto">&#8595; Download Excel</button>
     </div>
     <div class="card" style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px">
       <div style="flex:1;min-width:120px;text-align:center">
@@ -519,6 +523,90 @@ function showToast(msg, isErr){
 
 function doLogout(){ if(_pingInterval){clearInterval(_pingInterval);_pingInterval=null;} if(MGR?.staff_id) _sb.rpc('log_staff_logout',{p_staff_id:MGR.staff_id}).then(() => {}); localStorage.removeItem('pm_mgr'); goLogin(); }
 
+// ── Datepicker ─────────────────────────────────────────────────────────────
+const _dpState = {};
+function toggleDP(id) {
+  const drop = document.getElementById(id + 'Drop');
+  if(!drop) return;
+  const opening = !drop.classList.contains('open');
+  document.querySelectorAll('.datepick-drop.open').forEach(d => d.classList.remove('open'));
+  if(opening) {
+    const val = document.getElementById(drop.dataset.input).value;
+    const base = val ? new Date(val + 'T00:00:00') : new Date();
+    _dpState[id] = { y: base.getFullYear(), m: base.getMonth() };
+    drop.classList.add('open');
+    renderDP(id);
+  }
+}
+function dpNav(id, dir) {
+  const s = _dpState[id];
+  s.m += dir;
+  if(s.m > 11){ s.m = 0; s.y++; }
+  if(s.m < 0) { s.m = 11; s.y--; }
+  renderDP(id);
+}
+function dpPick(id, ds) {
+  const drop = document.getElementById(id + 'Drop');
+  document.getElementById(drop.dataset.input).value = ds;
+  const d = new Date(ds + 'T00:00:00');
+  document.getElementById(id + 'Label').textContent = d.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
+  drop.classList.remove('open');
+  const cb = drop.dataset.cb;
+  if(cb && window[cb]) window[cb]();
+}
+function dpClear(id) {
+  const drop = document.getElementById(id + 'Drop');
+  document.getElementById(drop.dataset.input).value = '';
+  document.getElementById(id + 'Label').textContent = drop.dataset.placeholder || 'Date';
+  drop.classList.remove('open');
+  const cb = drop.dataset.cb;
+  if(cb && window[cb]) window[cb]();
+}
+function renderDP(id) {
+  const s = _dpState[id];
+  const drop = document.getElementById(id + 'Drop');
+  const selVal = document.getElementById(drop.dataset.input)?.value;
+  const MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const first = new Date(s.y, s.m, 1).getDay();
+  const total = new Date(s.y, s.m + 1, 0).getDate();
+  const prev  = new Date(s.y, s.m, 0).getDate();
+  const bStyle = `font-size:12px;padding:5px 0;cursor:pointer;border-radius:4px;border:none;width:100%`;
+  let h = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <button onclick="dpNav('${id}',-1)" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:20px;line-height:1;padding:0 6px">&#8249;</button>
+    <span style="font-size:13px;font-weight:600">${MN[s.m]} ${s.y}</span>
+    <button onclick="dpNav('${id}',1)"  style="background:none;border:none;color:var(--text);cursor:pointer;font-size:20px;line-height:1;padding:0 6px">&#8250;</button>
+  <\/div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">`;
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d =>
+    h += `<div style="font-size:11px;font-weight:600;color:var(--muted);padding:4px 0">${d}<\/div>`);
+  for(let i=0;i<first;i++){
+    const d=prev-first+1+i, pm=s.m-1<0?11:s.m-1, py=s.m-1<0?s.y-1:s.y;
+    const ds=`${py}-${String(pm+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    h+=`<button onclick="dpPick('${id}','${ds}')" style="${bStyle};background:none;color:var(--dim)">${d}<\/button>`;
+  }
+  for(let d=1;d<=total;d++){
+    const ds=`${s.y}-${String(s.m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const sel=ds===selVal;
+    h+=`<button onclick="dpPick('${id}','${ds}')" style="${bStyle};background:${sel?'var(--accent)':'none'};color:${sel?'#fff':'var(--text)'}">${d}<\/button>`;
+  }
+  const rem=(7-(first+total)%7)%7;
+  for(let d=1;d<=rem;d++){
+    const nm=s.m+1>11?0:s.m+1, ny=s.m+1>11?s.y+1:s.y;
+    const ds=`${ny}-${String(nm+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    h+=`<button onclick="dpPick('${id}','${ds}')" style="${bStyle};background:none;color:var(--dim)">${d}<\/button>`;
+  }
+  h+=`<\/div><div style="text-align:right;margin-top:8px">
+    <button class="btn btn-ghost btn-sm" onclick="dpClear('${id}')" style="font-size:11px;padding:3px 10px">Clear<\/button>
+  <\/div>`;
+  drop.innerHTML = h;
+}
+function applySalesCustomDate() {
+  _salesPeriod = 'custom';
+  ['day','week','month'].forEach(x => document.getElementById('sf'+x.charAt(0).toUpperCase()+x.slice(1)).classList.remove('active'));
+  loadSales();
+}
+
+document.addEventListener('click', e=>{ if(!e.target.closest('.datepick')) document.querySelectorAll('.datepick-drop.open').forEach(d=>d.classList.remove('open')); });
 document.addEventListener('click', e=>{ if(e.target.classList.contains('modal')) closeModal(e.target.id); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show')); });
 
