@@ -296,7 +296,7 @@ const {createClient} = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 const params = new URLSearchParams(location.search);
 const SID = params.get('sid');
-let MGR = null, _allInv = [], _pingInterval = null;
+let MGR = null, _allInv = [], _pingInterval = null, _tgToken = '', _tgChatId = '', _storeName = '';
 
 function goLogin(){ location.href = 'staff-login.html' + (SID ? '?sid='+SID : ''); }
 
@@ -307,8 +307,13 @@ async function init(){
   if(Date.now() - MGR.ts > 8*60*60*1000){ localStorage.removeItem('pm_mgr'); goLogin(); return; }
   if(SID && MGR.store_id !== SID){ show('noAccess'); return; }
   document.getElementById('mgrNameDisp').textContent = MGR.name;
-  const {data:st} = await _sb.from('stores').select('name').eq('id', MGR.store_id).maybeSingle();
-  if(st) document.getElementById('storeName').textContent = st.name;
+  const {data:st} = await _sb.from('stores').select('name,telegram_bot_token,telegram_chat_id').eq('id', MGR.store_id).maybeSingle();
+  if(st){
+    document.getElementById('storeName').textContent = st.name;
+    _storeName = st.name || '';
+    _tgToken   = st.telegram_bot_token || '';
+    _tgChatId  = st.telegram_chat_id || '';
+  }
   show('mainContent');
   await loadInv();
   loadMonitor();
@@ -362,7 +367,39 @@ function checkLowStock(){
     <div style="display:flex;flex-wrap:wrap;gap:6px">
       ${low.map(i=>`<span style="background:var(--s2);border-radius:6px;padding:3px 8px;font-size:12px">${i.name} — <strong style="color:${parseFloat(i.stock||0)<=0?'#ef4444':'#f59e0b'}">${i.stock} ${i.unit||''}</strong></span>`).join('')}
     </div>
+    ${_tgToken && _tgChatId ? `<button onclick="sendLowStockAlert()" style="margin-top:8px;background:#1a3a4a;border:1px solid #00b4d8;color:#00b4d8;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer">&#128226; Send Telegram Alert</button>` : ''}
   </div>`;
+  // Auto-send once per day if Telegram is configured
+  if (_tgToken && _tgChatId) {
+    const key = 'pm_tg_sent_' + MGR.store_id;
+    const today = new Date().toDateString();
+    if (localStorage.getItem(key) !== today) {
+      localStorage.setItem(key, today);
+      sendLowStockAlert(true);
+    }
+  }
+}
+
+async function sendLowStockAlert(auto = false) {
+  if (!_tgToken || !_tgChatId) return;
+  const low = _allInv.filter(i => parseFloat(i.stock||0) <= parseFloat(i.low_stock_threshold||5));
+  if (!low.length) return;
+  const lines = low.map(i => {
+    const s = parseFloat(i.stock||0);
+    return `• ${i.name}: <b>${s <= 0 ? 'OUT OF STOCK' : s + ' ' + (i.unit||'pc') + ' left'}</b>`;
+  }).join('\n');
+  const msg = `⚠️ <b>Low Stock Alert</b> — ${_storeName}\n\n${lines}\n\n<i>${new Date().toLocaleString()}</i>`;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${_tgToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: _tgChatId, text: msg, parse_mode: 'HTML' })
+    });
+    if (!auto) {
+      const j = await res.json();
+      alert(j.ok ? '✓ Alert sent to Telegram!' : 'Failed: ' + (j.description || 'Check token/chat ID'));
+    }
+  } catch(e) { if (!auto) alert('Error: ' + e.message); }
 }
 
 // ── Add Stock ──────────────────────────────────────────────────────────────

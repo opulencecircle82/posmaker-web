@@ -479,6 +479,19 @@ input:checked + .slider:before{transform:translateX(18px)}
         <button class="btn btn-accent" onclick="saveSettings()">Save Settings</button>
       </div>
       <div class="info-card">
+        <h3>&#128226; Telegram Low Stock Alerts</h3>
+        <p style="margin-bottom:14px;color:var(--muted);font-size:13px">Get a Telegram message when products are running low. <a href="https://t.me/BotFather" target="_blank" style="color:var(--accent)">Create a bot via @BotFather</a>, then paste your token and chat ID below.</p>
+        <div class="row2">
+          <div class="field"><label>Bot Token</label><input id="sTgToken" type="text" placeholder="123456:ABC-DEF..."></div>
+          <div class="field"><label>Your Chat ID</label><input id="sTgChatId" type="text" placeholder="e.g. 123456789"><small style="color:var(--muted);font-size:11px">Send a message to your bot then visit: api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</small></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-accent" onclick="saveTgSettings()">Save Telegram</button>
+          <button class="btn btn-ghost" onclick="testTelegram()">&#128172; Send Test</button>
+        </div>
+        <div id="tgStatus" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+      </div>
+      <div class="info-card">
         <h3>Bulk Price Adjustment</h3>
         <p style="margin-bottom:14px">Increase or decrease prices of all products (or by category) by a percentage.</p>
         <div class="row2">
@@ -1101,6 +1114,8 @@ function _sig(ms = 12000) {
   document.getElementById('sCurrency').value = store.currency || '&#8369;';
   document.getElementById('sTax').value      = store.tax_rate || 12;
   document.getElementById('sFooter').value   = store.receipt_footer || '';
+  document.getElementById('sTgToken').value  = store.telegram_bot_token || '';
+  document.getElementById('sTgChatId').value = store.telegram_chat_id || '';
   if (store.logo_b64) {
     const img = document.getElementById('logoPreview');
     img.src = 'data:image/png;base64,' + store.logo_b64;
@@ -2452,6 +2467,36 @@ async function saveSettings() {
   CUR = payload.currency; TAX = payload.tax_rate;
   document.getElementById('sbStore').textContent = payload.name;
   showToast('Settings saved.');
+}
+
+async function saveTgSettings() {
+  const token  = document.getElementById('sTgToken').value.trim();
+  const chatId = document.getElementById('sTgChatId').value.trim();
+  const { error } = await _sb.from('stores').update({ telegram_bot_token: token, telegram_chat_id: chatId }).eq('id', STORE.id);
+  if (error) { showToast(error.message, true); return; }
+  STORE.telegram_bot_token = token;
+  STORE.telegram_chat_id   = chatId;
+  showToast('Telegram settings saved.');
+}
+
+async function sendTelegramMsg(token, chatId, text) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
+  });
+  return res.ok ? await res.json() : null;
+}
+
+async function testTelegram() {
+  const token  = document.getElementById('sTgToken').value.trim();
+  const chatId = document.getElementById('sTgChatId').value.trim();
+  const stat   = document.getElementById('tgStatus');
+  if (!token || !chatId) { stat.style.color = '#ef4444'; stat.textContent = 'Enter bot token and chat ID first.'; return; }
+  stat.style.color = '#8888aa'; stat.textContent = 'Sending…';
+  const result = await sendTelegramMsg(token, chatId, `✅ <b>POSMaker connected!</b>\n${STORE.name} — Telegram alerts are working.`);
+  if (result && result.ok) { stat.style.color = '#10b981'; stat.textContent = '✓ Test message sent successfully!'; }
+  else { stat.style.color = '#ef4444'; stat.textContent = 'Failed — check your token and chat ID.'; }
 }
 
 // â”€â”€ Quick Setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
