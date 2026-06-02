@@ -395,6 +395,26 @@ function getBrowserDevId() {
   if (!id) { id = 'web-' + crypto.randomUUID(); localStorage.setItem('pm_dev_id', id); }
   return id;
 }
+function getDeviceName() {
+  const ua = navigator.userAgent;
+  if (/android/i.test(ua)) {
+    const m = ua.match(/\(Linux;[^)]*;\s*([^;)]+)\)/);
+    const model = m ? m[1].trim() : 'Android';
+    return (/tablet|tab/i.test(ua) || (screen.width >= 768 && screen.height >= 768)) ? model + ' (Tablet)' : model + ' (Phone)';
+  }
+  if (/ipad/i.test(ua)) return 'iPad';
+  if (/iphone/i.test(ua)) return 'iPhone';
+  if (/windows/i.test(ua)) return 'Windows PC';
+  if (/macintosh|mac os/i.test(ua)) return 'Mac';
+  return 'Web Browser';
+}
+function getDevicePlatform() {
+  const ua = navigator.userAgent;
+  if (/android/i.test(ua)) return 'android';
+  if (/ipad|iphone/i.test(ua)) return 'ios';
+  if (/windows/i.test(ua)) return 'windows';
+  return 'web';
+}
 async function checkWebDevice(storeId, register = false) {
   if (navigator.userAgent.includes('Electron')) return 'ok';
   const devId = getBrowserDevId();
@@ -402,11 +422,18 @@ async function checkWebDevice(storeId, register = false) {
     const { data: rows } = await _sb.from('pos_devices').select('device_id').eq('store_id', storeId).limit(1);
     if (!rows || rows.length === 0) {
       if (register) {
-        await _sb.from('pos_devices').insert({ store_id: storeId, device_id: devId, device_name: 'Web Browser', platform: 'web' });
+        _sb.from('pos_devices').insert({ store_id: storeId, device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform() }).then(()=>{});
       }
       return 'ok';
     }
-    return rows[0].device_id === devId ? 'ok' : 'locked';
+    if (rows[0].device_id === devId) {
+      if (register) {
+        // Refresh device name/platform in case it was "Web Browser" before
+        _sb.from('pos_devices').update({ device_name: getDeviceName(), platform: getDevicePlatform() }).eq('store_id', storeId).eq('device_id', devId).then(()=>{});
+      }
+      return 'ok';
+    }
+    return 'locked';
   } catch { return 'ok'; }
 }
 
@@ -457,7 +484,7 @@ async function checkWebDevice(storeId, register = false) {
     document.getElementById('actErr').textContent = 'Store not found. Please check your Store ID.';
     return;
   }
-  const devStatus = await checkWebDevice(STORE_ID, false);
+  const devStatus = await checkWebDevice(STORE_ID, true);
   if (devStatus === 'locked') {
     localStorage.removeItem('pm_store_id');
     document.getElementById('loginWrap').style.display = 'none';

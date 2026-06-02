@@ -1895,11 +1895,12 @@ function renderPOSTerminals() {
     const url  = `${base}?store=${s.id}`;
     const code = s.store_code || '—';
     const dev  = posDevices.find(d => d.store_id === s.id);
+    const devIcon = dev ? ({'android':'&#128241;','ios':'&#128241;','windows':'&#128187;','web':'&#127760;'}[dev.platform]||'&#128187;') : '';
     const devBlock = dev
       ? `<div style="background:#0a1a10;border:1px solid #1a4a25;border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
            <div>
              <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Registered Device</div>
-             <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px">&#128187; ${dev.device_name||'Unknown PC'} <span style="font-size:11px;color:var(--muted);font-weight:400">(${dev.platform||'windows'})</span></div>
+             <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px">${devIcon} ${dev.device_name||'Unknown Device'} <span style="font-size:11px;color:var(--muted);font-weight:400">(${dev.platform||'web'})</span></div>
              <div style="font-size:11px;color:var(--muted);margin-top:1px">Since ${new Date(dev.registered_at).toLocaleDateString()}</div>
            </div>
            <button class="btn btn-danger btn-sm" onclick="resetPOSDevice('${s.id}')">&#128260; Reset Device</button>
