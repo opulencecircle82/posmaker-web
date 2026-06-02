@@ -623,7 +623,11 @@ async function doLogin() {
 
     CASHIER = found;
     _sb.rpc('log_staff_login', { p_store_id: STORE_ID, p_staff_id: found.id, p_username: found.username }).then(() => {});
-    await loadProds();
+    if (prods.length === 0) {
+      await loadProds(); // first login — must load before showing POS
+    } else {
+      loadProds().catch(() => {}); // re-login — show POS instantly, refresh products in background
+    }
     showPOS(found.full_name || found.username);
   } catch(e) {
     errEl.textContent = 'Login error: ' + (e.message || 'Check your internet connection.');
@@ -754,7 +758,7 @@ async function loadProds() {
 
   buildCats();
   renderProds('All');
-  buildImgHashes(); // background — compute visual hashes from product photos
+  if (_prodHashes.length === 0) buildImgHashes(); // only build once; re-login skips this heavy step
   if(_mnModel) buildAiEmbeds(); // rebuild AI embeddings when products reload
 }
 
