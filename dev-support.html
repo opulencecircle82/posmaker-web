@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Dev Support</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--muted:#8888aa;--danger:#ef4444;--success:#10b981;--warn:#f59e0b}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+/* ── Auth screens ── */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 50% 0%,#0d1a2e 0%,var(--bg) 70%)}
+.auth-card{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:40px 36px;width:min(460px,100%)}
+.auth-logo{font-size:22px;font-weight:800;margin-bottom:4px}.auth-logo span{color:var(--accent)}
+.auth-sub{font-size:12px;color:var(--muted);margin-bottom:28px;letter-spacing:.3px}
+.auth-title{font-size:20px;font-weight:700;margin-bottom:6px}
+.auth-desc{font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5}
+.field{margin-bottom:16px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+input,select{width:100%;padding:11px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:9px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+input:focus{border-color:var(--accent)}
+input.err{border-color:var(--danger)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;font-size:14px;font-family:'Inter',sans-serif;transition:.15s}
+.btn-full{width:100%}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{opacity:.88}
+.btn-accent:disabled{opacity:.35;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--s2)}
+.btn-danger{background:#2a0a0a;border:1px solid var(--danger);color:var(--danger)}.btn-danger:hover{background:#3a0f0f}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:7px}
+/* ── Password requirements ── */
+.pw-reqs{background:var(--s2);border-radius:10px;padding:12px 14px;margin-bottom:16px;display:none}
+.pw-reqs.show{display:block}
+.req{display:flex;align-items:center;gap:7px;font-size:12px;padding:3px 0;color:var(--muted);transition:color .15s}
+.req.ok{color:var(--success)}
+.req-icon{font-size:13px;width:16px;text-align:center}
+/* ── Topbar ── */
+.topbar{background:var(--s1);border-bottom:1px solid var(--border);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.logo{font-size:18px;font-weight:800}.logo span{color:var(--accent)}
+.dev-badge{background:#1a0d2e;border:1px solid #7c3aed55;color:#a78bfa;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.3px}
+/* ── Stats row ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:700px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:center}
+.stat-val{font-size:26px;font-weight:800;color:var(--accent)}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
+/* ── Layout ── */
+.content{padding:20px;max-width:1300px;margin:0 auto}
+/* ── Tabs ── */
+.tabs{display:flex;gap:4px;margin-bottom:18px;background:var(--s2);border-radius:10px;padding:4px;width:fit-content}
+.tab-btn{padding:7px 18px;border-radius:7px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;font-family:'Inter',sans-serif}
+.tab-btn.active{background:var(--accent);color:#fff}
+/* ── Cards / tables ── */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.card-title{font-weight:700;margin-bottom:14px;font-size:15px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+td{padding:10px;border-bottom:1px solid #1a1a2e;vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-ok{background:#0d2e1f;color:var(--success)}
+.badge-muted{background:var(--s2);color:var(--muted)}
+.badge-warn{background:#2e1f0d;color:var(--warn)}
+.badge-danger{background:#2a0a0a;color:var(--danger)}
+.badge-purple{background:#1a0d2e;color:#a78bfa}
+/* ── Toolbar ── */
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.search-inp{padding:7px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;min-width:200px}
+.search-inp:focus{border-color:var(--accent)}
+select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;outline:none}
+/* ── Modal ── */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.mbox{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:28px;width:min(480px,100%);max-height:90vh;overflow-y:auto}
+.mbox h3{font-size:17px;font-weight:700;margin-bottom:20px}
+.m-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+/* ── SQL setup box ── */
+.sql-box{background:#0a0a0a;border:1px solid var(--border);border-radius:10px;padding:16px;font-family:monospace;font-size:11px;color:#7dd3fc;overflow-x:auto;max-height:280px;overflow-y:auto;white-space:pre;line-height:1.5}
+/* ── Toast ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;pointer-events:none;opacity:0}
+#toast.show{opacity:1}
+/* ── Spinner ── */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ── Misc ── */
+.empty-row td{text-align:center;padding:32px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- ── LOADING ── -->
+<div id="pgLoading" style="min-height:100vh;display:flex;align-items:center;justify-content:center">
+  <div style="text-align:center">
+    <div class="spinner" style="width:28px;height:28px;border-width:3px;margin-bottom:12px"></div>
+    <div style="color:var(--muted);font-size:13px">Initializing…</div>
+  </div>
+</div>
+
+<!-- ── SQL SETUP GUIDE (shown if db not ready) ── -->
+<div id="pgSqlSetup" style="display:none" class="auth-wrap">
+  <div class="auth-card" style="max-width:620px">
+    <div class="auth-logo">POS<span>Maker</span></div>
+    <div class="auth-sub">DEVELOPER SUPPORT</div>
+    <div class="auth-title">One-time Database Setup</div>
+    <div class="auth-desc">Run the following SQL in your <strong style="color:var(--text)">Supabase SQL Editor</strong> to set up dev support. Then refresh this page.</div>
+    <div class="sql-box" id="setupSqlBox"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-accent" onclick="copySql()">&#128203; Copy SQL</button>
+      <button class="btn btn-ghost" onclick="location.reload()">&#8635; Refresh After Running</button>
+    </div>
+    <div id="sqlCopyMsg" style="font-size:12px;color:var(--success);margin-top:8px;min-height:14px"></div>
+  </div>
+</div>
+
+<!-- ── SETUP (create first dev account) ── -->
+<div id="pgSetup" style="display:none" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">POS<span>Maker</span></div>
+    <div class="auth-sub">DEVELOPER SUPPORT</div>
+    <div class="auth-title">Create Developer Account</div>
+    <div class="auth-desc">No developer account exists yet. Create the first one now. This account will have full support access.</div>
+    <div class="field">
+      <label>Username</label>
+      <input id="suUser" type="text" placeholder="e.g. devadmin" autocomplete="off" spellcheck="false" oninput="suCheck()">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="suPass" type="password" placeholder="Create a strong password" oninput="suCheck()" onfocus="document.getElementById('pwReqBox').classList.add('show')">
+    </div>
+    <div class="pw-reqs" id="pwReqBox">
+      <div class="req" id="req-len"><span class="req-icon">✗</span>Minimum 8 characters</div>
+      <div class="req" id="req-upper"><span class="req-icon">✗</span>Uppercase letter (A–Z)</div>
+      <div class="req" id="req-lower"><span class="req-icon">✗</span>Lowercase letter (a–z)</div>
+      <div class="req" id="req-num"><span class="req-icon">✗</span>Number (0–9)</div>
+      <div class="req" id="req-sym"><span class="req-icon">✗</span>Special character (!@#$%^&amp;*)</div>
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <input id="suPass2" type="password" placeholder="Re-enter password" oninput="suCheck()">
+      <div id="suMatchErr" style="font-size:11px;color:var(--danger);margin-top:4px;min-height:13px"></div>
+    </div>
+    <div id="suErr" style="font-size:12px;color:var(--danger);margin-bottom:12px;min-height:14px"></div>
+    <button class="btn btn-accent btn-full" id="suBtn" onclick="doSetup()" disabled>Create Account</button>
+  </div>
+</div>
+
+<!-- ── LOGIN ── -->
+<div id="pgLogin" style="display:none" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">POS<span>Maker</span></div>
+    <div class="auth-sub">DEVELOPER SUPPORT</div>
+    <div class="auth-title">Developer Login</div>
+    <div class="auth-desc">Sign in with your developer credentials to access the support portal.</div>
+    <div class="field">
+      <label>Username</label>
+      <input id="lgUser" type="text" placeholder="Enter username" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="lgPass" type="password" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div id="lgErr" style="font-size:12px;color:var(--danger);margin-bottom:12px;min-height:14px"></div>
+    <button class="btn btn-accent btn-full" id="lgBtn" onclick="doLogin()">Login</button>
+  </div>
+</div>
+
+<!-- ── DASHBOARD ── -->
+<div id="pgDash" style="display:none">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="logo">POS<span>Maker</span></span>
+      <span class="dev-badge">DEV SUPPORT</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:13px;color:var(--muted)">&#128100; <strong id="dashUser" style="color:var(--text)"></strong></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val" id="stStores">—</div><div class="stat-lbl">Stores</div></div>
+      <div class="stat-card"><div class="stat-val" id="stStaff">—</div><div class="stat-lbl">Staff Accounts</div></div>
+      <div class="stat-card"><div class="stat-val" id="stOrdersToday">—</div><div class="stat-lbl">Orders Today</div></div>
+      <div class="stat-card"><div class="stat-val" id="stRevToday" style="font-size:18px">—</div><div class="stat-lbl">Revenue Today</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" id="tabStores" onclick="showTab('stores')">&#127978; Stores</button>
+      <button class="tab-btn" id="tabStaff"  onclick="showTab('staff')">&#128100; Staff</button>
+      <button class="tab-btn" id="tabOrders" onclick="showTab('orders')">&#128200; Orders</button>
+    </div>
+
+    <!-- STORES -->
+    <div id="secStores">
+      <div class="card">
+        <div class="card-title">
+          All Registered Stores
+          <div class="toolbar" style="margin:0">
+            <input class="search-inp" id="storeSearch" placeholder="Search store name…" oninput="filterStores()">
+            <select class="filter-sel" id="bizFilter" onchange="filterStores()">
+              <option value="">All Types</option>
+              <option value="retail">Retail</option>
+              <option value="food">Food & Beverage</option>
+              <option value="pharmacy">Pharmacy / Drug Store</option>
+              <option value="salon">Salon / Services</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Store Name</th><th>Business Type</th><th>Currency</th><th>Track Stock</th><th>Created</th><th></th></tr></thead>
+            <tbody id="storesTbody"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAFF -->
+    <div id="secStaff" style="display:none">
+      <div class="card">
+        <div class="card-title">
+          All Staff Accounts
+          <div class="toolbar" style="margin:0">
+            <input class="search-inp" id="staffSearch" placeholder="Search name or username…" oninput="filterStaff()">
+            <select class="filter-sel" id="staffStoreFilter" onchange="filterStaff()">
+              <option value="">All Stores</option>
+            </select>
+            <select class="filter-sel" id="staffRoleFilter" onchange="filterStaff()">
+              <option value="">All Roles</option>
+              <option value="manager">Manager</option>
+              <option value="cashier">Cashier</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Username</th><th>Store</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr></thead>
+            <tbody id="staffTbody"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORDERS -->
+    <div id="secOrders" style="display:none">
+      <div class="card">
+        <div class="card-title">
+          Recent Orders
+          <div class="toolbar" style="margin:0">
+            <select class="filter-sel" id="ordersStoreFilter" onchange="filterOrders()">
+              <option value="">All Stores</option>
+            </select>
+            <select class="filter-sel" id="ordersMethodFilter" onchange="filterOrders()">
+              <option value="">All Methods</option>
+              <option value="Cash">Cash</option>
+              <option value="GCash">GCash</option>
+              <option value="Card">Card</option>
+            </select>
+            <span style="font-size:12px;color:var(--muted)" id="ordersCount"></span>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Date &amp; Time</th><th>Store</th><th>Cashier</th><th>Total</th><th>Method</th></tr></thead>
+            <tbody id="ordersTbody"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── RESET PASSWORD MODAL ── -->
+<div class="modal" id="resetModal">
+  <div class="mbox">
+    <h3>&#128274; Reset Password</h3>
+    <input type="hidden" id="rstStaffId">
+    <div style="background:var(--s2);border-radius:10px;padding:12px 14px;margin-bottom:18px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:2px">Staff Member</div>
+      <div style="font-weight:700;font-size:15px" id="rstName"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px"><span id="rstUsername"></span> · <span id="rstStore"></span></div>
+    </div>
+    <div class="field">
+      <label>New Password</label>
+      <input id="rstPass" type="password" placeholder="Enter new password" oninput="rstCheck()" onfocus="document.getElementById('rstReqBox').classList.add('show')">
+    </div>
+    <div class="pw-reqs" id="rstReqBox">
+      <div class="req" id="rreq-len"><span class="req-icon">✗</span>Minimum 8 characters</div>
+      <div class="req" id="rreq-upper"><span class="req-icon">✗</span>Uppercase letter (A–Z)</div>
+      <div class="req" id="rreq-lower"><span class="req-icon">✗</span>Lowercase letter (a–z)</div>
+      <div class="req" id="rreq-num"><span class="req-icon">✗</span>Number (0–9)</div>
+      <div class="req" id="rreq-sym"><span class="req-icon">✗</span>Special character (!@#$%^&amp;*)</div>
+    </div>
+    <div class="field">
+      <label>Confirm New Password</label>
+      <input id="rstPass2" type="password" placeholder="Re-enter new password" oninput="rstCheck()">
+      <div id="rstMatchErr" style="font-size:11px;color:var(--danger);margin-top:4px;min-height:13px"></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('resetModal')">Cancel</button>
+      <button class="btn btn-accent" id="rstSaveBtn" onclick="doResetPassword()" disabled>Reset Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── STORE DETAIL MODAL ── -->
+<div class="modal" id="storeDetailModal">
+  <div class="mbox" style="max-width:560px">
+    <h3 id="sdTitle">Store Details</h3>
+    <div id="sdContent"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('storeDetailModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const {createClient} = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let _devToken = null, _devUser = '';
+let _allStores = [], _allStaff = [], _allOrders = [];
+
+// ── SHA-256 ──────────────────────────────────────────────────────────────────
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Password validation ──────────────────────────────────────────────────────
+function checkPwReqs(pw, prefix = '') {
+  const reqs = {
+    len:   pw.length >= 8,
+    upper: /[A-Z]/.test(pw),
+    lower: /[a-z]/.test(pw),
+    num:   /[0-9]/.test(pw),
+    sym:   /[!@#$%^&*()\-_=+\[\]{};':",.<>?/\\|`~]/.test(pw)
+  };
+  Object.entries(reqs).forEach(([k, ok]) => {
+    const el = document.getElementById((prefix || 'req-') + k);
+    if (!el) return;
+    el.classList.toggle('ok', ok);
+    el.querySelector('.req-icon').textContent = ok ? '✓' : '✗';
+  });
+  return Object.values(reqs).every(Boolean);
+}
+
+// ── Setup screen ─────────────────────────────────────────────────────────────
+function suCheck() {
+  const user = document.getElementById('suUser').value.trim();
+  const pw   = document.getElementById('suPass').value;
+  const pw2  = document.getElementById('suPass2').value;
+  const pwOk = checkPwReqs(pw);
+  const matchEl = document.getElementById('suMatchErr');
+  const match = pw === pw2 && pw2 !== '';
+  matchEl.textContent = pw2 && !match ? 'Passwords do not match.' : '';
+  document.getElementById('suBtn').disabled = !(user.length >= 3 && pwOk && match);
+}
+
+async function doSetup() {
+  const user = document.getElementById('suUser').value.trim();
+  const pw   = document.getElementById('suPass').value;
+  const errEl = document.getElementById('suErr');
+  const btn = document.getElementById('suBtn');
+  errEl.textContent = '';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Creating…';
+  const hash = await sha256(pw);
+  const { error } = await _sb.from('dev_admins').insert({ username: user, password_hash: hash });
+  if (error) {
+    errEl.textContent = error.code === '23505' ? 'Username already taken.' : error.message;
+    btn.disabled = false; btn.textContent = 'Create Account'; return;
+  }
+  showToast('Account created! Logging you in…');
+  await performLogin(user, hash);
+}
+
+// ── Login ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const user = document.getElementById('lgUser').value.trim();
+  const pw   = document.getElementById('lgPass').value;
+  const errEl = document.getElementById('lgErr');
+  const btn = document.getElementById('lgBtn');
+  if (!user || !pw) { errEl.textContent = 'Enter username and password.'; return; }
+  errEl.textContent = '';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Logging in…';
+  const hash = await sha256(pw);
+  try {
+    await performLogin(user, hash);
+  } catch(e) {
+    errEl.textContent = 'Invalid username or password.';
+  }
+  btn.disabled = false; btn.textContent = 'Login';
+}
+
+async function performLogin(user, hash) {
+  const { data: token, error } = await _sb.rpc('dev_login', { p_username: user, p_password_hash: hash });
+  if (error || !token) throw new Error('Auth failed');
+  _devToken = token;
+  _devUser  = user;
+  localStorage.setItem('pm_dev_session', JSON.stringify({ token, user, exp: Date.now() + 8 * 60 * 60 * 1000 }));
+  showDashboard();
+}
+
+function doLogout() {
+  localStorage.removeItem('pm_dev_session');
+  _devToken = null; _devUser = '';
+  show('pgLogin');
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  // Check existing session
+  try {
+    const raw = localStorage.getItem('pm_dev_session');
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s.exp > Date.now()) {
+        _devToken = s.token; _devUser = s.user;
+        showDashboard(); return;
+      }
+      localStorage.removeItem('pm_dev_session');
+    }
+  } catch(_) {}
+
+  // Check if dev_admins table exists and has entries
+  try {
+    const { data, error } = await _sb.from('dev_admins').select('id', { count: 'exact', head: true });
+    if (error) {
+      // Table likely doesn't exist — show SQL setup
+      showSqlSetup(); return;
+    }
+    if ((data === null) || !(await countDevAdmins())) {
+      show('pgSetup'); return;
+    }
+    show('pgLogin');
+  } catch(_) {
+    showSqlSetup();
+  }
+}
+
+async function countDevAdmins() {
+  const { count } = await _sb.from('dev_admins').select('id', { count: 'exact', head: true });
+  return (count || 0) > 0;
+}
+
+// ── SQL Setup ────────────────────────────────────────────────────────────────
+const SETUP_SQL = `-- Run this in Supabase SQL Editor (once only)
+
+CREATE TABLE IF NOT EXISTS public.dev_admins (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  username text UNIQUE NOT NULL,
+  password_hash text NOT NULL,
+  session_token text,
+  session_expires_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE dev_admins ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "dev_all" ON dev_admins FOR ALL TO anon USING (true) WITH CHECK (true);
+
+CREATE OR REPLACE FUNCTION dev_login(p_username text, p_password_hash text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_id uuid; v_token text;
+BEGIN
+  SELECT id INTO v_id FROM dev_admins
+    WHERE username = p_username AND password_hash = p_password_hash;
+  IF v_id IS NULL THEN RETURN NULL; END IF;
+  v_token := gen_random_uuid()::text;
+  UPDATE dev_admins SET session_token = v_token,
+    session_expires_at = now() + interval '8 hours' WHERE id = v_id;
+  RETURN v_token;
+END; $$;
+
+CREATE OR REPLACE FUNCTION dev_get_stores(p_token text)
+RETURNS TABLE(id uuid, name text, business_type text, currency text,
+              track_stock boolean, created_at timestamptz)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  RETURN QUERY SELECT s.id, s.name, s.business_type, s.currency,
+    s.track_stock, s.created_at FROM stores s ORDER BY s.created_at DESC;
+END; $$;
+
+CREATE OR REPLACE FUNCTION dev_get_staff(p_token text, p_store_id uuid DEFAULT NULL)
+RETURNS TABLE(id uuid, store_id uuid, store_name text, full_name text,
+              username text, role text, active boolean, created_at timestamptz)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  RETURN QUERY
+    SELECT su.id, su.store_id, s.name, su.full_name, su.username,
+           su.role, COALESCE(su.active, true), su.created_at
+    FROM store_users su JOIN stores s ON s.id = su.store_id
+    WHERE (p_store_id IS NULL OR su.store_id = p_store_id)
+    ORDER BY s.name, su.role, su.full_name;
+END; $$;
+
+CREATE OR REPLACE FUNCTION dev_get_orders(p_token text,
+  p_store_id uuid DEFAULT NULL, p_limit int DEFAULT 300)
+RETURNS TABLE(id uuid, store_id uuid, store_name text, total numeric,
+              payment_method text, cashier_name text, ts timestamptz)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  RETURN QUERY
+    SELECT o.id, o.store_id, s.name, o.total,
+           o.payment_method, o.cashier_name, o.timestamp
+    FROM orders o JOIN stores s ON s.id = o.store_id
+    WHERE (p_store_id IS NULL OR o.store_id = p_store_id)
+    ORDER BY o.timestamp DESC LIMIT p_limit;
+END; $$;
+
+CREATE OR REPLACE FUNCTION dev_reset_password(p_token text,
+  p_staff_id uuid, p_new_hash text)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  UPDATE store_users SET password_hash = p_new_hash WHERE id = p_staff_id;
+  RETURN FOUND;
+END; $$;`;
+
+function showSqlSetup() {
+  document.getElementById('setupSqlBox').textContent = SETUP_SQL;
+  show('pgSqlSetup');
+}
+
+function copySql() {
+  navigator.clipboard.writeText(SETUP_SQL).then(() => {
+    const el = document.getElementById('sqlCopyMsg');
+    el.textContent = '✓ SQL copied to clipboard!';
+    setTimeout(() => { el.textContent = ''; }, 3000);
+  });
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+async function showDashboard() {
+  document.getElementById('dashUser').textContent = _devUser;
+  show('pgDash');
+  loadAll();
+}
+
+async function loadAll() {
+  await Promise.all([loadStores(), loadStaff(), loadOrders()]);
+  updateStats();
+}
+
+async function loadStores() {
+  const { data, error } = await _sb.rpc('dev_get_stores', { p_token: _devToken });
+  if (error) { handleAuthError(error); return; }
+  _allStores = data || [];
+  document.getElementById('stStores').textContent = _allStores.length;
+  populateStoreFilter('staffStoreFilter');
+  populateStoreFilter('ordersStoreFilter');
+  renderStores();
+}
+
+async function loadStaff() {
+  const { data, error } = await _sb.rpc('dev_get_staff', { p_token: _devToken });
+  if (error) { handleAuthError(error); return; }
+  _allStaff = data || [];
+  document.getElementById('stStaff').textContent = _allStaff.length;
+  renderStaff();
+}
+
+async function loadOrders() {
+  const { data, error } = await _sb.rpc('dev_get_orders', { p_token: _devToken });
+  if (error) { handleAuthError(error); return; }
+  _allOrders = data || [];
+  renderOrders();
+  updateStats();
+}
+
+function updateStats() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayOrders = _allOrders.filter(o => (o.ts || '').slice(0, 10) === todayStr);
+  document.getElementById('stOrdersToday').textContent = todayOrders.length;
+  const rev = todayOrders.reduce((s, o) => s + parseFloat(o.total || 0), 0);
+  document.getElementById('stRevToday').textContent = '₱' + rev.toFixed(2);
+}
+
+function populateStoreFilter(selId) {
+  const sel = document.getElementById(selId);
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Stores</option>';
+  _allStores.forEach(s => sel.appendChild(new Option(s.name, s.id)));
+  sel.value = cur;
+}
+
+// ── Render Stores ────────────────────────────────────────────────────────────
+function renderStores(items) {
+  const list = items ?? _allStores;
+  const tb = document.getElementById('storesTbody');
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="7">No stores found.</td></tr>'; return; }
+  tb.innerHTML = list.map((s, i) => {
+    const biz = s.business_type || '—';
+    const dt  = new Date(s.created_at);
+    const created = dt.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
+      <td><strong>${esc(s.name)}</strong></td>
+      <td><span class="badge badge-muted">${esc(biz)}</span></td>
+      <td style="color:var(--muted)">${esc(s.currency || '₱')}</td>
+      <td>${s.track_stock ? '<span class="badge badge-ok">Yes</span>' : '<span class="badge badge-muted">No</span>'}</td>
+      <td style="color:var(--muted);font-size:12px">${created}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="viewStore('${s.id}')">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterStores() {
+  const q   = document.getElementById('storeSearch').value.toLowerCase();
+  const biz = document.getElementById('bizFilter').value;
+  renderStores(_allStores.filter(s =>
+    (!q || s.name.toLowerCase().includes(q)) &&
+    (!biz || (s.business_type || '') === biz)
+  ));
+}
+
+function viewStore(sid) {
+  const s = _allStores.find(x => x.id === sid);
+  if (!s) return;
+  const staff = _allStaff.filter(x => x.store_id === sid);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayOrders = _allOrders.filter(o => o.store_id === sid && (o.ts || '').slice(0, 10) === todayStr);
+  const todayRev = todayOrders.reduce((s, o) => s + parseFloat(o.total || 0), 0);
+  document.getElementById('sdTitle').textContent = s.name;
+  document.getElementById('sdContent').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+      <div style="background:var(--s2);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:var(--muted)">STAFF</div>
+        <div style="font-size:22px;font-weight:800;color:var(--accent)">${staff.length}</div>
+      </div>
+      <div style="background:var(--s2);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:var(--muted)">ORDERS TODAY</div>
+        <div style="font-size:22px;font-weight:800;color:var(--accent)">${todayOrders.length}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Revenue today: <strong style="color:var(--success)">₱${todayRev.toFixed(2)}</strong></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Business type: <strong style="color:var(--text)">${esc(s.business_type || '—')}</strong></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Currency: <strong style="color:var(--text)">${esc(s.currency || '₱')}</strong></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Registered: <strong style="color:var(--text)">${new Date(s.created_at).toLocaleString('en-PH')}</strong></div>
+    ${staff.length ? `
+    <div style="font-weight:600;margin-bottom:8px;font-size:13px">Staff (${staff.length})</div>
+    <table><thead><tr><th>Name</th><th>Username</th><th>Role</th></tr></thead>
+    <tbody>${staff.map(u => `<tr>
+      <td>${esc(u.full_name || '—')}</td>
+      <td style="color:var(--muted)">${esc(u.username)}</td>
+      <td><span class="badge ${u.role === 'manager' ? 'badge-purple' : 'badge-muted'}">${u.role}</span></td>
+    </tr>`).join('')}</tbody></table>` : '<div style="color:var(--muted);font-size:13px">No staff accounts.</div>'}
+  `;
+  document.getElementById('storeDetailModal').classList.add('show');
+}
+
+// ── Render Staff ─────────────────────────────────────────────────────────────
+function renderStaff(items) {
+  const list = items ?? _allStaff;
+  const tb = document.getElementById('staffTbody');
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="8">No staff found.</td></tr>'; return; }
+  tb.innerHTML = list.map((u, i) => {
+    const dt = new Date(u.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const roleBadge = u.role === 'manager'
+      ? `<span class="badge badge-purple">Manager</span>`
+      : `<span class="badge badge-muted">Cashier</span>`;
+    const activeBadge = u.active !== false
+      ? `<span class="badge badge-ok">Active</span>`
+      : `<span class="badge badge-danger">Inactive</span>`;
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
+      <td><strong>${esc(u.full_name || '—')}</strong></td>
+      <td style="color:var(--muted)">${esc(u.username)}</td>
+      <td style="font-size:12px">${esc(u.store_name)}</td>
+      <td>${roleBadge}</td>
+      <td>${activeBadge}</td>
+      <td style="color:var(--muted);font-size:12px">${dt}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="openResetModal('${u.id}','${esc(u.full_name||'—')}','${esc(u.username)}','${esc(u.store_name)}')">&#128274; Reset PW</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterStaff() {
+  const q     = document.getElementById('staffSearch').value.toLowerCase();
+  const store = document.getElementById('staffStoreFilter').value;
+  const role  = document.getElementById('staffRoleFilter').value;
+  renderStaff(_allStaff.filter(u =>
+    (!q     || (u.full_name||'').toLowerCase().includes(q) || u.username.toLowerCase().includes(q)) &&
+    (!store || u.store_id === store) &&
+    (!role  || u.role === role)
+  ));
+}
+
+// ── Render Orders ─────────────────────────────────────────────────────────────
+function renderOrders(items) {
+  const list = items ?? _allOrders;
+  const tb = document.getElementById('ordersTbody');
+  document.getElementById('ordersCount').textContent = list.length + ' orders';
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="6">No orders found.</td></tr>'; return; }
+  tb.innerHTML = list.map((o, i) => {
+    const dt = new Date(o.ts);
+    const dateStr = dt.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+    const timeStr = dt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
+    const method = (o.payment_method || 'Cash');
+    const mColor = method === 'GCash' ? '#a78bfa' : method === 'Card' ? '#60a5fa' : 'var(--success)';
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
+      <td style="font-size:12px;color:var(--muted)">${dateStr}<br>${timeStr}</td>
+      <td style="font-size:12px">${esc(o.store_name)}</td>
+      <td style="font-size:12px;color:var(--muted)">${esc(o.cashier_name || '—')}</td>
+      <td style="font-weight:700;color:var(--success)">₱${parseFloat(o.total||0).toFixed(2)}</td>
+      <td><span style="font-size:12px;font-weight:600;color:${mColor}">${esc(method)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterOrders() {
+  const store  = document.getElementById('ordersStoreFilter').value;
+  const method = document.getElementById('ordersMethodFilter').value;
+  renderOrders(_allOrders.filter(o =>
+    (!store  || o.store_id === store) &&
+    (!method || (o.payment_method || 'Cash') === method)
+  ));
+}
+
+// ── Reset Password ────────────────────────────────────────────────────────────
+function openResetModal(id, name, username, storeName) {
+  document.getElementById('rstStaffId').value = id;
+  document.getElementById('rstName').textContent = name;
+  document.getElementById('rstUsername').textContent = username;
+  document.getElementById('rstStore').textContent = storeName;
+  document.getElementById('rstPass').value = '';
+  document.getElementById('rstPass2').value = '';
+  document.getElementById('rstMatchErr').textContent = '';
+  document.getElementById('rstSaveBtn').disabled = true;
+  document.getElementById('rstReqBox').classList.remove('show');
+  document.getElementById('resetModal').classList.add('show');
+}
+
+function rstCheck() {
+  const pw  = document.getElementById('rstPass').value;
+  const pw2 = document.getElementById('rstPass2').value;
+  const pwOk = checkPwReqs(pw, 'rreq-');
+  const match = pw === pw2 && pw2 !== '';
+  document.getElementById('rstMatchErr').textContent = pw2 && !match ? 'Passwords do not match.' : '';
+  document.getElementById('rstSaveBtn').disabled = !(pwOk && match);
+}
+
+async function doResetPassword() {
+  const id  = document.getElementById('rstStaffId').value;
+  const pw  = document.getElementById('rstPass').value;
+  const btn = document.getElementById('rstSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+  const hash = await sha256(pw);
+  const { data: ok, error } = await _sb.rpc('dev_reset_password', {
+    p_token: _devToken, p_staff_id: id, p_new_hash: hash
+  });
+  btn.disabled = false; btn.textContent = 'Reset Password';
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  closeModal('resetModal');
+  showToast('Password reset successfully.');
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showTab(tab) {
+  ['stores','staff','orders'].forEach(t => {
+    document.getElementById('sec' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+  });
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────────
+function show(id) {
+  ['pgLoading','pgSqlSetup','pgSetup','pgLogin','pgDash'].forEach(p => {
+    document.getElementById(p).style.display = p === id ? '' : 'none';
+  });
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _toastTimer;
+function showToast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = err ? 'var(--danger)' : 'var(--border)';
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function handleAuthError(error) {
+  if (error.message?.includes('Unauthorized')) {
+    showToast('Session expired. Please log in again.', true);
+    doLogout();
+  }
+}
+
+// Close modals on backdrop click
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); }));
+
+init();
+</script>
+</body>
+</html>
