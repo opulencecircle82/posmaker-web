@@ -344,18 +344,12 @@ function renderPayPalButton() {
 async function saveSubscription(orderId) {
   const { data: storeId } = await _sb.rpc('get_store_id_by_email', { p_email: _selectedEmail }).catch(() => ({ data: null }));
 
-  const payload = {
-    plan_name:        _selectedPlan,
-    amount:           parseFloat(_selectedPrice),
-    currency:         PAYPAL_CURRENCY,
-    paypal_order_id:  orderId,
-    subscriber_email: _selectedEmail,
-    status:           'active',
-    expires_at:       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-  };
-  if (storeId) payload.store_id = storeId;
-
-  const { error } = await _sb.from('subscriptions').insert(payload).then(r => r);
+  const { data, error } = await _sb.rpc('upsert_subscription', {
+    p_email:    _selectedEmail,
+    p_plan:     _selectedPlan.toLowerCase(),
+    p_order_id: orderId,
+    p_store_id: storeId || null
+  });
   if (error) { console.error('Subscription save error:', error); }
 
   document.getElementById('stepPayment').style.display = 'none';
