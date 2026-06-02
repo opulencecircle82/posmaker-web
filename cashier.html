@@ -738,6 +738,21 @@ function filterCat(cat, btn) {
 
 function stockClass(s) { return s <= 0 ? 'zero' : s <= 5 ? 'low' : 'ok'; }
 
+let _toastT;
+function showToast(msg) {
+  let el = document.getElementById('posToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'posToast';
+    el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e1e2e;border:1px solid #f59e0b;color:#f59e0b;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;pointer-events:none;transition:opacity .25s';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => { el.style.opacity = '0'; }, 1800);
+}
+
 function showLowStockAlert(items) {
   const bar = document.getElementById('lowStockBar');
   const container = document.getElementById('lowStockItems');
@@ -827,6 +842,8 @@ function askQty(id) {
 function confirmQty() {
   const qty = parseFloat(document.getElementById('mQtyVal').value);
   if (!qty || qty <= 0) { alert('Enter a valid quantity.'); return; }
+  const max = _maxStock(_qtyPid);
+  if (qty > max) { alert(`Only ${max} in stock.`); return; }
   closeM('mQty');
   addItemWithQty(_qtyPid, qty);
 }
@@ -878,15 +895,31 @@ function toggleKOT() {
 }
 
 // ── Cart ──────────────────────────────────────────────────────────────────
+function _maxStock(id) {
+  const p = prods.find(x => x.id == id);
+  if (!p || !STORE.track_stock) return Infinity;
+  if (p.stock == null) return Infinity;
+  return Math.max(0, parseFloat(p.stock));
+}
+
 function addItem(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
   if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
+  const max = _maxStock(id);
+  if (cart[id].qty >= max) {
+    showToast(`Only ${max} in stock`);
+    return;
+  }
   cart[id].qty++;
   redrawCart();
 }
 
 function adjQty(id, d) {
   if (!cart[id]) return;
+  if (d > 0) {
+    const max = _maxStock(id);
+    if (cart[id].qty >= max) { showToast(`Only ${max} in stock`); return; }
+  }
   cart[id].qty += d;
   if (cart[id].qty <= 0) delete cart[id];
   redrawCart();
