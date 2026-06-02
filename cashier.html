@@ -612,7 +612,7 @@ function showPOS(name) {
   updateNetStatus();
   syncOfflineQueue();
   startPing();
-  setTimeout(openScanner, 600); // auto-open camera on login
+  setTimeout(openScanner, 1800); // auto-open camera on login — give camera hardware time to release after logout
 }
 
 async function doLogout() {
@@ -1354,7 +1354,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── Camera Scanner (barcode + ML Kit text + visual photo matching) ───────
-let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null;
+let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null, _cameraOpening = false;
 let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 0;
 let _visLoopId = null, _prodHashes = [], _visConf = {};
 let _aiLoopId = null, _mnModel = null, _prodEmbeds = [], _mnConf = {};
@@ -1366,6 +1366,8 @@ function setCooldown(id){ _scanCooldown[id] = Date.now(); }
 async function toggleScanner(){ scannerOpen ? closeScanner() : await openScanner(); }
 
 async function openScanner(){
+  if(_cameraOpening) return;
+  _cameraOpening = true;
   scannerOpen = true;
   _scanSession++;
   document.getElementById('camOverlay').style.display = 'block';
@@ -1414,13 +1416,13 @@ async function openScanner(){
     if(!scannerOpen) return;
     await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,2000))]);
     startBcLoop(v); startTextLoop(v); startVisualLoop(v);
-    _loadMnModel().then(ok=>{ if(ok&&scannerOpen) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } }); });
     camStat(_scanModes());
   } catch(e){
     camStat(e.message==='timeout'
       ? 'Camera timed out — tap Allow when browser asks for camera permission'
       : 'Camera blocked — allow camera access in browser settings');
   }
+  _cameraOpening = false;
 }
 
 function closeScanner(){
@@ -1433,6 +1435,7 @@ function closeScanner(){
   if(_visLoopId){ clearTimeout(_visLoopId); _visLoopId=null; }
   if(_aiLoopId){ clearTimeout(_aiLoopId); _aiLoopId=null; }
   _visConf = {}; _mnConf = {};
+  _cameraOpening = false;
   // Pause video decoding to free GPU/CPU while overlay is hidden; stream stays alive for fast re-open
   const _cv = document.getElementById('camVideo');
   if(_cv && !_cv.paused) _cv.pause();
@@ -1441,7 +1444,7 @@ function closeScanner(){
 function stopCamera(){
   if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
   const _sv = document.getElementById('camVideo');
-  if(_sv){ _sv.srcObject = null; _sv.load(); }
+  if(_sv) _sv.srcObject = null;
   _zxingReader = null;
 }
 
