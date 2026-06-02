@@ -241,6 +241,11 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <button class="btn-logout" onclick="doLogout()">Logout</button>
 </div>
 <div id="syncBar" style="display:none;background:#1a3a1a;color:#4ade80;font-size:12px;font-weight:600;padding:5px 16px;text-align:center;border-bottom:1px solid #2a5a2a"></div>
+<div id="lowStockBar" style="display:none;background:#1a0e00;border-bottom:1px solid #f59e0b55;padding:7px 14px;align-items:center;gap:8px;flex-wrap:wrap">
+  <span style="color:#f59e0b;font-weight:700;font-size:12px;white-space:nowrap">&#9888; Low Stock:</span>
+  <div id="lowStockItems" style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0"></div>
+  <button onclick="document.getElementById('lowStockBar').style.display='none'" style="background:none;border:none;color:#f59e0b;font-size:16px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0" title="Dismiss">&#215;</button>
+</div>
 
 <!-- Order type tabs -->
 <div class="ot-bar">
@@ -662,7 +667,7 @@ async function loadProds() {
   // For products without inv_links: match by name/SKU as fallback (e.g. drug stores)
   try {
     const { data: invData } = await _sb.from('inventory_items')
-      .select('id,name,sku,stock').eq('store_id', STORE_ID);
+      .select('id,name,sku,stock,low_stock_threshold,unit').eq('store_id', STORE_ID);
     storeInvItems = invData || [];
     invById = {}; invByName = {};
     storeInvItems.forEach(i => {
@@ -670,6 +675,7 @@ async function loadProds() {
       if (i.name) invByName[i.name.toLowerCase().trim()] = i;
       if (i.sku && i.sku.trim()) invByName[i.sku.toLowerCase().trim()] = i;
     });
+    showLowStockAlert(storeInvItems);
     prods.forEach(p => {
       let links = [];
       try { links = p.inv_links ? JSON.parse(p.inv_links) : []; } catch {}
@@ -731,6 +737,24 @@ function filterCat(cat, btn) {
 }
 
 function stockClass(s) { return s <= 0 ? 'zero' : s <= 5 ? 'low' : 'ok'; }
+
+function showLowStockAlert(items) {
+  const bar = document.getElementById('lowStockBar');
+  const container = document.getElementById('lowStockItems');
+  if (!bar || !container) return;
+  const low = items.filter(i => {
+    const thresh = i.low_stock_threshold != null ? i.low_stock_threshold : 5;
+    return i.stock <= thresh;
+  });
+  if (!low.length) { bar.style.display = 'none'; return; }
+  container.innerHTML = low.map(i => {
+    const thresh = i.low_stock_threshold != null ? i.low_stock_threshold : 5;
+    const color = i.stock <= 0 ? '#ef4444' : '#f59e0b';
+    const label = i.stock <= 0 ? 'Out' : i.stock + (i.unit ? ' ' + i.unit : '');
+    return `<span style="background:#2a1800;border:1px solid ${color}55;color:${color};border-radius:4px;padding:2px 7px;font-size:11px;font-weight:600;white-space:nowrap">${i.name} <span style="opacity:.8">(${label})</span></span>`;
+  }).join('');
+  bar.style.display = 'flex';
+}
 
 function renderProds(cat) {
   const list = (cat === 'All' ? prods : prods.filter(p => p.category === cat));
