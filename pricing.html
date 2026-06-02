@@ -276,28 +276,11 @@ function openCheckout(plan, price) {
   document.getElementById('checkoutModal').classList.add('show');
 }
 
-async function goToPayment() {
-  const email = document.getElementById('ckEmail').value.trim();
-  const errEl = document.getElementById('ckErr');
-  const btn   = document.getElementById('ckNextBtn');
-  errEl.textContent = '';
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-
-  // Verify store exists
-  const { data: store } = await _sb.from('stores')
-    .select('id,name').eq('owner_id',
-      (await _sb.from('stores').select('owner_id').limit(1)).data?.[0]?.owner_id
-    ).limit(1);
-
-  // Just verify the email exists in auth
-  const { data: usr } = await _sb.rpc('get_store_by_email', { p_email: email }).maybeSingle().catch(() => ({ data: null }));
-
-  btn.disabled = false; btn.textContent = 'Continue to Payment';
-  _selectedEmail = email;
-
+function goToPayment() {
+  _selectedEmail = document.getElementById('ckEmail').value.trim();
   document.getElementById('ckPlanName2').textContent  = _selectedPlan + ' Plan';
   document.getElementById('ckPlanPrice2').textContent = _selectedPrice;
-  document.getElementById('ckEmailDisp').textContent  = email;
+  document.getElementById('ckEmailDisp').textContent  = _selectedEmail;
   document.getElementById('stepEmail').style.display   = 'none';
   document.getElementById('stepPayment').style.display = '';
   renderPayPalButton();
