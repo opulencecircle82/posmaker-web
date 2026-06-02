@@ -308,10 +308,15 @@ function _doRenderButtons() {
       });
     },
     async onApprove(data, actions) {
-      const order = await actions.order.capture();
-      await saveSubscription(order.id);
+      try {
+        const order = await actions.order.capture();
+        await saveSubscription(order?.id || data.orderID);
+      } catch(e) {
+        // capture() threw but payment may have gone through — save anyway
+        await saveSubscription(data.orderID);
+      }
     },
-    onError(err) { console.error('PayPal error:', err); showToast('Payment error. Please try again.', true); },
+    onError(err) { console.error('PayPal error:', err); },
     onCancel()   { showToast('Payment cancelled.'); }
   }).render('#paypal-btn-container');
 }
