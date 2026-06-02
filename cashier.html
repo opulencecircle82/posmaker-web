@@ -897,7 +897,8 @@ function toggleKOT() {
 // ── Cart ──────────────────────────────────────────────────────────────────
 function _maxStock(id) {
   const p = prods.find(x => x.id == id);
-  if (!p || !STORE.track_stock) return Infinity;
+  if (!p) return Infinity;
+  if (!STORE.track_stock && !p._invResolved) return Infinity;
   if (p.stock == null) return Infinity;
   return Math.max(0, parseFloat(p.stock));
 }
