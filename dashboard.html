@@ -1098,13 +1098,13 @@ function _sig(ms = 12000) {
   adaptDashboardToBizType(store.business_type);
 
   // ── Subscription gate ─────────────────────────────────────────────────
-  const { data: _activeSub } = await _sb.from('subscriptions')
-    .select('id,plan_name,expires_at')
+  const { data: _subRows } = await _sb.from('subscriptions')
+    .select('id')
     .eq('store_id', store.id)
     .eq('status', 'active')
     .gte('expires_at', new Date().toISOString())
-    .maybeSingle();
-  if (!_activeSub) {
+    .limit(1);
+  if (!_subRows || _subRows.length === 0) {
     document.getElementById('loadingPage').innerHTML = `
       <div style="text-align:center;max-width:380px;margin:0 auto;padding:20px">
         <div style="font-size:52px;margin-bottom:16px">&#128274;</div>

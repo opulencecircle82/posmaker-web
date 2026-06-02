@@ -332,13 +332,13 @@ async function init(){
     _tgChatId  = st.telegram_chat_id || '';
   }
   // ── Subscription gate ─────────────────────────────────────────────────
-  const { data: _activeSub } = await _sb.from('subscriptions')
+  const { data: _subRows } = await _sb.from('subscriptions')
     .select('id')
     .eq('store_id', MGR.store_id)
     .eq('status', 'active')
     .gte('expires_at', new Date().toISOString())
-    .maybeSingle();
-  if (!_activeSub) { location.href = 'pricing.html'; return; }
+    .limit(1);
+  if (!_subRows || _subRows.length === 0) { location.href = 'pricing.html'; return; }
 
   show('mainContent');
   await loadInv();
