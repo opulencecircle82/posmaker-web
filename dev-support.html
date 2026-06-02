@@ -192,7 +192,7 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab-btn active" id="tabStores" onclick="showTab('stores')">&#127978; Stores</button>
-      <button class="tab-btn" id="tabStaff"  onclick="showTab('staff')">&#128100; Staff</button>
+      <button class="tab-btn" id="tabStaff"  onclick="showTab('staff')">&#129309; Partners</button>
       <button class="tab-btn" id="tabOrders" onclick="showTab('orders')">&#128200; Orders</button>
     </div>
 
@@ -221,30 +221,20 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
       </div>
     </div>
 
-    <!-- STAFF -->
+    <!-- PARTNERS -->
     <div id="secStaff" style="display:none">
       <div class="card">
         <div class="card-title">
-          All Staff Accounts
+          POSMaker Partners / Clients
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <div class="toolbar" style="margin:0">
-              <input class="search-inp" id="staffSearch" placeholder="Search name or username…" oninput="filterStaff()">
-              <select class="filter-sel" id="staffStoreFilter" onchange="filterStaff()">
-                <option value="">All Stores</option>
-              </select>
-              <select class="filter-sel" id="staffRoleFilter" onchange="filterStaff()">
-                <option value="">All Roles</option>
-                <option value="manager">Manager</option>
-                <option value="cashier">Cashier</option>
-              </select>
-            </div>
-            <button class="btn btn-accent btn-sm" onclick="openCreateStaffModal()">&#43; Create Staff</button>
+            <input class="search-inp" id="partnerSearch" placeholder="Search store or email…" oninput="filterPartners()">
+            <button class="btn btn-accent btn-sm" onclick="openNewPartnerModal()">&#43; New Partner</button>
           </div>
         </div>
         <div style="overflow-x:auto">
           <table>
-            <thead><tr><th>#</th><th>Name</th><th>Username</th><th>Store</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr></thead>
-            <tbody id="staffTbody"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+            <thead><tr><th>#</th><th>Store Name</th><th>Owner Email</th><th>Business Type</th><th>Staff</th><th>Registered</th><th></th></tr></thead>
+            <tbody id="partnersTbody"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -361,6 +351,46 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
   </div>
 </div>
 
+<!-- ── NEW PARTNER MODAL ── -->
+<div class="modal" id="newPartnerModal">
+  <div class="mbox">
+    <h3>&#129309; New Partner / Client</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:18px">Creates a new POSMaker store account for your client.</p>
+    <div class="field"><label>Store Name</label><input id="npStore" type="text" placeholder="e.g. Juan's Pharmacy" oninput="npCheck()"></div>
+    <div class="field">
+      <label>Business Type</label>
+      <select id="npBiz">
+        <option value="retail">Retail</option>
+        <option value="food">Food &amp; Beverage</option>
+        <option value="pharmacy">Pharmacy / Drug Store</option>
+        <option value="salon">Salon / Services</option>
+      </select>
+    </div>
+    <div class="field"><label>Owner Email</label><input id="npEmail" type="email" placeholder="e.g. owner@email.com" oninput="npCheck()"></div>
+    <div class="field">
+      <label>Password</label>
+      <input id="npPass" type="password" placeholder="Create a strong password" oninput="npCheck()" onfocus="document.getElementById('npReqBox').classList.add('show')">
+    </div>
+    <div class="pw-reqs" id="npReqBox">
+      <div class="req" id="npreq-len"><span class="req-icon">✗</span>Minimum 8 characters</div>
+      <div class="req" id="npreq-upper"><span class="req-icon">✗</span>Uppercase letter (A–Z)</div>
+      <div class="req" id="npreq-lower"><span class="req-icon">✗</span>Lowercase letter (a–z)</div>
+      <div class="req" id="npreq-num"><span class="req-icon">✗</span>Number (0–9)</div>
+      <div class="req" id="npreq-sym"><span class="req-icon">✗</span>Special character (!@#$%^&amp;*)</div>
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <input id="npPass2" type="password" placeholder="Re-enter password" oninput="npCheck()">
+      <div id="npMatchErr" style="font-size:11px;color:var(--danger);margin-top:4px;min-height:13px"></div>
+    </div>
+    <div id="npErr" style="font-size:12px;color:var(--danger);margin-bottom:8px;min-height:14px"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('newPartnerModal')">Cancel</button>
+      <button class="btn btn-accent" id="npSaveBtn" onclick="doCreatePartner()" disabled>Create Partner</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── CREDENTIALS MODAL ── -->
 <div class="modal" id="credsModal">
   <div class="mbox" style="max-width:420px">
@@ -409,7 +439,7 @@ const {createClient} = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let _devToken = null, _devUser = '';
-let _allStores = [], _allStaff = [], _allOrders = [];
+let _allStores = [], _allStaff = [], _allOrders = [], _allPartners = [];
 
 // ── SHA-256 ──────────────────────────────────────────────────────────────────
 async function sha256(text) {
@@ -652,11 +682,12 @@ async function loadStores() {
 }
 
 async function loadStaff() {
-  const { data, error } = await _sb.rpc('dev_get_staff', { p_token: _devToken });
+  const { data, error } = await _sb.rpc('dev_get_partners', { p_token: _devToken });
   if (error) { handleAuthError(error); return; }
-  _allStaff = data || [];
-  document.getElementById('stStaff').textContent = _allStaff.length;
-  renderStaff();
+  _allPartners = data || [];
+  _allStaff = data || []; // keep for store detail view
+  document.getElementById('stStaff').textContent = _allPartners.length;
+  renderPartners();
 }
 
 async function loadOrders() {
@@ -748,40 +779,33 @@ function viewStore(sid) {
   document.getElementById('storeDetailModal').classList.add('show');
 }
 
-// ── Render Staff ─────────────────────────────────────────────────────────────
-function renderStaff(items) {
-  const list = items ?? _allStaff;
-  const tb = document.getElementById('staffTbody');
-  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="8">No staff found.</td></tr>'; return; }
-  tb.innerHTML = list.map((u, i) => {
-    const dt = new Date(u.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-    const roleBadge = u.role === 'manager'
-      ? `<span class="badge badge-purple">Manager</span>`
-      : `<span class="badge badge-muted">Cashier</span>`;
-    const activeBadge = u.active !== false
-      ? `<span class="badge badge-ok">Active</span>`
-      : `<span class="badge badge-danger">Inactive</span>`;
+// ── Render Partners ───────────────────────────────────────────────────────────
+function renderPartners(items) {
+  const list = items ?? _allPartners;
+  const tb = document.getElementById('partnersTbody');
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="7">No partners yet.</td></tr>'; return; }
+  tb.innerHTML = list.map((p, i) => {
+    const dt = new Date(p.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const biz = p.business_type || '—';
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${i + 1}</td>
-      <td><strong>${esc(u.full_name || '—')}</strong></td>
-      <td style="color:var(--muted)">${esc(u.username)}</td>
-      <td style="font-size:12px">${esc(u.store_name)}</td>
-      <td>${roleBadge}</td>
-      <td>${activeBadge}</td>
+      <td><strong>${esc(p.store_name)}</strong></td>
+      <td style="color:var(--muted);font-size:12px">${esc(p.owner_email || '—')}</td>
+      <td><span class="badge badge-muted">${esc(biz)}</span></td>
+      <td style="text-align:center;font-weight:700;color:var(--accent)">${p.staff_count ?? 0}</td>
       <td style="color:var(--muted);font-size:12px">${dt}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="openResetModal('${u.id}','${esc(u.full_name||'—')}','${esc(u.username)}','${esc(u.store_name)}')">&#128274; Reset PW</button></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="viewStore('${p.store_id}')">View</button>
+        <button class="btn btn-danger btn-sm" onclick="openOwnerResetModal('${p.store_id}','${esc(p.store_name)}','${esc(p.owner_email||'')}')">&#128274; Reset PW</button>
+      </td>
     </tr>`;
   }).join('');
 }
 
-function filterStaff() {
-  const q     = document.getElementById('staffSearch').value.toLowerCase();
-  const store = document.getElementById('staffStoreFilter').value;
-  const role  = document.getElementById('staffRoleFilter').value;
-  renderStaff(_allStaff.filter(u =>
-    (!q     || (u.full_name||'').toLowerCase().includes(q) || u.username.toLowerCase().includes(q)) &&
-    (!store || u.store_id === store) &&
-    (!role  || u.role === role)
+function filterPartners() {
+  const q = document.getElementById('partnerSearch').value.toLowerCase();
+  renderPartners(_allPartners.filter(p =>
+    !q || p.store_name.toLowerCase().includes(q) || (p.owner_email||'').toLowerCase().includes(q)
   ));
 }
 
@@ -815,6 +839,71 @@ function filterOrders() {
     (!store  || o.store_id === store) &&
     (!method || (o.payment_method || 'Cash') === method)
   ));
+}
+
+// ── New Partner ───────────────────────────────────────────────────────────────
+function openNewPartnerModal() {
+  ['npStore','npEmail','npPass','npPass2'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('npErr').textContent = '';
+  document.getElementById('npMatchErr').textContent = '';
+  document.getElementById('npReqBox').classList.remove('show');
+  document.getElementById('npSaveBtn').disabled = true;
+  document.getElementById('newPartnerModal').classList.add('show');
+}
+
+function npCheck() {
+  const store = document.getElementById('npStore').value.trim();
+  const email = document.getElementById('npEmail').value.trim();
+  const pw    = document.getElementById('npPass').value;
+  const pw2   = document.getElementById('npPass2').value;
+  const pwOk  = checkPwReqs(pw, 'npreq-');
+  const match = pw === pw2 && pw2 !== '';
+  document.getElementById('npMatchErr').textContent = pw2 && !match ? 'Passwords do not match.' : '';
+  document.getElementById('npSaveBtn').disabled = !(store && email.includes('@') && pwOk && match);
+}
+
+async function doCreatePartner() {
+  const storeName = document.getElementById('npStore').value.trim();
+  const biz       = document.getElementById('npBiz').value;
+  const email     = document.getElementById('npEmail').value.trim();
+  const pw        = document.getElementById('npPass').value;
+  const errEl     = document.getElementById('npErr');
+  const btn       = document.getElementById('npSaveBtn');
+  errEl.textContent = '';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Creating…';
+  const { data, error } = await _sb.rpc('dev_create_partner', {
+    p_token: _devToken, p_email: email, p_password: pw,
+    p_store_name: storeName, p_business_type: biz
+  });
+  btn.disabled = false; btn.textContent = 'Create Partner';
+  if (error) {
+    errEl.textContent = error.message?.includes('duplicate') ? 'Email already registered.' : error.message;
+    return;
+  }
+  closeModal('newPartnerModal');
+  document.getElementById('cdStore').textContent = storeName;
+  document.getElementById('cdName').textContent  = storeName;
+  document.getElementById('cdUser').textContent  = email;
+  document.getElementById('cdPass').textContent  = pw;
+  document.getElementById('credsModal').classList.add('show');
+  await loadStaff();
+  await loadStores();
+  document.getElementById('stStores').textContent = _allStores.length;
+}
+
+function openOwnerResetModal(storeId, storeName, ownerEmail) {
+  document.getElementById('rstStaffId').value = storeId;
+  document.getElementById('rstName').textContent = storeName;
+  document.getElementById('rstUsername').textContent = ownerEmail;
+  document.getElementById('rstStore').textContent = 'Store Owner';
+  document.getElementById('rstPass').value = '';
+  document.getElementById('rstPass2').value = '';
+  document.getElementById('rstMatchErr').textContent = '';
+  document.getElementById('rstSaveBtn').disabled = true;
+  document.getElementById('rstReqBox').classList.remove('show');
+  // mark as owner reset
+  document.getElementById('rstStaffId').dataset.ownerEmail = ownerEmail;
+  document.getElementById('resetModal').classList.add('show');
 }
 
 // ── Create Staff ──────────────────────────────────────────────────────────────
@@ -906,22 +995,25 @@ function rstCheck() {
 }
 
 async function doResetPassword() {
-  const id  = document.getElementById('rstStaffId').value;
+  const id         = document.getElementById('rstStaffId').value;
+  const ownerEmail = document.getElementById('rstStaffId').dataset.ownerEmail || '';
   const pw  = document.getElementById('rstPass').value;
   const btn = document.getElementById('rstSaveBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
   const hash = await sha256(pw);
-  const { data: ok, error } = await _sb.rpc('dev_reset_password', {
-    p_token: _devToken, p_staff_id: id, p_new_hash: hash
-  });
+  const rpc  = ownerEmail ? 'dev_reset_owner_password' : 'dev_reset_password';
+  const args = ownerEmail
+    ? { p_token: _devToken, p_owner_email: ownerEmail, p_new_password: pw }
+    : { p_token: _devToken, p_staff_id: id, p_new_hash: hash };
+  const { error } = await _sb.rpc(rpc, args);
   btn.disabled = false; btn.textContent = 'Reset Password';
+  document.getElementById('rstStaffId').dataset.ownerEmail = '';
   if (error) { showToast('Error: ' + error.message, true); return; }
   closeModal('resetModal');
-  // Show new credentials
-  const staff = _allStaff.find(u => u.id === id);
-  document.getElementById('cdStore').textContent = staff?.store_name || '—';
-  document.getElementById('cdName').textContent  = staff?.full_name || '—';
-  document.getElementById('cdUser').textContent  = staff?.username || '—';
+  const partner = _allPartners.find(p => p.store_id === id);
+  document.getElementById('cdStore').textContent = partner?.store_name || document.getElementById('rstName').textContent;
+  document.getElementById('cdName').textContent  = ownerEmail ? 'Store Owner' : document.getElementById('rstName').textContent;
+  document.getElementById('cdUser').textContent  = ownerEmail || document.getElementById('rstUsername').textContent;
   document.getElementById('cdPass').textContent  = pw;
   document.getElementById('credsModal').classList.add('show');
 }
