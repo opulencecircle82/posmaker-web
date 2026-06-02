@@ -1414,6 +1414,7 @@ async function openScanner(){
     if(!scannerOpen) return;
     await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,2000))]);
     startBcLoop(v); startTextLoop(v); startVisualLoop(v);
+    _loadMnModel().then(ok=>{ if(ok&&scannerOpen) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } }); });
     camStat(_scanModes());
   } catch(e){
     camStat(e.message==='timeout'
@@ -1432,11 +1433,15 @@ function closeScanner(){
   if(_visLoopId){ clearTimeout(_visLoopId); _visLoopId=null; }
   if(_aiLoopId){ clearTimeout(_aiLoopId); _aiLoopId=null; }
   _visConf = {}; _mnConf = {};
-  // Keep stream alive — prevents Android camera permission prompt on re-open
+  // Pause video decoding to free GPU/CPU while overlay is hidden; stream stays alive for fast re-open
+  const _cv = document.getElementById('camVideo');
+  if(_cv && !_cv.paused) _cv.pause();
 }
 
 function stopCamera(){
   if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
+  const _sv = document.getElementById('camVideo');
+  if(_sv){ _sv.srcObject = null; _sv.load(); }
   _zxingReader = null;
 }
 
