@@ -337,10 +337,7 @@ function renderPayPalButton() {
 }
 
 async function saveSubscription(orderId) {
-  // Find store by owner email via RPC
-  const { data: storeId } = await _sb.rpc('get_store_id_by_email', {
-    p_email: _selectedEmail
-  }).catch(() => ({ data: null }));
+  const { data: storeId } = await _sb.rpc('get_store_id_by_email', { p_email: _selectedEmail }).catch(() => ({ data: null }));
 
   const payload = {
     plan_name:        _selectedPlan,
@@ -353,7 +350,8 @@ async function saveSubscription(orderId) {
   };
   if (storeId) payload.store_id = storeId;
 
-  await _sb.from('subscriptions').insert(payload);
+  const { error } = await _sb.from('subscriptions').insert(payload).then(r => r);
+  if (error) { console.error('Subscription save error:', error); }
 
   document.getElementById('stepPayment').style.display = 'none';
   document.getElementById('stepSuccess').style.display = '';
