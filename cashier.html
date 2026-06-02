@@ -618,7 +618,10 @@ function showPOS(name) {
   updateNetStatus();
   syncOfflineQueue();
   startPing();
-  _openScanTimer = setTimeout(openScanner, 800);
+  // Only auto-open if stream is already live (resume path — safe on all devices).
+  // If no stream yet, cashier taps 📷 — this ensures getUserMedia is called from a user gesture.
+  const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
+  if(isLive) _openScanTimer = setTimeout(openScanner, 400);
 }
 
 async function doLogout() {
@@ -1524,19 +1527,24 @@ function startBcLoop(video){
       .then(()=>startBcLoop(video)); return;
   }
   _zxingReader = new ZXingBrowser.BrowserMultiFormatReader();
+  // Small fixed canvas — ZXing WASM decode is synchronous; full-res camera frames
+  // (1920×1080 on phones) block the main thread for 300-800ms per attempt
+  const bc = document.createElement('canvas'); bc.width=480; bc.height=270;
+  const bctx = bc.getContext('2d');
   const sess=_scanSession;
   async function loop(){
     if(!scannerOpen||_scanSession!==sess){ _bcLoopId=null; return; }
     if(video.readyState>=2 && video.videoWidth>0){
       try{
-        const r = await _zxingReader.decodeFromImageElement(video);
+        bctx.drawImage(video, 0, 0, 480, 270);
+        const r = await _zxingReader.decodeFromCanvas(bc);
         if(_scanSession!==sess) return;
         if(r) handleBarcode(r.getText());
       }catch(_){}
     }
-    _bcLoopId = setTimeout(loop, 200);
+    _bcLoopId = setTimeout(loop, 350);
   }
-  setTimeout(loop, 600); // let video stabilize before first scan
+  setTimeout(loop, 600);
 }
 
 function handleBarcode(code){
