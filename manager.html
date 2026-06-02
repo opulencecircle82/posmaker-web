@@ -110,9 +110,15 @@ input:focus{border-color:var(--accent)}
       <button class="tab-btn"        id="sfWeek"  onclick="setSalesPeriod('week')">Weekly</button>
       <button class="tab-btn"        id="sfMonth" onclick="setSalesPeriod('month')">Monthly</button>
       <div style="display:flex;gap:6px;align-items:center;margin-left:8px">
-        <input type="date" id="sfFrom" style="padding:6px 10px;font-size:13px;width:140px" onchange="setSalesPeriod('custom')">
+        <div style="position:relative;display:inline-block">
+          <input type="date" id="sfFrom" style="padding:6px 32px 6px 10px;font-size:13px;width:155px;cursor:pointer" onchange="setSalesPeriod('custom')">
+          <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:14px">📅</span>
+        </div>
         <span style="color:var(--muted);font-size:13px">to</span>
-        <input type="date" id="sfTo"   style="padding:6px 10px;font-size:13px;width:140px" onchange="setSalesPeriod('custom')">
+        <div style="position:relative;display:inline-block">
+          <input type="date" id="sfTo" style="padding:6px 32px 6px 10px;font-size:13px;width:155px;cursor:pointer" onchange="setSalesPeriod('custom')">
+          <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:14px">📅</span>
+        </div>
       </div>
       <button class="btn btn-accent btn-sm" onclick="downloadSalesCSV()" style="margin-left:auto">&#11123; Download Excel</button>
     </div>
