@@ -194,6 +194,7 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
       <button class="tab-btn active" id="tabStores" onclick="showTab('stores')">&#127978; Stores</button>
       <button class="tab-btn" id="tabStaff"  onclick="showTab('staff')">&#129309; Partners</button>
       <button class="tab-btn" id="tabOrders" onclick="showTab('orders')">&#128200; Orders</button>
+      <button class="tab-btn" id="tabSubs"   onclick="showTab('subs')">&#128178; Subscriptions</button>
     </div>
 
     <!-- STORES -->
@@ -262,6 +263,30 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
           <table>
             <thead><tr><th>#</th><th>Date &amp; Time</th><th>Store</th><th>Cashier</th><th>Total</th><th>Method</th></tr></thead>
             <tbody id="ordersTbody"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBSCRIPTIONS -->
+    <div id="secSubs" style="display:none">
+      <div class="card">
+        <div class="card-title">
+          Subscriptions
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="filter-sel" id="subsStatusFilter" onchange="filterSubs()">
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadSubs()">&#8635; Refresh</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Store / Email</th><th>Plan</th><th>Amount</th><th>Status</th><th>Started</th><th>Expires</th><th>PayPal Order</th><th></th></tr></thead>
+            <tbody id="subsTbody"><tr class="empty-row"><td colspan="9">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1018,12 +1043,65 @@ async function doResetPassword() {
   document.getElementById('credsModal').classList.add('show');
 }
 
+// ── Subscriptions ─────────────────────────────────────────────────────────────
+let _allSubs = [];
+async function loadSubs() {
+  const { data, error } = await _sb.rpc('dev_get_subscriptions', { p_token: _devToken });
+  if (error) { handleAuthError(error); return; }
+  _allSubs = data || [];
+  renderSubs();
+}
+
+function renderSubs(items) {
+  const list = items ?? _allSubs;
+  const tb = document.getElementById('subsTbody');
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="9">No subscriptions yet.</td></tr>'; return; }
+  tb.innerHTML = list.map((s, i) => {
+    const started  = new Date(s.started_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const expires  = s.expires_at ? new Date(s.expires_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const isExpired = s.expires_at && new Date(s.expires_at) < new Date();
+    const status = s.status === 'active' && isExpired ? 'expired' : (s.status || 'active');
+    const badge = status === 'active'
+      ? `<span class="badge badge-ok">Active</span>`
+      : status === 'expired'
+      ? `<span class="badge badge-warn">Expired</span>`
+      : `<span class="badge badge-danger">Cancelled</span>`;
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
+      <td><strong>${esc(s.store_name || '—')}</strong><div style="font-size:11px;color:var(--muted)">${esc(s.subscriber_email || '—')}</div></td>
+      <td><span class="badge badge-purple">${esc(s.plan_name)}</span></td>
+      <td style="font-weight:700;color:var(--success)">&#8369;${parseFloat(s.amount).toFixed(2)}</td>
+      <td>${badge}</td>
+      <td style="color:var(--muted);font-size:12px">${started}</td>
+      <td style="color:var(--muted);font-size:12px">${expires}</td>
+      <td style="font-size:11px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(s.paypal_order_id || '—')}</td>
+      <td>
+        ${status !== 'cancelled' ? `<button class="btn btn-sm" style="background:#2a0a0a;border:1px solid var(--danger);color:var(--danger);font-size:11px" onclick="cancelSub('${s.id}')">Cancel</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterSubs() {
+  const st = document.getElementById('subsStatusFilter').value;
+  renderSubs(st ? _allSubs.filter(s => (s.status || 'active') === st) : _allSubs);
+}
+
+async function cancelSub(id) {
+  if (!confirm('Cancel this subscription?')) return;
+  const { error } = await _sb.rpc('dev_cancel_subscription', { p_token: _devToken, p_sub_id: id });
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  showToast('Subscription cancelled.');
+  loadSubs();
+}
+
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function showTab(tab) {
-  ['stores','staff','orders'].forEach(t => {
-    document.getElementById('sec' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
-    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+  ['stores','staff','orders','subs'].forEach(t => {
+    document.getElementById('sec' + (t === 'subs' ? 'Subs' : t.charAt(0).toUpperCase() + t.slice(1))).style.display = t === tab ? '' : 'none';
+    document.getElementById('tab' + (t === 'subs' ? 'Subs' : t.charAt(0).toUpperCase() + t.slice(1))).classList.toggle('active', t === tab);
   });
+  if (tab === 'subs' && !_allSubs.length) loadSubs();
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────────

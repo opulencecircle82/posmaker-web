@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Pricing & Plans</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--muted:#8888aa;--success:#10b981;--warn:#f59e0b;--danger:#ef4444}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+
+/* ── NAV ── */
+nav{background:var(--s1);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.nav-logo{font-size:20px;font-weight:800}.nav-logo span{color:var(--accent)}
+.nav-links{display:flex;gap:12px;align-items:center}
+.nav-link{color:var(--muted);font-size:13px;font-weight:500;text-decoration:none;transition:color .15s}.nav-link:hover{color:var(--text)}
+
+/* ── HERO ── */
+.hero{text-align:center;padding:72px 20px 56px;background:radial-gradient(ellipse at 50% 0%,#0d1a2e 0%,var(--bg) 65%)}
+.hero-badge{display:inline-block;background:#0d1a2e;border:1px solid #00b4d855;color:var(--accent);font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;margin-bottom:20px;letter-spacing:.4px}
+.hero h1{font-size:clamp(32px,6vw,56px);font-weight:900;line-height:1.1;margin-bottom:16px}
+.hero h1 span{color:var(--accent)}
+.hero p{font-size:16px;color:var(--muted);max-width:520px;margin:0 auto 12px;line-height:1.6}
+.hero-note{font-size:12px;color:var(--muted);margin-top:8px}
+
+/* ── PLANS ── */
+.plans-wrap{max-width:900px;margin:0 auto;padding:20px 20px 60px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.plan-card{background:var(--s1);border:1.5px solid var(--border);border-radius:20px;padding:28px 24px;display:flex;flex-direction:column;transition:border-color .2s,transform .2s}
+.plan-card:hover{border-color:var(--accent);transform:translateY(-3px)}
+.plan-card.featured{border-color:var(--accent);background:linear-gradient(145deg,#0d1a2e,var(--s1));position:relative;overflow:hidden}
+.plan-card.featured::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),#7c3aed)}
+.plan-featured-tag{display:inline-block;background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;margin-bottom:12px;letter-spacing:.3px}
+.plan-name{font-size:18px;font-weight:800;margin-bottom:4px}
+.plan-desc{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.5}
+.plan-price{margin-bottom:20px}
+.plan-amount{font-size:40px;font-weight:900;color:var(--text);line-height:1}
+.plan-amount sup{font-size:20px;font-weight:700;vertical-align:top;margin-top:8px;margin-right:2px;color:var(--muted)}
+.plan-period{font-size:13px;color:var(--muted);margin-top:4px}
+.plan-features{list-style:none;margin-bottom:24px;flex:1}
+.plan-features li{display:flex;align-items:flex-start;gap:8px;font-size:13px;padding:5px 0;color:var(--muted)}
+.plan-features li .chk{color:var(--success);font-size:14px;flex-shrink:0;margin-top:1px}
+.plan-features li strong{color:var(--text)}
+.plan-btn{width:100%;padding:13px;border-radius:10px;border:none;font-weight:700;font-size:14px;font-family:'Inter',sans-serif;cursor:pointer;transition:.15s}
+.plan-btn-accent{background:var(--accent);color:#fff}.plan-btn-accent:hover{opacity:.88}
+.plan-btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--text)}.plan-btn-ghost:hover{background:var(--s2)}
+
+/* ── PAYMENT METHODS ── */
+.pay-methods{text-align:center;padding:20px 20px 60px}
+.pay-methods h3{font-size:14px;color:var(--muted);margin-bottom:16px;text-transform:uppercase;letter-spacing:.5px}
+.pay-chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.pay-chip{background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+
+/* ── FAQ ── */
+.faq{max-width:680px;margin:0 auto;padding:0 20px 80px}
+.faq h2{font-size:22px;font-weight:800;margin-bottom:24px;text-align:center}
+.faq-item{border-bottom:1px solid var(--border);padding:16px 0}
+.faq-q{font-size:14px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.faq-a{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6;display:none}
+.faq-a.open{display:block}
+
+/* ── MODAL ── */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.mbox{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:32px 28px;width:min(480px,100%);max-height:92vh;overflow-y:auto}
+.mbox h3{font-size:18px;font-weight:700;margin-bottom:6px}
+.mbox-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
+.field{margin-bottom:16px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+input,select{width:100%;padding:11px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:9px;color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+input:focus{border-color:var(--accent)}
+.plan-summary{background:var(--s2);border-radius:10px;padding:14px 16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}
+.plan-summary-name{font-weight:700;font-size:15px}
+.plan-summary-price{font-size:18px;font-weight:800;color:var(--accent)}
+
+/* ── Success screen ── */
+.success-screen{text-align:center;padding:20px 0}
+.success-icon{font-size:56px;margin-bottom:16px}
+.success-screen h3{font-size:22px;font-weight:800;margin-bottom:8px}
+.success-screen p{font-size:14px;color:var(--muted);line-height:1.6}
+
+/* ── Spinner ── */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;pointer-events:none;opacity:0}
+#toast.show{opacity:1}
+
+#paypal-btn-container .paypal-buttons{border-radius:10px!important;overflow:hidden}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-logo">POS<span>Maker</span></span>
+  <div class="nav-links">
+    <a class="nav-link" href="cashier.html">Cashier</a>
+    <a class="nav-link" href="dashboard.html">Dashboard</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">&#127881; NOW AVAILABLE — TEST PLANS</div>
+  <h1>Simple, Affordable<br><span>POS for Everyone</span></h1>
+  <p>Start selling smarter. No hardware needed. Works on any device — phone, tablet, or PC.</p>
+  <div class="hero-note">&#128274; Secure checkout via PayPal &nbsp;·&nbsp; Cancel anytime</div>
+</div>
+
+<!-- PLANS -->
+<div class="plans-wrap">
+
+  <!-- Plan 1: Basic -->
+  <div class="plan-card">
+    <div class="plan-name">Basic</div>
+    <div class="plan-desc">Perfect for small stores just starting out.</div>
+    <div class="plan-price">
+      <div class="plan-amount"><sup>&#8369;</sup>1</div>
+      <div class="plan-period">per month &nbsp;·&nbsp; billed monthly</div>
+    </div>
+    <ul class="plan-features">
+      <li><span class="chk">✓</span><span>Up to <strong>10 products</strong></span></li>
+      <li><span class="chk">✓</span><span><strong>1 cashier</strong> account</span></li>
+      <li><span class="chk">✓</span><span>Sales reports</span></li>
+      <li><span class="chk">✓</span><span>Receipt printing</span></li>
+      <li><span class="chk">✓</span><span>Works on any device</span></li>
+    </ul>
+    <button class="plan-btn plan-btn-ghost" onclick="openCheckout('Basic','1')">Get Started</button>
+  </div>
+
+  <!-- Plan 2: Add POS (featured) -->
+  <div class="plan-card featured">
+    <div class="plan-featured-tag">MOST POPULAR</div>
+    <div class="plan-name">Add POS</div>
+    <div class="plan-desc">Unlock unlimited products and extra POS devices.</div>
+    <div class="plan-price">
+      <div class="plan-amount"><sup>&#8369;</sup>1</div>
+      <div class="plan-period">per month &nbsp;·&nbsp; billed monthly</div>
+    </div>
+    <ul class="plan-features">
+      <li><span class="chk">✓</span><span><strong>Unlimited</strong> products</span></li>
+      <li><span class="chk">✓</span><span><strong>Multiple</strong> cashier accounts</span></li>
+      <li><span class="chk">✓</span><span>Inventory management</span></li>
+      <li><span class="chk">✓</span><span>Low stock alerts</span></li>
+      <li><span class="chk">✓</span><span>Telegram notifications</span></li>
+      <li><span class="chk">✓</span><span>Manager dashboard</span></li>
+    </ul>
+    <button class="plan-btn plan-btn-accent" onclick="openCheckout('Add POS','1')">Subscribe Now</button>
+  </div>
+
+</div>
+
+<!-- PAYMENT METHODS -->
+<div class="pay-methods">
+  <h3>Accepted Payment Methods</h3>
+  <div class="pay-chips">
+    <span class="pay-chip">&#128179; Credit Card</span>
+    <span class="pay-chip">&#128179; Debit Card</span>
+    <span class="pay-chip">&#128247; GCash</span>
+    <span class="pay-chip">&#128247; Maya</span>
+    <span class="pay-chip">&#128247; GoTyme</span>
+    <span class="pay-chip">&#128178; PayPal</span>
+  </div>
+  <p style="font-size:12px;color:var(--muted);margin-top:14px">Payments processed securely by PayPal. Your financial info is never stored on our servers.</p>
+</div>
+
+<!-- FAQ -->
+<div class="faq">
+  <h2>Frequently Asked Questions</h2>
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)"><span>How does billing work?</span><span>+</span></div>
+    <div class="faq-a">You are charged monthly starting from the date you subscribe. You can cancel at any time and your access continues until the end of the billing period.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)"><span>Can I use POSMaker on multiple devices?</span><span>+</span></div>
+    <div class="faq-a">Yes! POSMaker works on any device with a browser — Android phone, tablet, or Windows PC. The Add POS plan allows multiple cashier accounts across devices.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)"><span>Do I need internet to use POSMaker?</span><span>+</span></div>
+    <div class="faq-a">An internet connection is required for real-time sync and reports. Basic POS functions may still work briefly if connection drops temporarily.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q" onclick="toggleFaq(this)"><span>How do I get my store set up?</span><span>+</span></div>
+    <div class="faq-a">After subscribing, contact our support and we'll set up your store account, add your products, and get you started — usually within 24 hours.</div>
+  </div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div class="modal" id="checkoutModal">
+  <div class="mbox">
+    <!-- Step 1: Enter email -->
+    <div id="stepEmail">
+      <h3>Subscribe to POSMaker</h3>
+      <div class="mbox-sub">Enter your registered store email to continue.</div>
+      <div class="plan-summary">
+        <div>
+          <div class="plan-summary-name" id="ckPlanName">—</div>
+          <div style="font-size:12px;color:var(--muted)">Monthly subscription</div>
+        </div>
+        <div class="plan-summary-price">&#8369;<span id="ckPlanPrice">—</span>/mo</div>
+      </div>
+      <div class="field">
+        <label>Store Email</label>
+        <input id="ckEmail" type="email" placeholder="Your registered POSMaker email" oninput="document.getElementById('ckNextBtn').disabled=!this.value.includes('@')">
+      </div>
+      <div id="ckErr" style="font-size:12px;color:var(--danger);margin-bottom:12px;min-height:14px"></div>
+      <div style="display:flex;gap:10px">
+        <button style="flex:1;padding:11px;border-radius:9px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-weight:600;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif" onclick="closeModal()">Cancel</button>
+        <button id="ckNextBtn" style="flex:2;padding:11px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;transition:.15s" disabled onclick="goToPayment()">Continue to Payment</button>
+      </div>
+    </div>
+
+    <!-- Step 2: PayPal -->
+    <div id="stepPayment" style="display:none">
+      <h3>Complete Payment</h3>
+      <div class="mbox-sub" id="ckPaySub">Paying for — via PayPal</div>
+      <div class="plan-summary" style="margin-bottom:20px">
+        <div>
+          <div class="plan-summary-name" id="ckPlanName2">—</div>
+          <div style="font-size:12px;color:var(--muted)" id="ckEmailDisp"></div>
+        </div>
+        <div class="plan-summary-price">&#8369;<span id="ckPlanPrice2">—</span>/mo</div>
+      </div>
+      <div id="paypal-btn-container" style="min-height:50px"></div>
+      <div id="paypalLoading" style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Loading payment options…</div>
+      <button style="width:100%;margin-top:14px;padding:10px;border-radius:9px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-weight:600;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif" onclick="backToEmail()">&#8592; Back</button>
+    </div>
+
+    <!-- Step 3: Success -->
+    <div id="stepSuccess" style="display:none">
+      <div class="success-screen">
+        <div class="success-icon">&#127881;</div>
+        <h3>Payment Successful!</h3>
+        <p>Your subscription is now active.<br>Our team will set up your store within <strong style="color:var(--text)">24 hours</strong>.<br><br>Check your email for confirmation.</p>
+        <button style="margin-top:24px;padding:12px 32px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif" onclick="closeModal()">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const {createClient} = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let _selectedPlan = '', _selectedPrice = '', _selectedEmail = '';
+let _paypalLoaded = false;
+
+// ── Load PayPal SDK ──────────────────────────────────────────────────────────
+function loadPayPalSDK() {
+  if (_paypalLoaded || document.getElementById('paypal-sdk')) return;
+  const s = document.createElement('script');
+  s.id = 'paypal-sdk';
+  s.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=${PAYPAL_CURRENCY}&intent=capture`;
+  s.onload = () => { _paypalLoaded = true; };
+  document.head.appendChild(s);
+}
+loadPayPalSDK();
+
+// ── Checkout flow ─────────────────────────────────────────────────────────────
+function openCheckout(plan, price) {
+  _selectedPlan  = plan;
+  _selectedPrice = price;
+  document.getElementById('ckPlanName').textContent  = plan + ' Plan';
+  document.getElementById('ckPlanPrice').textContent = price;
+  document.getElementById('ckEmail').value = '';
+  document.getElementById('ckErr').textContent = '';
+  document.getElementById('ckNextBtn').disabled = true;
+  document.getElementById('stepEmail').style.display    = '';
+  document.getElementById('stepPayment').style.display  = 'none';
+  document.getElementById('stepSuccess').style.display  = 'none';
+  document.getElementById('checkoutModal').classList.add('show');
+}
+
+async function goToPayment() {
+  const email = document.getElementById('ckEmail').value.trim();
+  const errEl = document.getElementById('ckErr');
+  const btn   = document.getElementById('ckNextBtn');
+  errEl.textContent = '';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+
+  // Verify store exists
+  const { data: store } = await _sb.from('stores')
+    .select('id,name').eq('owner_id',
+      (await _sb.from('stores').select('owner_id').limit(1)).data?.[0]?.owner_id
+    ).limit(1);
+
+  // Just verify the email exists in auth
+  const { data: usr } = await _sb.rpc('get_store_by_email', { p_email: email }).maybeSingle().catch(() => ({ data: null }));
+
+  btn.disabled = false; btn.textContent = 'Continue to Payment';
+  _selectedEmail = email;
+
+  document.getElementById('ckPlanName2').textContent  = _selectedPlan + ' Plan';
+  document.getElementById('ckPlanPrice2').textContent = _selectedPrice;
+  document.getElementById('ckEmailDisp').textContent  = email;
+  document.getElementById('stepEmail').style.display   = 'none';
+  document.getElementById('stepPayment').style.display = '';
+  renderPayPalButton();
+}
+
+function backToEmail() {
+  document.getElementById('stepEmail').style.display   = '';
+  document.getElementById('stepPayment').style.display = 'none';
+  document.getElementById('paypal-btn-container').innerHTML = '';
+  document.getElementById('paypalLoading').style.display = '';
+}
+
+function renderPayPalButton() {
+  const container = document.getElementById('paypal-btn-container');
+  const loading   = document.getElementById('paypalLoading');
+  container.innerHTML = '';
+
+  const tryRender = () => {
+    if (typeof paypal === 'undefined') { setTimeout(tryRender, 300); return; }
+    loading.style.display = 'none';
+    paypal.Buttons({
+      style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
+      createOrder(data, actions) {
+        return actions.order.create({
+          purchase_units: [{
+            description: `POSMaker ${_selectedPlan} Plan — ${_selectedEmail}`,
+            amount: { value: _selectedPrice, currency_code: PAYPAL_CURRENCY }
+          }]
+        });
+      },
+      async onApprove(data, actions) {
+        const order = await actions.order.capture();
+        await saveSubscription(order.id);
+      },
+      onError(err) {
+        showToast('Payment error. Please try again.', true);
+      },
+      onCancel() {
+        showToast('Payment cancelled.');
+      }
+    }).render('#paypal-btn-container');
+  };
+  tryRender();
+}
+
+async function saveSubscription(orderId) {
+  // Find store by owner email via RPC
+  const { data: storeId } = await _sb.rpc('get_store_id_by_email', {
+    p_email: _selectedEmail
+  }).catch(() => ({ data: null }));
+
+  const payload = {
+    plan_name:        _selectedPlan,
+    amount:           parseFloat(_selectedPrice),
+    currency:         PAYPAL_CURRENCY,
+    paypal_order_id:  orderId,
+    subscriber_email: _selectedEmail,
+    status:           'active',
+    expires_at:       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+  };
+  if (storeId) payload.store_id = storeId;
+
+  await _sb.from('subscriptions').insert(payload);
+
+  document.getElementById('stepPayment').style.display = 'none';
+  document.getElementById('stepSuccess').style.display = '';
+}
+
+function closeModal() {
+  document.getElementById('checkoutModal').classList.remove('show');
+}
+
+// ── FAQ ───────────────────────────────────────────────────────────────────────
+function toggleFaq(el) {
+  const ans = el.nextElementSibling;
+  const isOpen = ans.classList.toggle('open');
+  el.querySelector('span:last-child').textContent = isOpen ? '−' : '+';
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let _tt;
+function showToast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = err ? 'var(--danger)' : 'var(--border)';
+  el.classList.add('show');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+document.getElementById('checkoutModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('checkoutModal')) closeModal();
+});
+</script>
+</body>
+</html>
