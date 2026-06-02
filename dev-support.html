@@ -373,9 +373,9 @@ async function doSetup() {
   errEl.textContent = '';
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Creating…';
   const hash = await sha256(pw);
-  const { error } = await _sb.from('dev_admins').insert({ username: user, password_hash: hash });
+  const { error } = await _sb.rpc('dev_create_admin', { p_username: user, p_password_hash: hash });
   if (error) {
-    errEl.textContent = error.code === '23505' ? 'Username already taken.' : error.message;
+    errEl.textContent = error.message?.includes('already exists') ? 'Account already exists. Go to login.' : error.message;
     btn.disabled = false; btn.textContent = 'Create Account'; return;
   }
   showToast('Account created! Logging you in…');
