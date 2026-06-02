@@ -265,10 +265,12 @@ function getDefaultInvCats(biz) {
 // Allow Enter key
 document.addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
 
-// If already logged in, hide email/password and show banner
+// If already logged in: redirect to dashboard if store exists, else show banner
 (async () => {
   const { data: { session } } = await _sb.auth.getSession();
   if (!session) return;
+  const { data: store } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).maybeSingle();
+  if (store) { location.replace('dashboard.html'); return; }
   document.getElementById('sessionBanner').style.display = 'block';
   document.getElementById('email').closest('.field').style.display = 'none';
   document.getElementById('pw').closest('.field').style.display = 'none';
