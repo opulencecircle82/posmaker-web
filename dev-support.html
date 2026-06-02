@@ -226,16 +226,19 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
       <div class="card">
         <div class="card-title">
           All Staff Accounts
-          <div class="toolbar" style="margin:0">
-            <input class="search-inp" id="staffSearch" placeholder="Search name or username…" oninput="filterStaff()">
-            <select class="filter-sel" id="staffStoreFilter" onchange="filterStaff()">
-              <option value="">All Stores</option>
-            </select>
-            <select class="filter-sel" id="staffRoleFilter" onchange="filterStaff()">
-              <option value="">All Roles</option>
-              <option value="manager">Manager</option>
-              <option value="cashier">Cashier</option>
-            </select>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div class="toolbar" style="margin:0">
+              <input class="search-inp" id="staffSearch" placeholder="Search name or username…" oninput="filterStaff()">
+              <select class="filter-sel" id="staffStoreFilter" onchange="filterStaff()">
+                <option value="">All Stores</option>
+              </select>
+              <select class="filter-sel" id="staffRoleFilter" onchange="filterStaff()">
+                <option value="">All Roles</option>
+                <option value="manager">Manager</option>
+                <option value="cashier">Cashier</option>
+              </select>
+            </div>
+            <button class="btn btn-accent btn-sm" onclick="openCreateStaffModal()">&#43; Create Staff</button>
           </div>
         </div>
         <div style="overflow-x:auto">
@@ -305,6 +308,85 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('resetModal')">Cancel</button>
       <button class="btn btn-accent" id="rstSaveBtn" onclick="doResetPassword()" disabled>Reset Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CREATE STAFF MODAL ── -->
+<div class="modal" id="createStaffModal">
+  <div class="mbox">
+    <h3>&#128100; Create Staff Account</h3>
+    <div class="field">
+      <label>Store</label>
+      <select id="csStore"></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field">
+        <label>Full Name</label>
+        <input id="csName" type="text" placeholder="e.g. Juan dela Cruz" oninput="csCheck()">
+      </div>
+      <div class="field">
+        <label>Username</label>
+        <input id="csUser" type="text" placeholder="e.g. juan01" autocomplete="off" oninput="csCheck()">
+      </div>
+    </div>
+    <div class="field">
+      <label>Role</label>
+      <select id="csRole">
+        <option value="cashier">Cashier</option>
+        <option value="manager">Manager</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="csPass" type="password" placeholder="Create a strong password" oninput="csCheck()" onfocus="document.getElementById('csReqBox').classList.add('show')">
+    </div>
+    <div class="pw-reqs" id="csReqBox">
+      <div class="req" id="creq-len"><span class="req-icon">✗</span>Minimum 8 characters</div>
+      <div class="req" id="creq-upper"><span class="req-icon">✗</span>Uppercase letter (A–Z)</div>
+      <div class="req" id="creq-lower"><span class="req-icon">✗</span>Lowercase letter (a–z)</div>
+      <div class="req" id="creq-num"><span class="req-icon">✗</span>Number (0–9)</div>
+      <div class="req" id="creq-sym"><span class="req-icon">✗</span>Special character (!@#$%^&amp;*)</div>
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <input id="csPass2" type="password" placeholder="Re-enter password" oninput="csCheck()">
+      <div id="csMatchErr" style="font-size:11px;color:var(--danger);margin-top:4px;min-height:13px"></div>
+    </div>
+    <div id="csErr" style="font-size:12px;color:var(--danger);margin-bottom:8px;min-height:14px"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('createStaffModal')">Cancel</button>
+      <button class="btn btn-accent" id="csSaveBtn" onclick="doCreateStaff()" disabled>Create Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CREDENTIALS MODAL ── -->
+<div class="modal" id="credsModal">
+  <div class="mbox" style="max-width:420px">
+    <h3>&#9989; Account Created</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Save these credentials — the password won't be shown again.</p>
+    <div style="background:var(--s2);border-radius:10px;padding:16px 18px;margin-bottom:16px">
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Store</div>
+        <div style="font-weight:600" id="cdStore"></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Name</div>
+        <div style="font-weight:600" id="cdName"></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Username</div>
+        <div style="font-weight:700;font-size:15px;color:var(--accent)" id="cdUser"></div>
+      </div>
+      <div style="margin-bottom:4px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Password</div>
+        <div style="font-weight:700;font-size:15px;color:var(--success)" id="cdPass"></div>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-full" onclick="copyCredentials()" style="margin-bottom:10px">&#128203; Copy Credentials</button>
+    <div class="m-actions" style="margin-top:0">
+      <button class="btn btn-accent btn-full" onclick="closeModal('credsModal')">Done</button>
     </div>
   </div>
 </div>
@@ -739,6 +821,71 @@ function filterOrders() {
   ));
 }
 
+// ── Create Staff ──────────────────────────────────────────────────────────────
+function openCreateStaffModal() {
+  const sel = document.getElementById('csStore');
+  sel.innerHTML = '<option value="">Select store…</option>';
+  _allStores.forEach(s => sel.appendChild(new Option(s.name, s.id)));
+  document.getElementById('csName').value = '';
+  document.getElementById('csUser').value = '';
+  document.getElementById('csPass').value = '';
+  document.getElementById('csPass2').value = '';
+  document.getElementById('csErr').textContent = '';
+  document.getElementById('csMatchErr').textContent = '';
+  document.getElementById('csReqBox').classList.remove('show');
+  document.getElementById('csSaveBtn').disabled = true;
+  document.getElementById('createStaffModal').classList.add('show');
+}
+
+function csCheck() {
+  const name = document.getElementById('csName').value.trim();
+  const user = document.getElementById('csUser').value.trim();
+  const pw   = document.getElementById('csPass').value;
+  const pw2  = document.getElementById('csPass2').value;
+  const pwOk = checkPwReqs(pw, 'creq-');
+  const match = pw === pw2 && pw2 !== '';
+  document.getElementById('csMatchErr').textContent = pw2 && !match ? 'Passwords do not match.' : '';
+  document.getElementById('csSaveBtn').disabled = !(name && user.length >= 3 && pwOk && match);
+}
+
+async function doCreateStaff() {
+  const storeId = document.getElementById('csStore').value;
+  const name    = document.getElementById('csName').value.trim();
+  const user    = document.getElementById('csUser').value.trim();
+  const role    = document.getElementById('csRole').value;
+  const pw      = document.getElementById('csPass').value;
+  const errEl   = document.getElementById('csErr');
+  const btn     = document.getElementById('csSaveBtn');
+  if (!storeId) { errEl.textContent = 'Please select a store.'; return; }
+  errEl.textContent = '';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Creating…';
+  const hash = await sha256(pw);
+  const { data, error } = await _sb.rpc('dev_create_staff', {
+    p_token: _devToken, p_store_id: storeId, p_full_name: name,
+    p_username: user, p_role: role, p_password_hash: hash
+  });
+  btn.disabled = false; btn.textContent = 'Create Account';
+  if (error) {
+    errEl.textContent = error.message?.includes('duplicate') ? 'Username already taken in this store.' : error.message;
+    return;
+  }
+  closeModal('createStaffModal');
+  // Show credentials
+  const storeName = _allStores.find(s => s.id === storeId)?.name || storeId;
+  document.getElementById('cdStore').textContent = storeName;
+  document.getElementById('cdName').textContent  = name;
+  document.getElementById('cdUser').textContent  = user;
+  document.getElementById('cdPass').textContent  = pw;
+  document.getElementById('credsModal').classList.add('show');
+  // Refresh staff list
+  await loadStaff();
+}
+
+function copyCredentials() {
+  const text = `Store: ${document.getElementById('cdStore').textContent}\nName: ${document.getElementById('cdName').textContent}\nUsername: ${document.getElementById('cdUser').textContent}\nPassword: ${document.getElementById('cdPass').textContent}`;
+  navigator.clipboard.writeText(text).then(() => showToast('Credentials copied!'));
+}
+
 // ── Reset Password ────────────────────────────────────────────────────────────
 function openResetModal(id, name, username, storeName) {
   document.getElementById('rstStaffId').value = id;
@@ -774,7 +921,13 @@ async function doResetPassword() {
   btn.disabled = false; btn.textContent = 'Reset Password';
   if (error) { showToast('Error: ' + error.message, true); return; }
   closeModal('resetModal');
-  showToast('Password reset successfully.');
+  // Show new credentials
+  const staff = _allStaff.find(u => u.id === id);
+  document.getElementById('cdStore').textContent = staff?.store_name || '—';
+  document.getElementById('cdName').textContent  = staff?.full_name || '—';
+  document.getElementById('cdUser').textContent  = staff?.username || '—';
+  document.getElementById('cdPass').textContent  = pw;
+  document.getElementById('credsModal').classList.add('show');
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
