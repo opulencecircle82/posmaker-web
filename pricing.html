@@ -307,7 +307,7 @@ function renderPayPalButton() {
         return actions.order.create({
           purchase_units: [{
             description: `POSMaker ${_selectedPlan} Plan — ${_selectedEmail}`,
-            amount: { value: _selectedPrice, currency_code: PAYPAL_CURRENCY }
+            amount: { value: parseFloat(_selectedPrice).toFixed(2), currency_code: PAYPAL_CURRENCY }
           }]
         });
       },
@@ -316,6 +316,7 @@ function renderPayPalButton() {
         await saveSubscription(order.id);
       },
       onError(err) {
+        console.error('PayPal error:', err);
         showToast('Payment error. Please try again.', true);
       },
       onCancel() {
