@@ -251,20 +251,15 @@ let _selectedPlan = '', _selectedPrice = '', _selectedEmail = '';
 let _paypalLoaded = false;
 
 // ── Load PayPal SDK ──────────────────────────────────────────────────────────
-function loadPayPalSDK() {
-  const existing = document.getElementById('paypal-sdk');
-  if (existing) { if (_paypalLoaded) return; existing.remove(); _paypalLoaded = false; }
+(function() {
+  if (document.getElementById('paypal-sdk')) return;
   const s = document.createElement('script');
   s.id = 'paypal-sdk';
-  s.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=${PAYPAL_CURRENCY}&intent=capture`;
+  s.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=${PAYPAL_CURRENCY}&intent=capture&components=buttons`;
   s.onload = () => { _paypalLoaded = true; };
-  s.onerror = () => {
-    _paypalLoaded = false;
-    document.getElementById('paypalLoading').innerHTML = 'Failed to load PayPal. <a href="#" onclick="loadPayPalSDK();renderPayPalButton();return false" style="color:var(--accent)">Retry</a>';
-  };
+  s.onerror = () => { _paypalLoaded = false; };
   document.head.appendChild(s);
-}
-loadPayPalSDK();
+})();
 
 // ── Checkout flow ─────────────────────────────────────────────────────────────
 function openCheckout(plan, price) {
@@ -296,44 +291,47 @@ function backToEmail() {
   document.getElementById('stepPayment').style.display = 'none';
   document.getElementById('paypal-btn-container').innerHTML = '';
   document.getElementById('paypalLoading').style.display = '';
+  document.getElementById('paypalLoading').textContent = 'Loading payment options…';
+}
+
+function _doRenderButtons() {
+  const loading = document.getElementById('paypalLoading');
+  loading.style.display = 'none';
+  paypal.Buttons({
+    style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
+    createOrder(data, actions) {
+      return actions.order.create({
+        purchase_units: [{
+          description: `POSMaker ${_selectedPlan} Plan — ${_selectedEmail}`,
+          amount: { value: parseFloat(_selectedPrice).toFixed(2), currency_code: PAYPAL_CURRENCY }
+        }]
+      });
+    },
+    async onApprove(data, actions) {
+      const order = await actions.order.capture();
+      await saveSubscription(order.id);
+    },
+    onError(err) { console.error('PayPal error:', err); showToast('Payment error. Please try again.', true); },
+    onCancel()   { showToast('Payment cancelled.'); }
+  }).render('#paypal-btn-container');
 }
 
 function renderPayPalButton() {
-  const container = document.getElementById('paypal-btn-container');
-  const loading   = document.getElementById('paypalLoading');
-  container.innerHTML = '';
+  document.getElementById('paypal-btn-container').innerHTML = '';
+  const loading = document.getElementById('paypalLoading');
+  loading.style.display = '';
+  loading.textContent = 'Loading payment options…';
 
-  let _tries = 0;
-  const tryRender = () => {
-    if (typeof paypal === 'undefined') {
-      if (++_tries > 40) { loading.innerHTML = 'PayPal failed to load. <a href="#" onclick="loadPayPalSDK();renderPayPalButton();return false" style="color:var(--accent)">Retry</a>'; return; }
-      setTimeout(tryRender, 300); return;
+  if (typeof paypal !== 'undefined') { _doRenderButtons(); return; }
+
+  let tries = 0;
+  const poll = setInterval(() => {
+    if (typeof paypal !== 'undefined') { clearInterval(poll); _doRenderButtons(); return; }
+    if (++tries > 50) {
+      clearInterval(poll);
+      loading.innerHTML = 'PayPal failed to load. <a href="#" onclick="location.reload();return false" style="color:var(--accent)">Refresh page</a>';
     }
-    loading.style.display = 'none';
-    paypal.Buttons({
-      style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
-      createOrder(data, actions) {
-        return actions.order.create({
-          purchase_units: [{
-            description: `POSMaker ${_selectedPlan} Plan — ${_selectedEmail}`,
-            amount: { value: parseFloat(_selectedPrice).toFixed(2), currency_code: PAYPAL_CURRENCY }
-          }]
-        });
-      },
-      async onApprove(data, actions) {
-        const order = await actions.order.capture();
-        await saveSubscription(order.id);
-      },
-      onError(err) {
-        console.error('PayPal error:', err);
-        showToast('Payment error. Please try again.', true);
-      },
-      onCancel() {
-        showToast('Payment cancelled.');
-      }
-    }).render('#paypal-btn-container');
-  };
-  tryRender();
+  }, 300);
 }
 
 async function saveSubscription(orderId) {
