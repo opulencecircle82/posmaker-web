@@ -827,7 +827,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div style="margin-bottom:10px;padding:12px;background:var(--s2);border-radius:8px">
         <div style="font-weight:700;color:var(--text);margin-bottom:6px">Your Cashier Link:</div>
         <div id="posInstallUrl" style="font-family:monospace;font-size:12px;color:var(--accent);word-break:break-all"></div>
-        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="navigator.clipboard.writeText(document.getElementById('posInstallUrl').textContent);showToast('Link copied!')">&#128203; Copy Link</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="_copyText(document.getElementById('posInstallUrl').textContent.trim()).then(ok=>ok?showToast('Link copied!'):showToast('Copy failed.',true))">&#128203; Copy Link</button>
       </div>
       <div style="padding:12px;background:var(--s2);border-radius:8px">
         <div style="font-weight:700;color:var(--text);margin-bottom:8px">Steps:</div>
@@ -1977,14 +1977,14 @@ function renderPOSTerminals() {
       <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">&#128273; Store Code — Share this with your cashier</div>
       <div style="display:flex;align-items:center;gap:10px;background:var(--s2);border:2px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:12px">
         <div style="flex:1;font-size:26px;font-weight:900;letter-spacing:6px;color:var(--accent);font-family:monospace">${code}</div>
-        <button class="btn btn-accent btn-sm" onclick="navigator.clipboard.writeText('${code}');showToast('Store code copied!')">&#128203; Copy</button>
+        <button class="btn btn-accent btn-sm" onclick="_copyText('${code}').then(ok=>ok?showToast('Store code copied!'):showToast('Copy failed.',true))">&#128203; Copy</button>
         <button class="btn btn-ghost btn-sm" onclick="editStoreCode('${s.id}','${code}')">&#9998; Edit</button>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
         Cashier enters this code once on first launch of the Windows app or Android APK to connect their device to your store.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${url}');showToast('Cashier link copied!')">&#128203; Copy Browser Link</button>
+        <button class="btn btn-ghost btn-sm" onclick="_copyText('${url}').then(ok=>ok?showToast('Cashier link copied!'):showToast('Copy failed.',true))">&#128203; Copy Browser Link</button>
         <a class="btn btn-ghost btn-sm" href="${url}" target="_blank">Open in Browser</a>
       </div>
     </div>`;
@@ -2461,18 +2461,29 @@ function updateMgrLink() {
   const el = document.getElementById('mgrLoginLink');
   if (el) el.textContent = url;
 }
+function _copyText(text) {
+  if (navigator.clipboard && location.protocol === 'https:') {
+    return navigator.clipboard.writeText(text).then(() => true).catch(() => false);
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  const ok = document.execCommand('copy');
+  document.body.removeChild(ta);
+  return Promise.resolve(ok);
+}
 async function copyMgrLink() {
   const el = document.getElementById('mgrLoginLink');
   if (!el) return;
-  try { await navigator.clipboard.writeText(el.textContent); showToast('Link copied!'); }
-  catch(_) { showToast('Copy failed — select and copy manually.', true); }
+  const ok = await _copyText(el.textContent.trim());
+  ok ? showToast('Link copied!') : showToast('Copy failed — select and copy manually.', true);
 }
 async function copyStaffLink() {
   if (!STORE) return;
   const base = location.origin + location.pathname.replace(/[^/]*$/, '');
   const url = base + 'staff-login.html?sid=' + STORE.id;
-  try { await navigator.clipboard.writeText(url); showToast('Manager login link copied!'); }
-  catch(_) { showToast('Copy failed.', true); }
+  const ok = await _copyText(url);
+  ok ? showToast('Manager login link copied!') : showToast('Copy failed.', true);
 }
 
 // ── Activity Log ─────────────────────────────────────────────────────────
@@ -3163,7 +3174,7 @@ async function applyBulkPrice(){
 // â”€â”€ Cashier link â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function copyLink() {
   const link = document.getElementById('cashierLinkBox').textContent;
-  navigator.clipboard.writeText(link).then(() => showToast('Link copied!'));
+  _copyText(link.trim()).then(ok => ok ? showToast('Link copied!') : showToast('Copy failed — select manually.', true));
 }
 
 // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
