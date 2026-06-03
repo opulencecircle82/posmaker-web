@@ -348,7 +348,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div class="tbl-wrap">
         <div class="tbl-head">
           <h3>Staff / Cashiers</h3>
-          <button class="btn btn-accent btn-sm" onclick="openStaffModal()">+ Add Staff</button>
+          <button class="btn btn-accent btn-sm" id="btnAddStaff" onclick="openStaffModal()">+ Add Staff</button>
         </div>
         <table>
           <thead><tr><th>Username</th><th>Full Name</th><th>Role</th><th>Active</th><th>Last Login</th><th></th></tr></thead>
@@ -1047,9 +1047,10 @@ let pInvLinks = []; // array of {id, qty} — qty = amount used per 1 order
 let dbCats = [], dbInvCats = [], catTab = 'prod'; // loaded from categories table
 let invItems = [];
 
-const FREE_PROD_LIMIT = 3;
-const FREE_INV_LIMIT  = 3;
-const FREE_POS_LIMIT  = 1;
+const FREE_PROD_LIMIT  = 3;
+const FREE_INV_LIMIT   = 3;
+const FREE_POS_LIMIT   = 1;
+const FREE_STAFF_LIMIT = 1;
 let IS_PRO = false;
 let allStores = [];
 
@@ -1868,9 +1869,12 @@ function openCatFromProd() {
   setTimeout(()=>document.getElementById('catName').focus(),50);
 }
 function showUpgradeModal(type, count, limit) {
-  const label = type === 'product' ? 'products' : 'inventory items';
+  const labels  = { product:'products', inventory:'inventory items', staff:'staff accounts' };
+  const singles = { product:'product',  inventory:'item',            staff:'staff account'  };
+  const label  = labels[type]  || type;
+  const single = singles[type] || type;
   document.getElementById('upgradeMsg').innerHTML =
-    `You have <strong>${count}/${limit}</strong> ${label} — that's the free plan limit.<br>Delete an existing ${type === 'product' ? 'product' : 'item'} to make room, or upgrade to Pro for unlimited access.`;
+    `You have <strong>${count}/${limit}</strong> ${label} — that's the free plan limit.<br>Delete an existing ${single} to make room, or upgrade to Pro for unlimited access.`;
   document.getElementById('upgradeModal').classList.add('show');
 }
 function updateAddBtnLabels() {
@@ -1887,6 +1891,13 @@ function updateAddBtnLabels() {
     const over = !IS_PRO && c >= FREE_INV_LIMIT;
     ib.textContent = IS_PRO ? `+ Add Item` : (over ? `+ Add Item (${c}/${FREE_INV_LIMIT} — Full)` : `+ Add Item (${c}/${FREE_INV_LIMIT})`);
     ib.style.background = over ? '#6b7280' : '';
+  }
+  const sb = document.getElementById('btnAddStaff');
+  if (sb) {
+    const c = allStaff.length;
+    const over = !IS_PRO && c >= FREE_STAFF_LIMIT;
+    sb.textContent = IS_PRO ? `+ Add Staff` : (over ? `+ Add Staff (${c}/${FREE_STAFF_LIMIT} — Full)` : `+ Add Staff (${c}/${FREE_STAFF_LIMIT})`);
+    sb.style.background = over ? '#6b7280' : '';
   }
 }
 let posDevices = []; // registered devices per store
@@ -2349,6 +2360,7 @@ async function loadStaff() {
     }
     clearTimeout(_st);
     renderStaff(allStaff);
+    updateAddBtnLabels();
   } catch(e) {
     clearTimeout(_st);
     console.error('loadStaff error:', e);
@@ -2401,6 +2413,7 @@ async function viewStaffLogs(staffId, username) {
     </table>`;
 }
 function openStaffModal(s) {
+  if (!IS_PRO && !s && allStaff.length >= FREE_STAFF_LIMIT) { showUpgradeModal('staff', allStaff.length, FREE_STAFF_LIMIT); return; }
   document.getElementById('staffModalTitle').textContent = s ? 'Edit Staff' : 'Add Staff';
   document.getElementById('staffId').value   = s ? s.id : '';
   document.getElementById('sfUser').value    = s ? s.username : '';
