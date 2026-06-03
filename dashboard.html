@@ -555,11 +555,11 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
         <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()">+ Add POS</button>
       </div>
-      <div style="background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.25);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
+      <div id="posPlanBanner" style="background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.25);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
         <span style="font-size:22px">&#127381;</span>
         <div>
-          <div style="font-size:13px;font-weight:700;color:var(--accent)">Free Plan &#8212; 1 POS Terminal Included</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Upgrade to Pro to run multiple POS counters or locations under one account.</div>
+          <div id="posPlanTitle" style="font-size:13px;font-weight:700;color:var(--accent)">Free Plan &#8212; 1 POS Terminal Included</div>
+          <div id="posPlanSub" style="font-size:12px;color:var(--muted);margin-top:2px">Upgrade to Pro to run multiple POS counters or locations under one account.</div>
         </div>
       </div>
       <div id="posTerminalList"><div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Loading...</div></div>
@@ -1929,6 +1929,11 @@ async function loadPOSTerminals() {
 function renderPOSTerminals() {
   const list = document.getElementById('posTerminalList');
   if (!list) return;
+  // Update plan banner
+  const pTitle = document.getElementById('posPlanTitle');
+  const pSub   = document.getElementById('posPlanSub');
+  if (pTitle) pTitle.textContent = IS_PRO ? 'Pro Plan — Unlimited POS Terminals' : 'Free Plan — 1 POS Terminal Included';
+  if (pSub)   pSub.textContent   = IS_PRO ? `You have ${allStores.length} POS terminal${allStores.length !== 1 ? 's' : ''}. Click + Add POS to create another terminal for a second counter or branch.` : 'Upgrade to Pro to run multiple POS counters or locations under one account.';
   const base = location.origin + location.pathname.replace('dashboard.html','cashier.html');
   if (!allStores.length) { list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted)">No POS terminals found.</div>'; return; }
   list.innerHTML = allStores.map((s, i) => {
@@ -2045,10 +2050,68 @@ function showInstallModal(type) {
   document.getElementById('posInstallModal').classList.add('show');
 }
 function tryAddPOS() {
-  if (IS_PRO) { showToast('Open the Cashier Link on any new device to register it as a POS terminal.'); return; }
-  document.getElementById('upgradeMsg').innerHTML =
-    `You have <strong>${allStores.length}/${FREE_POS_LIMIT}</strong> POS terminal &mdash; that&apos;s the free plan limit.<br>Upgrade to Pro to run multiple POS counters or branches under one account.`;
-  document.getElementById('upgradeModal').classList.add('show');
+  if (!IS_PRO) {
+    document.getElementById('upgradeMsg').innerHTML =
+      `You have <strong>${allStores.length}/${FREE_POS_LIMIT}</strong> POS terminal &mdash; that&apos;s the free plan limit.<br>Upgrade to Pro to run multiple POS counters or branches under one account.`;
+    document.getElementById('upgradeModal').classList.add('show');
+    return;
+  }
+  showAddPOSModal();
+}
+function showAddPOSModal() {
+  const existing = document.getElementById('_addPOSModal');
+  if (existing) existing.remove();
+  const d = document.createElement('div');
+  d.id = '_addPOSModal';
+  d.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
+  const defaultName = (STORE ? STORE.name : 'My Store') + ' #' + (allStores.length + 1);
+  d.innerHTML = `<div style="background:#1a1a2e;border:1px solid #333;border-radius:14px;padding:24px;max-width:360px;width:100%">
+    <div style="font-size:15px;font-weight:700;color:#e0e0f0;margin-bottom:6px">&#128187; Add POS Terminal</div>
+    <div style="font-size:12px;color:#888;margin-bottom:16px">Creates a new cashier terminal with its own store code and device slot.</div>
+    <label style="font-size:12px;color:#aaa;display:block;margin-bottom:6px;font-weight:600">POS Name</label>
+    <input id="_addPOSName" type="text" maxlength="40" value="${defaultName.replace(/"/g,'&quot;')}" placeholder="e.g. Counter 2"
+      style="width:100%;padding:11px 14px;background:#252540;border:1.5px solid #444;color:#fff;border-radius:8px;font-size:14px;outline:none;margin-bottom:16px">
+    <div id="_addPOSErr" style="color:#ef4444;font-size:12px;min-height:16px;margin-bottom:10px"></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('_addPOSModal').remove()" style="flex:1;padding:12px;background:#252540;border:1px solid #333;color:#aaa;border-radius:8px;font-size:14px;cursor:pointer">Cancel</button>
+      <button id="_addPOSOk" style="flex:2;padding:12px;background:var(--accent,#00b4d8);border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Create Terminal</button>
+    </div>
+  </div>`;
+  document.body.appendChild(d);
+  const inp = document.getElementById('_addPOSName');
+  inp.focus(); inp.select();
+  document.getElementById('_addPOSOk').onclick = async () => {
+    const name = inp.value.trim();
+    const errEl = document.getElementById('_addPOSErr');
+    if (!name) { errEl.textContent = 'Please enter a name.'; return; }
+    const okBtn = document.getElementById('_addPOSOk');
+    okBtn.disabled = true; okBtn.textContent = 'Creating...';
+    errEl.textContent = '';
+    try {
+      const { data: { user } } = await _sb.auth.getUser();
+      let code, taken = true;
+      while (taken) {
+        code = genStoreCode(name);
+        const { data } = await _sb.from('stores').select('id').eq('store_code', code).maybeSingle();
+        taken = !!data;
+      }
+      const { error } = await _sb.from('stores').insert({
+        name,
+        owner_id: user.id,
+        currency: STORE?.currency || '₱',
+        tax_rate: STORE?.tax_rate || 0,
+        business_type: STORE?.business_type || '',
+        store_code: code
+      });
+      if (error) { errEl.textContent = error.message; okBtn.disabled = false; okBtn.textContent = 'Create Terminal'; return; }
+      d.remove();
+      showToast('POS terminal created! Store code: ' + code);
+      loadPOSTerminals();
+    } catch(e) {
+      errEl.textContent = e.message;
+      okBtn.disabled = false; okBtn.textContent = 'Create Terminal';
+    }
+  };
 }
 function updateAddPOSBtn() {
   const btn = document.getElementById('btnAddPOS');
