@@ -1471,11 +1471,11 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── Camera Scanner (barcode + ML Kit text + visual photo matching) ───────
-let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null, _cameraOpening = false;
+let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null, _cameraOpening = false, _nativeBd = null;
 let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 0;
 let _visLoopId = null, _prodHashes = [], _visConf = {};
 let _aiLoopId = null, _mnModel = null, _prodEmbeds = [], _mnConf = {};
-const SCAN_COOLDOWN = 2000;
+const SCAN_COOLDOWN = 1200;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
 function setCooldown(id){ _scanCooldown[id] = Date.now(); }
@@ -1584,6 +1584,10 @@ function startBcLoop(video){
   if(!_zxingReader) _zxingReader = new ZXingBrowser.BrowserMultiFormatReader();
   // Small fixed canvas — ZXing WASM decode is synchronous; full-res camera frames
   // (1920×1080 on phones) block the main thread for 300-800ms per attempt
+  // Init native BarcodeDetector (hardware-accelerated on Chrome/Android)
+  if ('BarcodeDetector' in window && !_nativeBd) {
+    try { _nativeBd = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e','itf','data_matrix'] }); } catch(_) {}
+  }
   const bc = document.createElement('canvas'); bc.width=480; bc.height=270;
   const bctx = bc.getContext('2d');
   const sess=_scanSession;
@@ -1591,15 +1595,25 @@ function startBcLoop(video){
     if(!scannerOpen||_scanSession!==sess){ _bcLoopId=null; return; }
     if(video.readyState>=2 && video.videoWidth>0){
       try{
-        bctx.drawImage(video, 0, 0, 480, 270);
-        const r = await _zxingReader.decodeFromCanvas(bc);
+        let code = null;
+        // Native BarcodeDetector is faster — try it first
+        if(_nativeBd){
+          const hits = await _nativeBd.detect(video);
+          if(hits.length) code = hits[0].rawValue;
+        }
+        // Fallback to ZXing if native missed it
+        if(!code){
+          bctx.drawImage(video, 0, 0, 480, 270);
+          const r = await _zxingReader.decodeFromCanvas(bc);
+          if(r) code = r.getText();
+        }
         if(_scanSession!==sess) return;
-        if(r) handleBarcode(r.getText());
+        if(code) handleBarcode(code);
       }catch(_){}
     }
-    _bcLoopId = setTimeout(loop, 350);
+    _bcLoopId = setTimeout(loop, 150);
   }
-  setTimeout(loop, 600);
+  setTimeout(loop, 250);
 }
 
 function handleBarcode(code){
@@ -1608,6 +1622,7 @@ function handleBarcode(code){
   if(!p){ camStat('Barcode <strong>'+code+'</strong> — no match'); return; }
   if(isOnCooldown(p.id)) return;
   setCooldown(p.id); addItem(p.id);
+  if(navigator.vibrate) navigator.vibrate(50);
   flashMatch(p.name,'&#127380; barcode');
 }
 
