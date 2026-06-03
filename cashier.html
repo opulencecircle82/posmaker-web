@@ -68,8 +68,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .p-img{width:100%;height:105px;object-fit:cover;display:block}
 .p-noimg{width:100%;height:105px;display:flex;align-items:center;justify-content:center;font-size:38px;background:var(--s1)}
 .p-info{padding:7px 8px 8px}
-.p-name{font-size:11px;line-height:1.3;color:#ddd;margin-bottom:3px;font-weight:500}
-.p-price{color:var(--accent);font-size:13px;font-weight:800}
+.p-name{font-size:11px;line-height:1.3;color:var(--name-color,#ddd);margin-bottom:3px;font-weight:500}
+.p-price{color:var(--price-color,var(--accent));font-size:13px;font-weight:800}
 .p-stock{font-size:10px;font-weight:600;margin-top:2px}
 .p-stock.ok{color:#10b981}.p-stock.low{color:#f59e0b}.p-stock.zero{color:#ef4444}
 
@@ -537,8 +537,10 @@ function applyPosTheme(s) {
   if (s.pos_accent) r.style.setProperty('--accent', s.pos_accent);
   if (s.pos_bg)     r.style.setProperty('--bg', s.pos_bg);
   if (s.pos_card)   { r.style.setProperty('--s1', s.pos_card); r.style.setProperty('--s2', s.pos_card + 'cc'); }
-  if (s.pos_text)   { r.style.setProperty('--text', s.pos_text); document.body.style.color = s.pos_text; }
-  if (s.pos_radius) r.style.setProperty('--radius', s.pos_radius + 'px');
+  if (s.pos_text)        { r.style.setProperty('--text', s.pos_text); document.body.style.color = s.pos_text; }
+  if (s.pos_radius)      r.style.setProperty('--radius', s.pos_radius + 'px');
+  if (s.pos_name_color)  r.style.setProperty('--name-color', s.pos_name_color);
+  if (s.pos_price_color) r.style.setProperty('--price-color', s.pos_price_color);
 
   if (s.pos_font) {
     if (s.pos_font !== 'Inter' && s.pos_font !== 'Segoe UI') {

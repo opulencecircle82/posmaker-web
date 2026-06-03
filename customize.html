@@ -179,8 +179,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
   font-size:22px;
 }
 .pm-card-info{padding:5px 6px 6px}
-.pm-card-name{font-size:9px;font-weight:600;color:var(--pm-text,#f0f0f8);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pm-card-price{font-size:11px;font-weight:800;color:var(--pm-accent,#00b4d8)}
+.pm-card-name{font-size:9px;font-weight:600;color:var(--pm-name,var(--pm-text,#f0f0f8));margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm-card-price{font-size:11px;font-weight:800;color:var(--pm-price,var(--pm-accent,#00b4d8))}
 
 /* Cart */
 .pm-cart{
@@ -363,6 +363,20 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
         <div class="color-row">
           <label class="cswatch"><div class="cswatch-bg" id="bgText"></div><input type="color" id="czText" value="#f0f0f8" oninput="applyPreview()"></label>
           <span class="cval" id="valText">#f0f0f8</span>
+        </div>
+      </div>
+      <div class="cz-field">
+        <label>Product Name</label>
+        <div class="color-row">
+          <label class="cswatch"><div class="cswatch-bg" id="bgName"></div><input type="color" id="czName" value="#f0f0f8" oninput="applyPreview()"></label>
+          <span class="cval" id="valName">#f0f0f8</span>
+        </div>
+      </div>
+      <div class="cz-field">
+        <label>Price Text</label>
+        <div class="color-row">
+          <label class="cswatch"><div class="cswatch-bg" id="bgPrice"></div><input type="color" id="czPrice" value="#00b4d8" oninput="applyPreview()"></label>
+          <span class="cval" id="valPrice">#00b4d8</span>
         </div>
       </div>
     </div>
@@ -631,7 +645,9 @@ function setScale(id) {
   if (store.pos_accent) document.getElementById('czAccent').value = store.pos_accent;
   if (store.pos_bg)     document.getElementById('czBg').value     = store.pos_bg;
   if (store.pos_card)   document.getElementById('czCard').value   = store.pos_card;
-  if (store.pos_text)   document.getElementById('czText').value   = store.pos_text;
+  if (store.pos_text)        document.getElementById('czText').value  = store.pos_text;
+  if (store.pos_name_color)  document.getElementById('czName').value  = store.pos_name_color;
+  if (store.pos_price_color) document.getElementById('czPrice').value = store.pos_price_color;
   if (store.pos_radius != null) document.getElementById('czRadius').value = store.pos_radius;
   if (store.pos_btn_style)      setBtnStyle(store.pos_btn_style);
   if (store.pos_bg_scale)       setScale(store.pos_bg_scale);
@@ -647,12 +663,14 @@ function applyPreview() {
   const accent  = document.getElementById('czAccent').value;
   const bg      = document.getElementById('czBg').value;
   const card    = document.getElementById('czCard').value;
-  const text    = document.getElementById('czText').value;
+  const text      = document.getElementById('czText').value;
+  const nameColor = document.getElementById('czName').value;
+  const priceColor= document.getElementById('czPrice').value;
   const radius  = document.getElementById('czRadius').value;
   const opacity = document.getElementById('czBgOpacity').value;
 
   // Update labels & swatches
-  [['czAccent','valAccent','bgAccent'],['czBg','valBg','bgBg'],['czCard','valCard','bgCard'],['czText','valText','bgText']].forEach(([id,vid,bid]) => {
+  [['czAccent','valAccent','bgAccent'],['czBg','valBg','bgBg'],['czCard','valCard','bgCard'],['czText','valText','bgText'],['czName','valName','bgName'],['czPrice','valPrice','bgPrice']].forEach(([id,vid,bid]) => {
     const v = document.getElementById(id).value;
     document.getElementById(vid).textContent = v;
     document.getElementById(bid).style.background = v;
@@ -679,6 +697,8 @@ function applyPreview() {
    ['--pm-muted',  muted],
    ['--pm-border', border],
    ['--pm-radius', radius + 'px'],
+   ['--pm-name',   nameColor],
+   ['--pm-price',  priceColor],
   ].forEach(([k, v]) => m.style.setProperty(k, v));
   m.style.fontFamily = `'${font}', sans-serif`;
 
@@ -737,7 +757,9 @@ async function saveTheme() {
   const accent  = document.getElementById('czAccent').value;
   const bg      = document.getElementById('czBg').value;
   const card    = document.getElementById('czCard').value;
-  const text    = document.getElementById('czText').value;
+  const text       = document.getElementById('czText').value;
+  const nameColor  = document.getElementById('czName').value;
+  const priceColor = document.getElementById('czPrice').value;
   const radius  = parseInt(document.getElementById('czRadius').value);
   const footer  = document.getElementById('czFooter').value;
   const imgVal  = bgImgData || '';
@@ -747,6 +769,7 @@ async function saveTheme() {
   // (handles databases where new columns haven't been added yet)
   const tries = [
     { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
+      pos_name_color:nameColor, pos_price_color:priceColor,
       pos_btn_style:btnStyle, pos_bg_scale:bgScale, pos_bg_opacity:opacity, pos_bg_img:imgVal, receipt_footer:footer },
     { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
       pos_bg_img:imgVal, receipt_footer:footer },
