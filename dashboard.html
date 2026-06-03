@@ -2122,11 +2122,42 @@ function updateAddPOSBtn() {
   const badge = document.getElementById('posNavBadge');
   if (badge) badge.textContent = IS_PRO ? `${allStores.length}` : `${allStores.length}/${FREE_POS_LIMIT}`;
 }
+function _bizPlaceholder(field) {
+  const biz = STORE?.business_type || '';
+  const prod = {
+    'Fast Food':'e.g. Chicken Burger','Carinderya':'e.g. Pork Adobo','Coffee Shop':'e.g. Caramel Latte',
+    'Bakery':'e.g. Pandesal','Lechon':'e.g. Lechon Belly','Pizza / Pasta':'e.g. Pepperoni Pizza',
+    'Seafood':'e.g. Grilled Tilapia','Milk Tea / Drinks':'e.g. Brown Sugar Milk Tea',
+    'Karinderya / Buffet':'e.g. Beef Caldereta','Snack Bar':'e.g. Turon',
+    'Sari-Sari Store':'e.g. Lucky Me Noodles','Bigasan':'e.g. Sinandomeng Rice',
+    'Hardware':'e.g. Hammer','Agri Supply':'e.g. Ammonium Sulfate',
+    'Drug Store':'e.g. Biogesic 500mg','Pet Store':'e.g. Dog Food',
+    'Clothing':'e.g. Men\'s Polo Shirt','Electronics':'e.g. USB Charging Cable',
+    'Furniture':'e.g. Wooden Chair','Salon / Barbershop':'e.g. Basic Haircut',
+    'Laundry':'e.g. Wash & Dry (per kg)','Printing / Photocopy':'e.g. B&W Print (per page)',
+    'Auto Parts':'e.g. Engine Oil Filter','School Supplies':'e.g. Ballpoint Pen',
+  };
+  const inv = {
+    'Fast Food':'e.g. Ground Beef','Carinderya':'e.g. Pork Kasim','Coffee Shop':'e.g. Coffee Beans',
+    'Bakery':'e.g. All-Purpose Flour','Lechon':'e.g. Whole Pig','Pizza / Pasta':'e.g. Mozzarella Cheese',
+    'Seafood':'e.g. Bangus (Milkfish)','Milk Tea / Drinks':'e.g. Black Tea Leaves',
+    'Karinderya / Buffet':'e.g. Beef Shank','Snack Bar':'e.g. Saba Banana',
+    'Sari-Sari Store':'e.g. Softdrinks Case','Bigasan':'e.g. Sinandomeng Sack (50kg)',
+    'Hardware':'e.g. Concrete Nails','Agri Supply':'e.g. Urea Fertilizer (50kg)',
+    'Drug Store':'e.g. Paracetamol Tablet','Pet Store':'e.g. Kibble (per kg)',
+    'Clothing':'e.g. Plain T-Shirt Stock','Electronics':'e.g. USB-C Cable',
+    'Furniture':'e.g. Lumber (per piece)','Salon / Barbershop':'e.g. Hair Color',
+    'Laundry':'e.g. Detergent Powder','Printing / Photocopy':'e.g. Bond Paper (ream)',
+    'Auto Parts':'e.g. Motor Oil (liter)','School Supplies':'e.g. Notebook',
+  };
+  return field === 'inv' ? (inv[biz] || 'e.g. Item Name') : (prod[biz] || 'e.g. Product Name');
+}
 function openProdModal(p) {
   if(typeof p === 'string') p = allProds.find(x => x.id === p) || null;
   if (!IS_PRO && !p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
   document.getElementById('prodModalTitle').textContent=p?'Edit Product':'Add Product';
   document.getElementById('prodId').value=p?p.id:'';
+  document.getElementById('pName').placeholder = _bizPlaceholder('prod');
   document.getElementById('pName').value=p?p.name:'';
   document.getElementById('pSku').value=p?(p.sku||''):'';
   document.getElementById('pPrice').value=p?p.price:'';
@@ -2849,6 +2880,7 @@ async function openInvModal(item){
   renderInvThumbs();
   document.getElementById('invModalTitle').textContent=item?'Edit Item':'Add Inventory Item';
   document.getElementById('invItemId').value=item?item.id:'';
+  document.getElementById('invName').placeholder = _bizPlaceholder('inv');
   document.getElementById('invName').value=item?item.name:'';
   document.getElementById('invSku').value=item?(item.sku||''):'';
   const u=item?(item.unit||'pc'):'pc';

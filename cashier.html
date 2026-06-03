@@ -762,6 +762,16 @@ async function loadProds() {
   renderProds('All');
   if (_prodHashes.length === 0) buildImgHashes(); // only build once; re-login skips this heavy step
   if(_mnModel) buildAiEmbeds(); // rebuild AI embeddings when products reload
+  // Load MobileNet if any products have stored embeddings (lazy — only when needed)
+  if(!_mnModel && prods.some(p => p.embeddings)){
+    _loadMnModel().then(ok => {
+      if(!ok) return;
+      buildAiEmbeds().then(() => {
+        const v = document.getElementById('camVideo');
+        if(scannerOpen && v) { startAiLoop(v); camStat(_scanModes()); }
+      });
+    });
+  }
 }
 
 function buildCats() {
