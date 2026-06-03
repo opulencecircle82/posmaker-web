@@ -106,22 +106,6 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('controllerchange',()=>setTimeout(()=>location.reload(),400));
 }
 
-// Auto-redirect if already logged in
-(async () => {
-  // Check owner session first — owner always goes to dashboard
-  const { data: { session } } = await _sb.auth.getSession();
-  if (session) {
-    const { data: store } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).single();
-    if (store) {
-      localStorage.setItem('pm_store_id', store.id);
-      location.href = 'dashboard.html';
-      return;
-    } else {
-      location.href = 'signup.html';
-      return;
-    }
-  }
-})();
 </script>
 </body>
 </html>
