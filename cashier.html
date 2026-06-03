@@ -664,9 +664,9 @@ async function doLogout() {
   clearTimeout(_openScanTimer); _openScanTimer = null;
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
   if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
-  // Keep camera stream alive — stopping hardware then immediately requesting it again hangs Android.
-  // The resume path in openScanner() will reuse the existing stream on next login.
   closeScanner();
+  stopCamera(); // release hardware on logout so it fully resets before next login
+  setTimeout(_prewarmCamera, 2500); // re-warm after hardware settles (~2.5s)
   cart = {}; CASHIER = null;
   document.getElementById('lu').value = '';
   document.getElementById('lp').value = '';
@@ -1509,14 +1509,27 @@ async function openScanner(){
         if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
         return;
       }
-      // Stream alive but video frozen — force full restart
+      // Stream alive but video frozen — soft reconnect (avoids immediate stop+request which hangs Android)
+      camStat('Reconnecting camera...');
+      v.srcObject = null;
+      await new Promise(r=>setTimeout(r,300));
+      if(!scannerOpen) return;
+      v.srcObject = _camStream;
+      await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,1500))]);
+      if(v.videoWidth > 0){
+        camStat(_scanModes());
+        startBcLoop(v); startTextLoop(v); startVisualLoop(v);
+        if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
+        return;
+      }
+      // Soft reconnect failed — full hardware restart
       _camStream.getTracks().forEach(t=>t.stop()); _camStream=null;
       v.srcObject = null;
     }
     // First open or stream died — request fresh camera
     if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
     v.srcObject = null;
-    await new Promise(r=>setTimeout(r,300));
+    await new Promise(r=>setTimeout(r,700)); // give hardware time to fully release
     if(!scannerOpen) return;
     camStat('Allow camera access if prompted...');
     const camReq = navigator.mediaDevices.getUserMedia({
