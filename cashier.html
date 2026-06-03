@@ -1490,40 +1490,35 @@ async function openScanner(){
   const _ov = document.getElementById('camOverlay');
   _ov.style.visibility = 'visible'; _ov.style.pointerEvents = 'auto';
   document.getElementById('btnCam').style.opacity = '1';
-  const v = document.getElementById('camVideo');
-  const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
-  if(isLive){
-    // Re-attach stream in case the video element lost it while hidden
-    if(v.srcObject !== _camStream) v.srcObject = _camStream;
-    camStat('Camera resuming...');
-    // Only call play() if actually paused — play() on Android can block the renderer thread
-    if(v.paused){
-      await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,1500))]);
-    }
-    // Wait for video to produce frames (max 2s)
-    if(v.videoWidth === 0){
-      await new Promise(res=>{ v.onloadeddata=res; setTimeout(res,2000); });
-    }
-    if(!scannerOpen) return;
-    // If video still not producing frames after the wait, fall through to full restart
-    if(v.videoWidth > 0){
-      camStat(_scanModes());
-      startBcLoop(v); startTextLoop(v); startVisualLoop(v);
-      // Only run AI features if model is already loaded — never trigger heavy TF.js init from scanner open
-      if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
-      return;
-    }
-    // Stream alive but video frozen — stop it and do a fresh getUserMedia below
-    _camStream.getTracks().forEach(t=>t.stop()); _camStream=null;
-    v.srcObject = null;
-  }
-  // First open or stream died/frozen — request camera
-  if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
-  v.srcObject = null;
-  await new Promise(r=>setTimeout(r,300));
-  if(!scannerOpen) return;
-  camStat('Allow camera access if prompted...');
   try {
+    const v = document.getElementById('camVideo');
+    const isLive = _camStream && _camStream.getTracks().some(t=>t.readyState==='live');
+    if(isLive){
+      if(v.srcObject !== _camStream) v.srcObject = _camStream;
+      camStat('Camera resuming...');
+      if(v.paused){
+        await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,1500))]);
+      }
+      if(v.videoWidth === 0){
+        await new Promise(res=>{ v.onloadeddata=res; setTimeout(res,2000); });
+      }
+      if(!scannerOpen) return;
+      if(v.videoWidth > 0){
+        camStat(_scanModes());
+        startBcLoop(v); startTextLoop(v); startVisualLoop(v);
+        if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
+        return;
+      }
+      // Stream alive but video frozen — force full restart
+      _camStream.getTracks().forEach(t=>t.stop()); _camStream=null;
+      v.srcObject = null;
+    }
+    // First open or stream died — request fresh camera
+    if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
+    v.srcObject = null;
+    await new Promise(r=>setTimeout(r,300));
+    if(!scannerOpen) return;
+    camStat('Allow camera access if prompted...');
     const camReq = navigator.mediaDevices.getUserMedia({
       video:{ facingMode:{ideal:'environment'}, width:{ideal:640} }
     });
@@ -1542,10 +1537,9 @@ async function openScanner(){
     camStat(e.message==='timeout'
       ? 'Camera timed out — tap Allow when browser asks for camera permission'
       : 'Camera blocked — allow camera access in browser settings');
+  } finally {
     _cameraOpening = false;
-    return;
   }
-  _cameraOpening = false;
 }
 
 function closeScanner(){
