@@ -79,7 +79,7 @@ async function init() {
     try {
       const s = JSON.parse(raw);
       if (s.store_id === SID && s.ts && (Date.now() - s.ts) < 8 * 3600 * 1000) {
-        location.href = 'manager.html?sid=' + SID;
+        location.href = s.role === 'manager' ? 'manager.html?sid=' + SID : 'cashier.html?store=' + SID;
         return;
       }
     } catch(_) {}
@@ -147,7 +147,7 @@ async function doLogin() {
     localStorage.setItem('pm_mgr', JSON.stringify(session));
     // Record login to staff_logs so dashboard shows Last Login
     await _sb.rpc('log_staff_login', { p_store_id: SID, p_staff_id: staff.id, p_username: staff.username });
-    location.href = 'manager.html?sid=' + SID;
+    location.href = staff.role === 'manager' ? 'manager.html?sid=' + SID : 'cashier.html?store=' + SID;
   } catch(e) {
     errEl.textContent = e.message || 'Login failed.';
     btn.disabled = false; btn.textContent = 'Log In →';

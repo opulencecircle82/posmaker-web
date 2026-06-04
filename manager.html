@@ -323,6 +323,7 @@ async function init(){
   try{ MGR = JSON.parse(raw); }catch{ show('noAccess'); return; }
   if(Date.now() - MGR.ts > 8*60*60*1000){ localStorage.removeItem('pm_mgr'); goLogin(); return; }
   if(SID && MGR.store_id !== SID){ show('noAccess'); return; }
+  if(MGR.role !== 'manager'){ show('noAccess'); return; }
   document.getElementById('mgrNameDisp').textContent = MGR.name;
   const {data:st} = await _sb.from('stores').select('name,telegram_bot_token,telegram_chat_id').eq('id', MGR.store_id).maybeSingle();
   if(st){
