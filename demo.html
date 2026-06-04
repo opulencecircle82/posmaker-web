@@ -179,7 +179,7 @@ prods = _saved ? JSON.parse(_saved) : [
 ];
 
 document.getElementById('hdrTitle').textContent = STORE_NAME;
-document.getElementById('taxLabel').textContent  = `VAT (${TAX_RATE}%)`;
+document.getElementById('taxLabel').textContent  = `VAT incl. (${TAX_RATE}%)`;
 
 // Build category bar
 function buildCats() {
@@ -243,8 +243,8 @@ function redrawCart() {
     </div>
   `).join('');
   const sub = items.reduce((s,i) => s + i.price * i.qty, 0);
-  const tax = sub * TAX_RATE / 100;
-  const tot = sub + tax;
+  const tax = sub * TAX_RATE / (100 + TAX_RATE);
+  const tot = sub;
   document.getElementById('tSub').textContent = CUR + sub.toFixed(2);
   document.getElementById('tTax').textContent = CUR + tax.toFixed(2);
   document.getElementById('tTot').textContent = CUR + tot.toFixed(2);
@@ -267,7 +267,7 @@ function selPay(btn, m) {
 function calcChange() {
   const items = Object.values(cart);
   const sub = items.reduce((s,i) => s + i.price * i.qty, 0);
-  const tot = sub + sub * TAX_RATE / 100;
+  const tot = sub;
   const tendered = parseFloat(document.getElementById('tender').value) || 0;
   const change = tendered - tot;
   const row = document.getElementById('changeRow');
@@ -283,8 +283,8 @@ function calcChange() {
 function confirmPay() {
   const items = Object.values(cart);
   const sub = items.reduce((s,i) => s + i.price * i.qty, 0);
-  const tax = sub * TAX_RATE / 100;
-  const tot = sub + tax;
+  const tax = sub * TAX_RATE / (100 + TAX_RATE);
+  const tot = sub;
   const tendered = parseFloat(document.getElementById('tender').value) || tot;
   const change = Math.max(0, tendered - tot);
 
@@ -311,7 +311,7 @@ function showReceipt({ items, sub, tax, tot, tendered, change }) {
     r += `${nameLine}${CUR}${total}\n`;
   });
   r += `${line}\nSubtotal`.padEnd(25) + `${CUR}${sub.toFixed(2)}\n`;
-  r += `VAT (${TAX_RATE}%)`.padEnd(25) + `${CUR}${tax.toFixed(2)}\n`;
+  r += `VAT incl. (${TAX_RATE}%)`.padEnd(25) + `${CUR}${tax.toFixed(2)}\n`;
   r += `TOTAL`.padEnd(25) + `${CUR}${tot.toFixed(2)}\n`;
   r += `${line}\nPayment: ${payMethod}\n`;
   if (payMethod === 'Cash') {
