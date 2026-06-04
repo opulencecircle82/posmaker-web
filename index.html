@@ -83,6 +83,33 @@ section.features{padding:70px 5vw;max-width:1100px;margin:0 auto}
 .feat h3{font-size:16px;font-weight:700;margin-bottom:7px}
 .feat p{font-size:13px;color:var(--muted);line-height:1.65}
 
+/* FEATURE SLIDESHOW */
+.slides-section{background:#fff;padding:0;overflow:hidden}
+.slide{display:none;min-height:480px;align-items:center}
+.slide.active{display:flex}
+.slide-left{flex:1;padding:60px 5vw 60px 7vw;max-width:520px}
+.slide-tag{font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:#aaa;margin-bottom:16px}
+.slide-h1{font-size:clamp(28px,3.8vw,48px);font-weight:900;line-height:1.05;letter-spacing:-1.5px;color:#111;margin-bottom:6px}
+.slide-h1 .cy{color:#00c8ff}
+.slide-desc{font-size:clamp(14px,1.5vw,17px);color:#555;line-height:1.7;margin-top:18px;max-width:420px}
+.slide-cta{margin-top:28px;display:inline-flex;align-items:center;gap:8px;background:#111;color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;transition:.15s}
+.slide-cta:hover{background:#00c8ff;color:#000}
+.slide-right{flex:1;background:#0d0d1a;min-height:480px;display:flex;align-items:center;justify-content:center;padding:36px 32px;position:relative;overflow:hidden}
+.slide-right::before{content:'';position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,200,255,.12),transparent 70%);top:-60px;right:-60px;pointer-events:none}
+.slide-screen{background:#13132a;border:1px solid #ffffff18;border-radius:14px;padding:20px;width:100%;max-width:380px;font-size:12px;color:#e8e8f8}
+.slide-screen-title{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#00c8ff;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.slide-screen-title::before{content:'';width:6px;height:6px;border-radius:50%;background:#00c8ff;display:inline-block}
+.slide-feat-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#1a1a35;border-radius:8px;margin-bottom:8px}
+.slide-feat-ico{font-size:18px;width:28px;text-align:center}
+.slide-feat-text{flex:1}
+.slide-feat-text strong{display:block;font-size:12px;font-weight:700;margin-bottom:2px}
+.slide-feat-text span{font-size:11px;color:#8888aa}
+.slide-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(0,200,255,.15);color:#00c8ff}
+.slides-dots{display:flex;justify-content:center;gap:8px;padding:20px;background:#fff}
+.dot{width:8px;height:8px;border-radius:50%;background:#ddd;cursor:pointer;transition:.2s;border:none}
+.dot.active{background:#111;width:24px;border-radius:4px}
+@media(max-width:768px){.slide{flex-direction:column}.slide-left{padding:40px 6vw 30px;max-width:100%}.slide-right{min-height:280px;width:100%}.slide-screen{max-width:100%}}
+
 /* HOW IT WORKS */
 .how-section{background:var(--s1);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:70px 5vw}
 .how-wrap{max-width:860px;margin:0 auto;display:flex;align-items:flex-start;gap:0}
@@ -237,6 +264,92 @@ footer{border-top:1px solid var(--border);padding:28px 5vw;display:flex;justify-
   </div>
 </section>
 
+<!-- FEATURE SLIDESHOW -->
+<div class="slides-section">
+  <!-- Slide 1: Customize POS -->
+  <div class="slide active" id="slide-0">
+    <div class="slide-left">
+      <div class="slide-tag">Personalization</div>
+      <div class="slide-h1">SAY GOODBYE TO<br><span class="cy">BORING POS<br>SYSTEMS.</span></div>
+      <div class="slide-desc">The only point-of-sale platform that fully adapts to your store's exact colors, fonts, and unique branding. Pick a theme, customize button styles, and make it yours.</div>
+      <a href="login.html" class="slide-cta">Customize Your POS &#8594;</a>
+    </div>
+    <div class="slide-right">
+      <div class="slide-screen">
+        <div class="slide-screen-title">Customize Your POS</div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">🎨</div><div class="slide-feat-text"><strong>Color Themes</strong><span>Cyber Sleek, Midnight, Forest, Coffee, and more</span></div><span class="slide-badge">Live Preview</span></div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">🔤</div><div class="slide-feat-text"><strong>Custom Fonts</strong><span>Choose your brand's typography</span></div></div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">🖼️</div><div class="slide-feat-text"><strong>Background Image</strong><span>Upload your own store backdrop</span></div></div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">🟦</div><div class="slide-feat-text"><strong>Button Styles</strong><span>Round, sharp, outline, or filled</span></div><span class="slide-badge">New</span></div>
+      </div>
+    </div>
+  </div>
+  <!-- Slide 2: Inventory -->
+  <div class="slide" id="slide-1">
+    <div class="slide-left">
+      <div class="slide-tag">Inventory Management</div>
+      <div class="slide-h1">STOP MANAGING<br>STOCKS THE HARD WAY.<br><span class="cy">AUTOMATIC COSTING<br>AND TRACKING.</span></div>
+      <div class="slide-desc">Add your item stocks and cost price. The system automatically calculates cost per unit — whether it's pcs, g, kg, ml, oz, or any unit you use.</div>
+      <a href="login.html" class="slide-cta">Start Tracking &#8594;</a>
+    </div>
+    <div class="slide-right">
+      <div class="slide-screen">
+        <div class="slide-screen-title">Inventory / Raw Materials</div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">📦</div><div class="slide-feat-text"><strong>Coffee powder</strong><span>500g bought · ₱300.00 total</span></div><span class="slide-badge">₱0.60/g</span></div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">🥛</div><div class="slide-feat-text"><strong>Milk</strong><span>1000ml · ₱90.00 total</span></div><span class="slide-badge">₱0.09/ml</span></div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">🍬</div><div class="slide-feat-text"><strong>Sugar</strong><span>1kg bought · ₱100.00 total</span></div><span class="slide-badge">₱0.10/g</span></div>
+        <div style="background:#0a2a0a;border:1px solid #1a6a1a;border-radius:8px;padding:10px 12px;margin-top:10px;font-size:11px;color:#88ee88">&#128200; COST PER ORDER CALCULATOR — auto-computed per recipe</div>
+      </div>
+    </div>
+  </div>
+  <!-- Slide 3: Products & Margins -->
+  <div class="slide" id="slide-2">
+    <div class="slide-left">
+      <div class="slide-tag">Products & Pricing</div>
+      <div class="slide-h1">SAY GOODBYE TO<br>MANUAL PRICING.<br><span class="cy">AUTOMATIC COSTING<br>& MARGINS.</span></div>
+      <div class="slide-desc">Add a product, link your inventory items, set a selling price — and instantly see your exact cost, estimated profit, and margin percentage.</div>
+      <a href="login.html" class="slide-cta">Add Your Products &#8594;</a>
+    </div>
+    <div class="slide-right">
+      <div class="slide-screen">
+        <div class="slide-screen-title">Add Product — Hot Coffee</div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">☕</div><div class="slide-feat-text"><strong>Hot Coffee</strong><span>Selling price: ₱70.00</span></div></div>
+        <div style="height:1px;background:#ffffff10;margin:8px 0"></div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">📦</div><div class="slide-feat-text"><strong>Coffee powder</strong><span>10g = ₱3.00 per order</span></div><span class="slide-badge">₱6.00</span></div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">🥛</div><div class="slide-feat-text"><strong>Milk</strong><span>50ml = ₱4.50 per order</span></div><span class="slide-badge">₱4.50</span></div>
+        <div style="background:#0a1a2a;border:1px solid #1a4a6a;border-radius:8px;padding:10px 12px;margin-top:10px;font-size:11px;display:flex;justify-content:space-between">
+          <span style="color:#aaa">Total Cost: <strong style="color:#fff">₱10.50</strong></span>
+          <span style="color:#aaa">Margin: <strong style="color:#00c8ff">85%</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Slide 4: Staff -->
+  <div class="slide" id="slide-3">
+    <div class="slide-left">
+      <div class="slide-tag">Staff Management</div>
+      <div class="slide-h1">SAY GOODBYE TO<br>LACK OF ACCOUNTABILITY.<br><span class="cy">MANAGE STAFF<br>LIKE A PRO.</span></div>
+      <div class="slide-desc">Easily add managers or cashiers, set secure passwords, and monitor their real-time presence. See who's online, who's working, and precisely when they logged in.</div>
+      <a href="login.html" class="slide-cta">Manage Your Staff &#8594;</a>
+    </div>
+    <div class="slide-right">
+      <div class="slide-screen">
+        <div class="slide-screen-title">Staff / Cashiers</div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">👤</div><div class="slide-feat-text"><strong>manager_maria</strong><span>Manager · Maria Santos</span></div><span class="slide-badge" style="background:rgba(16,185,129,.2);color:#10b981">● Online</span></div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">👤</div><div class="slide-feat-text"><strong>cashier_tan</strong><span>Cashier · Benjamin Cruz</span></div><span class="slide-badge" style="background:rgba(255,68,102,.15);color:#ff4466">● Offline</span></div>
+        <div class="slide-feat-row"><div class="slide-feat-ico">👤</div><div class="slide-feat-text"><strong>Rose</strong><span>Cashier · Rose Marie</span></div><span class="slide-badge" style="background:rgba(16,185,129,.2);color:#10b981">● Online</span></div>
+        <div style="background:#1a1a35;border-radius:8px;padding:8px 12px;margin-top:10px;font-size:11px;color:#8888aa">🔗 Manager Link · Share with staff → instant login</div>
+      </div>
+    </div>
+  </div>
+  <div class="slides-dots">
+    <button class="dot active" onclick="goSlide(0)"></button>
+    <button class="dot" onclick="goSlide(1)"></button>
+    <button class="dot" onclick="goSlide(2)"></button>
+    <button class="dot" onclick="goSlide(3)"></button>
+  </div>
+</div>
+
 <!-- HOW IT WORKS -->
 <section class="how-section" id="how">
   <div class="sec-label">Simple setup</div>
@@ -363,6 +476,20 @@ function openDemo() {
   const p = new URLSearchParams({ dname: name, dcur: cur, dtax: tax });
   window.location.href = 'demo.html?' + p.toString();
 }
+
+// ── Feature Slideshow ──────────────────────────────────────────────────────────
+let _slideIdx = 0, _slideTimer;
+const _SLIDES = 4;
+function goSlide(n) {
+  document.getElementById('slide-' + _slideIdx).classList.remove('active');
+  document.querySelectorAll('.dot')[_slideIdx].classList.remove('active');
+  _slideIdx = (n + _SLIDES) % _SLIDES;
+  document.getElementById('slide-' + _slideIdx).classList.add('active');
+  document.querySelectorAll('.dot')[_slideIdx].classList.add('active');
+  clearInterval(_slideTimer);
+  _slideTimer = setInterval(() => goSlide(_slideIdx + 1), 5000);
+}
+_slideTimer = setInterval(() => goSlide(_slideIdx + 1), 5000);
 </script>
 </body>
 </html>
