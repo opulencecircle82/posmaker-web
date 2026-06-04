@@ -426,8 +426,9 @@ async function checkWebDevice(storeId, register = false) {
     if (!rows || rows.length === 0) {
       if (register) {
         _sb.from('pos_devices').insert({ store_id: storeId, device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform() }).then(()=>{});
+        return 'ok';
       }
-      return 'ok';
+      return 'unregistered';
     }
     if (rows[0].device_id === devId) {
       if (register) {
@@ -487,7 +488,12 @@ async function checkWebDevice(storeId, register = false) {
     document.getElementById('actErr').textContent = 'Store not found. Please check your Store ID.';
     return;
   }
-  const devStatus = await checkWebDevice(STORE_ID, true);
+  const devStatus = await checkWebDevice(STORE_ID, false);
+  if (devStatus === 'unregistered') {
+    document.getElementById('loginWrap').style.display = 'none';
+    document.getElementById('activateWrap').classList.add('show');
+    return;
+  }
   if (devStatus === 'locked') {
     localStorage.removeItem('pm_store_id');
     document.getElementById('loginWrap').style.display = 'none';
