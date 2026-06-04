@@ -116,36 +116,7 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
 </div>
 
 <!-- ── SETUP (create first dev account) ── -->
-<div id="pgSetup" style="display:none" class="auth-wrap">
-  <div class="auth-card">
-    <div class="auth-logo">POS<span>Maker</span></div>
-    <div class="auth-sub">DEVELOPER SUPPORT</div>
-    <div class="auth-title">Create Developer Account</div>
-    <div class="auth-desc">No developer account exists yet. Create the first one now. This account will have full support access.</div>
-    <div class="field">
-      <label>Username</label>
-      <input id="suUser" type="text" placeholder="e.g. devadmin" autocomplete="off" spellcheck="false" oninput="suCheck()">
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input id="suPass" type="password" placeholder="Create a strong password" oninput="suCheck()" onfocus="document.getElementById('pwReqBox').classList.add('show')">
-    </div>
-    <div class="pw-reqs" id="pwReqBox">
-      <div class="req" id="req-len"><span class="req-icon">✗</span>Minimum 8 characters</div>
-      <div class="req" id="req-upper"><span class="req-icon">✗</span>Uppercase letter (A–Z)</div>
-      <div class="req" id="req-lower"><span class="req-icon">✗</span>Lowercase letter (a–z)</div>
-      <div class="req" id="req-num"><span class="req-icon">✗</span>Number (0–9)</div>
-      <div class="req" id="req-sym"><span class="req-icon">✗</span>Special character (!@#$%^&amp;*)</div>
-    </div>
-    <div class="field">
-      <label>Confirm Password</label>
-      <input id="suPass2" type="password" placeholder="Re-enter password" oninput="suCheck()">
-      <div id="suMatchErr" style="font-size:11px;color:var(--danger);margin-top:4px;min-height:13px"></div>
-    </div>
-    <div id="suErr" style="font-size:12px;color:var(--danger);margin-bottom:12px;min-height:14px"></div>
-    <button class="btn btn-accent btn-full" id="suBtn" onclick="doSetup()" disabled>Create Account</button>
-  </div>
-</div>
+<div id="pgSetup" style="display:none"></div>
 
 <!-- ── LOGIN ── -->
 <div id="pgLogin" style="display:none" class="auth-wrap">
@@ -592,7 +563,7 @@ async function init() {
     }
   } catch(_) {}
 
-  // Check if dev_admins table exists and has entries
+  // Check if dev_admins table exists
   try {
     const { error } = await _sb.from('dev_admins').select('id', { count: 'exact', head: true });
     if (error) {
