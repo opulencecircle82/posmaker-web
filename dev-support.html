@@ -689,7 +689,6 @@ async function loadStores() {
   if (error) { handleAuthError(error); return; }
   _allStores = data || [];
   document.getElementById('stStores').textContent = _allStores.length;
-  populateStoreFilter('staffStoreFilter');
   populateStoreFilter('ordersStoreFilter');
   renderStores();
 }
@@ -721,6 +720,7 @@ function updateStats() {
 
 function populateStoreFilter(selId) {
   const sel = document.getElementById(selId);
+  if (!sel) return;
   const cur = sel.value;
   sel.innerHTML = '<option value="">All Stores</option>';
   _allStores.forEach(s => sel.appendChild(new Option(s.name, s.id)));
