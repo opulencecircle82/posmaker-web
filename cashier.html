@@ -392,7 +392,10 @@ let discPct = 0, discAmt = 0;
 // ── Web device lock ───────────────────────────────────────────────────────
 function getBrowserDevId() {
   let id = localStorage.getItem('pm_dev_id');
-  if (!id) { id = 'web-' + crypto.randomUUID(); localStorage.setItem('pm_dev_id', id); }
+  if (!id) {
+    const uuid = (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); }));
+    id = 'web-' + uuid; localStorage.setItem('pm_dev_id', id);
+  }
   return id;
 }
 function getDeviceName() {
