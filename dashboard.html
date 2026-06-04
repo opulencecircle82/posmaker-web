@@ -159,6 +159,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="sb-item" onclick="nav('salesreport')"><span class="ico">&#128202;</span> Sales Report</div>
     <div class="sb-item" onclick="nav('expenses')"><span class="ico">&#128176;</span> Other Expenses</div>
     <div class="sb-item" onclick="nav('settings')"><span class="ico">&#9881;</span> Settings</div>
+    <a href="support.html" target="_blank" class="sb-item" style="text-decoration:none;color:inherit"><span class="ico">&#128139;</span> Support</a>
     <div class="sb-item" onclick="location.href='customize.html'"><span class="ico">&#127912;</span> Customize POS</div>
     <div class="sb-item" onclick="nav('access')"><span class="ico">&#128279;</span> Cashier Link</div>
     <div class="sb-item" onclick="nav('pos')"><span class="ico">&#128187;</span> My POS <span id="posNavBadge" style="margin-left:auto;font-size:10px;background:rgba(0,180,216,.2);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
@@ -515,6 +516,16 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div style="display:flex;gap:8px">
           <button class="btn btn-ghost" onclick="previewBulkPrice()">Preview</button>
           <button class="btn btn-accent" onclick="applyBulkPrice()">Apply Changes</button>
+        </div>
+      </div>
+      <div class="info-card" style="border:1px solid rgba(0,200,255,.15);background:rgba(0,200,255,.04)">
+        <h3>&#128139; Contact Support</h3>
+        <p style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:16px">
+          Need help? Send us a support ticket and we'll get back to you within 24 hours.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <a href="support.html" target="_blank" class="btn btn-accent" style="text-decoration:none;display:inline-block">&#9993; Submit a Ticket</a>
+          <span style="font-size:13px;color:var(--muted)">or email <strong style="color:#00c8ff">support@posmaker.ggff.net</strong></span>
         </div>
       </div>
     </div>
