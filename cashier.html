@@ -1654,7 +1654,7 @@ function startBcLoop(video){
         if(code) handleBarcode(code);
       }catch(_){}
     }
-    _bcLoopId = setTimeout(loop, 150);
+    _bcLoopId = setTimeout(loop, /android|mobile|tablet/i.test(navigator.userAgent) ? 350 : 150);
   }
   setTimeout(loop, 250);
 }
@@ -1685,18 +1685,20 @@ function _scanModes(){
 function startTextLoop(video){
   if(!('TextDetector' in window)) return;
   try{ _textDetector = new TextDetector(); }catch(_){ return; }
+  const isMobile = /android|mobile|tablet/i.test(navigator.userAgent);
+  const txtInterval = isMobile ? 2500 : 1200;
+  const tc = document.createElement('canvas');
+  const tctx = tc.getContext('2d');
   const sess=_scanSession;
   async function loop(){
     if(!scannerOpen||_scanSession!==sess){ _txtLoopId=null; return; }
     if(video.readyState>=2 && video.videoWidth>0){
       try{
-        // Downscale to 480px wide max — ML Kit processes faster on smaller images
         const scale = Math.min(1, 480 / video.videoWidth);
-        const c=document.createElement('canvas');
-        c.width=Math.round(video.videoWidth*scale);
-        c.height=Math.round(video.videoHeight*scale);
-        c.getContext('2d').drawImage(video,0,0,c.width,c.height);
-        const blocks=await _textDetector.detect(c);
+        tc.width=Math.round(video.videoWidth*scale);
+        tc.height=Math.round(video.videoHeight*scale);
+        tctx.drawImage(video,0,0,tc.width,tc.height);
+        const blocks=await _textDetector.detect(tc);
         if(_scanSession!==sess) return;
         if(blocks.length){
           const allText=blocks.map(b=>b.rawValue).join(' ');
@@ -1708,7 +1710,7 @@ function startTextLoop(video){
         }
       }catch(_){}
     }
-    _txtLoopId=setTimeout(loop, 1200);
+    _txtLoopId=setTimeout(loop, txtInterval);
   }
   setTimeout(loop, 800);
 }
