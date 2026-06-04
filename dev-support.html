@@ -158,14 +158,16 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
       <div class="stat-card"><div class="stat-val" id="stStaff">—</div><div class="stat-lbl">Staff Accounts</div></div>
       <div class="stat-card"><div class="stat-val" id="stOrdersToday">—</div><div class="stat-lbl">Orders Today</div></div>
       <div class="stat-card"><div class="stat-val" id="stRevToday" style="font-size:18px">—</div><div class="stat-lbl">Revenue Today</div></div>
+      <div class="stat-card" onclick="showTab('support')" style="cursor:pointer"><div class="stat-val" id="stTickets" style="color:var(--danger)">—</div><div class="stat-lbl">Open Tickets</div></div>
     </div>
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab-btn active" id="tabStores" onclick="showTab('stores')">&#127978; Stores</button>
-      <button class="tab-btn" id="tabStaff"  onclick="showTab('staff')">&#129309; Partners</button>
-      <button class="tab-btn" id="tabOrders" onclick="showTab('orders')">&#128200; Orders</button>
-      <button class="tab-btn" id="tabSubs"   onclick="showTab('subs')">&#128178; Subscriptions</button>
+      <button class="tab-btn active" id="tabStores"   onclick="showTab('stores')">&#127978; Stores</button>
+      <button class="tab-btn" id="tabStaff"    onclick="showTab('staff')">&#129309; Partners</button>
+      <button class="tab-btn" id="tabOrders"   onclick="showTab('orders')">&#128200; Orders</button>
+      <button class="tab-btn" id="tabSubs"     onclick="showTab('subs')">&#128178; Subscriptions</button>
+      <button class="tab-btn" id="tabSupport"  onclick="showTab('support')">&#128139; Support</button>
     </div>
 
     <!-- STORES -->
@@ -261,6 +263,62 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
           </table>
         </div>
       </div>
+    </div>
+    <!-- SUPPORT TICKETS -->
+    <div id="secSupport" style="display:none">
+      <div class="card">
+        <div class="card-title">
+          Support Tickets
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="filter-sel" id="ticketStatusFilter" onchange="filterTickets()">
+              <option value="">All Status</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+            </select>
+            <input class="search-inp" id="ticketSearch" placeholder="Search name, email, subject…" oninput="filterTickets()">
+            <button class="btn btn-ghost btn-sm" onclick="loadTickets()">&#8635; Refresh</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Date</th><th>Name</th><th>Email</th><th>Subject</th><th>Store</th><th>Status</th><th></th></tr></thead>
+            <tbody id="ticketsTbody"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TICKET DETAIL MODAL ── -->
+<div class="modal" id="ticketModal">
+  <div class="mbox">
+    <h3>&#128139; Support Ticket</h3>
+    <input type="hidden" id="tkId">
+    <div style="background:var(--s2);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:15px" id="tkName"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px" id="tkEmail"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px" id="tkStore"></div>
+          <div style="font-size:11px;color:var(--dim);margin-top:4px" id="tkDate"></div>
+        </div>
+        <div id="tkStatusBadge"></div>
+      </div>
+    </div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:8px" id="tkSubject"></div>
+    <div style="background:var(--s2);border-radius:8px;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;margin-bottom:18px;max-height:200px;overflow-y:auto" id="tkMessage"></div>
+    <div style="margin-bottom:18px">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">UPDATE STATUS</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:var(--danger);color:#fff" onclick="setTicketStatus('open')">Open</button>
+        <button class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="setTicketStatus('in_progress')">In Progress</button>
+        <button class="btn btn-sm" style="background:#10b981;color:#fff" onclick="setTicketStatus('resolved')">Resolved</button>
+      </div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('ticketModal')">Close</button>
     </div>
   </div>
 </div>
@@ -680,8 +738,16 @@ async function showDashboard() {
 }
 
 async function loadAll() {
-  await Promise.all([loadStores(), loadStaff(), loadOrders()]);
+  await Promise.all([loadStores(), loadStaff(), loadOrders(), loadTicketCount()]);
   updateStats();
+}
+
+async function loadTicketCount() {
+  const { data } = await _sb.rpc('dev_get_tickets', { p_token: _devToken }).then(r=>r);
+  if (data) {
+    _allTickets = data;
+    document.getElementById('stTickets').textContent = data.filter(t => t.status === 'open').length;
+  }
 }
 
 async function loadStores() {
@@ -1085,11 +1151,87 @@ async function cancelSub(id) {
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function showTab(tab) {
-  ['stores','staff','orders','subs'].forEach(t => {
-    document.getElementById('sec' + (t === 'subs' ? 'Subs' : t.charAt(0).toUpperCase() + t.slice(1))).style.display = t === tab ? '' : 'none';
-    document.getElementById('tab' + (t === 'subs' ? 'Subs' : t.charAt(0).toUpperCase() + t.slice(1))).classList.toggle('active', t === tab);
+  const secMap = {stores:'Stores',staff:'Staff',orders:'Orders',subs:'Subs',support:'Support'};
+  const tabMap = {stores:'Stores',staff:'Staff',orders:'Orders',subs:'Subs',support:'Support'};
+  Object.keys(secMap).forEach(t => {
+    document.getElementById('sec' + secMap[t]).style.display = t === tab ? '' : 'none';
+    document.getElementById('tab' + tabMap[t]).classList.toggle('active', t === tab);
   });
   if (tab === 'subs' && !_allSubs.length) loadSubs();
+  if (tab === 'support' && !_allTickets.length) loadTickets();
+}
+
+// ── Support Tickets ────────────────────────────────────────────────────────────
+let _allTickets = [];
+
+async function loadTickets() {
+  const tb = document.getElementById('ticketsTbody');
+  tb.innerHTML = '<tr class="empty-row"><td colspan="8">Loading…</td></tr>';
+  const { data, error } = await _sb.rpc('dev_get_tickets', { p_token: _devToken }).then(r=>r);
+  if (error) { handleAuthError(error); return; }
+  _allTickets = data || [];
+  document.getElementById('stTickets').textContent = _allTickets.filter(t => t.status === 'open').length;
+  renderTickets();
+}
+
+function _ticketBadge(status) {
+  const map = { open: ['var(--danger)','Open'], in_progress: ['#f59e0b','In Progress'], resolved: ['#10b981','Resolved'] };
+  const [c, l] = map[status] || ['var(--muted)', status];
+  return `<span class="badge" style="background:${c};color:#fff;padding:2px 8px;border-radius:4px;font-size:10px">${l}</span>`;
+}
+
+function renderTickets(items) {
+  const list = items ?? _allTickets;
+  const tb = document.getElementById('ticketsTbody');
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="8">No tickets found.</td></tr>'; return; }
+  tb.innerHTML = list.map((t, i) => {
+    const dt = new Date(t.created_at).toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      <td style="color:var(--muted);font-size:12px">${dt}</td>
+      <td><strong>${esc(t.name)}</strong></td>
+      <td style="color:var(--muted);font-size:12px">${esc(t.email)}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.subject)}</td>
+      <td style="color:var(--muted);font-size:12px">${esc(t.store_name||'—')}</td>
+      <td>${_ticketBadge(t.status)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openTicketModal('${t.id}')">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTickets() {
+  const q = document.getElementById('ticketSearch').value.toLowerCase();
+  const st = document.getElementById('ticketStatusFilter').value;
+  renderTickets(_allTickets.filter(t =>
+    (!st || t.status === st) &&
+    (!q || t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q) || t.subject.toLowerCase().includes(q))
+  ));
+}
+
+function openTicketModal(id) {
+  const t = _allTickets.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('tkId').value = t.id;
+  document.getElementById('tkName').textContent = t.name;
+  document.getElementById('tkEmail').textContent = t.email;
+  document.getElementById('tkStore').textContent = t.store_name ? '🏪 ' + t.store_name : '';
+  document.getElementById('tkDate').textContent = new Date(t.created_at).toLocaleString('en-PH', { dateStyle:'medium', timeStyle:'short' });
+  document.getElementById('tkSubject').textContent = t.subject;
+  document.getElementById('tkMessage').textContent = t.message;
+  document.getElementById('tkStatusBadge').innerHTML = _ticketBadge(t.status);
+  document.getElementById('ticketModal').classList.add('show');
+}
+
+async function setTicketStatus(status) {
+  const id = document.getElementById('tkId').value;
+  const { error } = await _sb.rpc('dev_update_ticket', { p_token: _devToken, p_ticket_id: id, p_status: status }).then(r=>r);
+  if (error) { showToast('Failed to update', true); return; }
+  const t = _allTickets.find(x => x.id === id);
+  if (t) t.status = status;
+  document.getElementById('tkStatusBadge').innerHTML = _ticketBadge(status);
+  document.getElementById('stTickets').textContent = _allTickets.filter(t => t.status === 'open').length;
+  renderTickets();
+  showToast('Ticket status updated!');
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
