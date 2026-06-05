@@ -1018,7 +1018,7 @@ function _startSqPyLoop(video, sess) {
         const stat = document.getElementById('sqStatus');
         if (stat) {
           stat.textContent = '🐍 ' + (p?.name || res.name);
-          setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning...'; }, 1500);
+          setTimeout(() => { if (_sqOpen) _sqUpdateStatus?.(); }, 1500);
         }
       }
     }
@@ -1729,11 +1729,20 @@ async function startSquareScanner() {
     sv.srcObject = _sqStream;
     await sv.play().catch(() => {});
     _sqOpen = true;
-    stat.textContent = '📷 Scanning for barcode...';
     if (toggleBtn) toggleBtn.textContent = '■';
     if (scanLine) scanLine.classList.add('active');
     _sqSess++;
     const sess = _sqSess;
+    // Show active detection modes in status bar
+    function _sqUpdateStatus() {
+      if (!_sqOpen || !stat) return;
+      const parts = ['🔖 barcode'];
+      if ('TextDetector' in window) parts.push('📝 text');
+      if (_prodHashes.length)       parts.push('🖼 visual(' + _prodHashes.length + ')');
+      if (VISION_URL)               parts.push('🐍 python');
+      stat.textContent = parts.join(' · ');
+    }
+    _sqUpdateStatus();
     if ('BarcodeDetector' in window && !_sqNativeBd) {
       try { _sqNativeBd = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e'] }); } catch(_) {}
     }
@@ -1749,7 +1758,7 @@ async function startSquareScanner() {
             if (p && !isOnCooldown(p.id)) {
               setCooldown(p.id); addItem(p.id); showSqHit(p);
               stat.textContent = '✅ ' + p.name;
-              setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning for barcode...'; }, 1500);
+              setTimeout(() => { if (_sqOpen) _sqUpdateStatus?.(); }, 1500);
             }
           }
         } catch(_) {}
@@ -1792,7 +1801,7 @@ function _startSqVisualLoop(video, sess) {
           if (p) showSqHit(p);
           if (stat) {
             stat.textContent = '🖼 ' + (p?.name || best.id);
-            setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning...'; }, 1500);
+            setTimeout(() => { if (_sqOpen) _sqUpdateStatus?.(); }, 1500);
           }
         }
       }
@@ -1824,7 +1833,7 @@ function _startSqTextLoop(video, sess) {
           if (m && !isOnCooldown(m.id)) {
             setCooldown(m.id); addItem(m.id); showSqHit(m);
             stat.textContent = '✅ ' + m.name + ' (ML Kit)';
-            setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning...'; }, 1500);
+            setTimeout(() => { if (_sqOpen) _sqUpdateStatus?.(); }, 1500);
           }
         }
       } catch(_) {}
