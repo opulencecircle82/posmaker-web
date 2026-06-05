@@ -951,7 +951,7 @@ function renderRetailList(list) {
 
 // ── Retail: tap product → add 1 to cart with flash ────────────────────────
 function addProductDirect(id) {
-  addItemWithQty(id, 1);
+  addItem(id);
   const card = document.getElementById('rcard_' + id);
   if (card) {
     card.classList.add('flash');
