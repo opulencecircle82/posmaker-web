@@ -972,10 +972,9 @@ function addProductDirect(id) {
 }
 
 // ── Python Vision Server config ───────────────────────────────────────────
-// To enable: open browser console and run:
-//   localStorage.setItem('pm_vision_url', 'http://<PC-IP>:8765')
-// To disable: localStorage.removeItem('pm_vision_url')
-const VISION_URL = (localStorage.getItem('pm_vision_url') || '').replace(/\/$/, '');
+// URL set in js/config.js as VISION_SERVER_URL; localStorage override for testing
+const VISION_URL = ((typeof VISION_SERVER_URL !== 'undefined' ? VISION_SERVER_URL : '') ||
+                    localStorage.getItem('pm_vision_url') || '').replace(/\/$/, '');
 
 let _pyLoopId   = null;
 let _sqPyLoopId = null;

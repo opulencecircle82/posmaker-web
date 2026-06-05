@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: posmaker-vision
+    runtime: python
+    rootDir: vision_server
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPABASE_URL
+        value: https://djvwlwnnlldoppomhbap.supabase.co
+      - key: SUPABASE_ANON
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdndsd25ubGxkb3Bwb21oYmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MzgzNTEsImV4cCI6MjA5NTQxNDM1MX0.7uJUS1mLQGHUstuGvKMHzPj5aNluha0-Hf2wg8K1UA0
