@@ -52,12 +52,25 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .main{display:flex;flex:1;overflow:hidden}
 
 /* ── SEARCH BAR (retail mode) ────────────────────────────── */
-.search-bar{padding:6px 8px;background:var(--s1);border-bottom:1px solid var(--border);flex-shrink:0;display:none;align-items:center;gap:8px}
-.search-bar.show{display:flex}
-.search-inp{flex:1;padding:8px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;outline:none;font-family:inherit}
+.search-bar{display:none}
+.search-inp{width:100%;padding:8px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;outline:none;font-family:inherit}
 .search-inp:focus{border-color:var(--accent)}
 .search-inp::placeholder{color:#44445a}
-.sq-cam-btn{flex-shrink:0;width:38px;height:38px;border-radius:8px;background:var(--accent);border:none;color:#09090f;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+/* ── RETAIL LEFT PANEL ─────────────────────────────────── */
+.retail-left{width:160px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);display:none;flex-direction:column;align-items:center;padding:16px 10px 12px;gap:8px;overflow-y:auto}
+.rl-logo{width:54px;height:54px;border-radius:14px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;flex-shrink:0;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+.rl-store{font-size:11px;font-weight:700;text-align:center;color:var(--text);line-height:1.35;word-break:break-word}
+.rl-cashier{font-size:10px;color:var(--muted);text-align:center}
+.rl-div{border:none;border-top:1px solid var(--border);width:100%;margin:2px 0;flex-shrink:0}
+.rl-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;align-self:flex-start}
+.rl-cat-sel{width:100%;padding:7px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;outline:none;font-family:inherit;cursor:pointer}
+.rl-cat-sel:focus{border-color:var(--accent)}
+.rl-count{font-size:10px;color:var(--muted);align-self:flex-start;padding-left:2px}
+.rl-scan-btn{width:100%;padding:11px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-top:auto;display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0}
+.rl-scan-btn:active{opacity:.8}
+/* ── RETAIL CENTER ───────────────────────────────────── */
+.retail-center{flex:1;display:none;flex-direction:column;overflow:hidden}
+.rc-search{padding:6px 8px;background:var(--s1);border-bottom:1px solid var(--border);flex-shrink:0}
 /* ── SQUARE SCANNER OVERLAY ──────────────────────────────── */
 .scan-sq-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:200;align-items:flex-start;justify-content:center;padding-top:90px}
 .scan-sq-overlay.show{display:flex}
@@ -272,12 +285,6 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 <!-- Category tabs -->
 <div class="cat-bar" id="catBar"></div>
 
-<!-- Retail search bar -->
-<div class="search-bar" id="searchBar">
-  <input class="search-inp" id="searchInp" type="text" placeholder="&#128269; Search product name or SKU..." oninput="searchProds(this.value)">
-  <button class="sq-cam-btn" onclick="toggleSquareScanner()" title="Scan barcode">&#128247;</button>
-</div>
-
 <!-- Square scanner overlay (retail mode) -->
 <div class="scan-sq-overlay" id="scanSqOverlay">
   <div class="scan-sq-box">
@@ -289,9 +296,27 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 </div>
 
 <div class="main">
-  <!-- Product grid (restaurant) / Retail list -->
+  <!-- Retail left panel (hidden for restaurant) -->
+  <div class="retail-left" id="retailLeft">
+    <div class="rl-logo" id="rlLogo">P</div>
+    <div class="rl-store" id="rlStore">My Store</div>
+    <div class="rl-cashier" id="rlCashier">&#128100; Cashier</div>
+    <hr class="rl-div">
+    <div class="rl-label">Category</div>
+    <select class="rl-cat-sel" id="retCatSel" onchange="filterCatDrop(this.value)"><option>All</option></select>
+    <div class="rl-count" id="rlCount"></div>
+    <hr class="rl-div">
+    <button class="rl-scan-btn" onclick="toggleSquareScanner()">&#128247; Scan</button>
+  </div>
+  <!-- Retail center: search + product list (hidden for restaurant) -->
+  <div class="retail-center" id="retailCenter">
+    <div class="rc-search">
+      <input class="search-inp" id="searchInp" type="text" placeholder="&#128269; Search product name or SKU..." oninput="searchProds(this.value)">
+    </div>
+    <div class="retail-grid" id="retailGrid"></div>
+  </div>
+  <!-- Product grid (restaurant) -->
   <div class="products" id="grid"></div>
-  <div class="retail-grid" id="retailGrid" style="display:none"></div>
 
   <!-- Cart -->
   <div class="cart">
@@ -534,6 +559,8 @@ function setStoreUI() {
   document.getElementById('loginTitle').textContent = STORE.name;
   document.getElementById('taxLabel').textContent   = `VAT (${STORE.tax_rate}%)`;
   document.getElementById('hdrTitle').textContent   = STORE.name;
+  document.getElementById('rlLogo').textContent     = (STORE.name || 'P')[0].toUpperCase();
+  document.getElementById('rlStore').textContent    = STORE.name || '';
   if (STORE.logo_b64) {
     const src = 'data:image/png;base64,' + STORE.logo_b64;
     const li = document.getElementById('loginLogo'); li.src = src; li.style.display = 'block';
@@ -554,12 +581,12 @@ function adaptCashierMode(bizType) {
   document.getElementById('btnTable').style.display = isRestaurant ? '' : 'none';
   document.getElementById('btnKOT').style.display   = isRestaurant ? '' : 'none';
 
-  // Show search bar (with camera button) for retail
-  document.getElementById('searchBar').classList.toggle('show', IS_RETAIL);
+  // Show retail panels
+  document.getElementById('retailLeft').style.display   = IS_RETAIL ? 'flex' : 'none';
+  document.getElementById('retailCenter').style.display = IS_RETAIL ? 'flex' : 'none';
 
   // Switch product grid: photo grid (restaurant) vs compact list (retail)
-  document.getElementById('grid').style.display       = isRestaurant ? '' : 'none';
-  document.getElementById('retailGrid').style.display = isRestaurant ? 'none' : '';
+  document.getElementById('grid').style.display = isRestaurant ? '' : 'none';
 }
 
 function applyPosTheme(s) {
@@ -682,6 +709,7 @@ function showPOS(name) {
   CASHIER_NAME = name;
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('hdrCashier').textContent = '\u{1F464} ' + name;
+  document.getElementById('rlCashier').textContent  = '\u{1F464} ' + name;
   redrawCart();
   updateNetStatus();
   syncOfflineQueue();
@@ -811,10 +839,20 @@ async function loadProds() {
 }
 
 function buildCats() {
-  const cats = ['All', ...new Set(prods.map(p => p.category))];
+  const cats = ['All', ...new Set(prods.map(p => p.category).filter(Boolean))];
+  // Restaurant: horizontal tab bar
   document.getElementById('catBar').innerHTML = cats.map(c =>
     `<button class="cat-btn${c==='All'?' active':''}" onclick="filterCat('${c.replace(/'/g,"\\'")}',this)">${c}</button>`
   ).join('');
+  // Retail: left panel dropdown
+  const sel = document.getElementById('retCatSel');
+  if (sel) sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  _updateRlCount(prods.length);
+}
+
+function _updateRlCount(n) {
+  const el = document.getElementById('rlCount');
+  if (el) el.textContent = n + ' product' + (n !== 1 ? 's' : '');
 }
 
 function filterCat(cat, btn) {
@@ -823,6 +861,14 @@ function filterCat(cat, btn) {
   renderProds(cat);
   const si = document.getElementById('searchInp');
   if (si) si.value = '';
+}
+
+function filterCatDrop(cat) {
+  renderProds(cat);
+  const si = document.getElementById('searchInp');
+  if (si) si.value = '';
+  const list = cat === 'All' ? prods : prods.filter(p => p.category === cat);
+  _updateRlCount(list.length);
 }
 
 function stockClass(s) { return s <= 0 ? 'zero' : s <= 5 ? 'low' : 'ok'; }
@@ -909,7 +955,11 @@ function searchProds(q) {
     ? prods.filter(p => p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q))
     : prods;
   renderRetailList(list);
-  if (q) document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  if (q) {
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+    const sel = document.getElementById('retCatSel'); if (sel) sel.value = 'All';
+  }
+  _updateRlCount(list.length);
 }
 
 // Retail qty modal
