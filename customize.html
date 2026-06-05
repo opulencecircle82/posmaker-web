@@ -266,6 +266,20 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
 .pos-mock[data-bs="pill"] .pm-btn{border-radius:50px!important}
 .pos-mock[data-bs="pill"] .pm-cat{border-radius:20px!important}
 
+/* ── RETAIL PREVIEW ─────────────────────────────────────────── */
+.pm-search-bar{background:var(--pm-s1,#111120);border-bottom:1px solid var(--pm-border,#252540);padding:5px 6px;display:flex;gap:5px;align-items:center;flex-shrink:0}
+.pm-search-inp{flex:1;padding:5px 8px;background:var(--pm-bg,#09090f);border:1px solid var(--pm-border,#252540);border-radius:5px;color:var(--pm-muted,#8888aa);font-size:9px;outline:none;font-family:inherit}
+.pm-scan-btn{width:26px;height:26px;border-radius:5px;background:var(--pm-accent,#00b4d8);border:none;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pm-list{flex:1;overflow:hidden;padding:4px 6px;display:flex;flex-direction:column;gap:3px;align-content:start}
+.pm-list-row{display:flex;align-items:center;gap:6px;background:var(--pm-s1,#111120);border:1.5px solid var(--pm-border,#252540);border-radius:var(--pm-radius,10px);padding:5px 8px;cursor:pointer}
+.pm-list-name{flex:1;font-size:9px;font-weight:600;color:var(--pm-name,var(--pm-text,#f0f0f8));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pm-list-price{font-size:10px;font-weight:800;color:var(--pm-price,var(--pm-accent,#00b4d8));flex-shrink:0}
+/* Retail list row style overrides */
+.pos-mock[data-bs="3d"] .pm-list-row{transform:translateY(-1px);box-shadow:0 3px 0 rgba(0,0,0,.5)}
+.pos-mock[data-bs="neon"] .pm-list-row{border-color:var(--pm-accent);box-shadow:0 0 5px var(--pm-accent)}
+.pos-mock[data-bs="glass"] .pm-list-row{background:rgba(255,255,255,.06)!important;backdrop-filter:blur(10px);border-color:rgba(255,255,255,.14)}
+.pos-mock[data-bs="pill"] .pm-list-row{border-radius:24px!important}
+
 /* TOAST */
 .toast{position:fixed;bottom:20px;right:20px;background:#1a3a2a;border:1px solid #10b981;color:#10b981;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;z-index:500;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
@@ -556,6 +570,53 @@ document.getElementById('pmGrid').innerHTML = MOCKS.map((m, i) =>
   </div>`
 ).join('');
 
+// ── Retail preview adapter ────────────────────────────────────────────────────
+const RESTAURANT_TYPES_CZ = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
+  'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
+
+const RETAIL_MOCKS = [
+  {n:'Biogesic 500mg Tab',p:12},{n:'Alaxan FR',p:25},{n:'Bioflu Tablet',p:28},
+  {n:'Betadine Solution 15ml',p:48},{n:'Strepsils Menthol 24s',p:55},{n:'Kremil-S',p:18},
+  {n:'Neozep Forte',p:22},{n:'Diatabs 4s',p:15},
+];
+
+function adaptPreviewToStore(store) {
+  const isRetail = store.biz_type && !RESTAURANT_TYPES_CZ.has(store.biz_type);
+  if (!isRetail) return;
+
+  // Hide restaurant-specific order type tabs
+  document.querySelector('.pm-ot-bar').style.display = 'none';
+
+  // Insert search bar (with scan button) above category tabs
+  const pmLeft = document.querySelector('.pm-left');
+  const pmCats = document.querySelector('.pm-cats');
+  const searchBar = document.createElement('div');
+  searchBar.className = 'pm-search-bar';
+  searchBar.innerHTML = '<input class="pm-search-inp" type="text" placeholder="&#128269; Search product or SKU..." disabled><button class="pm-scan-btn">&#128247;</button>';
+  pmLeft.insertBefore(searchBar, pmCats);
+
+  // Swap category tabs to retail categories
+  pmCats.innerHTML = '<div class="pm-cat active">All</div><div class="pm-cat">Medicine</div><div class="pm-cat">Personal Care</div><div class="pm-cat">Vitamins</div>';
+
+  // Replace photo grid with compact list
+  const pmGrid = document.getElementById('pmGrid');
+  pmGrid.className = 'pm-list';
+  pmGrid.innerHTML = RETAIL_MOCKS.map(m =>
+    `<div class="pm-list-row"><div class="pm-list-name">${m.n}</div><div class="pm-list-price">&#8369;${m.p}</div></div>`
+  ).join('');
+
+  // Cart: remove Table and KOT, keep only Drafts
+  document.querySelector('.pm-cart-acts').innerHTML =
+    '<div class="pm-act-btn" style="flex:none;padding:4px 12px">&#128196; Drafts</div>';
+
+  // Swap sample cart items to retail products
+  document.querySelector('.pm-cart-body').innerHTML = `
+    <div class="pm-cart-item"><span>Biogesic 500mg x2</span><span>&#8369;24</span></div>
+    <div class="pm-cart-item"><span>Bioflu Tablet</span><span>&#8369;28</span></div>
+    <div class="pm-cart-item"><span>Betadine 15ml</span><span>&#8369;48</span></div>
+  `;
+}
+
 // ── Build Template Cards ──────────────────────────────────────────────────────
 const tplGrid = document.getElementById('tplGrid');
 TEMPLATES.forEach(t => {
@@ -655,6 +716,7 @@ function setScale(id) {
   if (store.pos_bg_img) { bgImgData = 'data:image/jpeg;base64,' + store.pos_bg_img; showThumb(); }
 
   applyPreview();
+  adaptPreviewToStore(store);
 })();
 
 // ── Apply Preview ─────────────────────────────────────────────────────────────
