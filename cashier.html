@@ -62,6 +62,11 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .rl-cam-box{border-radius:9px;overflow:hidden;background:#000;border:1.5px solid var(--border);position:relative;flex-shrink:0;cursor:pointer}
 .rl-cam-box video{width:100%;height:110px;object-fit:cover;display:block}
 .rl-cam-status{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.72);color:#fff;font-size:9px;padding:3px 6px;text-align:center;font-weight:600;pointer-events:none}
+.rl-cam-hit{position:absolute;inset:0 0 20px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .18s}
+.rl-cam-hit.show{opacity:1}
+.rl-cam-hit-inner{background:rgba(0,0,0,.84);border:1.5px solid var(--accent);border-radius:8px;padding:5px 10px;text-align:center;max-width:88%}
+.rl-cam-hit-name{font-size:11px;font-weight:800;color:var(--name-color,var(--accent));line-height:1.25;word-break:break-word}
+.rl-cam-hit-price{font-size:12px;font-weight:900;color:var(--price-color,var(--accent));line-height:1.2;margin-top:1px}
 .rl-cam-toggle{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:5px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
 .scan-sq-line{position:absolute;left:8%;right:8%;height:2px;background:var(--accent);opacity:.85;animation:scanline 1.6s ease-in-out infinite;pointer-events:none;display:none}
 .scan-sq-line.active{display:block}
@@ -295,6 +300,12 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="rl-cam-box" onclick="toggleSquareScanner()">
       <video id="sqVideo" autoplay muted playsinline></video>
       <div class="scan-sq-line" id="sqScanLine"></div>
+      <div class="rl-cam-hit" id="sqHit">
+        <div class="rl-cam-hit-inner">
+          <div class="rl-cam-hit-name" id="sqHitName"></div>
+          <div class="rl-cam-hit-price" id="sqHitPrice"></div>
+        </div>
+      </div>
       <div class="rl-cam-status" id="sqStatus">&#128247; Tap to start scanner</div>
       <button class="rl-cam-toggle" id="rlCamToggle" onclick="event.stopPropagation();toggleSquareScanner()">&#9654;</button>
     </div>
@@ -957,6 +968,16 @@ function addProductDirect(id) {
     card.classList.add('flash');
     setTimeout(() => card.classList.remove('flash'), 350);
   }
+}
+
+let _sqHitTimer = null;
+function showSqHit(p) {
+  const hit = document.getElementById('sqHit'); if (!hit) return;
+  document.getElementById('sqHitName').textContent  = p.name;
+  document.getElementById('sqHitPrice').textContent = CUR + parseFloat(p.price).toFixed(2);
+  hit.classList.add('show');
+  if (_sqHitTimer) clearTimeout(_sqHitTimer);
+  _sqHitTimer = setTimeout(() => { hit.classList.remove('show'); _sqHitTimer = null; }, 1400);
 }
 
 // Retail search
@@ -1639,7 +1660,7 @@ async function startSquareScanner() {
           if (code) {
             const p = prods.find(x => x.sku === code || x.name?.toLowerCase() === code.toLowerCase());
             if (p && !isOnCooldown(p.id)) {
-              setCooldown(p.id); addItem(p.id);
+              setCooldown(p.id); addItem(p.id); showSqHit(p);
               stat.textContent = '✅ ' + p.name;
               setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning for barcode...'; }, 1500);
             }
@@ -1675,7 +1696,7 @@ function _startSqTextLoop(video, sess) {
           const allText = blocks.map(b => b.rawValue).join(' ');
           const m = matchTextToProduct(allText);
           if (m && !isOnCooldown(m.id)) {
-            setCooldown(m.id); addItem(m.id);
+            setCooldown(m.id); addItem(m.id); showSqHit(m);
             stat.textContent = '✅ ' + m.name + ' (ML Kit)';
             setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning...'; }, 1500);
           }
