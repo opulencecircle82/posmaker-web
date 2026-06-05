@@ -1018,7 +1018,7 @@ function _startSqPyLoop(video, sess) {
         const stat = document.getElementById('sqStatus');
         if (stat) {
           stat.textContent = '🐍 ' + (p?.name || res.name);
-          setTimeout(() => { if (_sqOpen) _sqUpdateStatus?.(); }, 1500);
+          setTimeout(() => { sqStatusUpdate(); }, 1500);
         }
       }
     }
@@ -1055,6 +1055,16 @@ function _pyWarmup() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ store_id: STORE_ID }),
   }).catch(() => {});
+}
+
+function sqStatusUpdate() {
+  const stat = document.getElementById('sqStatus');
+  if (!stat || !_sqOpen) return;
+  const parts = ['🔖 barcode'];
+  if ('TextDetector' in window) parts.push('📝 text');
+  if (_prodHashes.length)       parts.push('🖼 visual(' + _prodHashes.length + ')');
+  if (VISION_URL)               parts.push('🐍 python');
+  stat.textContent = parts.join(' · ');
 }
 
 let _sqHitTimer = null;
@@ -1733,16 +1743,7 @@ async function startSquareScanner() {
     if (scanLine) scanLine.classList.add('active');
     _sqSess++;
     const sess = _sqSess;
-    // Show active detection modes in status bar
-    function _sqUpdateStatus() {
-      if (!_sqOpen || !stat) return;
-      const parts = ['🔖 barcode'];
-      if ('TextDetector' in window) parts.push('📝 text');
-      if (_prodHashes.length)       parts.push('🖼 visual(' + _prodHashes.length + ')');
-      if (VISION_URL)               parts.push('🐍 python');
-      stat.textContent = parts.join(' · ');
-    }
-    _sqUpdateStatus();
+    sqStatusUpdate();
     if ('BarcodeDetector' in window && !_sqNativeBd) {
       try { _sqNativeBd = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e'] }); } catch(_) {}
     }
@@ -1758,7 +1759,7 @@ async function startSquareScanner() {
             if (p && !isOnCooldown(p.id)) {
               setCooldown(p.id); addItem(p.id); showSqHit(p);
               stat.textContent = '✅ ' + p.name;
-              setTimeout(() => { if (_sqOpen) _sqUpdateStatus?.(); }, 1500);
+              setTimeout(() => { sqStatusUpdate(); }, 1500);
             }
           }
         } catch(_) {}
@@ -1801,7 +1802,7 @@ function _startSqVisualLoop(video, sess) {
           if (p) showSqHit(p);
           if (stat) {
             stat.textContent = '🖼 ' + (p?.name || best.id);
-            setTimeout(() => { if (_sqOpen) _sqUpdateStatus?.(); }, 1500);
+            setTimeout(() => { sqStatusUpdate(); }, 1500);
           }
         }
       }
@@ -1833,7 +1834,7 @@ function _startSqTextLoop(video, sess) {
           if (m && !isOnCooldown(m.id)) {
             setCooldown(m.id); addItem(m.id); showSqHit(m);
             stat.textContent = '✅ ' + m.name + ' (ML Kit)';
-            setTimeout(() => { if (_sqOpen) _sqUpdateStatus?.(); }, 1500);
+            setTimeout(() => { sqStatusUpdate(); }, 1500);
           }
         }
       } catch(_) {}
@@ -2098,6 +2099,12 @@ async function buildImgHashes() {
     const v=document.getElementById('camVideo');
     if(v && v.videoWidth>0) startVisualLoop(v);
   }
+  // If square scanner is open, start its visual loop now that hashes are ready
+  if(_sqOpen && !_sqVisLoopId){
+    const sv=document.getElementById('sqVideo');
+    if(sv && sv.videoWidth>0) _startSqVisualLoop(sv, _sqSess);
+  }
+  sqStatusUpdate();
 }
 
 function _computeFeatures(src) {
