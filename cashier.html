@@ -57,37 +57,55 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .search-inp:focus{border-color:var(--accent)}
 .search-inp::placeholder{color:#44445a}
 /* ── RETAIL LEFT PANEL ─────────────────────────────────── */
-.retail-left{width:170px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);display:none;flex-direction:column;align-items:stretch;padding:8px 10px 12px;gap:8px;overflow-y:auto}
+.retail-left{width:200px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);display:none;flex-direction:column;align-items:stretch;padding:8px 8px 0;gap:6px;overflow:hidden}
 /* Embedded camera box */
-.rl-cam-box{border-radius:10px;overflow:hidden;background:#000;border:1.5px solid var(--border);position:relative;flex-shrink:0;cursor:pointer}
-.rl-cam-box video{width:100%;height:120px;object-fit:cover;display:block}
+.rl-cam-box{border-radius:9px;overflow:hidden;background:#000;border:1.5px solid var(--border);position:relative;flex-shrink:0;cursor:pointer}
+.rl-cam-box video{width:100%;height:110px;object-fit:cover;display:block}
 .rl-cam-status{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.72);color:#fff;font-size:9px;padding:3px 6px;text-align:center;font-weight:600;pointer-events:none}
 .rl-cam-toggle{position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:5px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
 .scan-sq-line{position:absolute;left:8%;right:8%;height:2px;background:var(--accent);opacity:.85;animation:scanline 1.6s ease-in-out infinite;pointer-events:none;display:none}
 .scan-sq-line.active{display:block}
 @keyframes scanline{0%{top:15%}50%{top:82%}100%{top:15%}}
+/* Search in left panel */
+.rl-search{flex-shrink:0}
 /* Category + count */
-.rl-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-.rl-cat-sel{width:100%;padding:7px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:11px;outline:none;font-family:inherit;cursor:pointer}
+.rl-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0}
+.rl-cat-sel{width:100%;padding:6px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:11px;outline:none;font-family:inherit;cursor:pointer;flex-shrink:0}
 .rl-cat-sel:focus{border-color:var(--accent)}
-.rl-count{font-size:10px;color:var(--muted)}
-/* ── RETAIL CENTER ───────────────────────────────────── */
-.retail-center{flex:1;display:none;flex-direction:column;overflow:hidden}
-.rc-search{padding:6px 8px;background:var(--s1);border-bottom:1px solid var(--border);flex-shrink:0}
-/* Product cards (retail) */
-.retail-grid{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-content:start}
-.r-card{background:var(--s2);border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:3px;transition:border-color .12s,background .12s}
-.r-card:hover{border-color:var(--accent)}
-.r-card:active{background:rgba(0,180,216,.08);border-color:var(--accent)}
+.rl-count{font-size:10px;color:var(--muted);flex-shrink:0}
+/* Product list rows in left panel */
+.retail-grid{flex:1;overflow-y:auto;padding:2px 0 8px;display:flex;flex-direction:column;gap:2px}
+.r-card{padding:7px 8px;background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer;display:flex;flex-direction:column;gap:1px;transition:background .1s,border-color .1s}
+.r-card:hover{background:var(--s2);border-color:var(--border)}
+.r-card:active{border-color:var(--accent);background:rgba(0,180,216,.07)}
 .r-card.out-of-stock{opacity:.38;cursor:not-allowed}
-.r-card-name{font-size:12px;font-weight:700;color:var(--name-color,#ddd);line-height:1.3}
+.r-card-name{font-size:11px;font-weight:600;color:var(--name-color,#ccc);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .r-card-sku{font-size:9px;color:#444;font-family:monospace}
-.r-card-row{display:flex;align-items:center;justify-content:space-between;margin-top:5px;gap:4px}
-.r-card-price{font-size:15px;font-weight:900;color:var(--price-color,var(--accent));flex-shrink:0}
-.r-card-stock{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0}
+.r-card-row{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.r-card-price{font-size:12px;font-weight:800;color:var(--price-color,var(--accent))}
+.r-card-stock{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px}
 .r-card-stock.ok{color:#10b981;background:rgba(16,185,129,.13)}
 .r-card-stock.low{color:#f59e0b;background:rgba(245,158,11,.13)}
 .r-card-stock.zero{color:#ef4444;background:rgba(239,68,68,.13)}
+/* ── RETAIL CENTER — product detail + add to cart ────── */
+.retail-center{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;overflow:hidden}
+.rc-empty{color:#383848;font-size:13px;text-align:center;line-height:1.7;pointer-events:none}
+.rc-pv{display:none;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:320px}
+.rcpv-name{font-size:20px;font-weight:800;color:var(--text);text-align:center;line-height:1.3}
+.rcpv-sku{font-size:11px;color:#444;font-family:monospace}
+.rcpv-price{font-size:38px;font-weight:900;color:var(--accent);line-height:1}
+.rcpv-stock{font-size:11px;font-weight:700;padding:3px 12px;border-radius:5px}
+.rcpv-stock.ok{color:#10b981;background:rgba(16,185,129,.13)}
+.rcpv-stock.low{color:#f59e0b;background:rgba(245,158,11,.13)}
+.rcpv-stock.zero{color:#ef4444;background:rgba(239,68,68,.13)}
+.rcpv-unit{font-size:11px;color:#555}
+.rcpv-qty-row{display:flex;align-items:center;gap:10px;margin-top:4px}
+.rcpv-qbtn{width:42px;height:42px;border-radius:9px;background:var(--s2);border:1px solid var(--border);color:var(--text);font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.rcpv-qbtn:active{background:var(--accent);border-color:var(--accent)}
+.rcpv-qinp{width:74px;text-align:center;font-size:22px;font-weight:700;padding:8px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);outline:none;font-family:inherit}
+.rcpv-qinp:focus{border-color:var(--accent)}
+.rcpv-add{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;margin-top:4px;transition:opacity .15s}
+.rcpv-add:active{opacity:.8}
 
 /* ── PRODUCT GRID ───────────────────────────────────────── */
 .products{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;align-content:start}
@@ -283,7 +301,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 <div class="cat-bar" id="catBar"></div>
 
 <div class="main">
-  <!-- Retail left panel: embedded camera + category (hidden for restaurant) -->
+  <!-- Retail left panel: camera + search + category + products -->
   <div class="retail-left" id="retailLeft">
     <div class="rl-cam-box" onclick="toggleSquareScanner()">
       <video id="sqVideo" autoplay muted playsinline></video>
@@ -291,16 +309,30 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <div class="rl-cam-status" id="sqStatus">&#128247; Tap to start scanner</div>
       <button class="rl-cam-toggle" id="rlCamToggle" onclick="event.stopPropagation();toggleSquareScanner()">&#9654;</button>
     </div>
+    <div class="rl-search">
+      <input class="search-inp" id="searchInp" type="text" placeholder="&#128269; Search..." oninput="searchProds(this.value)">
+    </div>
     <div class="rl-label">Category</div>
     <select class="rl-cat-sel" id="retCatSel" onchange="filterCatDrop(this.value)"><option>All</option></select>
     <div class="rl-count" id="rlCount"></div>
-  </div>
-  <!-- Retail center: search + product list (hidden for restaurant) -->
-  <div class="retail-center" id="retailCenter">
-    <div class="rc-search">
-      <input class="search-inp" id="searchInp" type="text" placeholder="&#128269; Search product name or SKU..." oninput="searchProds(this.value)">
-    </div>
     <div class="retail-grid" id="retailGrid"></div>
+  </div>
+  <!-- Retail center: product detail + add to cart -->
+  <div class="retail-center" id="retailCenter">
+    <div class="rc-empty" id="rcEmpty">&#128247; Scan a barcode<br>or tap a product</div>
+    <div class="rc-pv" id="rcPv">
+      <div class="rcpv-name" id="rcpvName"></div>
+      <div class="rcpv-sku"  id="rcpvSku"></div>
+      <div class="rcpv-price" id="rcpvPrice"></div>
+      <div class="rcpv-stock" id="rcpvStock"></div>
+      <div class="rcpv-unit"  id="rcpvUnit"></div>
+      <div class="rcpv-qty-row">
+        <button class="rcpv-qbtn" onclick="rcpvDec()">&#8722;</button>
+        <input  class="rcpv-qinp" id="rcpvQty" type="number" value="1" min="0.001" step="any">
+        <button class="rcpv-qbtn" onclick="rcpvInc()">&#43;</button>
+      </div>
+      <button class="rcpv-add" id="rcpvAddBtn" onclick="rcpvAdd()">&#43; Add to Cart</button>
+    </div>
   </div>
   <!-- Product grid (restaurant) -->
   <div class="products" id="grid"></div>
@@ -926,15 +958,44 @@ function renderRetailList(list) {
         const sku    = p.sku  || '';
         const sLabel = oos ? 'Out' : (stock % 1 === 0 ? stock : stock.toFixed(1)) + ' ' + unit;
         return `
-        <div class="r-card${oos?' out-of-stock':''}" onclick="${oos?'void 0':'askQty(\''+p.id+'\')'}">
+        <div class="r-card${oos?' out-of-stock':''}" onclick="${oos?'void 0':'showProductDetail(\''+p.id+'\')'}">
           <div class="r-card-name">${p.name}</div>
-          ${sku ? `<div class="r-card-sku">${sku}</div>` : ''}
           <div class="r-card-row">
             <span class="r-card-price">${CUR}${parseFloat(p.price).toFixed(2)}</span>
             <span class="r-card-stock ${sc}">${sLabel}</span>
           </div>
         </div>`; }).join('')
-    : `<div style="color:#444;padding:20px;font-size:13px">No products found.</div>`;
+    : `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
+}
+
+// ── Retail product detail (center panel) ──────────────────────────────────
+let _rcpvId = null;
+function showProductDetail(id) {
+  const p = prods.find(x => x.id == id); if (!p) return;
+  _rcpvId = id;
+  document.getElementById('rcEmpty').style.display = 'none';
+  const pv = document.getElementById('rcPv'); pv.style.display = 'flex';
+  document.getElementById('rcpvName').textContent  = p.name;
+  document.getElementById('rcpvSku').textContent   = p.sku ? '#' + p.sku : '';
+  document.getElementById('rcpvPrice').textContent = CUR + parseFloat(p.price).toFixed(2);
+  document.getElementById('rcpvUnit').textContent  = 'per ' + (p.unit || 'pc');
+  document.getElementById('rcpvQty').value = 1;
+  const stock = parseFloat(p.stock ?? 0);
+  const sc = stockClass(stock);
+  const stEl = document.getElementById('rcpvStock');
+  stEl.textContent = (stock % 1 === 0 ? stock : stock.toFixed(2)) + ' ' + (p.unit||'pc') + ' in stock';
+  stEl.className = 'rcpv-stock ' + sc;
+  const btn = document.getElementById('rcpvAddBtn'); btn.textContent = '+ Add to Cart'; btn.disabled = false;
+}
+function rcpvInc(){ const i=document.getElementById('rcpvQty'); i.value=(parseFloat(i.value)||0)+1; }
+function rcpvDec(){ const i=document.getElementById('rcpvQty'); if((parseFloat(i.value)||0)>1) i.value=(parseFloat(i.value)||0)-1; }
+function rcpvAdd(){
+  if(!_rcpvId) return;
+  const qty = parseFloat(document.getElementById('rcpvQty').value)||1;
+  addItemWithQty(_rcpvId, qty);
+  const btn = document.getElementById('rcpvAddBtn');
+  btn.textContent = '&#10003; Added!'; btn.disabled = true;
+  setTimeout(() => { btn.innerHTML = '+ Add to Cart'; btn.disabled = false; }, 900);
 }
 
 // Retail search
