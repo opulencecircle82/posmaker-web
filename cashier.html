@@ -1758,10 +1758,48 @@ async function startSquareScanner() {
     }
     sqLoop();
     _startSqTextLoop(sv, sess);
+    _startSqVisualLoop(sv, sess);
     _startSqPyLoop(sv, sess);
   } catch(e) {
     stat.textContent = e.message === 'timeout' ? '⚠️ Camera timed out' : '⚠️ Camera blocked — allow in browser settings';
   }
+}
+
+// JS visual matching loop for the embedded square scanner
+// Uses the same _prodHashes + _extractFrameFeatures as the floating scanner
+let _sqVisLoopId = null;
+function _startSqVisualLoop(video, sess) {
+  if (!_prodHashes.length) return;
+  const stat = document.getElementById('sqStatus');
+  const isMobile = /android|mobile|tablet/i.test(navigator.userAgent);
+  function loop() {
+    if (!_sqOpen || _sqSess !== sess) { _sqVisLoopId = null; return; }
+    try {
+      let best = null, bestScore = Infinity, secScore = Infinity;
+      for (const scale of [0.4, 0.65, 0.85]) {
+        const ff = _extractFrameFeatures(video, scale);
+        for (const ph of _prodHashes) {
+          const s = Math.min(...ph.features.map(f => _featureScore(ff, f)));
+          if (s < bestScore) { secScore = bestScore; bestScore = s; best = ph; }
+          else if (s < secScore) { secScore = s; }
+        }
+      }
+      const _visConf = {};  // reuse local conf map per loop
+      if (best && bestScore < 0.72 && (secScore - bestScore) > 0.08) {
+        if (!isOnCooldown(best.id)) {
+          setCooldown(best.id); addItem(best.id);
+          const p = prods.find(x => x.id == best.id);
+          if (p) showSqHit(p);
+          if (stat) {
+            stat.textContent = '🖼 ' + (p?.name || best.id);
+            setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning...'; }, 1500);
+          }
+        }
+      }
+    } catch(_) {}
+    _sqVisLoopId = setTimeout(loop, isMobile ? 1800 : 1000);
+  }
+  setTimeout(loop, 800);
 }
 
 function _startSqTextLoop(video, sess) {
@@ -1798,8 +1836,10 @@ function _startSqTextLoop(video, sess) {
 
 function stopSquareScanner() {
   _sqOpen = false; _sqSess++;
-  if (_sqBcId) { clearTimeout(_sqBcId); _sqBcId = null; }
-  if (_sqTxtLoopId) { clearTimeout(_sqTxtLoopId); _sqTxtLoopId = null; }
+  if (_sqBcId)     { clearTimeout(_sqBcId);     _sqBcId     = null; }
+  if (_sqTxtLoopId){ clearTimeout(_sqTxtLoopId); _sqTxtLoopId= null; }
+  if (_sqVisLoopId){ clearTimeout(_sqVisLoopId); _sqVisLoopId= null; }
+  if (_sqPyLoopId) { clearTimeout(_sqPyLoopId);  _sqPyLoopId = null; }
   if (_sqStream) { _sqStream.getTracks().forEach(t => t.stop()); _sqStream = null; }
   const sv = document.getElementById('sqVideo'); if (sv) sv.srcObject = null;
   const toggleBtn = document.getElementById('rlCamToggle'); if (toggleBtn) toggleBtn.textContent = '▶';
