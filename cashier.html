@@ -52,21 +52,21 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .main{display:flex;flex:1;overflow:hidden}
 
 /* ── SEARCH BAR (retail mode) ────────────────────────────── */
-.search-bar{padding:6px 8px;background:var(--s1);border-bottom:1px solid var(--border);flex-shrink:0;display:none}
-.search-bar.show{display:block}
-.search-inp{width:100%;padding:8px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;outline:none;font-family:inherit}
+.search-bar{padding:6px 8px;background:var(--s1);border-bottom:1px solid var(--border);flex-shrink:0;display:none;align-items:center;gap:8px}
+.search-bar.show{display:flex}
+.search-inp{flex:1;padding:8px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;outline:none;font-family:inherit}
 .search-inp:focus{border-color:var(--accent)}
 .search-inp::placeholder{color:#44445a}
-
-/* ── RETAIL SCAN STRIP ───────────────────────────────────── */
-.scan-strip{display:none;flex-shrink:0;background:#000;position:relative;overflow:hidden;border-bottom:2px solid var(--accent)}
-.scan-strip.show{display:block}
-.scan-strip video{width:100%;height:64px;object-fit:cover;display:block}
-.scan-strip-line{position:absolute;left:0;right:0;height:2px;background:var(--accent);opacity:.8;animation:scanline 1.8s ease-in-out infinite;pointer-events:none}
-@keyframes scanline{0%{top:20%}50%{top:80%}100%{top:20%}}
-.scan-strip-status{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;text-align:center;letter-spacing:.3px}
-.scan-strip-btn{position:absolute;top:6px;right:8px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;z-index:2}
-.scan-strip-btn:hover{background:rgba(0,180,216,.5)}
+.sq-cam-btn{flex-shrink:0;width:38px;height:38px;border-radius:8px;background:var(--accent);border:none;color:#09090f;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+/* ── SQUARE SCANNER OVERLAY ──────────────────────────────── */
+.scan-sq-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:200;align-items:flex-start;justify-content:center;padding-top:90px}
+.scan-sq-overlay.show{display:flex}
+.scan-sq-box{width:240px;height:240px;position:relative;border-radius:14px;overflow:hidden;border:2px solid var(--accent);background:#000;box-shadow:0 8px 40px rgba(0,0,0,.8)}
+.scan-sq-box video{width:240px;height:240px;object-fit:cover;display:block}
+.scan-sq-line{position:absolute;left:10%;right:10%;height:2px;background:var(--accent);opacity:.85;animation:scanline 1.6s ease-in-out infinite;pointer-events:none}
+@keyframes scanline{0%{top:15%}50%{top:82%}100%{top:15%}}
+.scan-sq-status{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:600;padding:4px 8px;text-align:center}
+.scan-sq-close{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:13px;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;font-weight:700;line-height:1}
 
 /* ── PRODUCT GRID ───────────────────────────────────────── */
 .products{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;align-content:start}
@@ -275,14 +275,17 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 <!-- Retail search bar -->
 <div class="search-bar" id="searchBar">
   <input class="search-inp" id="searchInp" type="text" placeholder="&#128269; Search product name or SKU..." oninput="searchProds(this.value)">
+  <button class="sq-cam-btn" onclick="toggleSquareScanner()" title="Scan barcode">&#128247;</button>
 </div>
 
-<!-- Retail scan strip (retail mode only) -->
-<div class="scan-strip" id="scanStrip">
-  <video id="stripVideo" autoplay muted playsinline></video>
-  <div class="scan-strip-line"></div>
-  <div class="scan-strip-status" id="stripStatus">&#128247; Point camera at barcode to scan...</div>
-  <button class="scan-strip-btn" onclick="toggleStripScanner()">&#10005; Hide</button>
+<!-- Square scanner overlay (retail mode) -->
+<div class="scan-sq-overlay" id="scanSqOverlay">
+  <div class="scan-sq-box">
+    <video id="sqVideo" autoplay muted playsinline></video>
+    <div class="scan-sq-line"></div>
+    <div class="scan-sq-status" id="sqStatus">&#128247; Scanning for barcode...</div>
+    <button class="scan-sq-close" onclick="toggleSquareScanner()">&#10005;</button>
+  </div>
 </div>
 
 <div class="main">
@@ -551,9 +554,8 @@ function adaptCashierMode(bizType) {
   document.getElementById('btnTable').style.display = isRestaurant ? '' : 'none';
   document.getElementById('btnKOT').style.display   = isRestaurant ? '' : 'none';
 
-  // Show search bar + scan strip for retail
+  // Show search bar (with camera button) for retail
   document.getElementById('searchBar').classList.toggle('show', IS_RETAIL);
-  document.getElementById('scanStrip').classList.toggle('show', IS_RETAIL);
 
   // Switch product grid: photo grid (restaurant) vs compact list (retail)
   document.getElementById('grid').style.display       = isRestaurant ? '' : 'none';
@@ -686,8 +688,7 @@ function showPOS(name) {
   startPing();
   // Auto-open scanner only if camera permission is not already denied
   const _tryAutoScan = () => {
-    if (IS_RETAIL) { setTimeout(startStripScanner, 500); }
-    else { _openScanTimer = setTimeout(openScanner, 500); }
+    if (!IS_RETAIL) { _openScanTimer = setTimeout(openScanner, 500); }
   };
   if (navigator.permissions) {
     navigator.permissions.query({name:'camera'}).then(s => { if (s.state !== 'denied') _tryAutoScan(); }).catch(_tryAutoScan);
@@ -699,7 +700,7 @@ async function doLogout() {
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
   if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
   closeScanner();
-  stopStripScanner();
+  stopSquareScanner();
   stopCamera(); // release hardware on logout so it fully resets before next login
   setTimeout(_prewarmCamera, 2500); // re-warm after hardware settles (~2.5s)
   cart = {}; CASHIER = null;
@@ -1532,61 +1533,68 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => setTimeout(()=>location.reload(), 400));
 }
 
-// ── Retail Scan Strip ─────────────────────────────────────────────────────
-let _stripStream = null, _stripOpen = false, _stripBcId = null, _stripSess = 0, _stripNativeBd = null;
+// ── Square Scanner ─────────────────────────────────────────────────────────
+let _sqStream = null, _sqOpen = false, _sqBcId = null, _sqSess = 0, _sqNativeBd = null;
+const _sqBc = document.createElement('canvas'); _sqBc.width = 480; _sqBc.height = 480;
+const _sqBctx = _sqBc.getContext('2d');
 
-async function toggleStripScanner() {
-  if (_stripOpen) { stopStripScanner(); document.getElementById('scanStrip').classList.remove('show'); return; }
-  document.getElementById('scanStrip').classList.add('show');
-  await startStripScanner();
+async function toggleSquareScanner() {
+  if (_sqOpen) { stopSquareScanner(); return; }
+  await startSquareScanner();
 }
 
-async function startStripScanner() {
-  if (_stripOpen || _stripStream) return;
-  const sv = document.getElementById('stripVideo');
-  const stat = document.getElementById('stripStatus');
+async function startSquareScanner() {
+  if (_sqOpen || _sqStream) return;
+  const overlay = document.getElementById('scanSqOverlay');
+  const sv = document.getElementById('sqVideo');
+  const stat = document.getElementById('sqStatus');
+  overlay.classList.add('show');
   try {
-    _stripStream = await Promise.race([
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 } } }),
+    _sqStream = await Promise.race([
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 480 } } }),
       new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 5000))
     ]);
-    sv.srcObject = _stripStream;
+    sv.srcObject = _sqStream;
     await sv.play().catch(() => {});
-    _stripOpen = true;
+    _sqOpen = true;
     stat.textContent = '📷 Scanning for barcode...';
-    _stripSess++;
-    const sess = _stripSess;
-    if ('BarcodeDetector' in window && !_stripNativeBd) {
-      try { _stripNativeBd = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e'] }); } catch(_) {}
+    _sqSess++;
+    const sess = _sqSess;
+    if ('BarcodeDetector' in window && !_sqNativeBd) {
+      try { _sqNativeBd = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e'] }); } catch(_) {}
     }
-    const bc = document.createElement('canvas'); bc.width = 480; bc.height = 135;
-    const bctx = bc.getContext('2d');
-    async function stripLoop() {
-      if (!_stripOpen || _stripSess !== sess) { _stripBcId = null; return; }
+    async function sqLoop() {
+      if (!_sqOpen || _sqSess !== sess) { _sqBcId = null; return; }
       if (sv.readyState >= 2 && sv.videoWidth > 0) {
         try {
           let code = null;
-          if (_stripNativeBd) { const hits = await _stripNativeBd.detect(sv); if (hits.length) code = hits[0].rawValue; }
-          if (!code) { bctx.drawImage(sv, 0, 0, bc.width, bc.height); code = (await _zxingReader?.decodeFromCanvas(bc))?.getText?.() || null; }
+          if (_sqNativeBd) { const hits = await _sqNativeBd.detect(sv); if (hits.length) code = hits[0].rawValue; }
+          if (!code) { _sqBctx.drawImage(sv, 0, 0, _sqBc.width, _sqBc.height); code = (await _zxingReader?.decodeFromCanvas(_sqBc))?.getText?.() || null; }
           if (code) {
             const p = prods.find(x => x.sku === code || x.name?.toLowerCase() === code.toLowerCase());
-            if (p && !isOnCooldown(p.id)) { setCooldown(p.id); addItem(p.id); stat.textContent = '✅ ' + p.name; setTimeout(() => { if (_stripOpen) stat.textContent = '📷 Scanning for barcode...'; }, 1500); }
+            if (p && !isOnCooldown(p.id)) {
+              setCooldown(p.id); addItem(p.id);
+              stat.textContent = '✅ ' + p.name;
+              setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning for barcode...'; }, 1500);
+            }
           }
         } catch(_) {}
       }
-      _stripBcId = setTimeout(stripLoop, /android|mobile|tablet/i.test(navigator.userAgent) ? 350 : 180);
+      _sqBcId = setTimeout(sqLoop, /android|mobile|tablet/i.test(navigator.userAgent) ? 350 : 180);
     }
-    stripLoop();
+    sqLoop();
   } catch(e) {
-    stat.textContent = e.message === 'timeout' ? '⚠️ Camera timed out — allow camera in browser settings' : '⚠️ Camera blocked — allow access in browser settings';
+    stat.textContent = e.message === 'timeout' ? '⚠️ Camera timed out' : '⚠️ Camera blocked — allow in browser settings';
+    setTimeout(() => { if (!_sqOpen) overlay.classList.remove('show'); }, 3000);
   }
 }
 
-function stopStripScanner() {
-  _stripOpen = false; _stripSess++;
-  if (_stripBcId) { clearTimeout(_stripBcId); _stripBcId = null; }
-  if (_stripStream) { _stripStream.getTracks().forEach(t => t.stop()); _stripStream = null; }
-  const sv = document.getElementById('stripVideo'); if (sv) sv.srcObject = null;
+function stopSquareScanner() {
+  _sqOpen = false; _sqSess++;
+  if (_sqBcId) { clearTimeout(_sqBcId); _sqBcId = null; }
+  if (_sqStream) { _sqStream.getTracks().forEach(t => t.stop()); _sqStream = null; }
+  const sv = document.getElementById('sqVideo'); if (sv) sv.srcObject = null;
+  document.getElementById('scanSqOverlay').classList.remove('show');
 }
 
 // ── Camera Scanner (barcode + ML Kit text + visual photo matching) ───────
