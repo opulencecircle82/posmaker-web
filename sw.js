@@ -1,4 +1,4 @@
-const CACHE = 'posmaker-v6';
+const CACHE = 'posmaker-v7';
 const STATIC = [
   'js/config.js',
   'manifest.json',
@@ -30,8 +30,11 @@ self.addEventListener('fetch', e => {
   // Never intercept Supabase — let browser handle directly
   if (url.includes('supabase.co')) return;
 
-  // Never cache HTML pages — always fetch fresh from network
-  if (e.request.headers.get('accept')?.includes('text/html') || url.endsWith('.html')) return;
+  // Never cache HTML pages — always fetch fresh, bypassing browser + CDN cache
+  if (e.request.mode === 'navigate' || e.request.headers.get('accept')?.includes('text/html') || url.endsWith('.html')) {
+    e.respondWith(fetch(e.request, {cache:'no-cache'}).catch(() => new Response('Offline — check your connection', {status:503, headers:{'Content-Type':'text/plain'}})));
+    return;
+  }
 
   // Static assets only — cache-first
   e.respondWith(
