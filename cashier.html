@@ -58,6 +58,16 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .search-inp:focus{border-color:var(--accent)}
 .search-inp::placeholder{color:#44445a}
 
+/* ── RETAIL SCAN STRIP ───────────────────────────────────── */
+.scan-strip{display:none;flex-shrink:0;background:#000;position:relative;overflow:hidden;border-bottom:2px solid var(--accent)}
+.scan-strip.show{display:block}
+.scan-strip video{width:100%;height:110px;object-fit:cover;display:block}
+.scan-strip-line{position:absolute;left:0;right:0;height:2px;background:var(--accent);opacity:.8;animation:scanline 1.8s ease-in-out infinite;pointer-events:none}
+@keyframes scanline{0%{top:20%}50%{top:80%}100%{top:20%}}
+.scan-strip-status{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;text-align:center;letter-spacing:.3px}
+.scan-strip-btn{position:absolute;top:6px;right:8px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;z-index:2}
+.scan-strip-btn:hover{background:rgba(0,180,216,.5)}
+
 /* ── PRODUCT GRID ───────────────────────────────────────── */
 .products{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;align-content:start}
 
@@ -265,6 +275,14 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 <!-- Retail search bar -->
 <div class="search-bar" id="searchBar">
   <input class="search-inp" id="searchInp" type="text" placeholder="&#128269; Search product name or SKU..." oninput="searchProds(this.value)">
+</div>
+
+<!-- Retail scan strip (retail mode only) -->
+<div class="scan-strip" id="scanStrip">
+  <video id="stripVideo" autoplay muted playsinline></video>
+  <div class="scan-strip-line"></div>
+  <div class="scan-strip-status" id="stripStatus">&#128247; Point camera at barcode to scan...</div>
+  <button class="scan-strip-btn" onclick="toggleStripScanner()">&#10005; Hide</button>
 </div>
 
 <div class="main">
@@ -533,8 +551,9 @@ function adaptCashierMode(bizType) {
   document.getElementById('btnTable').style.display = isRestaurant ? '' : 'none';
   document.getElementById('btnKOT').style.display   = isRestaurant ? '' : 'none';
 
-  // Show search bar for retail
+  // Show search bar + scan strip for retail
   document.getElementById('searchBar').classList.toggle('show', IS_RETAIL);
+  document.getElementById('scanStrip').classList.toggle('show', IS_RETAIL);
 
   // Switch product grid: photo grid (restaurant) vs compact list (retail)
   document.getElementById('grid').style.display       = isRestaurant ? '' : 'none';
@@ -666,7 +685,10 @@ function showPOS(name) {
   syncOfflineQueue();
   startPing();
   // Auto-open scanner only if camera permission is not already denied
-  const _tryAutoScan = () => { _openScanTimer = setTimeout(openScanner, 500); };
+  const _tryAutoScan = () => {
+    if (IS_RETAIL) { setTimeout(startStripScanner, 500); }
+    else { _openScanTimer = setTimeout(openScanner, 500); }
+  };
   if (navigator.permissions) {
     navigator.permissions.query({name:'camera'}).then(s => { if (s.state !== 'denied') _tryAutoScan(); }).catch(_tryAutoScan);
   } else { _tryAutoScan(); }
@@ -677,6 +699,7 @@ async function doLogout() {
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
   if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
   closeScanner();
+  stopStripScanner();
   stopCamera(); // release hardware on logout so it fully resets before next login
   setTimeout(_prewarmCamera, 2500); // re-warm after hardware settles (~2.5s)
   cart = {}; CASHIER = null;
@@ -1507,6 +1530,63 @@ if ('serviceWorker' in navigator) {
     reg.update().catch(()=>{}); // force check on every open
   }).catch(()=>{});
   navigator.serviceWorker.addEventListener('controllerchange', () => setTimeout(()=>location.reload(), 400));
+}
+
+// ── Retail Scan Strip ─────────────────────────────────────────────────────
+let _stripStream = null, _stripOpen = false, _stripBcId = null, _stripSess = 0, _stripNativeBd = null;
+
+async function toggleStripScanner() {
+  if (_stripOpen) { stopStripScanner(); document.getElementById('scanStrip').classList.remove('show'); return; }
+  document.getElementById('scanStrip').classList.add('show');
+  await startStripScanner();
+}
+
+async function startStripScanner() {
+  if (_stripOpen || _stripStream) return;
+  const sv = document.getElementById('stripVideo');
+  const stat = document.getElementById('stripStatus');
+  try {
+    _stripStream = await Promise.race([
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 } } }),
+      new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+    ]);
+    sv.srcObject = _stripStream;
+    await sv.play().catch(() => {});
+    _stripOpen = true;
+    stat.textContent = '📷 Scanning for barcode...';
+    _stripSess++;
+    const sess = _stripSess;
+    if ('BarcodeDetector' in window && !_stripNativeBd) {
+      try { _stripNativeBd = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e'] }); } catch(_) {}
+    }
+    const bc = document.createElement('canvas'); bc.width = 480; bc.height = 135;
+    const bctx = bc.getContext('2d');
+    async function stripLoop() {
+      if (!_stripOpen || _stripSess !== sess) { _stripBcId = null; return; }
+      if (sv.readyState >= 2 && sv.videoWidth > 0) {
+        try {
+          let code = null;
+          if (_stripNativeBd) { const hits = await _stripNativeBd.detect(sv); if (hits.length) code = hits[0].rawValue; }
+          if (!code) { bctx.drawImage(sv, 0, 0, bc.width, bc.height); code = (await _zxingReader?.decodeFromCanvas(bc))?.getText?.() || null; }
+          if (code) {
+            const p = prods.find(x => x.sku === code || x.name?.toLowerCase() === code.toLowerCase());
+            if (p && !isOnCooldown(p.id)) { setCooldown(p.id); addItem(p.id); stat.textContent = '✅ ' + p.name; setTimeout(() => { if (_stripOpen) stat.textContent = '📷 Scanning for barcode...'; }, 1500); }
+          }
+        } catch(_) {}
+      }
+      _stripBcId = setTimeout(stripLoop, /android|mobile|tablet/i.test(navigator.userAgent) ? 350 : 180);
+    }
+    stripLoop();
+  } catch(e) {
+    stat.textContent = e.message === 'timeout' ? '⚠️ Camera timed out — allow camera in browser settings' : '⚠️ Camera blocked — allow access in browser settings';
+  }
+}
+
+function stopStripScanner() {
+  _stripOpen = false; _stripSess++;
+  if (_stripBcId) { clearTimeout(_stripBcId); _stripBcId = null; }
+  if (_stripStream) { _stripStream.getTracks().forEach(t => t.stop()); _stripStream = null; }
+  const sv = document.getElementById('stripVideo'); if (sv) sv.srcObject = null;
 }
 
 // ── Camera Scanner (barcode + ML Kit text + visual photo matching) ───────
