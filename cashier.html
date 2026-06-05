@@ -834,6 +834,7 @@ async function loadProds() {
   renderProds('All');
   if (_prodHashes.length === 0) buildImgHashes(); // only build once; re-login skips this heavy step
   if(_mnModel) buildAiEmbeds(); // rebuild AI embeddings when products reload
+  _pyWarmup();
   // Load MobileNet if any products have stored embeddings (lazy — only when needed)
   if(!_mnModel && prods.some(p => p.embeddings)){
     _loadMnModel().then(ok => {
@@ -968,6 +969,93 @@ function addProductDirect(id) {
     card.classList.add('flash');
     setTimeout(() => card.classList.remove('flash'), 350);
   }
+}
+
+// ── Python Vision Server config ───────────────────────────────────────────
+// To enable: open browser console and run:
+//   localStorage.setItem('pm_vision_url', 'http://<PC-IP>:8765')
+// To disable: localStorage.removeItem('pm_vision_url')
+const VISION_URL = (localStorage.getItem('pm_vision_url') || '').replace(/\/$/, '');
+
+let _pyLoopId   = null;
+let _sqPyLoopId = null;
+const PY_INTERVAL = 1800; // ms between frames sent to Python server
+
+function _captureFrame(videoEl, maxW = 320) {
+  if (!videoEl || videoEl.readyState < 2 || !videoEl.videoWidth) return null;
+  const scale = Math.min(1, maxW / videoEl.videoWidth);
+  const w = Math.round(videoEl.videoWidth  * scale);
+  const h = Math.round(videoEl.videoHeight * scale);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(videoEl, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', 0.7).split(',')[1]; // raw base64, no prefix
+}
+
+async function _pyMatch(b64) {
+  if (!VISION_URL || !b64 || !STORE_ID) return null;
+  try {
+    const r = await fetch(VISION_URL + '/match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ store_id: STORE_ID, image_b64: b64 }),
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (_) { return null; }
+}
+
+// Square-scanner Python loop
+function _startSqPyLoop(video, sess) {
+  if (!VISION_URL) return;
+  async function loop() {
+    if (!_sqOpen || _sqSess !== sess) { _sqPyLoopId = null; return; }
+    const b64 = _captureFrame(video);
+    if (b64) {
+      const res = await _pyMatch(b64);
+      if (res?.id && !isOnCooldown(res.id)) {
+        const p = prods.find(x => x.id == res.id);
+        if (p) { setCooldown(p.id); addItem(p.id); showSqHit(p); }
+        const stat = document.getElementById('sqStatus');
+        if (stat) {
+          stat.textContent = '🐍 ' + (p?.name || res.name);
+          setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning...'; }, 1500);
+        }
+      }
+    }
+    _sqPyLoopId = setTimeout(loop, PY_INTERVAL);
+  }
+  setTimeout(loop, 1200);
+}
+
+// Floating-scanner Python loop (for restaurant mode)
+function _startPyLoop(video, sess) {
+  if (!VISION_URL) return;
+  async function loop() {
+    if (!scannerOpen || _scanSession !== sess) { _pyLoopId = null; return; }
+    const b64 = _captureFrame(video);
+    if (b64) {
+      const res = await _pyMatch(b64);
+      if (res?.id && !isOnCooldown(res.id)) {
+        const p = prods.find(x => x.id == res.id);
+        if (p) { setCooldown(p.id); addItem(p.id); }
+        camStat('🐍 ' + (p?.name || res.name));
+        setTimeout(() => { if (scannerOpen) camStat(_scanModes()); }, 1500);
+      }
+    }
+    _pyLoopId = setTimeout(loop, PY_INTERVAL);
+  }
+  setTimeout(loop, 1200);
+}
+
+// Warm up the index silently on POS load
+function _pyWarmup() {
+  if (!VISION_URL || !STORE_ID) return;
+  fetch(VISION_URL + '/warmup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ store_id: STORE_ID }),
+  }).catch(() => {});
 }
 
 let _sqHitTimer = null;
@@ -1671,6 +1759,7 @@ async function startSquareScanner() {
     }
     sqLoop();
     _startSqTextLoop(sv, sess);
+    _startSqPyLoop(sv, sess);
   } catch(e) {
     stat.textContent = e.message === 'timeout' ? '⚠️ Camera timed out' : '⚠️ Camera blocked — allow in browser settings';
   }
@@ -1754,7 +1843,7 @@ async function openScanner(){
       if(!scannerOpen) return;
       if(v.videoWidth > 0){
         camStat(_scanModes());
-        startBcLoop(v); startTextLoop(v); startVisualLoop(v);
+        startBcLoop(v); startTextLoop(v); startVisualLoop(v); _startPyLoop(v, _scanSession);
         if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
         return;
       }
@@ -1767,7 +1856,7 @@ async function openScanner(){
       await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,1500))]);
       if(v.videoWidth > 0){
         camStat(_scanModes());
-        startBcLoop(v); startTextLoop(v); startVisualLoop(v);
+        startBcLoop(v); startTextLoop(v); startVisualLoop(v); _startPyLoop(v, _scanSession);
         if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
         return;
       }
@@ -1793,7 +1882,7 @@ async function openScanner(){
     });
     if(!scannerOpen) return;
     await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,2000))]);
-    startBcLoop(v); startTextLoop(v); startVisualLoop(v);
+    startBcLoop(v); startTextLoop(v); startVisualLoop(v); _startPyLoop(v, _scanSession);
     camStat(_scanModes());
   } catch(e){
     camStat(e.message==='timeout'
@@ -1887,11 +1976,13 @@ function _scanModes(){
   const hasML = 'TextDetector' in window;
   const hasVis = _prodHashes.length > 0;
   const hasAI = _prodEmbeds.length > 0;
+  const hasPy = !!VISION_URL;
   const parts = ['&#127380; barcode'];
   if(hasML) parts.push('&#128220; ML Kit text');
   if(hasVis) parts.push('&#128247; visual ('+_prodHashes.length+')');
   if(hasAI) parts.push('&#129302; AI ('+_prodEmbeds.length+')');
-  if(!hasML && !hasVis && !hasAI) parts.push('(upload product photos for visual detection)');
+  if(hasPy) parts.push('&#128013; Python ORB');
+  if(!hasML && !hasVis && !hasAI && !hasPy) parts.push('(upload product photos for visual detection)');
   return parts.join(' + ');
 }
 
