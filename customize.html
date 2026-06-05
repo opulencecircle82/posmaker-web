@@ -581,7 +581,7 @@ const RETAIL_MOCKS = [
 ];
 
 function adaptPreviewToStore(store) {
-  const isRetail = store.biz_type && !RESTAURANT_TYPES_CZ.has(store.biz_type);
+  const isRetail = store.business_type && !RESTAURANT_TYPES_CZ.has(store.business_type);
   if (!isRetail) return;
 
   // Hide restaurant-specific order type tabs
