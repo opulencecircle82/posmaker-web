@@ -1535,8 +1535,11 @@ if ('serviceWorker' in navigator) {
 
 // ── Square Scanner ─────────────────────────────────────────────────────────
 let _sqStream = null, _sqOpen = false, _sqBcId = null, _sqSess = 0, _sqNativeBd = null;
+let _sqTxtLoopId = null, _sqTextDet = null;
 const _sqBc = document.createElement('canvas'); _sqBc.width = 480; _sqBc.height = 480;
 const _sqBctx = _sqBc.getContext('2d');
+const _sqTc = document.createElement('canvas');
+const _sqTctx = _sqTc.getContext('2d');
 
 async function toggleSquareScanner() {
   if (_sqOpen) { stopSquareScanner(); return; }
@@ -1583,15 +1586,50 @@ async function startSquareScanner() {
       _sqBcId = setTimeout(sqLoop, /android|mobile|tablet/i.test(navigator.userAgent) ? 350 : 180);
     }
     sqLoop();
+    // Start ML Kit text detection in parallel if available
+    _startSqTextLoop(sv, sess);
   } catch(e) {
     stat.textContent = e.message === 'timeout' ? '⚠️ Camera timed out' : '⚠️ Camera blocked — allow in browser settings';
     setTimeout(() => { if (!_sqOpen) overlay.classList.remove('show'); }, 3000);
   }
 }
 
+function _startSqTextLoop(video, sess) {
+  if (!('TextDetector' in window)) return;
+  try { _sqTextDet = new TextDetector(); } catch(_) { return; }
+  const isMobile = /android|mobile|tablet/i.test(navigator.userAgent);
+  const interval = isMobile ? 2500 : 1200;
+  const stat = document.getElementById('sqStatus');
+  async function txtLoop() {
+    if (!_sqOpen || _sqSess !== sess) { _sqTxtLoopId = null; return; }
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      try {
+        const scale = Math.min(1, 480 / video.videoWidth);
+        _sqTc.width = Math.round(video.videoWidth * scale);
+        _sqTc.height = Math.round(video.videoHeight * scale);
+        _sqTctx.drawImage(video, 0, 0, _sqTc.width, _sqTc.height);
+        const blocks = await _sqTextDet.detect(_sqTc);
+        if (_sqSess !== sess) return;
+        if (blocks.length) {
+          const allText = blocks.map(b => b.rawValue).join(' ');
+          const m = matchTextToProduct(allText);
+          if (m && !isOnCooldown(m.id)) {
+            setCooldown(m.id); addItem(m.id);
+            stat.textContent = '✅ ' + m.name + ' (ML Kit)';
+            setTimeout(() => { if (_sqOpen) stat.textContent = '📷 Scanning...'; }, 1500);
+          }
+        }
+      } catch(_) {}
+    }
+    _sqTxtLoopId = setTimeout(txtLoop, interval);
+  }
+  setTimeout(txtLoop, 1000);
+}
+
 function stopSquareScanner() {
   _sqOpen = false; _sqSess++;
   if (_sqBcId) { clearTimeout(_sqBcId); _sqBcId = null; }
+  if (_sqTxtLoopId) { clearTimeout(_sqTxtLoopId); _sqTxtLoopId = null; }
   if (_sqStream) { _sqStream.getTracks().forEach(t => t.stop()); _sqStream = null; }
   const sv = document.getElementById('sqVideo'); if (sv) sv.srcObject = null;
   document.getElementById('scanSqOverlay').classList.remove('show');
