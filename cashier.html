@@ -87,25 +87,14 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .r-card-stock.ok{color:#10b981;background:rgba(16,185,129,.13)}
 .r-card-stock.low{color:#f59e0b;background:rgba(245,158,11,.13)}
 .r-card-stock.zero{color:#ef4444;background:rgba(239,68,68,.13)}
-/* ── RETAIL CENTER — product detail + add to cart ────── */
-.retail-center{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;overflow:hidden}
-.rc-empty{color:#383848;font-size:13px;text-align:center;line-height:1.7;pointer-events:none}
-.rc-pv{display:none;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:320px}
-.rcpv-name{font-size:20px;font-weight:800;color:var(--text);text-align:center;line-height:1.3}
-.rcpv-sku{font-size:11px;color:#444;font-family:monospace}
-.rcpv-price{font-size:38px;font-weight:900;color:var(--accent);line-height:1}
-.rcpv-stock{font-size:11px;font-weight:700;padding:3px 12px;border-radius:5px}
-.rcpv-stock.ok{color:#10b981;background:rgba(16,185,129,.13)}
-.rcpv-stock.low{color:#f59e0b;background:rgba(245,158,11,.13)}
-.rcpv-stock.zero{color:#ef4444;background:rgba(239,68,68,.13)}
-.rcpv-unit{font-size:11px;color:#555}
-.rcpv-qty-row{display:flex;align-items:center;gap:10px;margin-top:4px}
-.rcpv-qbtn{width:42px;height:42px;border-radius:9px;background:var(--s2);border:1px solid var(--border);color:var(--text);font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
-.rcpv-qbtn:active{background:var(--accent);border-color:var(--accent)}
-.rcpv-qinp{width:74px;text-align:center;font-size:22px;font-weight:700;padding:8px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);outline:none;font-family:inherit}
-.rcpv-qinp:focus{border-color:var(--accent)}
-.rcpv-add{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;margin-top:4px;transition:opacity .15s}
-.rcpv-add:active{opacity:.8}
+/* ── RETAIL MID PANEL — cart items (center column) ─────── */
+.retail-mid{flex:1;display:none;flex-direction:column;overflow:hidden;background:var(--bg)}
+.r-card.flash{background:rgba(0,180,216,.22)!important;border-color:var(--accent)!important;transition:none!important}
+/* ── RETAIL RIGHT — totals-only panel ─────────────────── */
+.retail-pay{width:220px!important}
+.retail-pay .totals{padding:20px 12px 8px}
+.retail-pay .t-row{font-size:12px;padding:3px 0}
+.retail-pay .t-row.big{font-size:26px;font-weight:900;color:var(--accent);padding:12px 0 4px;border-top:1px solid var(--border);margin-top:4px}
 
 /* ── PRODUCT GRID ───────────────────────────────────────── */
 .products{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;align-content:start}
@@ -317,39 +306,14 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="rl-count" id="rlCount"></div>
     <div class="retail-grid" id="retailGrid"></div>
   </div>
-  <!-- Retail center: product detail + add to cart -->
-  <div class="retail-center" id="retailCenter">
-    <div class="rc-empty" id="rcEmpty">&#128247; Scan a barcode<br>or tap a product</div>
-    <div class="rc-pv" id="rcPv">
-      <div class="rcpv-name" id="rcpvName"></div>
-      <div class="rcpv-sku"  id="rcpvSku"></div>
-      <div class="rcpv-price" id="rcpvPrice"></div>
-      <div class="rcpv-stock" id="rcpvStock"></div>
-      <div class="rcpv-unit"  id="rcpvUnit"></div>
-      <div class="rcpv-qty-row">
-        <button class="rcpv-qbtn" onclick="rcpvDec()">&#8722;</button>
-        <input  class="rcpv-qinp" id="rcpvQty" type="number" value="1" min="0.001" step="any">
-        <button class="rcpv-qbtn" onclick="rcpvInc()">&#43;</button>
-      </div>
-      <button class="rcpv-add" id="rcpvAddBtn" onclick="rcpvAdd()">&#43; Add to Cart</button>
-    </div>
-  </div>
-  <!-- Product grid (restaurant) -->
-  <div class="products" id="grid"></div>
-
-  <!-- Cart -->
-  <div class="cart">
-    <!-- Cart action row -->
-    <div class="cart-acts">
+  <!-- Retail mid: cart items list (retail mode) -->
+  <div class="retail-mid" id="retailMid">
+    <div class="cart-acts" id="cartActs">
       <button class="act-btn" onclick="showDrafts()">&#128203; Drafts</button>
       <button class="act-btn" id="btnTable" onclick="showTableModal()">&#127963; Table: &#8212;</button>
       <button class="act-btn" id="btnKOT"   onclick="toggleKOT()">&#128104;&#8205;&#127859; KOT</button>
     </div>
-
-    <!-- Items -->
     <div class="cart-list" id="cartList"><div class="cart-empty">Cart is empty</div></div>
-
-    <!-- Discount -->
     <div class="disc-section" id="discSection">
       <div class="disc-label">Discount</div>
       <div class="disc-inputs">
@@ -357,7 +321,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
         <input class="disc-inp" id="discAmt" type="number" placeholder="Amount" min="0" step="0.01" oninput="onDiscAmt()">
       </div>
     </div>
+  </div>
+  <!-- Product grid (restaurant) -->
+  <div class="products" id="grid"></div>
 
+  <!-- Cart right panel: totals + payment + confirm -->
+  <div class="cart" id="cartPanel">
+    <!-- (restaurant mode: cart-acts/list/disc moved here by adaptCashierMode) -->
     <!-- Totals -->
     <div class="totals">
       <div class="t-row"><span>Subtotal (ex-VAT)</span><span id="tSub">&#8212;</span></div>
@@ -599,8 +569,19 @@ function adaptCashierMode(bizType) {
   document.getElementById('btnKOT').style.display   = isRestaurant ? '' : 'none';
 
   // Show retail panels
-  document.getElementById('retailLeft').style.display   = IS_RETAIL ? 'flex' : 'none';
-  document.getElementById('retailCenter').style.display = IS_RETAIL ? 'flex' : 'none';
+  document.getElementById('retailLeft').style.display = IS_RETAIL ? 'flex' : 'none';
+  document.getElementById('retailMid').style.display  = IS_RETAIL ? 'flex' : 'none';
+  document.getElementById('cartPanel').classList.toggle('retail-pay', IS_RETAIL);
+
+  // Restaurant mode: move cart items/actions back into cart panel
+  if (!IS_RETAIL) {
+    const cartPanel = document.getElementById('cartPanel');
+    const totalsEl  = cartPanel.querySelector('.totals');
+    ['cartActs','discSection','cartList'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && cartPanel) cartPanel.insertBefore(el, totalsEl);
+    });
+  }
 
   // Switch product grid: photo grid (restaurant) vs compact list (retail)
   document.getElementById('grid').style.display = isRestaurant ? '' : 'none';
@@ -958,7 +939,7 @@ function renderRetailList(list) {
         const sku    = p.sku  || '';
         const sLabel = oos ? 'Out' : (stock % 1 === 0 ? stock : stock.toFixed(1)) + ' ' + unit;
         return `
-        <div class="r-card${oos?' out-of-stock':''}" onclick="${oos?'void 0':'showProductDetail(\''+p.id+'\')'}">
+        <div class="r-card${oos?' out-of-stock':''}" id="rcard_${p.id}" onclick="${oos?'void 0':'addProductDirect(\''+p.id+'\')'}">
           <div class="r-card-name">${p.name}</div>
           <div class="r-card-row">
             <span class="r-card-price">${CUR}${parseFloat(p.price).toFixed(2)}</span>
@@ -968,34 +949,14 @@ function renderRetailList(list) {
     : `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
 }
 
-// ── Retail product detail (center panel) ──────────────────────────────────
-let _rcpvId = null;
-function showProductDetail(id) {
-  const p = prods.find(x => x.id == id); if (!p) return;
-  _rcpvId = id;
-  document.getElementById('rcEmpty').style.display = 'none';
-  const pv = document.getElementById('rcPv'); pv.style.display = 'flex';
-  document.getElementById('rcpvName').textContent  = p.name;
-  document.getElementById('rcpvSku').textContent   = p.sku ? '#' + p.sku : '';
-  document.getElementById('rcpvPrice').textContent = CUR + parseFloat(p.price).toFixed(2);
-  document.getElementById('rcpvUnit').textContent  = 'per ' + (p.unit || 'pc');
-  document.getElementById('rcpvQty').value = 1;
-  const stock = parseFloat(p.stock ?? 0);
-  const sc = stockClass(stock);
-  const stEl = document.getElementById('rcpvStock');
-  stEl.textContent = (stock % 1 === 0 ? stock : stock.toFixed(2)) + ' ' + (p.unit||'pc') + ' in stock';
-  stEl.className = 'rcpv-stock ' + sc;
-  const btn = document.getElementById('rcpvAddBtn'); btn.textContent = '+ Add to Cart'; btn.disabled = false;
-}
-function rcpvInc(){ const i=document.getElementById('rcpvQty'); i.value=(parseFloat(i.value)||0)+1; }
-function rcpvDec(){ const i=document.getElementById('rcpvQty'); if((parseFloat(i.value)||0)>1) i.value=(parseFloat(i.value)||0)-1; }
-function rcpvAdd(){
-  if(!_rcpvId) return;
-  const qty = parseFloat(document.getElementById('rcpvQty').value)||1;
-  addItemWithQty(_rcpvId, qty);
-  const btn = document.getElementById('rcpvAddBtn');
-  btn.textContent = '&#10003; Added!'; btn.disabled = true;
-  setTimeout(() => { btn.innerHTML = '+ Add to Cart'; btn.disabled = false; }, 900);
+// ── Retail: tap product → add 1 to cart with flash ────────────────────────
+function addProductDirect(id) {
+  addItemWithQty(id, 1);
+  const card = document.getElementById('rcard_' + id);
+  if (card) {
+    card.classList.add('flash');
+    setTimeout(() => card.classList.remove('flash'), 350);
+  }
 }
 
 // Retail search
