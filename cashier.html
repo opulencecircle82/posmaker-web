@@ -665,8 +665,11 @@ function showPOS(name) {
   updateNetStatus();
   syncOfflineQueue();
   startPing();
-  // Auto-open scanner; pre-warm ensures stream is live so this takes the fast resume path
-  _openScanTimer = setTimeout(openScanner, 500);
+  // Auto-open scanner only if camera permission is not already denied
+  const _tryAutoScan = () => { _openScanTimer = setTimeout(openScanner, 500); };
+  if (navigator.permissions) {
+    navigator.permissions.query({name:'camera'}).then(s => { if (s.state !== 'denied') _tryAutoScan(); }).catch(_tryAutoScan);
+  } else { _tryAutoScan(); }
 }
 
 async function doLogout() {
@@ -1571,7 +1574,7 @@ async function openScanner(){
     const camReq = navigator.mediaDevices.getUserMedia({
       video:{ facingMode:{ideal:'environment'}, width:{ideal:640} }
     });
-    const timeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000));
+    const timeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000));
     _camStream = await Promise.race([camReq, timeout]);
     v.srcObject = _camStream;
     await new Promise(res=>{
