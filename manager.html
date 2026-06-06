@@ -79,7 +79,7 @@ input:focus{border-color:var(--accent)}
     <button class="tab-btn active" id="tabInv" onclick="showTab('inv')">&#128230; Inventory</button>
     <button class="tab-btn" id="tabLog" onclick="showTab('log')">&#128203; Activity Log</button>
     <button class="tab-btn" id="tabSales" onclick="showTab('sales')">&#128200; Sales</button>
-    <button class="tab-btn" id="tabRemit" onclick="showTab('remit')">&#128176; Cash Remit</button>
+    <button class="tab-btn" id="tabRemit" onclick="showTab('remit')">&#128176; Cash Remit <span id="remitBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:2px;vertical-align:middle"></span></button>
   </div>
 
   <!-- INVENTORY -->
@@ -318,6 +318,32 @@ input:focus{border-color:var(--accent)}
   </div>
 </div>
 
+<!-- ── CONFIRM REMITTANCE MODAL ── -->
+<div class="modal" id="confirmRemitModal">
+  <div class="mbox" style="width:min(380px,100%)">
+    <h3>&#128176; Receive Cash Remittance</h3>
+    <input type="hidden" id="crmId">
+    <div style="background:var(--s2);border-radius:10px;padding:14px;margin-bottom:16px;display:flex;flex-direction:column;gap:8px;font-size:14px">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Cashier</span><strong id="crmCashier">—</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Date</span><span id="crmDate">—</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">POS Sales</span><strong id="crmPOS" style="color:var(--accent)">—</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Cash on Hand</span><strong id="crmCash">—</strong></div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--muted)">Difference</span>
+        <span id="crmDiff" style="font-size:22px;font-weight:800">—</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Description <span style="font-size:11px;color:var(--muted)">(reason if over/short — optional)</span></label>
+      <input id="crmDesc" type="text" placeholder="e.g. Short — may utang na customer">
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('confirmRemitModal')">Cancel</button>
+      <button class="btn btn-accent" id="crmSaveBtn" onclick="saveConfirmRemit()">&#10003; Confirm Receipt</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" style="opacity:0"></div>
 
 <script>
@@ -348,6 +374,8 @@ async function init(){
   await loadInv();
   loadCashSummary();
   loadMonitor();
+  checkPendingRemits();
+  setInterval(checkPendingRemits, 30000);
   if (MGR?.staff_id) {
     _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }).then(() => {});
     _pingInterval = setInterval(() => { if (MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }).then(() => {}); }, 30 * 1000);
@@ -668,7 +696,7 @@ function showTab(tab){
   document.getElementById('tabRemit').classList.toggle('active', tab==='remit');
   if(tab==='log')   loadLog();
   if(tab==='sales') loadSales();
-  if(tab==='remit') loadRemit();
+  if(tab==='remit') { loadRemit(); checkPendingRemits(); }
 }
 
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
@@ -731,30 +759,84 @@ function renderRemit() {
     return true;
   });
 
-  if (!filtered.length) {
+  // Pending remittances always shown at top regardless of filter
+  const pending = _remitData.filter(r => r.status === 'pending');
+  const normal  = filtered.filter(r => r.status !== 'pending');
+
+  if (!pending.length && !normal.length) {
     tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No remittances for this period.</td></tr>';
     return;
   }
-  tb.innerHTML = filtered.map(r => {
+
+  const renderRow = (r, isPending) => {
     const diff = parseFloat(r.difference) || 0;
     const diffColor = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : 'var(--muted)';
-    const statusBadge = diff > 0
-      ? `<span class="badge badge-ok">Over</span>`
-      : diff < 0
-      ? `<span class="badge badge-out">Short</span>`
+    const statusBadge = isPending
+      ? `<span class="badge" style="background:#2e1a0d;color:#f59e0b;animation:pulse 1.5s infinite">&#9679; Pending</span>`
+      : diff > 0 ? `<span class="badge badge-ok">Over</span>`
+      : diff < 0 ? `<span class="badge badge-out">Short</span>`
       : `<span style="font-size:11px;color:var(--muted)">Balanced</span>`;
     const date    = new Date(r.shift_date + 'T00:00:00').toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
     const created = new Date(r.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    return `<tr>
+    const descCell = isPending
+      ? `<button onclick="openConfirmRemit('${r.id}')" class="btn btn-sm" style="background:#f59e0b;color:#09090f;font-weight:700">&#10003; Receive</button>`
+      : `<span style="color:var(--muted);font-size:12px">${r.description||'—'}</span>`;
+    return `<tr style="${isPending ? 'background:#1a1200;' : ''}">
       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${date}<div style="font-size:11px">${created}</div></td>
       <td><strong>${r.cashier_name}</strong></td>
       <td style="font-weight:600">&#8369;${parseFloat(r.pos_sales).toFixed(2)}</td>
       <td style="font-weight:600">&#8369;${parseFloat(r.cash_on_hand).toFixed(2)}</td>
       <td style="font-weight:700;color:${diffColor}">${diff>=0?'+':''}&#8369;${Math.abs(diff).toFixed(2)}</td>
       <td>${statusBadge}</td>
-      <td style="color:var(--muted);font-size:12px">${r.description||'—'}</td>
+      <td>${descCell}</td>
     </tr>`;
-  }).join('');
+  };
+
+  tb.innerHTML = [
+    ...pending.map(r => renderRow(r, true)),
+    ...normal.map(r => renderRow(r, false))
+  ].join('');
+}
+
+async function checkPendingRemits() {
+  const { data } = await _sb.from('cash_remittances')
+    .select('id').eq('store_id', MGR.store_id).eq('status', 'pending');
+  const count = (data||[]).length;
+  const badge = document.getElementById('remitBadge');
+  if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline' : 'none'; }
+}
+
+function openConfirmRemit(id) {
+  const r = _remitData.find(x => x.id === id);
+  if (!r) return;
+  const diff = parseFloat(r.difference) || 0;
+  document.getElementById('crmId').value = id;
+  document.getElementById('crmCashier').textContent = r.cashier_name;
+  document.getElementById('crmDate').textContent = new Date(r.shift_date + 'T00:00:00').toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
+  document.getElementById('crmPOS').textContent = '₱' + parseFloat(r.pos_sales).toFixed(2);
+  document.getElementById('crmCash').textContent = '₱' + parseFloat(r.cash_on_hand).toFixed(2);
+  const diffEl = document.getElementById('crmDiff');
+  diffEl.textContent = (diff>=0?'+':'') + '₱' + Math.abs(diff).toFixed(2);
+  diffEl.style.color = diff>0 ? '#10b981' : diff<0 ? '#ef4444' : '#888';
+  document.getElementById('crmDesc').value = '';
+  const btn = document.getElementById('crmSaveBtn');
+  btn.disabled = false; btn.textContent = '✓ Confirm Receipt';
+  document.getElementById('confirmRemitModal').classList.add('show');
+}
+
+async function saveConfirmRemit() {
+  const id   = document.getElementById('crmId').value;
+  const desc = document.getElementById('crmDesc').value.trim();
+  const btn  = document.getElementById('crmSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…';
+  const r = _remitData.find(x => x.id === id);
+  const diff = r ? parseFloat(r.difference)||0 : 0;
+  const status = diff > 0 ? 'over' : diff < 0 ? 'short' : 'balanced';
+  await _sb.from('cash_remittances').update({ status, description: desc||null }).eq('id', id).then(()=>{});
+  closeModal('confirmRemitModal');
+  await loadRemit();
+  checkPendingRemits();
+  showToast('Remittance confirmed.');
 }
 
 async function openRemitModal() {

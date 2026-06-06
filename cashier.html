@@ -877,12 +877,11 @@ async function confirmRemitLogout() {
     const pos    = parseFloat(document.getElementById('remitCk3').textContent.replace(/[^0-9.]/g,'')) || 0;
     const cash   = parseFloat(document.getElementById('remitCk4').textContent.replace(/[^0-9.]/g,'')) || 0;
     const diff   = cash - pos;
-    const status = diff > 0 ? 'over' : diff < 0 ? 'short' : 'balanced';
     await _sb.from('cash_remittances').insert({
       store_id: STORE_ID, cashier_name: name, shift_date: today,
-      pos_sales: pos, cash_on_hand: cash, difference: diff, status
+      pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending'
     }).then(()=>{});
-    const diffLabel = status==='short' ? `Short -${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : status==='over' ? `Over +${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : 'Balanced';
+    const diffLabel = diff<0 ? `Short -${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : diff>0 ? `Over +${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : 'Balanced';
     _sb.from('activity_logs').insert({
       store_id: STORE_ID, actor_name: name, actor_role: CASHIER?.role||'cashier',
       action: 'REMITTANCE', target_name: name,
