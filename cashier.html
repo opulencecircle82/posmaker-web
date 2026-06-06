@@ -2316,15 +2316,17 @@ async function buildAiEmbeds(){
   const ctx=cv.getContext('2d');
   for(const p of prods){
     // Use pre-computed embeddings from dashboard (fast path)
+    // Only if dimension matches current model: v1 alpha 1.0 = 1024-dim
     if(p.embeddings){
       try{
         const saved=JSON.parse(p.embeddings);
         const vecs=Array.isArray(saved)?saved:(saved.vecs||null);
         const colorHist=saved.colorHist||null;
-        if(vecs&&vecs.length){
+        if(vecs&&vecs.length&&vecs[0].length===1024){
           _prodEmbeds.push({id:p.id,name:p.name,price:p.price,vecs,colorHist});
-          continue;
+          continue; // skip recompute
         }
+        // Wrong dimension (old model) — fall through to recompute from image
       }catch(_){}
     }
     if(!p.image_b64) continue;
