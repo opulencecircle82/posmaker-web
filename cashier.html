@@ -2297,7 +2297,7 @@ async function _loadMnModel(){
   try{
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js');
-    _mnModel = await mobilenet.load({version:2, alpha:0.5});
+    _mnModel = await mobilenet.load({version:1, alpha:1.0});
     return true;
   }catch(e){ return false; }
 }
@@ -2339,7 +2339,11 @@ async function buildAiEmbeds(){
         vecs.push(Array.from(d));
       }catch(e){ console.warn('embed err',p.name,e); }
     }
-    if(vecs.length) _prodEmbeds.push({id:p.id,name:p.name,price:p.price,vecs});
+    if(vecs.length){
+      // Also store color histogram from first image for hybrid scoring
+      const colorFeats=_featuresFromCanvas(cv,224,224);
+      _prodEmbeds.push({id:p.id,name:p.name,price:p.price,vecs,colorHist:colorFeats.colorHist});
+    }
   }
   camStat('&#129302; AI ready: '+_prodEmbeds.length+' products indexed');
 }
@@ -2370,16 +2374,24 @@ function startAiLoop(video){
           tf.browser.fromPixels(cv2).expandDims(0),true
         )).data().then(d=>Array.from(d));
 
+        // Color histogram from center crop for hybrid scoring
+        const frameColor=_featuresFromCanvas(cv2,224,224).colorHist;
+
         let best=null, second=null, bestSim=0, secondSim=0;
         for(const pe of _prodEmbeds){
-          const sim=Math.max(...pe.vecs.map(v=>Math.max(_cosSim(fv1,v),_cosSim(fv2,v))));
+          const mnSim=Math.max(...pe.vecs.map(v=>Math.max(_cosSim(fv1,v),_cosSim(fv2,v))));
+          // Color L1 distance → similarity (0-1)
+          const colorDist=pe.colorHist?pe.colorHist.reduce((s,v,i)=>s+Math.abs(v-(frameColor[i]||0)),0):1;
+          const colorSim=Math.max(0,1-colorDist/2);
+          // Hybrid: 65% neural + 35% color
+          const sim=0.65*mnSim+0.35*colorSim;
           if(sim>bestSim){secondSim=bestSim;second=best;bestSim=sim;best=pe;}
           else if(sim>secondSim){secondSim=sim;second=pe;}
         }
         const prod=best?prods.find(p=>p.id===best.id):null;
         const pct=(bestSim*100).toFixed(0);
         const gap=bestSim-secondSim;
-        const confident=bestSim>0.45&&gap>0.04;
+        const confident=bestSim>0.45&&gap>0.05;
         // Show: product name + % + gap indicator
         if(prod){
           const gapTxt=second?' (+'+Math.round(gap*100)+'%)':'';
