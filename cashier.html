@@ -394,6 +394,63 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
+<!-- ── CASH REMITTANCE ON LOGOUT ── -->
+<div class="modal" id="mRemitLogout">
+  <div class="mbox" style="width:min(380px,96vw)">
+
+    <!-- STEP 1: Enter Cash -->
+    <div id="remitStep1">
+      <div class="mtitle">&#128181; Cash Remittance</div>
+      <div style="font-size:12px;color:#888;margin-bottom:16px">Count your cash before logging out.</div>
+      <div style="background:var(--s2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="color:#888">Cashier</span>
+          <strong id="remitLogCashier">—</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="color:#888">Date</span>
+          <span id="remitLogDate">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:#888">POS Sales</span>
+          <strong id="remitLogPOS" style="color:var(--accent)">Loading…</strong>
+        </div>
+      </div>
+      <label style="font-size:12px;font-weight:600;color:#aaa;display:block;margin-bottom:6px">Cash on Hand (count your cash)</label>
+      <input class="inp" id="remitLogCOH" type="number" min="0" step="0.01" placeholder="0.00" oninput="calcRemitLogDiff()" style="font-size:22px;text-align:center;padding:12px;font-weight:700">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:10px 14px;border-radius:8px;background:var(--s2)">
+        <span style="font-size:13px;color:#888">Difference</span>
+        <span id="remitLogDiff" style="font-size:18px;font-weight:800;color:var(--muted)">—</span>
+      </div>
+      <div class="m-actions" style="margin-top:14px">
+        <button class="btn-cancel" onclick="skipRemitLogout()">Skip</button>
+        <button class="btn-confirm" id="remitLogCheckBtn" onclick="remitLogStep2()" disabled style="opacity:.4">Double Check &#10003;</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Confirm (Double Check) -->
+    <div id="remitStep2" style="display:none">
+      <div class="mtitle" style="color:#f59e0b">&#9888; Double Check</div>
+      <div style="font-size:13px;color:#888;margin-bottom:14px">Please verify before confirming.</div>
+      <div style="background:var(--s2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:14px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between"><span style="color:#888">Cashier</span><strong id="remitCk1">—</strong></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#888">Date</span><span id="remitCk2">—</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#888">POS Sales</span><strong id="remitCk3" style="color:var(--accent)">—</strong></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#888">Cash on Hand</span><strong id="remitCk4">—</strong></div>
+        <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:#888;font-size:13px">Difference</span>
+          <span id="remitCk5" style="font-size:22px;font-weight:800">—</span>
+        </div>
+      </div>
+      <div class="m-actions">
+        <button class="btn-cancel" onclick="remitLogBack()">&#8592; Back</button>
+        <button class="btn-confirm" id="remitLogConfirmBtn" onclick="confirmRemitLogout()">&#10003; Confirm &amp; Logout</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- ── DRAFT MODAL ── -->
 <div class="modal" id="mDraft">
   <div class="mbox">
@@ -744,13 +801,105 @@ function showPOS(name) {
 }
 
 async function doLogout() {
+  // Show remittance popup first; actual logout happens after
+  openRemitOnLogout();
+}
+
+async function openRemitOnLogout() {
+  const name = CASHIER?.full_name || CASHIER?.username || CASHIER_NAME || '—';
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('remitLogCashier').textContent = name;
+  document.getElementById('remitLogDate').textContent = new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
+  document.getElementById('remitLogCOH').value = '';
+  document.getElementById('remitLogDiff').textContent = '—';
+  document.getElementById('remitLogDiff').style.color = 'var(--muted)';
+  document.getElementById('remitLogCheckBtn').disabled = true;
+  document.getElementById('remitLogCheckBtn').style.opacity = '.4';
+  document.getElementById('remitStep1').style.display = '';
+  document.getElementById('remitStep2').style.display = 'none';
+  document.getElementById('mRemitLogout').classList.add('show');
+  // Fetch today's POS sales for this cashier
+  document.getElementById('remitLogPOS').textContent = 'Loading…';
+  try {
+    const from = today + 'T00:00:00';
+    const to   = today + 'T23:59:59';
+    const { data } = await _sb.from('orders').select('total')
+      .eq('store_id', STORE_ID).eq('cashier_name', name)
+      .gte('timestamp', from).lte('timestamp', to);
+    const total = (data||[]).reduce((s,o)=>s+(parseFloat(o.total)||0), 0);
+    document.getElementById('remitLogPOS').textContent = (CUR||'₱') + total.toFixed(2);
+  } catch(_) {
+    document.getElementById('remitLogPOS').textContent = '—';
+  }
+}
+
+function calcRemitLogDiff() {
+  const posText = document.getElementById('remitLogPOS').textContent.replace(/[^0-9.]/g,'');
+  const pos  = parseFloat(posText) || 0;
+  const cash = parseFloat(document.getElementById('remitLogCOH').value);
+  const btn  = document.getElementById('remitLogCheckBtn');
+  const el   = document.getElementById('remitLogDiff');
+  if (isNaN(cash)) { el.textContent='—'; el.style.color='var(--muted)'; btn.disabled=true; btn.style.opacity='.4'; return; }
+  const diff = cash - pos;
+  el.textContent = (diff>=0?'+':'') + (CUR||'₱') + Math.abs(diff).toFixed(2);
+  el.style.color = diff>0 ? '#10b981' : diff<0 ? '#ef4444' : '#888';
+  btn.disabled = false; btn.style.opacity = '1';
+}
+
+function remitLogStep2() {
+  const posText = document.getElementById('remitLogPOS').textContent;
+  const pos  = parseFloat(posText.replace(/[^0-9.]/g,'')) || 0;
+  const cash = parseFloat(document.getElementById('remitLogCOH').value) || 0;
+  const diff = cash - pos;
+  const name = document.getElementById('remitLogCashier').textContent;
+  document.getElementById('remitCk1').textContent = name;
+  document.getElementById('remitCk2').textContent = document.getElementById('remitLogDate').textContent;
+  document.getElementById('remitCk3').textContent = (CUR||'₱') + pos.toFixed(2);
+  document.getElementById('remitCk4').textContent = (CUR||'₱') + cash.toFixed(2);
+  const diffEl = document.getElementById('remitCk5');
+  diffEl.textContent = (diff>=0?'+':'') + (CUR||'₱') + Math.abs(diff).toFixed(2);
+  diffEl.style.color = diff>0 ? '#10b981' : diff<0 ? '#ef4444' : '#888';
+  document.getElementById('remitStep1').style.display = 'none';
+  document.getElementById('remitStep2').style.display = '';
+}
+
+function remitLogBack() {
+  document.getElementById('remitStep1').style.display = '';
+  document.getElementById('remitStep2').style.display = 'none';
+}
+
+async function confirmRemitLogout() {
+  const btn = document.getElementById('remitLogConfirmBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…';
+  try {
+    const name   = document.getElementById('remitLogCashier').textContent;
+    const today  = new Date().toISOString().slice(0,10);
+    const pos    = parseFloat(document.getElementById('remitCk3').textContent.replace(/[^0-9.]/g,'')) || 0;
+    const cash   = parseFloat(document.getElementById('remitCk4').textContent.replace(/[^0-9.]/g,'')) || 0;
+    const diff   = cash - pos;
+    const status = diff > 0 ? 'over' : diff < 0 ? 'short' : 'balanced';
+    await _sb.from('cash_remittances').insert({
+      store_id: STORE_ID, cashier_name: name, shift_date: today,
+      pos_sales: pos, cash_on_hand: cash, difference: diff, status
+    }).then(()=>{});
+  } catch(_) {}
+  document.getElementById('mRemitLogout').classList.remove('show');
+  _actualLogout();
+}
+
+function skipRemitLogout() {
+  document.getElementById('mRemitLogout').classList.remove('show');
+  _actualLogout();
+}
+
+function _actualLogout() {
   clearTimeout(_openScanTimer); _openScanTimer = null;
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
   if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
   closeScanner();
   stopSquareScanner();
-  stopCamera(); // release hardware on logout so it fully resets before next login
-  setTimeout(_prewarmCamera, 2500); // re-warm after hardware settles (~2.5s)
+  stopCamera();
+  setTimeout(_prewarmCamera, 2500);
   cart = {}; CASHIER = null;
   document.getElementById('lu').value = '';
   document.getElementById('lp').value = '';
