@@ -2274,13 +2274,16 @@ async function buildAiEmbeds(){
     for(const b of srcs.slice(0,4)){
       try{
         const img=new Image();
-        await new Promise(r=>{img.onload=r;img.src='data:image/jpeg;base64,'+b;});
+        // Handle both raw base64 and full data-URL prefixed strings
+        const src=b.startsWith('data:')?b:'data:image/jpeg;base64,'+b;
+        await new Promise(r=>{img.onload=r;img.onerror=r;img.src=src;});
+        if(!img.naturalWidth) continue; // failed to decode
         ctx.drawImage(img,0,0,224,224);
         const t=_mnModel.infer(cv,true); const d=await t.data(); t.dispose();
         vecs.push(Array.from(d));
       }catch(_){}
     }
-    if(vecs.length) _prodEmbeds.push({id:p.id,vecs});
+    if(vecs.length) _prodEmbeds.push({id:p.id,name:p.name,price:p.price,vecs});
   }
 }
 
@@ -2289,6 +2292,7 @@ function startAiLoop(video){
   const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
   const ctx=cv.getContext('2d');
   const sess=_scanSession;
+  const _miss={};
   async function loop(){
     if(!scannerOpen||_scanSession!==sess){ _aiLoopId=null; return; }
     if(video.readyState>=2&&video.videoWidth>0){
@@ -2301,16 +2305,26 @@ function startAiLoop(video){
           if(sim>bestSim){bestSim=sim;best=pe;}
         }
         const prod=best?prods.find(p=>p.id===best.id):null;
-        if(best&&bestSim>0.82){
+        const pct=(bestSim*100).toFixed(0);
+        if(best&&bestSim>0.72){
+          _miss[best.id]=0;
           _mnConf[best.id]=(_mnConf[best.id]||0)+1;
-          if(prod) camStat('&#129302; AI: <strong>'+prod.name+'</strong> '+(bestSim*100).toFixed(0)+'%');
+          if(prod) camStat('&#129302; AI: <strong>'+prod.name+'</strong> '+pct+'%');
           if(_mnConf[best.id]>=2&&!isOnCooldown(best.id)){
-            _mnConf={}; setCooldown(best.id); addItem(best.id); flashMatch(prod.name,'&#129302; AI');
+            _mnConf={}; Object.keys(_miss).forEach(k=>_miss[k]=0);
+            setCooldown(best.id); addItem(best.id); flashMatch(prod.name,'&#129302; AI');
           }
-        }else{ _mnConf={}; }
+        } else {
+          if(best){
+            _miss[best.id]=(_miss[best.id]||0)+1;
+            // Need 3 consecutive misses before resetting confidence
+            if(_miss[best.id]>=3) _mnConf[best.id]=0;
+            if(bestSim>0.62&&prod) camStat('&#129302; '+prod.name+'? '+pct+'%');
+          } else { _mnConf={}; }
+        }
       }catch(_){}
     }
-    _aiLoopId=setTimeout(loop,2500);
+    _aiLoopId=setTimeout(loop,2000);
   }
   loop();
 }
