@@ -29,7 +29,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 // ── Vision Server (Python ORB image matching) ─────────────────────────────
 // Set to your Render URL after deployment, e.g. 'https://posmaker-vision.onrender.com'
-const VISION_SERVER_URL = '';
+const VISION_SERVER_URL = 'https://posmaker-vision.onrender.com';
 
 // ── PayPal Configuration ──────────────────────────────────────────────────────
 // Go to developer.paypal.com → Apps & Credentials → Create App → copy Client ID
