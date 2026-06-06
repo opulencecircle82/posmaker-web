@@ -288,10 +288,7 @@ input:focus{border-color:var(--accent)}
     <div class="field"><label>Item Name</label><input id="eiName" type="text"></div>
     <div class="field"><label>Category</label><input id="eiCat" type="text"></div>
     <div class="field"><label>Unit</label><input id="eiUnit" type="text" placeholder="e.g. pc, kg, L"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="field"><label>Low Stock Alert (qty)</label><input id="eiLow" type="number" min="0" step="any"></div>
-      <div class="field"><label>Cost Price / Unit (&#8369;)</label><input id="eiCost" type="number" min="0" step="0.01" placeholder="e.g. 200.00"></div>
-    </div>
+    <div class="field"><label>Low Stock Alert (qty)</label><input id="eiLow" type="number" min="0" step="any"></div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('editItemModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveEditItem()">Save Changes</button>
@@ -617,7 +614,6 @@ function openEditItem(id){
   document.getElementById('eiCat').value = item.category||'';
   document.getElementById('eiUnit').value = item.unit||'pc';
   document.getElementById('eiLow').value = item.low_stock_threshold||5;
-  document.getElementById('eiCost').value = item.cost_price||'';
   document.getElementById('editItemModal').classList.add('show');
   setTimeout(()=>document.getElementById('eiName').focus(), 50);
 }
@@ -628,13 +624,9 @@ async function saveEditItem(){
   const cat = document.getElementById('eiCat').value.trim();
   const unit = document.getElementById('eiUnit').value.trim();
   const low = parseFloat(document.getElementById('eiLow').value)||5;
-  const costVal = document.getElementById('eiCost').value;
-  const cost = costVal !== '' ? parseFloat(costVal) : null;
   if(!name){ showToast('Name is required.',true); return; }
   const item = _allInv.find(x=>x.id===id);
-  const payload = {name,category:cat,unit,low_stock_threshold:low};
-  if(cost !== null) payload.cost_price = cost;
-  const {error} = await _sb.from('inventory_items').update(payload).eq('id',id);
+  const {error} = await _sb.from('inventory_items').update({name,category:cat,unit,low_stock_threshold:low}).eq('id',id);
   if(error){ showToast('Error: '+error.message,true); return; }
   await logAction('EDIT_ITEM', name, {old_name:item?.name, category:cat, unit, low_stock_threshold:low});
   closeModal('editItemModal');
