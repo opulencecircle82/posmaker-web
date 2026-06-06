@@ -2338,38 +2338,48 @@ async function buildAiEmbeds(){
 
 function startAiLoop(video){
   if(!_mnModel||!_prodEmbeds.length) return;
+  // Full-frame canvas + center-crop canvas (ignores background)
   const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
   const ctx=cv.getContext('2d');
+  const cv2=document.createElement('canvas'); cv2.width=224; cv2.height=224;
+  const ctx2=cv2.getContext('2d');
   const sess=_scanSession;
   const _miss={};
   async function loop(){
     if(!scannerOpen||_scanSession!==sess){ _aiLoopId=null; return; }
     if(video.readyState>=2&&video.videoWidth>0){
       try{
+        const vw=video.videoWidth, vh=video.videoHeight;
+        // Full frame
         ctx.drawImage(video,0,0,224,224);
-        const ft=_mnModel.infer(cv,true); const fv=Array.from(await ft.data()); ft.dispose();
+        // Center 60% crop — product is usually in the middle
+        ctx2.drawImage(video, vw*0.2,vh*0.2, vw*0.6,vh*0.6, 0,0,224,224);
+
+        const ft1=_mnModel.infer(cv,true);  const fv1=Array.from(await ft1.data()); ft1.dispose();
+        const ft2=_mnModel.infer(cv2,true); const fv2=Array.from(await ft2.data()); ft2.dispose();
+
         let best=null, bestSim=0;
         for(const pe of _prodEmbeds){
-          const sim=Math.max(...pe.vecs.map(v=>_cosSim(fv,v)));
+          const sim=Math.max(...pe.vecs.map(v=>Math.max(_cosSim(fv1,v),_cosSim(fv2,v))));
           if(sim>bestSim){bestSim=sim;best=pe;}
         }
         const prod=best?prods.find(p=>p.id===best.id):null;
         const pct=(bestSim*100).toFixed(0);
-        if(best&&bestSim>0.72){
+        if(best&&bestSim>0.60){
           _miss[best.id]=0;
           _mnConf[best.id]=(_mnConf[best.id]||0)+1;
           if(prod) camStat('&#129302; AI: <strong>'+prod.name+'</strong> '+pct+'%');
-          if(_mnConf[best.id]>=2&&!isOnCooldown(best.id)){
+          if(_mnConf[best.id]>=3&&!isOnCooldown(best.id)){
             _mnConf={}; Object.keys(_miss).forEach(k=>_miss[k]=0);
             setCooldown(best.id); addItem(best.id); flashMatch(prod.name,'&#129302; AI');
           }
         } else {
           if(best){
             _miss[best.id]=(_miss[best.id]||0)+1;
-            // Need 3 consecutive misses before resetting confidence
             if(_miss[best.id]>=3) _mnConf[best.id]=0;
-            if(bestSim>0.62&&prod) camStat('&#129302; '+prod.name+'? '+pct+'%');
-          } else { _mnConf={}; }
+            // Always show best match % so user can see what AI is seeing
+            if(prod) camStat('&#129302; '+prod.name+'? '+pct+'%');
+          } else { _mnConf={}; camStat('&#129302; scanning…'); }
         }
       }catch(_){}
     }
