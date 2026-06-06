@@ -2370,16 +2370,22 @@ function startAiLoop(video){
           tf.browser.fromPixels(cv2).expandDims(0),true
         )).data().then(d=>Array.from(d));
 
-        let best=null, bestSim=0;
+        let best=null, second=null, bestSim=0, secondSim=0;
         for(const pe of _prodEmbeds){
           const sim=Math.max(...pe.vecs.map(v=>Math.max(_cosSim(fv1,v),_cosSim(fv2,v))));
-          if(sim>bestSim){bestSim=sim;best=pe;}
+          if(sim>bestSim){secondSim=bestSim;second=best;bestSim=sim;best=pe;}
+          else if(sim>secondSim){secondSim=sim;second=pe;}
         }
         const prod=best?prods.find(p=>p.id===best.id):null;
         const pct=(bestSim*100).toFixed(0);
-        // Always show what AI sees (even low %) for transparency
-        if(prod) camStat('&#129302; '+(bestSim>0.55?'<strong>'+prod.name+'</strong>':prod.name)+'? '+pct+'%');
-        if(best&&bestSim>0.55){
+        const gap=bestSim-secondSim;
+        const confident=bestSim>0.45&&gap>0.04;
+        // Show: product name + % + gap indicator
+        if(prod){
+          const gapTxt=second?' (+'+Math.round(gap*100)+'%)':'';
+          camStat('&#129302; '+(confident?'<strong>'+prod.name+'</strong>':prod.name)+' '+pct+'%'+gapTxt);
+        }
+        if(best&&confident){
           _miss[best.id]=0;
           _mnConf[best.id]=(_mnConf[best.id]||0)+1;
           if(_mnConf[best.id]>=2&&!isOnCooldown(best.id)){
