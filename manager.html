@@ -166,6 +166,18 @@ input:focus{border-color:var(--accent)}
         Cash Remittances
         <button class="btn btn-accent btn-sm" onclick="openRemitModal()">&#43; Record</button>
       </div>
+      <!-- Filters -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+        <div style="display:flex;gap:3px;background:var(--s2);border-radius:8px;padding:3px">
+          <button class="tab-btn active" id="rmPDay"   onclick="setRemitPeriod('day')"   style="padding:5px 12px;font-size:12px">Today</button>
+          <button class="tab-btn"        id="rmPWeek"  onclick="setRemitPeriod('week')"  style="padding:5px 12px;font-size:12px">Week</button>
+          <button class="tab-btn"        id="rmPMonth" onclick="setRemitPeriod('month')" style="padding:5px 12px;font-size:12px">Month</button>
+          <button class="tab-btn"        id="rmPAll"   onclick="setRemitPeriod('all')"   style="padding:5px 12px;font-size:12px">All</button>
+        </div>
+        <select id="remitCashierFilter" onchange="renderRemit()" style="background:var(--s2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer">
+          <option value="">All Cashiers</option>
+        </select>
+      </div>
       <div style="overflow-x:auto">
         <table>
           <thead><tr><th>Date</th><th>Cashier</th><th>POS Sales</th><th>Cash on Hand</th><th>Difference</th><th>Status</th><th>Description</th></tr></thead>
@@ -675,6 +687,7 @@ function doLogout(){ if(_pingInterval){clearInterval(_pingInterval);_pingInterva
 
 // ── Cash Remittance ─────────────────────────────────────────────────────────
 let _remitData = [];
+let _remitPeriod = 'day';
 
 async function loadRemit() {
   const tb = document.getElementById('remitTbody');
@@ -683,18 +696,46 @@ async function loadRemit() {
     .select('*').eq('store_id', MGR.store_id)
     .order('shift_date', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(200);
+    .limit(500);
   _remitData = data || [];
+  // Populate cashier filter from data
+  const sel = document.getElementById('remitCashierFilter');
+  const prev = sel.value;
+  const names = [...new Set(_remitData.map(r => r.cashier_name).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All Cashiers</option>';
+  names.forEach(n => sel.appendChild(new Option(n, n)));
+  if (names.includes(prev)) sel.value = prev;
+  renderRemit();
+}
+
+function setRemitPeriod(p) {
+  _remitPeriod = p;
+  ['day','week','month','all'].forEach(x => {
+    document.getElementById('rmP'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('active', x===p);
+  });
   renderRemit();
 }
 
 function renderRemit() {
   const tb = document.getElementById('remitTbody');
-  if (!_remitData.length) {
-    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No remittances recorded yet.</td></tr>';
+  const cashierF = document.getElementById('remitCashierFilter').value;
+  const today = new Date().toISOString().slice(0,10);
+  const weekAgo = new Date(Date.now() - 6*864e5).toISOString().slice(0,10);
+  const monthStart = today.slice(0,8) + '01';
+
+  const filtered = _remitData.filter(r => {
+    if (cashierF && r.cashier_name !== cashierF) return false;
+    if (_remitPeriod === 'day')   return r.shift_date === today;
+    if (_remitPeriod === 'week')  return r.shift_date >= weekAgo;
+    if (_remitPeriod === 'month') return r.shift_date >= monthStart;
+    return true;
+  });
+
+  if (!filtered.length) {
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No remittances for this period.</td></tr>';
     return;
   }
-  tb.innerHTML = _remitData.map(r => {
+  tb.innerHTML = filtered.map(r => {
     const diff = parseFloat(r.difference) || 0;
     const diffColor = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : 'var(--muted)';
     const statusBadge = diff > 0
