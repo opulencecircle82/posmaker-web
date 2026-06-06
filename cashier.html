@@ -2305,58 +2305,64 @@ function _cosSim(a,b){
 async function buildAiEmbeds(){
   if(!_mnModel) return;
   _prodEmbeds=[];
+  camStat('&#129302; AI: building product index…');
   const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
   const ctx=cv.getContext('2d');
   for(const p of prods){
-    // Use pre-computed embeddings stored by dashboard — no image processing needed
-    if(p.embeddings){
-      try{
-        const vecs=JSON.parse(p.embeddings);
-        if(Array.isArray(vecs)&&vecs.length){ _prodEmbeds.push({id:p.id,vecs}); continue; }
-      }catch(_){}
-    }
-    // Fallback: compute from image_b64 (products saved before embedding feature)
     if(!p.image_b64) continue;
     let srcs=[];
     try{const j=JSON.parse(p.image_b64);srcs=Array.isArray(j)?j:[p.image_b64];}catch{srcs=[p.image_b64];}
     const vecs=[];
-    for(const b of srcs.slice(0,4)){
+    for(const b of srcs.slice(0,3)){
+      if(!b) continue;
       try{
         const img=new Image();
-        // Handle both raw base64 and full data-URL prefixed strings
+        img.crossOrigin='anonymous';
         const src=b.startsWith('data:')?b:'data:image/jpeg;base64,'+b;
-        await new Promise(r=>{img.onload=r;img.onerror=r;img.src=src;});
-        if(!img.naturalWidth) continue; // failed to decode
+        await new Promise((res,rej)=>{
+          img.onload=res; img.onerror=rej;
+          img.src=src;
+        });
+        if(!img.naturalWidth) continue;
+        ctx.clearRect(0,0,224,224);
         ctx.drawImage(img,0,0,224,224);
-        const t=_mnModel.infer(cv,true); const d=await t.data(); t.dispose();
+        const t=tf.tidy(()=>{
+          return _mnModel.infer(tf.browser.fromPixels(cv).expandDims(0),true);
+        });
+        const d=await t.data(); t.dispose();
         vecs.push(Array.from(d));
-      }catch(_){}
+      }catch(e){ console.warn('embed err',p.name,e); }
     }
     if(vecs.length) _prodEmbeds.push({id:p.id,name:p.name,price:p.price,vecs});
   }
+  camStat('&#129302; AI ready: '+_prodEmbeds.length+' products indexed');
 }
 
 function startAiLoop(video){
-  if(!_mnModel||!_prodEmbeds.length) return;
-  // Full-frame canvas + center-crop canvas (ignores background)
-  const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
-  const ctx=cv.getContext('2d');
+  if(!_mnModel||!_prodEmbeds.length){
+    camStat('&#129302; AI: '+((!_mnModel)?'model not loaded':'no product images'));
+    return;
+  }
   const cv2=document.createElement('canvas'); cv2.width=224; cv2.height=224;
   const ctx2=cv2.getContext('2d');
   const sess=_scanSession;
   const _miss={};
+  camStat('&#129302; AI: '+_prodEmbeds.length+' products — point camera at product');
   async function loop(){
     if(!scannerOpen||_scanSession!==sess){ _aiLoopId=null; return; }
     if(video.readyState>=2&&video.videoWidth>0){
       try{
-        const vw=video.videoWidth, vh=video.videoHeight;
-        // Full frame
-        ctx.drawImage(video,0,0,224,224);
-        // Center 60% crop — product is usually in the middle
-        ctx2.drawImage(video, vw*0.2,vh*0.2, vw*0.6,vh*0.6, 0,0,224,224);
+        // Full frame via tf.browser.fromPixels (most accurate)
+        const fv1=await tf.tidy(()=>_mnModel.infer(
+          tf.browser.fromPixels(video).expandDims(0),true
+        )).data().then(d=>Array.from(d));
 
-        const ft1=_mnModel.infer(cv,true);  const fv1=Array.from(await ft1.data()); ft1.dispose();
-        const ft2=_mnModel.infer(cv2,true); const fv2=Array.from(await ft2.data()); ft2.dispose();
+        // Center 60% crop via canvas
+        const vw=video.videoWidth,vh=video.videoHeight;
+        ctx2.drawImage(video,vw*0.2,vh*0.2,vw*0.6,vh*0.6,0,0,224,224);
+        const fv2=await tf.tidy(()=>_mnModel.infer(
+          tf.browser.fromPixels(cv2).expandDims(0),true
+        )).data().then(d=>Array.from(d));
 
         let best=null, bestSim=0;
         for(const pe of _prodEmbeds){
@@ -2365,23 +2371,20 @@ function startAiLoop(video){
         }
         const prod=best?prods.find(p=>p.id===best.id):null;
         const pct=(bestSim*100).toFixed(0);
-        if(best&&bestSim>0.60){
+        // Always show what AI sees (even low %) for transparency
+        if(prod) camStat('&#129302; '+(bestSim>0.55?'<strong>'+prod.name+'</strong>':prod.name)+'? '+pct+'%');
+        if(best&&bestSim>0.55){
           _miss[best.id]=0;
           _mnConf[best.id]=(_mnConf[best.id]||0)+1;
-          if(prod) camStat('&#129302; AI: <strong>'+prod.name+'</strong> '+pct+'%');
-          if(_mnConf[best.id]>=3&&!isOnCooldown(best.id)){
+          if(_mnConf[best.id]>=2&&!isOnCooldown(best.id)){
             _mnConf={}; Object.keys(_miss).forEach(k=>_miss[k]=0);
             setCooldown(best.id); addItem(best.id); flashMatch(prod.name,'&#129302; AI');
           }
-        } else {
-          if(best){
-            _miss[best.id]=(_miss[best.id]||0)+1;
-            if(_miss[best.id]>=3) _mnConf[best.id]=0;
-            // Always show best match % so user can see what AI is seeing
-            if(prod) camStat('&#129302; '+prod.name+'? '+pct+'%');
-          } else { _mnConf={}; camStat('&#129302; scanning…'); }
-        }
-      }catch(_){}
+        } else if(best){
+          _miss[best.id]=(_miss[best.id]||0)+1;
+          if(_miss[best.id]>=3) _mnConf[best.id]=0;
+        } else { _mnConf={}; camStat('&#129302; AI scanning…'); }
+      }catch(e){ camStat('&#129302; AI err: '+e.message); }
     }
     _aiLoopId=setTimeout(loop,2000);
   }
