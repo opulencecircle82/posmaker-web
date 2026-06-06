@@ -132,15 +132,15 @@ async function doLogin() {
     const hash = await sha256(pw);
     const { data: staff, error } = await Promise.race([
       _sb.from('store_users')
-        .select('id,username,full_name,role,active')
+        .select('id,username,full_name,role,active,password_hash')
         .eq('store_id', SID)
-        .eq('username', username)
-        .eq('password_hash', hash)
+        .eq('username', username.toLowerCase())
         .maybeSingle(),
       new Promise((_,rej) => setTimeout(() => rej(new Error('Connection timed out.')), 15000))
     ]);
     if (error) throw error;
     if (!staff) { errEl.textContent = 'Invalid username or password.'; btn.disabled = false; btn.textContent = 'Log In →'; return; }
+    if (staff.password_hash !== hash) { errEl.textContent = 'Invalid username or password.'; btn.disabled = false; btn.textContent = 'Log In →'; return; }
     if (!staff.active) { errEl.textContent = 'Your account is disabled. Contact your owner.'; btn.disabled = false; btn.textContent = 'Log In →'; return; }
 
     const session = { store_id: SID, staff_id: staff.id, name: staff.full_name || staff.username, role: staff.role, ts: Date.now() };
