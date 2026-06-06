@@ -205,6 +205,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 /* ── CAMERA SCANNER ─────────────────────────────────────── */
 #camOverlay{position:fixed;bottom:60px;left:10px;z-index:9100;background:#111120;border:2px solid var(--accent);border-radius:10px;width:220px;box-shadow:0 6px 24px rgba(0,0,0,.75);overflow:hidden;visibility:hidden;pointer-events:none}
 #camOverlay.retail-docked{position:fixed;top:96px;left:0;bottom:auto;width:200px;border-radius:0 0 10px 0;border-left:none;border-top:none;box-shadow:2px 4px 16px rgba(0,0,0,.6)}
+#camOverlay.retail-docked .cam-hdr{display:none}
 .cam-hdr{display:flex;align-items:center;justify-content:space-between;padding:5px 9px;background:#191929;border-bottom:1px solid #252540}
 .cam-hdr-ttl{font-size:11px;font-weight:700;color:var(--accent)}
 .cam-cls{background:none;border:none;color:#888;cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
@@ -593,6 +594,19 @@ function adaptCashierMode(bizType) {
   // Hide camera button from header in retail (camera is always docked)
   const btnCam = document.getElementById('btnCam');
   if (btnCam) btnCam.style.display = IS_RETAIL ? 'none' : '';
+
+  // Push retail-left product list below the docked camera
+  const rlEl = document.getElementById('retailLeft');
+  if (IS_RETAIL && rlEl && overlay) {
+    setTimeout(() => {
+      const rlTop = rlEl.getBoundingClientRect().top;
+      const ovRect = overlay.getBoundingClientRect();
+      const needed = ovRect.top + ovRect.height - rlTop + 6;
+      rlEl.style.paddingTop = (needed > 0 ? needed : 0) + 'px';
+    }, 150);
+  } else if (rlEl) {
+    rlEl.style.paddingTop = '';
+  }
 }
 
 function applyPosTheme(s) {
@@ -1953,8 +1967,6 @@ function closeScanner(){
   if(_aiLoopId){ clearTimeout(_aiLoopId); _aiLoopId=null; }
   _visConf = {}; _mnConf = {};
   _cameraOpening = false;
-  document.getElementById('camSearchInp').value = '';
-  document.getElementById('camSearchResults').innerHTML = '';
   // Do NOT pause — calling v.play() to resume on Android can block the renderer thread
 }
 
@@ -2314,6 +2326,7 @@ function flashMatch(name,method){
 
 function camSearchProds(q) {
   const res = document.getElementById('camSearchResults');
+  if (!res) return;
   if (!q.trim()) { res.innerHTML = ''; return; }
   const lq = q.toLowerCase();
   const hits = prods.filter(p =>
@@ -2333,8 +2346,6 @@ function camSrAdd(id) {
   addItem(id);
   const p = prods.find(x => x.id == id);
   if (p) flashMatch(p.name, '&#128269; search');
-  document.getElementById('camSearchInp').value = '';
-  document.getElementById('camSearchResults').innerHTML = '';
 }
 
 function loadScript(src){
@@ -2358,10 +2369,6 @@ function loadScript(src){
     <div id="camFlash">&#10003;</div>
   </div>
   <div id="camStatus">Ready</div>
-  <div style="padding:6px 8px;border-top:1px solid #1e1e30">
-    <input id="camSearchInp" type="text" placeholder="&#128269; Type product name…" oninput="camSearchProds(this.value)" autocomplete="off">
-    <div id="camSearchResults" style="margin-top:4px;max-height:100px;overflow-y:auto"></div>
-  </div>
 </div>
 </body>
 </html>
