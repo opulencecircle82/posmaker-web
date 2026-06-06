@@ -2377,15 +2377,10 @@ function startAiLoop(video){
     if(!scannerOpen||_scanSession!==sess){ _aiLoopId=null; return; }
     if(video.readyState>=2&&video.videoWidth>0){
       try{
-        // Full frame via tf.browser.fromPixels (most accurate)
-        const fv1=await tf.tidy(()=>_mnModel.infer(
-          tf.browser.fromPixels(video).expandDims(0),true
-        )).data().then(d=>Array.from(d));
-
-        // Center 60% crop via canvas
+        // Center 60% crop only — faster and more focused on product
         const vw=video.videoWidth,vh=video.videoHeight;
         ctx2.drawImage(video,vw*0.2,vh*0.2,vw*0.6,vh*0.6,0,0,224,224);
-        const fv2=await tf.tidy(()=>_mnModel.infer(
+        const fv=await tf.tidy(()=>_mnModel.infer(
           tf.browser.fromPixels(cv2).expandDims(0),true
         )).data().then(d=>Array.from(d));
 
@@ -2394,7 +2389,7 @@ function startAiLoop(video){
 
         let best=null, second=null, bestSim=0, secondSim=0;
         for(const pe of _prodEmbeds){
-          const mnSim=Math.max(...pe.vecs.map(v=>Math.max(_cosSim(fv1,v),_cosSim(fv2,v))));
+          const mnSim=Math.max(...pe.vecs.map(v=>_cosSim(fv,v)));
           // Color L1 distance → similarity (0-1)
           const colorDist=pe.colorHist?pe.colorHist.reduce((s,v,i)=>s+Math.abs(v-(frameColor[i]||0)),0):1;
           const colorSim=Math.max(0,1-colorDist/2);
@@ -2425,7 +2420,7 @@ function startAiLoop(video){
         } else { _mnConf={}; camStat('&#129302; AI scanning…'); }
       }catch(e){ camStat('&#129302; AI err: '+e.message); }
     }
-    _aiLoopId=setTimeout(loop,2000);
+    _aiLoopId=setTimeout(loop,800);
   }
   loop();
 }
