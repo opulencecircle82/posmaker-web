@@ -882,6 +882,12 @@ async function confirmRemitLogout() {
       store_id: STORE_ID, cashier_name: name, shift_date: today,
       pos_sales: pos, cash_on_hand: cash, difference: diff, status
     }).then(()=>{});
+    const diffLabel = status==='short' ? `Short -${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : status==='over' ? `Over +${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : 'Balanced';
+    _sb.from('activity_logs').insert({
+      store_id: STORE_ID, actor_name: name, actor_role: CASHIER?.role||'cashier',
+      action: 'REMITTANCE', target_name: name,
+      details: `POS: ${CUR||'₱'}${pos.toFixed(2)} | Cash: ${CUR||'₱'}${cash.toFixed(2)} | ${diffLabel}`
+    }).then(()=>{});
   } catch(_) {}
   document.getElementById('mRemitLogout').classList.remove('show');
   _actualLogout();
