@@ -1066,7 +1066,7 @@ const FREE_STAFF_LIMIT = 1;
 let IS_PRO = false;
 let allStores = [];
 
-function _sig(ms = 12000) {
+function _sig(ms = 25000) {
   const c = new AbortController();
   setTimeout(() => c.abort(), ms);
   return c.signal;
@@ -2376,7 +2376,8 @@ async function loadStaff() {
   } catch(e) {
     clearTimeout(_st);
     console.error('loadStaff error:', e);
-    _sb2.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px"><div style="color:#ef4444;margin-bottom:8px">Error: ${e.message}</div><button class="btn btn-accent btn-sm" onclick="loadStaff()">&#8635; Retry</button></td></tr>`;
+    const msg = e.name === 'AbortError' ? 'Connection timed out — slow internet?' : e.message;
+    _sb2.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px"><div style="color:#ef4444;margin-bottom:8px">${msg}</div><button class="btn btn-accent btn-sm" onclick="loadStaff()">&#8635; Retry</button></td></tr>`;
   }
 }
 function renderStaff(staff) {
