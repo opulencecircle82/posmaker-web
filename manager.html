@@ -236,13 +236,42 @@ input:focus{border-color:var(--accent)}
 <!-- ADD STOCK MODAL -->
 <div class="modal" id="addStockModal">
   <div class="mbox">
-    <h3>&#43; Add Stock</h3>
+    <h3>&#128230; Add Stock</h3>
     <input type="hidden" id="asId">
-    <div style="background:var(--s2);border-radius:8px;padding:12px;margin-bottom:16px">
+    <div style="background:var(--s2);border-radius:8px;padding:12px;margin-bottom:14px">
       <div style="font-weight:700;font-size:15px" id="asItemName"></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px">Current stock: <strong id="asCurStock" style="color:var(--text)"></strong></div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px">
+        <span style="font-size:12px;color:var(--muted)">Stock: <strong id="asCurStock" style="color:var(--text)"></strong></span>
+        <span style="font-size:12px;color:var(--muted)">Cost/unit: <strong id="asCostDisp" style="color:#f59e0b"></strong></span>
+      </div>
     </div>
-    <div class="field"><label>Quantity to Add</label><input id="asQty" type="number" min="0.01" step="any" placeholder="e.g. 10"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="field"><label>Quantity to Add</label><input id="asQty" type="number" min="0.01" step="any" placeholder="e.g. 10" oninput="calcAsTotal()"></div>
+      <div class="field"><label>Total Cost (&#8369;)</label><input id="asTotal" type="number" min="0" step="0.01" placeholder="0.00" oninput="updateAsPayUI()" style="font-weight:700;color:#f59e0b"></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-bottom:8px">PAYMENT / COH ADJUSTMENT</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:13px">
+        <input type="radio" name="asPayType" value="none" checked onchange="updateAsPayUI()">
+        <span>No COH adjustment</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:13px">
+        <input type="radio" name="asPayType" value="deduct" onchange="updateAsPayUI()">
+        <span>Deduct from COH</span><span id="asDeductAmt" style="margin-left:auto;font-weight:700;color:#ef4444"></span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:13px">
+        <input type="radio" name="asPayType" value="deposit" onchange="updateAsPayUI()">
+        <span>Owner Deposited Cash</span><span id="asDepositAmt" style="margin-left:auto;font-weight:700;color:#10b981"></span>
+      </label>
+    </div>
+    <div class="field">
+      <label>Receipt (optional)</label>
+      <input id="asReceipt" type="file" accept="image/*" onchange="previewAsReceipt()" style="font-size:12px;padding:8px">
+      <div id="asReceiptPreview" style="display:none;margin-top:8px;text-align:center">
+        <img id="asReceiptImg" style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:#10b981;margin-top:4px">&#10003; Receipt attached</div>
+      </div>
+    </div>
     <div class="field"><label>Note (optional)</label><input id="asNote" type="text" placeholder="e.g. delivery from supplier"></div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('addStockModal')">Cancel</button>
@@ -259,7 +288,10 @@ input:focus{border-color:var(--accent)}
     <div class="field"><label>Item Name</label><input id="eiName" type="text"></div>
     <div class="field"><label>Category</label><input id="eiCat" type="text"></div>
     <div class="field"><label>Unit</label><input id="eiUnit" type="text" placeholder="e.g. pc, kg, L"></div>
-    <div class="field"><label>Low Stock Alert (qty)</label><input id="eiLow" type="number" min="0" step="any"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label>Low Stock Alert (qty)</label><input id="eiLow" type="number" min="0" step="any"></div>
+      <div class="field"><label>Cost Price / Unit (&#8369;)</label><input id="eiCost" type="number" min="0" step="0.01" placeholder="e.g. 200.00"></div>
+    </div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('editItemModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveEditItem()">Save Changes</button>
@@ -466,30 +498,87 @@ function openAddStock(id){
   const item = _allInv.find(x=>x.id===id); if(!item) return;
   document.getElementById('asId').value = id;
   document.getElementById('asItemName').textContent = item.name;
-  document.getElementById('asCurStock').textContent = item.stock + ' ' + (item.unit||'');
-  document.getElementById('asQty').value = '';
-  document.getElementById('asNote').value = '';
-  document.getElementById('asSaveBtn').disabled = false;
-  document.getElementById('asSaveBtn').textContent = 'Add Stock';
+  document.getElementById('asCurStock').textContent = (item.stock||0)+' '+(item.unit||'');
+  const cost = parseFloat(item.cost_price||0);
+  document.getElementById('asCostDisp').textContent = cost>0 ? '₱'+cost.toFixed(2) : '(not set — use Edit)';
+  document.getElementById('asQty').value=''; document.getElementById('asTotal').value='';
+  document.getElementById('asNote').value=''; document.getElementById('asReceipt').value='';
+  document.getElementById('asReceiptPreview').style.display='none';
+  document.querySelector('input[name="asPayType"][value="none"]').checked=true;
+  document.getElementById('asDeductAmt').textContent=''; document.getElementById('asDepositAmt').textContent='';
+  document.getElementById('asSaveBtn').disabled=false; document.getElementById('asSaveBtn').textContent='Add Stock';
   document.getElementById('addStockModal').classList.add('show');
-  setTimeout(()=>document.getElementById('asQty').focus(), 50);
+  setTimeout(()=>document.getElementById('asQty').focus(),50);
+}
+
+function calcAsTotal(){
+  const item = _allInv.find(x=>x.id===document.getElementById('asId').value);
+  const cost = parseFloat(item?.cost_price||0);
+  const qty = parseFloat(document.getElementById('asQty').value)||0;
+  if(cost>0&&qty>0) document.getElementById('asTotal').value=(cost*qty).toFixed(2);
+  updateAsPayUI();
+}
+
+function updateAsPayUI(){
+  const total = parseFloat(document.getElementById('asTotal').value)||0;
+  document.getElementById('asDeductAmt').textContent = total>0 ? '-₱'+total.toFixed(2) : '';
+  document.getElementById('asDepositAmt').textContent = total>0 ? '+₱'+total.toFixed(2) : '';
+}
+
+function previewAsReceipt(){
+  const file = document.getElementById('asReceipt').files[0];
+  if(!file){ document.getElementById('asReceiptPreview').style.display='none'; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX=800, cv=document.createElement('canvas');
+      const scale=Math.min(1,MAX/Math.max(img.width,img.height));
+      cv.width=img.width*scale; cv.height=img.height*scale;
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      document.getElementById('asReceiptImg').src=cv.toDataURL('image/jpeg',0.6);
+      document.getElementById('asReceiptPreview').style.display='';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 async function saveAddStock(){
   const id = document.getElementById('asId').value;
   const qty = parseFloat(document.getElementById('asQty').value);
   if(!qty||qty<=0){ showToast('Enter a valid quantity.',true); return; }
+  const total = parseFloat(document.getElementById('asTotal').value)||0;
+  const payType = document.querySelector('input[name="asPayType"]:checked').value;
   const note = document.getElementById('asNote').value.trim();
   const item = _allInv.find(x=>x.id===id); if(!item) return;
   const btn = document.getElementById('asSaveBtn');
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Saving...';
-  const newStock = parseFloat(item.stock||0) + qty;
+  const newStock = parseFloat(item.stock||0)+qty;
   const {error} = await _sb.from('inventory_items').update({stock:newStock}).eq('id',id);
   if(error){ showToast('Error: '+error.message,true); btn.disabled=false; btn.textContent='Add Stock'; return; }
-  await logAction('ADD_STOCK', item.name, {added:qty, before:item.stock, after:newStock, note:note||undefined});
+  // Receipt
+  const receiptImg = document.getElementById('asReceiptImg');
+  const receiptB64 = receiptImg.src&&receiptImg.src.startsWith('data:') ? receiptImg.src : null;
+  // Activity log
+  await logAction('ADD_STOCK', item.name, {added:qty,before:item.stock,after:newStock,
+    ...(note?{note}:{}), ...(total>0?{total_cost:total,payment:payType}:{}),
+    ...(receiptB64?{receipt_b64:receiptB64}:{})});
+  // COH adjustment
+  if(total>0 && payType!=='none'){
+    const today=new Date().toISOString().slice(0,10);
+    const cashAdj = payType==='deduct' ? -total : total;
+    const status  = payType==='deduct' ? 'purchase' : 'deposit';
+    const desc = (payType==='deduct'?'Stock purchase':'Owner deposit')+': '+item.name+' x'+qty;
+    await _sb.from('cash_remittances').insert({
+      store_id:MGR.store_id, cashier_name:MGR.name, shift_date:today,
+      pos_sales:0, cash_on_hand:cashAdj, difference:cashAdj, status, description:desc
+    }).then(()=>{});
+    loadCashSummary();
+  }
   closeModal('addStockModal');
   await loadInv();
-  showToast('+'+qty+' '+( item.unit||'')+' added to '+item.name);
+  showToast('+'+qty+' '+(item.unit||'')+' added to '+item.name+(total>0?' | ₱'+total.toFixed(2)+' '+payType:''));
 }
 
 // ── Add New Item ───────────────────────────────────────────────────────────
@@ -528,6 +617,7 @@ function openEditItem(id){
   document.getElementById('eiCat').value = item.category||'';
   document.getElementById('eiUnit').value = item.unit||'pc';
   document.getElementById('eiLow').value = item.low_stock_threshold||5;
+  document.getElementById('eiCost').value = item.cost_price||'';
   document.getElementById('editItemModal').classList.add('show');
   setTimeout(()=>document.getElementById('eiName').focus(), 50);
 }
@@ -538,9 +628,13 @@ async function saveEditItem(){
   const cat = document.getElementById('eiCat').value.trim();
   const unit = document.getElementById('eiUnit').value.trim();
   const low = parseFloat(document.getElementById('eiLow').value)||5;
+  const costVal = document.getElementById('eiCost').value;
+  const cost = costVal !== '' ? parseFloat(costVal) : null;
   if(!name){ showToast('Name is required.',true); return; }
   const item = _allInv.find(x=>x.id===id);
-  const {error} = await _sb.from('inventory_items').update({name,category:cat,unit,low_stock_threshold:low}).eq('id',id);
+  const payload = {name,category:cat,unit,low_stock_threshold:low};
+  if(cost !== null) payload.cost_price = cost;
+  const {error} = await _sb.from('inventory_items').update(payload).eq('id',id);
   if(error){ showToast('Error: '+error.message,true); return; }
   await logAction('EDIT_ITEM', name, {old_name:item?.name, category:cat, unit, low_stock_threshold:low});
   closeModal('editItemModal');
@@ -922,39 +1016,51 @@ async function loadCashSummary() {
     .order('created_at', { ascending: true });
 
   const rows = data || [];
+  const adjStatuses = ['purchase','deposit'];
+  const cashierRows = rows.filter(r => !adjStatuses.includes(r.status));
+  const adjRows     = rows.filter(r => adjStatuses.includes(r.status));
+
   if (!rows.length) {
     el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px">No remittances recorded today.</div>';
     return;
   }
 
   const total = rows.reduce((s, r) => s + parseFloat(r.cash_on_hand || 0), 0);
+  const cashierCount = cashierRows.length;
 
   el.innerHTML = `
     <div style="background:var(--s2);border-radius:8px;padding:10px 12px;text-align:center;margin-bottom:10px">
       <div style="font-size:10px;color:var(--muted);letter-spacing:.5px;margin-bottom:2px">TOTAL CASH COLLECTED</div>
       <div style="font-size:26px;font-weight:800;color:#10b981">&#8369;${total.toFixed(2)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">${rows.length} cashier${rows.length > 1 ? 's' : ''}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">${cashierCount} cashier${cashierCount!==1?'s':''}</div>
     </div>
-    ${rows.map(r => {
+    ${cashierRows.map(r => {
       const cash = parseFloat(r.cash_on_hand || 0);
       const diff = parseFloat(r.difference || 0);
       const diffColor = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : 'var(--muted)';
-      const statusBadge = r.status === 'over'
+      const statusBadge = r.status==='over'
         ? `<span style="font-size:10px;font-weight:700;color:#10b981">Over</span>`
-        : r.status === 'short'
+        : r.status==='short'
         ? `<span style="font-size:10px;font-weight:700;color:#ef4444">Short</span>`
+        : r.status==='pending'
+        ? `<span style="font-size:10px;font-weight:700;color:#f59e0b">Pending</span>`
         : `<span style="font-size:10px;color:var(--muted)">OK</span>`;
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-size:13px;font-weight:600">${r.cashier_name}</div>
-          <div style="font-size:11px;color:${diffColor}">${diff >= 0 ? '+' : ''}&#8369;${Math.abs(diff).toFixed(2)} vs POS</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:14px;font-weight:700;color:#10b981">&#8369;${cash.toFixed(2)}</div>
-          ${statusBadge}
-        </div>
+        <div><div style="font-size:13px;font-weight:600">${r.cashier_name}</div>
+        <div style="font-size:11px;color:${diffColor}">${diff>=0?'+':''}&#8369;${Math.abs(diff).toFixed(2)} vs POS</div></div>
+        <div style="text-align:right"><div style="font-size:14px;font-weight:700;color:#10b981">&#8369;${cash.toFixed(2)}</div>${statusBadge}</div>
       </div>`;
     }).join('')}
+    ${adjRows.length ? `<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
+      ${adjRows.map(r=>{
+        const amt=parseFloat(r.cash_on_hand||0);
+        const isPurchase=r.status==='purchase';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
+          <span style="color:var(--muted)">${isPurchase?'&#128230; Stock purchase':'&#128176; Owner deposit'}: ${r.description?.replace(/^(Stock purchase|Owner deposit): /,'')?.slice(0,20)||''}</span>
+          <span style="font-weight:700;color:${isPurchase?'#ef4444':'#10b981'}">${amt>=0?'+':''}&#8369;${Math.abs(amt).toFixed(2)}</span>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
   `;
 }
 
