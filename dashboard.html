@@ -2326,12 +2326,12 @@ async function saveProd(){
     if(nr) savedId=nr.id;
   }
   if(err){showToast(err.message,true);return;}
-  // Compute + save embeddings in background (the visual brain)
+  // Compute + save AI embeddings in background so POS can detect without recomputing
   if(imgs.length>0&&savedId){
     _loadDashMn().then(ok=>{
       if(!ok)return;
-      _computeEmbeds(imgs).then(vecs=>{
-        if(vecs) _sb.from('products').update({embeddings:JSON.stringify(vecs)}).eq('id',savedId).then(()=>{});
+      _computeEmbeds(imgs).then(result=>{
+        if(result) _sb.from('products').update({embeddings:JSON.stringify(result)}).eq('id',savedId).then(()=>{});
       });
     });
   }
@@ -3405,11 +3405,12 @@ function _loadDashMn(){
   if(_dashMn) return Promise.resolve(true);
   return new Promise(res=>{
     const s1=document.createElement('script');
-    s1.src='https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js';
+    s1.src='https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
     s1.onload=()=>{
       const s2=document.createElement('script');
       s2.src='https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js';
-      s2.onload=()=>mobilenet.load({version:1,alpha:0.25}).then(m=>{_dashMn=m;res(true);}).catch(()=>res(false));
+      // Same model as POS: v1 alpha 1.0 — embeddings must match
+      s2.onload=()=>mobilenet.load({version:1,alpha:1.0}).then(m=>{_dashMn=m;res(true);}).catch(()=>res(false));
       s2.onerror=()=>res(false);
       document.head.appendChild(s2);
     };
@@ -3423,16 +3424,42 @@ async function _computeEmbeds(imgs){
   const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
   const ctx=cv.getContext('2d');
   const vecs=[];
+  let lastColorHist=null;
   for(const b64 of imgs.slice(0,4)){
     try{
-      const img=new Image();
-      await new Promise(r=>{img.onload=r; img.src='data:image/jpeg;base64,'+b64;});
+      const src=b64.startsWith('data:')?b64:'data:image/jpeg;base64,'+b64;
+      const img=await new Promise((res,rej)=>{
+        const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src;
+      });
+      ctx.clearRect(0,0,224,224);
       ctx.drawImage(img,0,0,224,224);
       const t=_dashMn.infer(cv,true); const d=await t.data(); t.dispose();
       vecs.push(Array.from(d));
+      // Compute color histogram for hybrid POS matching
+      if(!lastColorHist) lastColorHist=_dashColorHist(ctx,224,224);
     }catch(_){}
   }
-  return vecs.length?vecs:null;
+  if(!vecs.length) return null;
+  // Store both vecs and colorHist so POS can use hybrid scoring
+  return {vecs, colorHist:lastColorHist};
+}
+
+function _dashColorHist(ctx,w,h){
+  try{
+    const px=ctx.getImageData(0,0,w,h).data;
+    const hBins=new Array(16).fill(0), vBins=new Array(8).fill(0);
+    let colorPx=0; const total=w*h;
+    for(let i=0;i<total;i++){
+      const r=px[i*4]/255,g=px[i*4+1]/255,b=px[i*4+2]/255;
+      const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+      vBins[Math.min(7,Math.floor(mx*8))]++;
+      if(d>=0.12&&mx>=0.1){
+        let h2=mx===r?((g-b)/d+6)%6:mx===g?(b-r)/d+2:(r-g)/d+4;
+        hBins[Math.min(15,Math.floor(h2/6*16))]++; colorPx++;
+      }
+    }
+    return [...hBins.map(v=>colorPx>0?v/colorPx:0),...vBins.map(v=>v/total)];
+  }catch(_){ return null; }
 }
 
 // ── Service Worker + Update Detection ────────────────────────────────────

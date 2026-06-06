@@ -2315,6 +2315,18 @@ async function buildAiEmbeds(){
   const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
   const ctx=cv.getContext('2d');
   for(const p of prods){
+    // Use pre-computed embeddings from dashboard (fast path)
+    if(p.embeddings){
+      try{
+        const saved=JSON.parse(p.embeddings);
+        const vecs=Array.isArray(saved)?saved:(saved.vecs||null);
+        const colorHist=saved.colorHist||null;
+        if(vecs&&vecs.length){
+          _prodEmbeds.push({id:p.id,name:p.name,price:p.price,vecs,colorHist});
+          continue;
+        }
+      }catch(_){}
+    }
     if(!p.image_b64) continue;
     let srcs=[];
     try{const j=JSON.parse(p.image_b64);srcs=Array.isArray(j)?j:[p.image_b64];}catch{srcs=[p.image_b64];}
