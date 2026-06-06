@@ -334,6 +334,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <h3>Products</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <input class="search" id="prodSearch" placeholder="Search..." oninput="filterProds()">
+            <button class="btn btn-sm" id="btnReindexAI" onclick="bulkReindexAI()" style="background:#1a2a3a;border:1px solid #2563eb;color:#60a5fa" title="Recompute AI embeddings for all products">🤖 Re-index AI</button>
             <button class="btn btn-accent btn-sm" id="btnAddProd" onclick="openProdModal()">+ Add</button>
           </div>
         </div>
@@ -3460,6 +3461,39 @@ function _dashColorHist(ctx,w,h){
     }
     return [...hBins.map(v=>colorPx>0?v/colorPx:0),...vBins.map(v=>v/total)];
   }catch(_){ return null; }
+}
+
+// ── Bulk AI Re-index ──────────────────────────────────────────────────────
+async function bulkReindexAI(){
+  const btn=document.getElementById('btnReindexAI');
+  if(btn) { btn.disabled=true; btn.textContent='🤖 Loading model…'; }
+  const ok=await _loadDashMn();
+  if(!ok){
+    showToast('Failed to load AI model',true);
+    if(btn){ btn.disabled=false; btn.textContent='🤖 Re-index AI'; }
+    return;
+  }
+  const targets=(allProds||[]).filter(p=>p.image_b64);
+  if(!targets.length){
+    showToast('No products with photos to index');
+    if(btn){ btn.disabled=false; btn.textContent='🤖 Re-index AI'; }
+    return;
+  }
+  let done=0, skipped=0;
+  for(const p of targets){
+    if(btn) btn.textContent=`🤖 ${done+1}/${targets.length}: ${p.name.slice(0,18)}…`;
+    let imgs=[];
+    try{ const j=JSON.parse(p.image_b64); imgs=Array.isArray(j)?j:[p.image_b64]; }catch{ imgs=[p.image_b64]; }
+    imgs=imgs.filter(Boolean);
+    if(!imgs.length){ skipped++; continue; }
+    const result=await _computeEmbeds(imgs);
+    if(result){
+      await _sb.from('products').update({embeddings:JSON.stringify(result)}).eq('id',p.id).then(()=>{});
+      done++;
+    } else { skipped++; }
+  }
+  if(btn){ btn.disabled=false; btn.textContent='🤖 Re-index AI'; }
+  showToast(`AI re-index done: ${done} updated${skipped?', '+skipped+' skipped':''}`);
 }
 
 // ── Service Worker + Update Detection ────────────────────────────────────
