@@ -848,8 +848,8 @@ async function loadProds() {
   const _imgCount = prods.filter(p => p.image_b64).length;
   if (_imgCount !== _prodHashes.length) buildImgHashes();
   if(_mnModel) buildAiEmbeds(); // rebuild AI embeddings when products reload
-  // Load MobileNet if any products have stored embeddings (lazy — only when needed)
-  if(!_mnModel && prods.some(p => p.embeddings)){
+  // Load MobileNet whenever products have images (no pre-computed embeddings needed)
+  if(!_mnModel && prods.some(p => p.image_b64)){
     _loadMnModel().then(ok => {
       if(!ok) return;
       buildAiEmbeds().then(() => {
@@ -2240,9 +2240,9 @@ function startVisualLoop(video) {
 async function _loadMnModel(){
   if(_mnModel) return true;
   try{
-    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js');
-    _mnModel = await mobilenet.load({version:1, alpha:0.25});
+    _mnModel = await mobilenet.load({version:2, alpha:0.5});
     return true;
   }catch(e){ return false; }
 }
@@ -2301,7 +2301,7 @@ function startAiLoop(video){
           if(sim>bestSim){bestSim=sim;best=pe;}
         }
         const prod=best?prods.find(p=>p.id===best.id):null;
-        if(best&&bestSim>0.87){
+        if(best&&bestSim>0.82){
           _mnConf[best.id]=(_mnConf[best.id]||0)+1;
           if(prod) camStat('&#129302; AI: <strong>'+prod.name+'</strong> '+(bestSim*100).toFixed(0)+'%');
           if(_mnConf[best.id]>=2&&!isOnCooldown(best.id)){
