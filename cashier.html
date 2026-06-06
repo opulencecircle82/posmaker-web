@@ -2319,33 +2319,34 @@ async function buildAiEmbeds(){
     let srcs=[];
     try{const j=JSON.parse(p.image_b64);srcs=Array.isArray(j)?j:[p.image_b64];}catch{srcs=[p.image_b64];}
     const vecs=[];
+    camStat('&#129302; indexing '+p.name+'…');
     for(const b of srcs.slice(0,3)){
       if(!b) continue;
       try{
-        const img=new Image();
-        img.crossOrigin='anonymous';
+        // Try loading image — no crossOrigin for data URLs
         const src=b.startsWith('data:')?b:'data:image/jpeg;base64,'+b;
-        await new Promise((res,rej)=>{
-          img.onload=res; img.onerror=rej;
-          img.src=src;
-        });
-        if(!img.naturalWidth) continue;
+        const img=await new Promise((res,rej)=>{
+          const im=new Image();
+          im.onload=()=>res(im); im.onerror=rej; im.src=src;
+        }).catch(()=>null);
+        if(!img||!img.naturalWidth) continue;
         ctx.clearRect(0,0,224,224);
         ctx.drawImage(img,0,0,224,224);
-        const t=tf.tidy(()=>{
-          return _mnModel.infer(tf.browser.fromPixels(cv).expandDims(0),true);
-        });
+        const t=tf.tidy(()=>_mnModel.infer(tf.browser.fromPixels(cv).expandDims(0),true));
         const d=await t.data(); t.dispose();
         vecs.push(Array.from(d));
-      }catch(e){ console.warn('embed err',p.name,e); }
+      }catch(e){ console.warn('embed err',p.name,e.message); }
     }
     if(vecs.length){
-      // Also store color histogram from first image for hybrid scoring
       const colorFeats=_featuresFromCanvas(cv,224,224);
       _prodEmbeds.push({id:p.id,name:p.name,price:p.price,vecs,colorHist:colorFeats.colorHist});
+    } else {
+      console.warn('No embedding built for',p.name,'— image may have failed to load');
     }
   }
-  camStat('&#129302; AI ready: '+_prodEmbeds.length+' products indexed');
+  // Show which products are indexed by name
+  const names=_prodEmbeds.map(p=>p.name).join(', ');
+  camStat('&#129302; AI indexed: '+(_prodEmbeds.length?names:'none'));
 }
 
 function startAiLoop(video){
