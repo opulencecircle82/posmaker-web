@@ -1073,11 +1073,7 @@ function _pyWarmup() {
 function sqStatusUpdate() {
   const stat = document.getElementById('sqStatus');
   if (!stat || !_sqOpen) return;
-  const parts = ['🔖 barcode'];
-  if ('TextDetector' in window) parts.push('📝 text');
-  if (_prodHashes.length)       parts.push('🖼 visual(' + _prodHashes.length + ')');
-  if (VISION_URL)               parts.push('🐍 python');
-  stat.textContent = parts.join(' · ');
+  stat.textContent = _scanModes();
 }
 
 let _sqHitTimer = null;
@@ -1875,6 +1871,7 @@ let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = nul
 let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 0;
 let _visLoopId = null, _prodHashes = [], _visConf = {};
 let _aiLoopId = null, _mnModel = null, _prodEmbeds = [], _mnConf = {};
+let _tessWorker = null, _tessLoading = false, _tessLoopId = null;
 const SCAN_COOLDOWN = 1200;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
@@ -2038,16 +2035,39 @@ function _scanModes(){
   const hasAI = _prodEmbeds.length > 0;
   const hasPy = !!VISION_URL;
   const parts = ['&#127380; barcode'];
-  if(hasML) parts.push('&#128220; ML Kit text');
-  if(hasVis) parts.push('&#128247; visual ('+_prodHashes.length+')');
-  if(hasAI) parts.push('&#129302; AI ('+_prodEmbeds.length+')');
-  if(hasPy) parts.push('&#128013; Python ORB');
-  if(!hasML && !hasVis && !hasAI && !hasPy) parts.push('(upload product photos for visual detection)');
+  if(hasML) parts.push('&#128220; ML Kit');
+  else if(_tessWorker) parts.push('&#128269; OCR');
+  else if(_tessLoading) parts.push('&#128269; OCR…');
+  if(hasVis) parts.push('&#128247; visual('+_prodHashes.length+')');
+  if(hasAI) parts.push('&#129302; AI('+_prodEmbeds.length+')');
+  if(hasPy) parts.push('&#128013; Python');
   return parts.join(' + ');
 }
 
 function startTextLoop(video){
-  if(!('TextDetector' in window)) return;
+  if('TextDetector' in window){
+    _startNativeTextLoop(video);
+  } else {
+    _loadTesseract().then(w => {
+      if(w && scannerOpen) { _startTesseractLoop(video, _scanSession); camStat(_scanModes()); }
+    });
+  }
+}
+
+async function _loadTesseract(){
+  if(_tessWorker) return _tessWorker;
+  if(_tessLoading) return null;
+  _tessLoading = true;
+  camStat('&#128269; Loading OCR engine…');
+  try{
+    await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js');
+    _tessWorker = await Tesseract.createWorker('eng',1,{logger:()=>{}});
+    _tessLoading = false;
+    return _tessWorker;
+  }catch(e){ _tessLoading=false; return null; }
+}
+
+function _startNativeTextLoop(video){
   try{ _textDetector = new TextDetector(); }catch(_){ return; }
   const isMobile = /android|mobile|tablet/i.test(navigator.userAgent);
   const txtInterval = isMobile ? 2500 : 1200;
@@ -2079,15 +2099,44 @@ function startTextLoop(video){
   setTimeout(loop, 800);
 }
 
+function _startTesseractLoop(video, sess){
+  if(!_tessWorker) return;
+  const tc=document.createElement('canvas'); tc.width=320; tc.height=240;
+  const tctx=tc.getContext('2d');
+  async function loop(){
+    if(!scannerOpen||_scanSession!==sess){ _tessLoopId=null; return; }
+    if(video.readyState>=2&&video.videoWidth>0){
+      try{
+        tctx.drawImage(video,0,0,320,240);
+        const {data:{text}}=await _tessWorker.recognize(tc);
+        if(_scanSession!==sess) return;
+        if(text.trim()){
+          const m=matchTextToProduct(text);
+          if(m&&!isOnCooldown(m.id)){
+            setCooldown(m.id); addItem(m.id);
+            flashMatch(m.name,'&#128269; OCR');
+          }
+        }
+      }catch(_){}
+    }
+    _tessLoopId=setTimeout(loop,3000);
+  }
+  setTimeout(loop,1000);
+}
+
 function matchTextToProduct(ocrText){
   const norm=t=>t.toLowerCase().replace(/[^a-z0-9]/g,' ').trim();
   const ocrN=norm(ocrText);
-  let best=null;
+  let best=null, bestScore=0;
   for(const p of prods){
-    const pw=norm(p.name||'').split(/\s+/).filter(x=>x.length>=5);
-    if(pw.length && pw.every(w=>ocrN.includes(w))){
-      if(!best||p.name.length>best.name.length) best=p;
-    }
+    // SKU exact match
+    if(p.sku && ocrN.includes(norm(p.sku))) return p;
+    // Name: any word >= 4 chars, need 60% coverage
+    const pw=norm(p.name||'').split(/\s+/).filter(x=>x.length>=4);
+    if(!pw.length) continue;
+    const hits=pw.filter(w=>ocrN.includes(w)).length;
+    const score=hits/pw.length;
+    if(hits>0&&score>=0.6&&score>bestScore){ bestScore=score; best=p; }
   }
   return best;
 }
