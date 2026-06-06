@@ -834,7 +834,9 @@ async function loadProds() {
 
   buildCats();
   renderProds('All');
-  buildImgHashes(); // always rebuild so new product images are auto-detected
+  // Rebuild only if image count changed (new upload detected)
+  const _imgCount = prods.filter(p => p.image_b64).length;
+  if (_imgCount !== _prodHashes.length) buildImgHashes();
   if(_mnModel) buildAiEmbeds(); // rebuild AI embeddings when products reload
   _pyWarmup();
   // Load MobileNet if any products have stored embeddings (lazy — only when needed)
