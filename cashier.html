@@ -204,6 +204,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 
 /* ── CAMERA SCANNER ─────────────────────────────────────── */
 #camOverlay{position:fixed;bottom:60px;left:10px;z-index:9100;background:#111120;border:2px solid var(--accent);border-radius:10px;width:220px;box-shadow:0 6px 24px rgba(0,0,0,.75);overflow:hidden;visibility:hidden;pointer-events:none}
+#camOverlay.retail-docked{position:fixed;top:96px;left:0;bottom:auto;width:200px;border-radius:0 0 10px 0;border-left:none;border-top:none;box-shadow:2px 4px 16px rgba(0,0,0,.6)}
 .cam-hdr{display:flex;align-items:center;justify-content:space-between;padding:5px 9px;background:#191929;border-bottom:1px solid #252540}
 .cam-hdr-ttl{font-size:11px;font-weight:700;color:var(--accent)}
 .cam-cls{background:none;border:none;color:#888;cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
@@ -295,21 +296,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 <div class="cat-bar" id="catBar"></div>
 
 <div class="main">
-  <!-- Retail left panel: camera + search + category + products -->
+  <!-- Retail left panel: search + category + products (camera is docked floating scanner) -->
   <div class="retail-left" id="retailLeft">
-    <div class="rl-cam-box" onclick="toggleSquareScanner()">
-      <video id="sqVideo" autoplay muted playsinline></video>
-      <div class="scan-sq-line" id="sqScanLine"></div>
-      <div class="rl-cam-hit" id="sqHit">
-        <div class="rl-cam-hit-inner">
-          <div class="rl-cam-hit-name" id="sqHitName"></div>
-          <div class="rl-cam-hit-price" id="sqHitPrice"></div>
-        </div>
-      </div>
-      <div class="rl-cam-status" id="sqStatus">&#128247; Tap to start scanner</div>
-      <button class="rl-cam-toggle" id="rlCamToggle" onclick="event.stopPropagation();toggleSquareScanner()">&#9654;</button>
-    </div>
-    <div class="rl-search">
+    <div class="rl-search" style="margin-top:4px">
       <input class="search-inp" id="searchInp" type="text" placeholder="&#128269; Search..." oninput="searchProds(this.value)">
     </div>
     <div class="rl-label">Category</div>
@@ -596,6 +585,14 @@ function adaptCashierMode(bizType) {
 
   // Switch product grid: photo grid (restaurant) vs compact list (retail)
   document.getElementById('grid').style.display = isRestaurant ? '' : 'none';
+
+  // Dock floating scanner into left panel for retail, restore float for restaurant
+  const overlay = document.getElementById('camOverlay');
+  if (overlay) overlay.classList.toggle('retail-docked', IS_RETAIL);
+
+  // Hide camera button from header in retail (camera is always docked)
+  const btnCam = document.getElementById('btnCam');
+  if (btnCam) btnCam.style.display = IS_RETAIL ? 'none' : '';
 }
 
 function applyPosTheme(s) {
@@ -725,10 +722,8 @@ function showPOS(name) {
   updateNetStatus();
   syncOfflineQueue();
   startPing();
-  // Auto-open scanner only if camera permission is not already denied
-  const _tryAutoScan = () => {
-    if (!IS_RETAIL) { _openScanTimer = setTimeout(openScanner, 500); }
-  };
+  // Auto-open scanner (retail: docked in left panel; restaurant: floating)
+  const _tryAutoScan = () => { _openScanTimer = setTimeout(openScanner, 500); };
   if (navigator.permissions) {
     navigator.permissions.query({name:'camera'}).then(s => { if (s.state !== 'denied') _tryAutoScan(); }).catch(_tryAutoScan);
   } else { _tryAutoScan(); }
