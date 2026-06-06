@@ -847,7 +847,13 @@ async function loadProds() {
   // Rebuild only if image count changed (new upload detected)
   const _imgCount = prods.filter(p => p.image_b64).length;
   if (_imgCount !== _prodHashes.length) buildImgHashes();
-  if(_mnModel) buildAiEmbeds(); // rebuild AI embeddings when products reload
+  // Rebuild AI embeds only when image count changes (avoid unnecessary recompute)
+  if(_mnModel && _imgCount !== _prodEmbeds.length){
+    buildAiEmbeds().then(()=>{
+      const v=document.getElementById('camVideo');
+      if(scannerOpen&&v&&!_aiLoopId){ startAiLoop(v); camStat(_scanModes()); }
+    });
+  }
   // Load MobileNet whenever products have images (no pre-computed embeddings needed)
   if(!_mnModel && prods.some(p => p.image_b64)){
     _loadMnModel().then(ok => {
