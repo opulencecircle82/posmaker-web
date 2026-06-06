@@ -277,6 +277,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <span class="hdr-cashier" id="hdrCashier"></span>
   <button id="btnCam" onclick="toggleScanner()" title="Camera Scanner (barcode + AI visual)" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Camera scanner">&#128247;</button>
   <button id="btnSync" onclick="syncProds()" title="Refresh products" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Refresh products">&#128260;</button>
+  <button onclick="openCashierInbox()" title="Messages" style="position:relative;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Messages">
+    &#128172;<span id="cashierInboxBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:9px;border-radius:8px;padding:1px 5px;font-weight:700;min-width:16px;text-align:center"></span>
+  </button>
   <button class="btn-logout" onclick="doLogout()">Logout</button>
 </div>
 <div id="syncBar" style="display:none;background:#1a3a1a;color:#4ade80;font-size:12px;font-weight:600;padding:5px 16px;text-align:center;border-bottom:1px solid #2a5a2a"></div>
@@ -448,6 +451,19 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- ── CASHIER INBOX MODAL ── -->
+<div class="modal" id="mCashierInbox">
+  <div class="mbox" style="width:min(480px,96vw)">
+    <div class="mtitle">&#128172; Messages</div>
+    <div id="cashierInboxList" style="max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+      <div style="text-align:center;color:#555;padding:20px;font-size:12px">Loading...</div>
+    </div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeM('mCashierInbox')">Close</button>
+    </div>
   </div>
 </div>
 
@@ -779,6 +795,8 @@ function startPing() {
   if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
   _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); }, 30 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); });
+  checkCashierInbox();
+  setInterval(checkCashierInbox, 60000);
 }
 
 let _openScanTimer = null;
@@ -803,6 +821,51 @@ function showPOS(name) {
 async function doLogout() {
   // Show remittance popup first; actual logout happens after
   openRemitOnLogout();
+}
+
+// ── Cashier Inbox ────────────────────────────────────────────────────────────
+async function openCashierInbox() {
+  const list = document.getElementById('cashierInboxList');
+  list.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px">Loading...</div>';
+  document.getElementById('mCashierInbox').classList.add('show');
+  try {
+    const un = CASHIER?.username || '';
+    if (!un || !STORE_ID) { list.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px">Not logged in.</div>'; return; }
+    const { data, error } = await _sb.from('store_messages')
+      .select('*').eq('store_id', STORE_ID).eq('to_username', un)
+      .order('created_at', { ascending: false }).limit(50);
+    if (error) throw error;
+    await _sb.from('store_messages').update({ read: true })
+      .eq('store_id', STORE_ID).eq('to_username', un).eq('read', false).then(() => {});
+    document.getElementById('cashierInboxBadge').style.display = 'none';
+    if (!data?.length) {
+      list.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px">No messages.</div>';
+      return;
+    }
+    list.innerHTML = data.map(m => {
+      const dt = new Date(m.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      return `<div style="background:#1a1a2a;border:1px solid #252540;border-radius:10px;padding:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:12px;font-weight:700;color:#00b4d8">${m.from_name || 'Owner'}</span>
+          <span style="font-size:11px;color:#666">${dt}</span>
+        </div>
+        <div style="font-size:14px;color:#f0f0f8">${m.body}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="text-align:center;color:#ef4444;padding:20px;font-size:12px">${e.message}</div>`;
+  }
+}
+async function checkCashierInbox() {
+  if (!STORE_ID || !CASHIER?.username) return;
+  try {
+    const { count } = await _sb.from('store_messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('store_id', STORE_ID).eq('to_username', CASHIER.username).eq('read', false);
+    const badge = document.getElementById('cashierInboxBadge');
+    if (count > 0) { badge.textContent = count > 9 ? '9+' : count; badge.style.display = 'inline-block'; }
+    else badge.style.display = 'none';
+  } catch(_) {}
 }
 
 async function openRemitOnLogout() {

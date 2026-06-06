@@ -1,13 +1,15 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "date": "2026-06-06",
   "changes": [
+    "💬 Messages inbox — owner can message staff; staff see unread badge",
+    "🧾 Activity Log — receipt shows as button (View/Accept/Invalid)",
+    "✉️ Invalid receipt → auto-sends message to staff to resubmit",
     "💰 Cash remittance popup when cashier logs out",
     "📋 Manager receives & confirms remittance with description",
     "🔴 COH panel — confirmed cashiers show ₱0, pending shows amount",
     "📦 Add stock — shows cost price, deduct/deposit COH, receipt upload",
     "🤖 AI detection 2.5x faster — single inference, 800ms loop",
-    "🤖 Bulk Re-index AI button in Products",
     "🔑 Staff login fix — case-insensitive username"
   ]
 }

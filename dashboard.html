@@ -156,6 +156,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="sb-item" id="navProducts"  onclick="nav('products')"><span class="ico">&#127991;</span> <span id="navProductsLbl">Products</span></div>
     <div class="sb-item" onclick="nav('staff')"><span class="ico">&#128101;</span> Staff</div>
     <div class="sb-item" onclick="nav('activitylog')"><span class="ico">&#128203;</span> Activity Log</div>
+    <div class="sb-item" onclick="nav('messages')" id="sbMessages"><span class="ico">&#128172;</span> Messages <span id="msgUnreadBadge" style="display:none;margin-left:auto;font-size:10px;background:#ef4444;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
     <div class="sb-item" onclick="nav('salesreport')"><span class="ico">&#128202;</span> Sales Report</div>
     <div class="sb-item" onclick="nav('expenses')"><span class="ico">&#128176;</span> Other Expenses</div>
     <div class="sb-item" onclick="nav('settings')"><span class="ico">&#9881;</span> Settings</div>
@@ -387,8 +388,22 @@ input:checked + .slider:before{transform:translateX(18px)}
           </div>
         </div>
         <table>
-          <thead><tr><th>Time</th><th>Staff</th><th>Role</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
-          <tbody id="activityTbody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
+          <thead><tr><th>Time</th><th>Staff</th><th>Role</th><th>Action</th><th>Item</th><th>Details</th><th>Receipt</th></tr></thead>
+          <tbody id="activityTbody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MESSAGES -->
+    <div class="section" id="sec-messages">
+      <div class="tbl-wrap">
+        <div class="tbl-head">
+          <h3>&#128172; Staff Messages</h3>
+          <button class="btn btn-accent btn-sm" onclick="openCompose()">&#43; New Message</button>
+        </div>
+        <table>
+          <thead><tr><th>Time</th><th>To</th><th>Message</th><th>Status</th></tr></thead>
+          <tbody id="msgTbody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No messages yet.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -963,6 +978,41 @@ input:checked + .slider:before{transform:translateX(18px)}
   </div>
 </div>
 
+<!-- RECEIPT VIEWER MODAL -->
+<div class="modal" id="receiptModal">
+  <div class="mbox" style="width:min(500px,100%)">
+    <h3>&#129534; Receipt</h3>
+    <div style="text-align:center;margin-bottom:12px;background:var(--bg);border-radius:8px;padding:8px">
+      <img id="receiptImg" src="" style="max-width:100%;max-height:60vh;object-fit:contain;border-radius:6px">
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px" id="receiptMeta"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('receiptModal')">Close</button>
+      <button class="btn btn-danger btn-sm" onclick="invalidateReceipt()">&#10007; Invalid</button>
+      <button class="btn btn-accent btn-sm" onclick="acceptReceipt()">&#10003; Accept</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMPOSE MESSAGE MODAL -->
+<div class="modal" id="composeModal">
+  <div class="mbox" style="width:min(460px,100%)">
+    <h3>&#128172; Send Message to Staff</h3>
+    <div class="field">
+      <label>To</label>
+      <select id="msgTo"></select>
+    </div>
+    <div class="field">
+      <label>Message</label>
+      <textarea id="msgBody" rows="4" placeholder="Type your message..."></textarea>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('composeModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1158,7 +1208,7 @@ function _sig(ms = 25000) {
 })();
 
 // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',activitylog:'Activity Log',salesreport:'Sales Report',expenses:'Other Expenses',settings:'Settings',access:'Cashier Link',pos:'My POS Terminals'};
+const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',activitylog:'Activity Log',messages:'Staff Messages',salesreport:'Sales Report',expenses:'Other Expenses',settings:'Settings',access:'Cashier Link',pos:'My POS Terminals'};
 // ── Business-type adaptation ───────────────────────────────────────────────────
 const RESTAURANT_BIZ = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
   'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
@@ -1222,6 +1272,7 @@ function nav(id) {
   if (id === 'inventory')  loadInventory();
   if (id === 'staff')        { loadStaff(); updateMgrLink(); }
   if (id === 'activitylog')  loadActivityLog();
+  if (id === 'messages')     loadMessages();
   if (id === 'categories') { loadDbCategories().then(() => loadProducts().then(loadCategories)); switchCatTab(catTab); }
   if (id === 'expenses')   loadExpenses('monthly');
   if (id === 'settings')   populatePriceCatFilter();
@@ -2533,6 +2584,7 @@ async function loadActivityLog() {
   }
   renderActivityLog();
 }
+const _receiptCache = {};
 function renderActivityLog() {
   const tbody = document.getElementById('activityTbody');
   if (!tbody) return;
@@ -2541,7 +2593,7 @@ function renderActivityLog() {
   let rows = _activityLogs;
   if (actorF)  rows = rows.filter(l => (l.actor_name || '').trim() === actorF.trim());
   if (actionF) rows = rows.filter(l => l.action === actionF);
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan=”6” style=”text-align:center;color:var(--muted);padding:24px”>No activity found.</td></tr>'; return; }
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan=”7” style=”text-align:center;color:var(--muted);padding:24px”>No activity found.</td></tr>'; return; }
   const actionLabel = { ADD_STOCK: '+ Add Stock', EDIT_ITEM: 'Edit Item', ADD_ITEM: '+ New Item', SALE: '💰 Sale', REMITTANCE: '🪙 Remittance' };
   const actionColor = {
     ADD_STOCK:   'background:#0d2e1f;color:#10b981',
@@ -2553,9 +2605,20 @@ function renderActivityLog() {
   tbody.innerHTML = rows.map(l => {
     const dt = new Date(l.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
     let details = '';
-    try { if (l.details) { const d = JSON.parse(l.details); details = Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(', '); } }
-    catch(_) { details = l.details || ''; }
+    let receiptB64 = null;
+    try {
+      if (l.details) {
+        const d = JSON.parse(l.details);
+        receiptB64 = d.receipt_b64 || null;
+        const filtered = Object.entries(d).filter(([k]) => k !== 'receipt_b64');
+        details = filtered.map(([k,v]) => `${k}: ${v}`).join(', ');
+      }
+    } catch(_) { details = l.details || ''; }
+    if (receiptB64) _receiptCache[l.id] = { b64: receiptB64, actorName: l.actor_name || '' };
     const roleColor = l.actor_role === 'manager' ? 'background:#1a1a3a;color:#818cf8' : 'background:#0a2a1a;color:#10b981';
+    const receiptCell = receiptB64
+      ? `<button class=”btn btn-ghost btn-sm” onclick=”viewReceipt('${l.id}')” style=”font-size:12px”>&#129534; View</button>`
+      : '<span style=”color:var(--dim)”>—</span>';
     return `<tr>
       <td style=”color:var(--muted);white-space:nowrap”>${dt}</td>
       <td style=”font-weight:600”>${l.actor_name || '—'}</td>
@@ -2563,9 +2626,92 @@ function renderActivityLog() {
       <td><span class=”badge” style=”${actionColor[l.action]||'background:#0a1a2a;color:#8888aa'}”>${actionLabel[l.action] || l.action}</span></td>
       <td>${l.target_name || '—'}</td>
       <td style=”color:var(--muted);font-size:12px”>${details}</td>
+      <td>${receiptCell}</td>
     </tr>`;
   }).join('');
 }
+// ── Receipt Viewer ──────────────────────────────────────────────────────────
+let _currentReceiptLogId = null;
+function viewReceipt(logId) {
+  const r = _receiptCache[logId];
+  if (!r) return;
+  _currentReceiptLogId = logId;
+  document.getElementById('receiptImg').src = r.b64;
+  document.getElementById('receiptMeta').textContent = 'Uploaded by: ' + (r.actorName || '—');
+  document.getElementById('receiptModal').classList.add('show');
+}
+function acceptReceipt() {
+  showToast('Receipt accepted.');
+  closeModal('receiptModal');
+}
+function invalidateReceipt() {
+  const r = _receiptCache[_currentReceiptLogId];
+  closeModal('receiptModal');
+  openCompose(r?.actorName, 'Please validate your uploaded receipt — it could not be verified. Kindly re-upload a clear photo of the receipt.');
+}
+
+// ── Staff Messaging ─────────────────────────────────────────────────────────
+function openCompose(toName, body) {
+  const sel = document.getElementById('msgTo');
+  sel.innerHTML = '';
+  (allStaff || []).forEach(s => {
+    const o = new Option(s.full_name + ' (' + s.role + ')', s.username);
+    if (toName && (s.full_name === toName || s.username === toName)) o.selected = true;
+    sel.add(o);
+  });
+  document.getElementById('msgBody').value = body || '';
+  document.getElementById('composeModal').classList.add('show');
+}
+async function sendMessage() {
+  const sel = document.getElementById('msgTo');
+  const toUsername = sel.value;
+  const body = document.getElementById('msgBody').value.trim();
+  if (!toUsername || !body) { showToast('Please fill in all fields.', true); return; }
+  const toStaff = (allStaff || []).find(s => s.username === toUsername);
+  const { error } = await _sb.from('store_messages').insert({
+    store_id: STORE.id,
+    from_name: STORE.name || 'Owner',
+    from_role: 'owner',
+    to_username: toUsername,
+    to_name: toStaff?.full_name || toUsername,
+    body,
+    read: false,
+  });
+  if (error) { showToast(error.message, true); return; }
+  closeModal('composeModal');
+  showToast('Message sent to ' + (toStaff?.full_name || toUsername) + '.');
+  if (document.getElementById('sec-messages').classList.contains('active')) loadMessages();
+}
+async function loadMessages() {
+  const tbody = document.getElementById('msgTbody');
+  if (!tbody || !STORE) return;
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr>';
+  try {
+    const { data, error } = await _sb.from('store_messages')
+      .select('*').eq('store_id', STORE.id).eq('from_role', 'owner')
+      .order('created_at', { ascending: false }).limit(100);
+    if (error) throw error;
+    if (!data?.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No messages sent yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(m => {
+      const dt = new Date(m.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      const readBadge = m.read
+        ? '<span class="badge" style="background:#0a2a1a;color:#10b981">&#10003; Read</span>'
+        : '<span class="badge" style="background:#2a1a0a;color:#f59e0b">Unread</span>';
+      return `<tr>
+        <td style="color:var(--muted);white-space:nowrap;font-size:12px">${dt}</td>
+        <td style="font-weight:600">${m.to_name || m.to_username}</td>
+        <td style="color:#ccc;font-size:13px">${m.body}</td>
+        <td>${readBadge}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px"><div style="color:#ef4444;margin-bottom:8px">${e.message}</div><small style="color:var(--muted)">Make sure the store_messages table exists in Supabase.</small></td></tr>`;
+  }
+}
+
 function _updateLowStockBadge(count) {
   const b = document.getElementById('lowStockBadge');
   if (!b) return;
