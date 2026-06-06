@@ -718,8 +718,9 @@ function showPOS(name) {
   CASHIER_NAME = name;
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('hdrCashier').textContent = '\u{1F464} ' + name;
-  // Auto-reload products every 3 min so new images are picked up automatically
-  setInterval(() => loadProds().catch(() => {}), 3 * 60 * 1000);
+  // Auto-reload products every 10 min — only register once
+  if (!window._prodReloadTimer)
+    window._prodReloadTimer = setInterval(() => loadProds().catch(() => {}), 10 * 60 * 1000);
   redrawCart();
   updateNetStatus();
   syncOfflineQueue();
@@ -838,7 +839,6 @@ async function loadProds() {
   const _imgCount = prods.filter(p => p.image_b64).length;
   if (_imgCount !== _prodHashes.length) buildImgHashes();
   if(_mnModel) buildAiEmbeds(); // rebuild AI embeddings when products reload
-  _pyWarmup();
   // Load MobileNet if any products have stored embeddings (lazy — only when needed)
   if(!_mnModel && prods.some(p => p.embeddings)){
     _loadMnModel().then(ok => {
