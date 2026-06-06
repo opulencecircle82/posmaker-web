@@ -55,6 +55,7 @@ input:focus{border-color:var(--accent)}
 .act-edit{background:#0d1a2e;color:#00b4d8}
 .act-remit{background:#2e1a0d;color:#f59e0b}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;pointer-events:none}
+button{cursor:pointer}
 [data-tip]{position:relative}
 [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#1e1e35;color:#f0f0f8;border:1px solid #3a3a5a;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:400;white-space:normal;width:220px;line-height:1.5;z-index:999;pointer-events:none;opacity:0;transition:opacity .18s;text-align:left}
 [data-tip]::before{content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#3a3a5a;z-index:999;pointer-events:none;opacity:0;transition:opacity .18s}
@@ -70,11 +71,11 @@ input:focus{border-color:var(--accent)}
   </div>
   <div style="display:flex;align-items:center;gap:12px">
     <span style="font-size:13px;color:var(--muted)">&#128100; <strong id="mgrNameDisp" style="color:var(--text)"></strong></span>
-    <button class="btn btn-ghost btn-sm" onclick="openMsgInbox()" style="position:relative;padding:6px 10px">
+    <button class="btn btn-ghost btn-sm" data-tip="Buksan ang inbox — tingnan ang mga mensahe mula sa owner." onclick="openMsgInbox()" style="position:relative;padding:6px 10px">
       &#128172;
       <span id="mgrInboxBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:9px;border-radius:8px;padding:1px 5px;font-weight:700;min-width:16px;text-align:center"></span>
     </button>
-    <button class="btn btn-ghost btn-sm" onclick="doLogout()">Logout</button>
+    <button class="btn btn-ghost btn-sm" data-tip="I-logout ang iyong account." onclick="doLogout()">Logout</button>
   </div>
 </div>
 
@@ -84,10 +85,10 @@ input:focus{border-color:var(--accent)}
   <div id="lowStockAlert"></div>
 
   <div class="tabs">
-    <button class="tab-btn active" id="tabInv" onclick="showTab('inv')">&#128230; Inventory</button>
-    <button class="tab-btn" id="tabLog" onclick="showTab('log')">&#128203; Activity Log</button>
-    <button class="tab-btn" id="tabSales" onclick="showTab('sales')">&#128200; Sales</button>
-    <button class="tab-btn" id="tabRemit" onclick="showTab('remit')">&#128176; Cash Remit <span id="remitBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:2px;vertical-align:middle"></span></button>
+    <button class="tab-btn active" id="tabInv" data-tip="Tingnan at pamahalaan ang lahat ng stocks at items." onclick="showTab('inv')">&#128230; Inventory</button>
+    <button class="tab-btn" id="tabLog" data-tip="Makita ang lahat ng ginawa mo dati — add stock, edit item, atbp." onclick="showTab('log')">&#128203; Activity Log</button>
+    <button class="tab-btn" id="tabSales" data-tip="Tingnan ang mga benta ng store — daily, weekly, o monthly." onclick="showTab('sales')">&#128200; Sales</button>
+    <button class="tab-btn" id="tabRemit" data-tip="Makita ang cash remittances ng mga cashier. Pula = may naghihintay na kumpirmasyon." onclick="showTab('remit')">&#128176; Cash Remit <span id="remitBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:2px;vertical-align:middle"></span></button>
   </div>
 
   <!-- INVENTORY -->
@@ -172,7 +173,7 @@ input:focus{border-color:var(--accent)}
     <div class="card">
       <div class="card-title">
         Cash Remittances
-        <button class="btn btn-accent btn-sm" onclick="openRemitModal()">&#43; Record</button>
+        <button class="btn btn-accent btn-sm" data-tip="Mag-record ng bagong cash remittance nang mano-mano." onclick="openRemitModal()">&#43; Record</button>
       </div>
       <!-- Filters -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
@@ -203,7 +204,7 @@ input:focus{border-color:var(--accent)}
   <div class="card" style="padding:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
       <div style="font-weight:700;font-size:14px">&#128181; Cash on Hand</div>
-      <button onclick="loadCashSummary()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1" title="Refresh">&#8635;</button>
+      <button data-tip="I-refresh ang Cash on Hand summary." onclick="loadCashSummary()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1">&#8635;</button>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="cashSummaryDate"></div>
     <div id="cashSummary">
@@ -462,8 +463,8 @@ function renderInv(items){
       <td style="color:var(--muted)">${i.unit||'—'}</td>
       <td><span class="badge ${sCls}">${sTxt}</span></td>
       <td style="white-space:nowrap;display:flex;gap:4px;padding:8px">
-        <button class="btn btn-accent btn-sm" onclick="openAddStock('${i.id}')">+Add</button>
-        <button class="btn btn-ghost btn-sm" onclick="openEditItem('${i.id}')">Edit</button>
+        <button class="btn btn-accent btn-sm" data-tip="Magdagdag ng stocks para sa item na ito." onclick="openAddStock('${i.id}')">+Add</button>
+        <button class="btn btn-ghost btn-sm" data-tip="I-edit ang pangalan, category, unit, o low-stock threshold ng item na ito." onclick="openEditItem('${i.id}')">Edit</button>
       </td>
     </tr>`;
   }).join('');
@@ -932,7 +933,7 @@ function renderRemit() {
     const date    = new Date(r.shift_date + 'T00:00:00').toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
     const created = new Date(r.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     const descCell = isPending
-      ? `<button onclick="openConfirmRemit('${r.id}')" class="btn btn-sm" style="background:#f59e0b;color:#09090f;font-weight:700">&#10003; Receive</button>`
+      ? `<button onclick="openConfirmRemit('${r.id}')" class="btn btn-sm" data-tip="I-confirm at tanggapin ang remittance ng cashier na ito." style="background:#f59e0b;color:#09090f;font-weight:700">&#10003; Receive</button>`
       : `<span style="color:var(--muted);font-size:12px">${r.description||'—'}</span>`;
     return `<tr style="${isPending ? 'background:#1a1200;' : ''}">
       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${date}<div style="font-size:11px">${created}</div></td>
