@@ -684,7 +684,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div id="prodImgHint" style="color:var(--dim);font-size:12px;padding:4px 0">Up to 4 photos from different angles — better visual detection.</div>
       <input type="file" id="prodImgInput" accept="image/*" style="display:none" onchange="handleProdImg(this)">
     </div>
-    <div class="field"><label>Product Name</label><input id="pName" type="text" placeholder="e.g. Burger"></div>
+    <div class="field"><label id="pNameLbl">Product Name</label><input id="pName" type="text" placeholder="e.g. Burger"></div>
     <input type="hidden" id="pSku" value="">
     <div class="row2">
       <div class="field">
@@ -2231,7 +2231,9 @@ function _bizPlaceholder(field) {
 function openProdModal(p) {
   if(typeof p === 'string') p = allProds.find(x => x.id === p) || null;
   if (!IS_PRO && !p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
-  document.getElementById('prodModalTitle').textContent=p?'Edit Product':'Add Product';
+  const isServiceBiz = SERVICE_BIZ.has(STORE?.business_type || '');
+  document.getElementById('prodModalTitle').textContent = p ? (isServiceBiz?'Edit Service':'Edit Product') : (isServiceBiz?'Add Service':'Add Product');
+  document.getElementById('pNameLbl').textContent = isServiceBiz ? 'Service Name' : 'Product Name';
   document.getElementById('prodId').value=p?p.id:'';
   document.getElementById('pName').placeholder = _bizPlaceholder('prod');
   document.getElementById('pName').value=p?p.name:'';
