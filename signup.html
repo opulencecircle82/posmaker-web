@@ -41,10 +41,10 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
   <div class="logo">POS<span>Maker</span></div>
   <div class="card">
 
-    <!-- STEP 1: account (email + full name + password) -->
+    <!-- STEP 1: account (email + full name, passwordless) -->
     <div id="stepAccount">
       <h1>Create your account</h1>
-      <p class="sub">Enter your details below. We'll send you a confirmation link — once you click it, you'll set up your store and can log in anytime with your email and password.</p>
+      <p class="sub">Enter your email and full name. We'll send you a confirmation link — once you click it, you'll set your password and finish setting up your store.</p>
       <div class="field">
         <label>Full Name</label>
         <input id="fullName" type="text" placeholder="e.g. Juan dela Cruz" autocomplete="name">
@@ -52,14 +52,6 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
       <div class="field">
         <label>Your Email</label>
         <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <input id="password" type="password" placeholder="At least 6 characters" autocomplete="new-password">
-      </div>
-      <div class="field">
-        <label>Confirm Password</label>
-        <input id="password2" type="password" placeholder="Re-enter your password" autocomplete="new-password">
       </div>
       <div class="err" id="errAccount"></div>
       <button class="btn" id="btnAccount" onclick="doCreateAccount()">Create Account →</button>
@@ -78,6 +70,14 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
       <h1>Set up your store</h1>
       <p class="sub" id="subMsg">You're verified! Just a few more details and your POS will be ready.</p>
 
+      <div class="field">
+        <label>Set a Password</label>
+        <input id="password" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input id="password2" type="password" placeholder="Re-enter your password" autocomplete="new-password">
+      </div>
       <div class="field">
         <label>Store Name</label>
         <input id="storeName" type="text" placeholder="e.g. Jollibee Taguig" autocomplete="organization">
@@ -146,49 +146,41 @@ function showStep(step) {
   document.getElementById('stepStore').style.display   = step === 'store'   ? '' : 'none';
 }
 
-// STEP 1 → create the auth account with email + password; Supabase sends a confirmation email if enabled
+// STEP 1 → create the auth account; Supabase sends a confirmation email if enabled
+// Passwordless: send a magic link to the email, carrying the full name as user metadata
 async function doCreateAccount() {
   const fullName = document.getElementById('fullName').value.trim();
   const email    = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value;
-  const password2 = document.getElementById('password2').value;
   const errEl    = document.getElementById('errAccount');
   const btn      = document.getElementById('btnAccount');
 
   errEl.textContent = '';
   if (!fullName)            { errEl.textContent = 'Full name is required.'; return; }
   if (!email.includes('@')) { errEl.textContent = 'Please enter a valid email address.'; return; }
-  if (password.length < 6)  { errEl.textContent = 'Password must be at least 6 characters.'; return; }
-  if (password !== password2) { errEl.textContent = 'Passwords do not match.'; return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Sending confirmation…';
 
-  const { data: signUpData, error: authErr } = await _sb.auth.signUp({
+  const { error: authErr } = await _sb.auth.signInWithOtp({
     email,
-    password,
     options: {
       emailRedirectTo: location.origin + location.pathname,
-      data: { full_name: fullName }
+      data: { full_name: fullName },
+      shouldCreateUser: true
     }
   });
 
   btn.disabled = false; btn.textContent = 'Create Account →';
   if (authErr) { errEl.textContent = authErr.message; return; }
 
-  // If "Confirm email" is disabled in Supabase, signUp() returns an active session
-  // right away — skip the email step and go straight to store setup.
-  if (signUpData && signUpData.session) {
-    showStep('store');
-    return;
-  }
-
   document.getElementById('confirmEmail').textContent = email;
   showStep('confirm');
 }
 
-// STEP 3 → create the store using the now-confirmed session
+// STEP 3 → set the account password and create the store using the now-confirmed session
 async function doCreateStore() {
+  const password  = document.getElementById('password').value;
+  const password2 = document.getElementById('password2').value;
   const storeName = document.getElementById('storeName').value.trim();
   const bizType   = document.getElementById('bizType').value;
   const currency  = document.getElementById('currency').value.trim() || '₱';
@@ -197,6 +189,8 @@ async function doCreateStore() {
   const btn       = document.getElementById('btnStore');
 
   errEl.textContent = '';
+  if (password.length < 6)    { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if (password !== password2) { errEl.textContent = 'Passwords do not match.'; return; }
   if (!storeName) { errEl.textContent = 'Store name is required.'; return; }
   if (!bizType)   { errEl.textContent = 'Please select a business type.'; return; }
 
@@ -210,6 +204,14 @@ async function doCreateStore() {
     return;
   }
   const userId = session.user.id;
+
+  // Set the password on this account so it can be used to log in later
+  const { error: pwErr } = await _sb.auth.updateUser({ password });
+  if (pwErr) {
+    errEl.textContent = pwErr.message;
+    btn.disabled = false; btn.textContent = 'Create Store & Continue →';
+    return;
+  }
 
   // Check if this user already has a store
   const { data: existing } = await _sb.from('stores').select('id').eq('owner_id', userId).single();
