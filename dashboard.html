@@ -1576,7 +1576,8 @@ async function loadDashboard() {
     // Low stock alert
     const { data: invForAlert } = await _sb.from('inventory_items')
       .select('name,unit,stock,low_stock_threshold').eq('store_id', STORE.id).abortSignal(_sig(30000));
-    const lowItems = (invForAlert || []).filter(i => parseFloat(i.stock ?? 0) <= parseFloat(i.low_stock_threshold ?? 5));
+    const _isServiceBizForAlert = TRUE_SERVICE_BIZ.has(STORE?.business_type || '');
+    const lowItems = (invForAlert || []).filter(i => !(_isServiceBizForAlert && parseFloat(i.stock ?? 0) === 0) && parseFloat(i.stock ?? 0) <= parseFloat(i.low_stock_threshold ?? 5));
     const alertEl = document.getElementById('lowStockAlert');
     if (lowItems.length) {
       document.getElementById('lowStockList').textContent = lowItems.slice(0,5).map(i=>`${i.name} (${i.stock??0} ${i.unit||'pc'})`).join(', ') + (lowItems.length>5?` +${lowItems.length-5} more`:'');
@@ -3120,12 +3121,14 @@ function filterInv() {
 function renderInv(items) {
   const tbody=document.getElementById('invTbody');
   if(!items.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No items. Click + Add Item.</td></tr>';return;}
+  const isServiceBiz = TRUE_SERVICE_BIZ.has(STORE?.business_type || '');
   tbody.innerHTML=items.map(i=>{
     const stock=parseFloat(i.stock??0);
     const thresh=parseFloat(i.low_stock_threshold??5);
-    const out=stock===0;
-    const low=!out&&stock<=thresh;
-    const badge=out?'<span class="badge" style="background:#2a0a0a;color:#ef4444">Out of Stock</span>':low?`<span class="badge" style="background:#2a1a0a;color:#f59e0b">Low</span>`:'<span class="badge bg-cash">In Stock</span>';
+    const unlimited=isServiceBiz&&stock===0;
+    const out=!unlimited&&stock===0;
+    const low=!out&&!unlimited&&stock<=thresh;
+    const badge=unlimited?'<span class="badge bg-cash">Unlimited</span>':out?'<span class="badge" style="background:#2a0a0a;color:#ef4444">Out of Stock</span>':low?`<span class="badge" style="background:#2a1a0a;color:#f59e0b">Low</span>`:'<span class="badge bg-cash">In Stock</span>';
     const rs=out?'background:rgba(239,68,68,.04)':low?'background:rgba(245,158,11,.04)':'';
     return `<tr style="${rs}">
       <td style="font-family:monospace;font-size:12px;color:var(--muted)">${i.sku||'&#8212;'}</td>
@@ -3134,9 +3137,10 @@ function renderInv(items) {
       <td style="color:var(--muted)">${i.unit||'pc'}</td>
       <td style="color:var(--muted)">${CUR}${parseFloat(i.cost_price||0).toFixed(2)}</td>
       <td><div style="display:flex;align-items:center;gap:4px">
+        ${unlimited ? '<span style="min-width:32px;text-align:center;font-weight:700;color:var(--muted)">&#8734;</span>' : `
         <button class="btn btn-ghost btn-sm" style="padding:3px 8px" onclick="adjInvStock('${i.id}',-1)">&#8722;</button>
         <span style="min-width:32px;text-align:center;font-weight:700;color:${out?'#ef4444':low?'#f59e0b':'var(--text)'}">${stock}</span>
-        <button class="btn btn-ghost btn-sm" style="padding:3px 8px" onclick="adjInvStock('${i.id}',1)">+</button>
+        <button class="btn btn-ghost btn-sm" style="padding:3px 8px" onclick="adjInvStock('${i.id}',1)">+</button>`}
       </div></td>
       <td>${badge}</td>
       <td style="white-space:nowrap">

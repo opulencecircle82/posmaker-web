@@ -621,6 +621,14 @@ const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery
 // Business types that track customers by chair instead of table, and skip the camera scanner
 const CHAIR_TYPES = new Set(['Salon / Barbershop']);
 
+// Service businesses where a linked supply showing 0 stock means "unlimited" (labor-based, not stock-limited)
+const UNLIMITED_STOCK_TYPES = new Set(['Salon / Barbershop','Laundry','Printing / Photocopy']);
+function _resolveSupplyStock(rawStock, useQty) {
+  const raw = rawStock || 0;
+  if (UNLIMITED_STOCK_TYPES.has(STORE.business_type) && raw === 0) return Infinity;
+  return Math.floor(raw / (useQty || 1));
+}
+
 function setStoreUI() {
   document.getElementById('loginTitle').textContent = STORE.name;
   document.getElementById('taxLabel').textContent   = `VAT (${STORE.tax_rate}%)`;
@@ -1044,14 +1052,17 @@ async function loadProds() {
           const invId = typeof link === 'string' ? link : link.id;
           const useQty = typeof link === 'object' ? (link.qty || 1) : 1;
           const inv = invById[invId];
-          if (inv) eff = Math.min(eff, Math.floor((inv.stock || 0) / useQty));
+          if (inv) eff = Math.min(eff, _resolveSupplyStock(inv.stock, useQty));
         }
         if (eff !== Infinity) { p.stock = eff; p._invResolved = true; }
       } else if (!(p.stock > 0)) {
         const key = (p.name || '').toLowerCase().trim();
         const skuKey = (p.sku || '').toLowerCase().trim();
         const inv = invByName[key] || (skuKey ? invByName[skuKey] : null);
-        if (inv) { p.stock = Math.floor(inv.stock || 0); p._invResolved = true; p._autoInvLink = inv.id; }
+        if (inv) {
+          const resolved = _resolveSupplyStock(inv.stock, 1);
+          if (resolved !== Infinity) { p.stock = resolved; p._invResolved = true; p._autoInvLink = inv.id; }
+        }
       }
     });
   } catch (_) {}
@@ -1156,7 +1167,9 @@ function showLowStockAlert(items) {
   const bar = document.getElementById('lowStockBar');
   const container = document.getElementById('lowStockItems');
   if (!bar || !container) return;
+  const unlimitedBiz = UNLIMITED_STOCK_TYPES.has(STORE.business_type);
   const low = items.filter(i => {
+    if (unlimitedBiz && (i.stock || 0) === 0) return false; // 0 = unlimited for service supplies
     const thresh = i.low_stock_threshold != null ? i.low_stock_threshold : 5;
     return i.stock <= thresh;
   });
@@ -1200,7 +1213,7 @@ function renderRetailList(list) {
         const sc     = stockClass(stock);
         const unit   = p.unit || 'pc';
         const sku    = p.sku  || '';
-        const sLabel = oos ? 'Out' : (stock % 1 === 0 ? stock : stock.toFixed(1)) + ' ' + unit;
+        const sLabel = oos ? 'Out' : !isFinite(stock) ? 'Unlimited' : (stock % 1 === 0 ? stock : stock.toFixed(1)) + ' ' + unit;
         return `
         <div class="r-card${oos?' out-of-stock':''}" id="rcard_${p.id}" onclick="${oos?'void 0':'addProductDirect(\''+p.id+'\')'}">
           <div class="r-card-name">${p.name}</div>
