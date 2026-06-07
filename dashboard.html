@@ -1230,9 +1230,12 @@ function adaptDashboardToBizType(bizType) {
   } else if (isService) {
     document.getElementById('navOrdersLbl').textContent    = 'Transactions';
     document.getElementById('navProductsLbl').textContent  = 'Services & Prices';
-    document.getElementById('navInventoryLbl').textContent = 'My Supplies';
-    if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = 'My Supplies';
-    if (document.getElementById('invSecTitle')) document.getElementById('invSecTitle').firstChild.textContent = 'My Supplies ';
+    document.getElementById('navInventoryLbl').textContent = 'My Services';
+    if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = 'My Services';
+    if (document.getElementById('invSecTitle')) document.getElementById('invSecTitle').firstChild.textContent = 'My Services ';
+    SECTION_TITLES.inventory = 'My Services';
+    if (document.getElementById('topbarTitle') && document.getElementById('topbarTitle').textContent === 'Inventory')
+      document.getElementById('topbarTitle').textContent = 'My Services';
     if (document.getElementById('invSecSub'))   document.getElementById('invSecSub').textContent = '(used for your services)';
   } else {
     // Restaurant — defaults already correct
