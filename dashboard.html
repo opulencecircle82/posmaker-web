@@ -296,7 +296,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="section" id="sec-inventory">
       <div class="tbl-wrap">
         <div class="tbl-head" style="flex-wrap:wrap;gap:8px">
-          <h3>Inventory <span style="font-size:11px;color:var(--muted);font-weight:400">(raw materials &amp; supplies)</span></h3>
+          <h3 id="invSecTitle">Inventory <span id="invSecSub" style="font-size:11px;color:var(--muted);font-weight:400">(raw materials &amp; supplies)</span></h3>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input class="search" id="invSearch" placeholder="Search..." oninput="filterInv()" style="width:130px">
             <select class="search" id="invCatFilter" onchange="filterInv()" style="width:130px"><option value="">All Categories</option></select>
@@ -1232,6 +1232,8 @@ function adaptDashboardToBizType(bizType) {
     document.getElementById('navProductsLbl').textContent  = 'Services & Prices';
     document.getElementById('navInventoryLbl').textContent = 'Supplies';
     if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = 'Supplies';
+    if (document.getElementById('invSecTitle')) document.getElementById('invSecTitle').firstChild.textContent = 'Supplies ';
+    if (document.getElementById('invSecSub'))   document.getElementById('invSecSub').textContent = '(used for your services)';
   } else {
     // Restaurant — defaults already correct
     document.getElementById('navProductsLbl').textContent  = 'Menu Items';
