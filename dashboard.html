@@ -796,6 +796,13 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div id="invQcResult" style="margin-top:6px;font-size:13px;color:#00b4d8;font-weight:600;min-height:18px"></div>
       </div>
     </div>
+    <div class="field" id="invServiceStockField" style="display:none">
+      <label>Stock Qty</label>
+      <input id="invServiceStock" type="number" min="0" step="1" placeholder="e.g. 20" oninput="document.getElementById('invStock').value = this.value || 0">
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--muted);font-weight:400;cursor:pointer">
+        <input type="checkbox" id="invServiceUnlimited" onchange="toggleServiceUnlimitedStock()" style="width:auto"> Unlimited (don't track stock or notify me)
+      </label>
+    </div>
     <div class="field" id="invServiceCostField" style="display:none">
       <label>Cost <span style="color:var(--dim);font-weight:400">(optional — your cost to provide this)</span></label>
       <input id="invServiceCost" type="number" min="0" step="0.01" placeholder="e.g. 50" oninput="document.getElementById('invCost').value = this.value || 0">
@@ -2311,6 +2318,13 @@ function handleProdImg(input){
   reader.readAsDataURL(file);
   input.value='';
 }
+function toggleServiceUnlimitedStock(){
+  const chk = document.getElementById('invServiceUnlimited').checked;
+  const inp = document.getElementById('invServiceStock');
+  inp.disabled = chk;
+  if (chk) inp.value = '';
+  document.getElementById('invStock').value = chk ? 0 : (inp.value || 0);
+}
 function handleInvImg(input){
   const file=input.files[0];if(!file)return;
   if(_invPendingImgs.length>=4){showToast('Max 4 photos.',true);return;}
@@ -3191,6 +3205,15 @@ async function openInvModal(item){
   document.getElementById('invLowStockField').style.display = isServiceBiz ? 'none' : '';
   document.getElementById('invServiceCostField').style.display = isServiceBiz ? '' : 'none';
   document.getElementById('invServiceCost').value = item ? (item.cost_price || '') : '';
+  document.getElementById('invServiceStockField').style.display = isServiceBiz ? '' : 'none';
+  if (isServiceBiz) {
+    const svcStock = item ? (item.stock ?? 0) : 0;
+    const unlimited = svcStock === 0;
+    document.getElementById('invServiceUnlimited').checked = unlimited;
+    document.getElementById('invServiceStock').value = unlimited ? '' : svcStock;
+    document.getElementById('invLowStock').value = item ? (item.low_stock_threshold ?? 5) : 5;
+    toggleServiceUnlimitedStock();
+  }
   document.getElementById('invItemId').value=item?item.id:'';
   document.getElementById('invName').placeholder = _bizPlaceholder('inv');
   document.getElementById('invName').value=item?item.name:'';
