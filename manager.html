@@ -286,6 +286,25 @@ button{cursor:pointer}
   </div>
 </div>
 
+<div class="modal" id="reuploadReceiptModal">
+  <div class="mbox" style="width:min(440px,100%)">
+    <h3>&#128247; Upload Receipt Again</h3>
+    <input type="hidden" id="ruLogId">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Sinabi ng owner na invalid ang resibo na in-upload mo para sa <strong id="ruItemName" style="color:var(--text)"></strong>. Mag-upload ng bagong malinaw na larawan ng resibo.</p>
+    <div class="field">
+      <input id="ruReceipt" type="file" accept="image/*" onchange="previewReuploadReceipt()" style="font-size:12px;padding:8px">
+      <div id="ruReceiptPreview" style="display:none;margin-top:8px;text-align:center">
+        <img id="ruReceiptImg" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:#10b981;margin-top:4px">&#10003; Receipt attached</div>
+      </div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('reuploadReceiptModal')">Cancel</button>
+      <button class="btn btn-accent" id="ruSaveBtn" onclick="submitReuploadReceipt()">Upload</button>
+    </div>
+  </div>
+</div>
+
 <!-- EDIT ITEM MODAL -->
 <div class="modal" id="editItemModal">
   <div class="mbox">
@@ -867,10 +886,33 @@ async function checkMgrInbox() {
 // ── Cash Remittance ─────────────────────────────────────────────────────────
 let _remitData = [];
 let _remitPeriod = 'day';
+let _invalidReceipts = [];
+
+async function loadInvalidReceipts() {
+  const { data } = await _sb.from('activity_logs')
+    .select('id,target_name,details,created_at')
+    .eq('store_id', MGR.store_id)
+    .eq('actor_name', MGR.name)
+    .eq('action', 'ADD_STOCK')
+    .order('created_at', { ascending: false })
+    .limit(200);
+  _invalidReceipts = (data || []).filter(l => {
+    try { return JSON.parse(l.details || '{}').receipt_status === 'invalid'; } catch(_) { return false; }
+  });
+}
+function findInvalidReceiptForRemit(r) {
+  return _invalidReceipts.find(log => {
+    let d = {};
+    try { d = JSON.parse(log.details || '{}'); } catch(_) { return false; }
+    const expectedDesc = (d.payment === 'deduct' ? 'Stock purchase' : 'Owner deposit') + ': ' + log.target_name + ' x' + d.added;
+    return r.description === expectedDesc;
+  });
+}
 
 async function loadRemit() {
   const tb = document.getElementById('remitTbody');
   tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Loading...</td></tr>';
+  await loadInvalidReceipts();
   const { data } = await _sb.from('cash_remittances')
     .select('*').eq('store_id', MGR.store_id)
     .order('shift_date', { ascending: false })
@@ -929,8 +971,14 @@ function renderRemit() {
       : `<span style="font-size:11px;color:var(--muted)">Balanced</span>`;
     const date    = new Date(r.shift_date + 'T00:00:00').toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
     const created = new Date(r.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const invalidLog = !isPending ? findInvalidReceiptForRemit(r) : null;
     const descCell = isPending
       ? `<button onclick="openConfirmRemit('${r.id}')" class="btn btn-sm" data-tip="I-confirm at tanggapin ang remittance ng cashier na ito." style="background:#f59e0b;color:#09090f;font-weight:700">&#10003; Receive</button>`
+      : invalidLog
+      ? `<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+          <span style="color:var(--muted);font-size:12px">${r.description||'—'}</span>
+          <button class="btn btn-sm" data-tip="Sinabi ng owner na invalid ang resibo na in-upload mo. Mag-upload ulit ng malinaw na larawan." onclick="openReuploadReceipt('${invalidLog.id}')" style="background:#ef4444;color:#fff;font-weight:600;font-size:11px;padding:5px 10px">&#8635; Upload Receipt Again</button>
+        </div>`
       : `<span style="color:var(--muted);font-size:12px">${r.description||'—'}</span>`;
     return `<tr style="${isPending ? 'background:#1a1200;' : ''}">
       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${date}<div style="font-size:11px">${created}</div></td>
@@ -947,6 +995,57 @@ function renderRemit() {
     ...pending.map(r => renderRow(r, true)),
     ...normal.map(r => renderRow(r, false))
   ].join('');
+}
+
+function openReuploadReceipt(logId) {
+  const log = _invalidReceipts.find(l => l.id === logId);
+  if (!log) return;
+  document.getElementById('ruLogId').value = logId;
+  document.getElementById('ruItemName').textContent = log.target_name || '';
+  document.getElementById('ruReceipt').value = '';
+  document.getElementById('ruReceiptPreview').style.display = 'none';
+  document.getElementById('reuploadReceiptModal').classList.add('show');
+}
+
+function previewReuploadReceipt() {
+  const file = document.getElementById('ruReceipt').files[0];
+  if (!file) { document.getElementById('ruReceiptPreview').style.display = 'none'; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800, cv = document.createElement('canvas');
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      cv.width = img.width * scale; cv.height = img.height * scale;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      document.getElementById('ruReceiptImg').src = cv.toDataURL('image/jpeg', 0.6);
+      document.getElementById('ruReceiptPreview').style.display = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitReuploadReceipt() {
+  const logId = document.getElementById('ruLogId').value;
+  const log = _invalidReceipts.find(l => l.id === logId);
+  if (!log) return;
+  const img = document.getElementById('ruReceiptImg');
+  const b64 = img.src && img.src.startsWith('data:') ? img.src : null;
+  if (!b64) { showToast('Pumili muna ng larawan ng resibo.', true); return; }
+  const btn = document.getElementById('ruSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
+  let d = {};
+  try { d = log.details ? JSON.parse(log.details) : {}; } catch(_) { d = {}; }
+  d.receipt_b64 = b64;
+  delete d.receipt_status;
+  const { error } = await _sb.from('activity_logs').update({ details: JSON.stringify(d) }).eq('id', logId);
+  btn.disabled = false; btn.textContent = 'Upload';
+  if (error) { showToast(error.message, true); return; }
+  closeModal('reuploadReceiptModal');
+  showToast('Naipadala ang bagong resibo sa owner.');
+  await loadInvalidReceipts();
+  renderRemit();
 }
 
 async function checkPendingRemits() {

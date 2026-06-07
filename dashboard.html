@@ -2646,9 +2646,18 @@ function acceptReceipt() {
 }
 async function invalidateReceipt() {
   const r = _receiptCache[_currentReceiptLogId];
+  const log = _activityLogs.find(l => l.id === _currentReceiptLogId);
   closeModal('receiptModal');
   const toStaff = (allStaff || []).find(s => s.full_name === r?.actorName || s.username === r?.actorName);
   if (!toStaff) { showToast('Could not identify staff to notify.', true); return; }
+  if (log) {
+    let d = {};
+    try { d = log.details ? JSON.parse(log.details) : {}; } catch(_) { d = {}; }
+    d.receipt_status = 'invalid';
+    const newDetails = JSON.stringify(d);
+    await _sb.from('activity_logs').update({ details: newDetails }).eq('id', log.id);
+    log.details = newDetails;
+  }
   const { error } = await _sb.from('store_messages').insert({
     store_id: STORE.id,
     from_name: STORE.name || 'Owner',
