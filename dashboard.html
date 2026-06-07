@@ -752,9 +752,11 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:10px">
         <button type="button" class="btn btn-accent btn-sm" style="flex:0 0 auto" id="btnInvCam" onclick="openDashCam('inventory','invSku')">&#128247; Camera</button>
+        <button type="button" class="btn btn-ghost btn-sm" style="flex:0 0 auto;display:none" id="btnInvUpload" onclick="document.getElementById('invImgInput').click()">&#128193; Upload Service Image</button>
         <span id="invCamHint" style="font-size:11px;color:var(--dim);flex:1">Take up to 4 photos from different angles. Barcode auto-detected.</span>
       </div>
       <div id="invImgThumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
+      <input type="file" id="invImgInput" accept="image/*" style="display:none" onchange="handleInvImg(this)">
     </div>
     <div class="row2">
       <div class="field"><label>Item Name</label><input id="invName" type="text" placeholder="e.g. Chicken Breast"></div>
@@ -781,7 +783,7 @@ input:checked + .slider:before{transform:translateX(18px)}
         </select>
       </div>
     </div>
-    <div class="row2">
+    <div class="row2" id="invStockRow">
       <div class="field">
         <label>Stock Qty (bought)</label>
         <input id="invStock" type="number" min="0" step="0.01" placeholder="e.g. 500" value="0" oninput="qcCalc()">
@@ -799,7 +801,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <input type="hidden" id="invQcUnit" value="pc">
 
     <!-- Usage cost calculator -->
-    <div style="background:#081a10;border:1px solid #1a4a25;border-radius:8px;padding:12px 14px;margin-bottom:16px">
+    <div id="invCostCalc" style="background:#081a10;border:1px solid #1a4a25;border-radius:8px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:11px;color:#4ade80;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Cost Per Order Calculator</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
         <span style="font-size:13px;color:var(--muted)">I use</span>
@@ -812,7 +814,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div id="invUsageStock" style="font-size:13px;color:var(--muted);padding-top:8px;border-top:1px solid #1a4a25"></div>
     </div>
 
-    <div class="field"><label>Low Stock Alert (qty)</label><input id="invLowStock" type="number" min="0" step="1" placeholder="e.g. 5" value="5"></div>
+    <div class="field" id="invLowStockField"><label>Low Stock Alert (qty)</label><input id="invLowStock" type="number" min="0" step="1" placeholder="e.g. 5" value="5"></div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('invModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveInvItem()">Save</button>
@@ -1214,11 +1216,15 @@ const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Invento
 const RESTAURANT_BIZ = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
   'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
 const SERVICE_BIZ = new Set(['Salon / Barbershop','Laundry','Printing / Photocopy','Auto Parts','School Supplies']);
+// True service businesses that sell labor/services (no physical stock to count) — e.g. haircuts, wash & dry, printing per page.
+// Auto Parts and School Supplies stay out of this: they sell physical countable products and still need stock tracking.
+const TRUE_SERVICE_BIZ = new Set(['Salon / Barbershop','Laundry','Printing / Photocopy']);
 
 function adaptDashboardToBizType(bizType) {
   if (!bizType) return;
-  const isRestaurant = RESTAURANT_BIZ.has(bizType);
-  const isService    = SERVICE_BIZ.has(bizType);
+  const isRestaurant   = RESTAURANT_BIZ.has(bizType);
+  const isService      = SERVICE_BIZ.has(bizType);
+  const isTrueService  = TRUE_SERVICE_BIZ.has(bizType);
 
   // Sidebar labels
   if (!isRestaurant && !isService) {
@@ -1230,13 +1236,15 @@ function adaptDashboardToBizType(bizType) {
   } else if (isService) {
     document.getElementById('navOrdersLbl').textContent    = 'Transactions';
     document.getElementById('navProductsLbl').textContent  = 'Services & Prices';
-    document.getElementById('navInventoryLbl').textContent = 'My Services';
-    if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = 'My Services';
-    if (document.getElementById('invSecTitle')) document.getElementById('invSecTitle').firstChild.textContent = 'My Services ';
-    SECTION_TITLES.inventory = 'My Services';
-    if (document.getElementById('topbarTitle') && document.getElementById('topbarTitle').textContent === 'Inventory')
-      document.getElementById('topbarTitle').textContent = 'My Services';
-    if (document.getElementById('invSecSub'))   document.getElementById('invSecSub').textContent = '(used for your services)';
+    document.getElementById('navInventoryLbl').textContent = isTrueService ? 'My Services' : 'Supplies';
+    if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = isTrueService ? 'My Services' : 'Supplies';
+    if (isTrueService) {
+      if (document.getElementById('invSecTitle')) document.getElementById('invSecTitle').firstChild.textContent = 'My Services ';
+      if (document.getElementById('invSecSub'))   document.getElementById('invSecSub').textContent = '(used for your services)';
+      SECTION_TITLES.inventory = 'My Services';
+      if (document.getElementById('topbarTitle') && document.getElementById('topbarTitle').textContent === 'Inventory')
+        document.getElementById('topbarTitle').textContent = 'My Services';
+    }
   } else {
     // Restaurant — defaults already correct
     document.getElementById('navProductsLbl').textContent  = 'Menu Items';
@@ -2236,7 +2244,7 @@ function _bizPlaceholder(field) {
 function openProdModal(p) {
   if(typeof p === 'string') p = allProds.find(x => x.id === p) || null;
   if (!IS_PRO && !p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
-  const isServiceBiz = SERVICE_BIZ.has(STORE?.business_type || '');
+  const isServiceBiz = TRUE_SERVICE_BIZ.has(STORE?.business_type || '');
   document.getElementById('prodModalTitle').textContent = p ? (isServiceBiz?'Edit Service':'Edit Product') : (isServiceBiz?'Add Service':'Add Product');
   document.getElementById('pNameLbl').textContent = isServiceBiz ? 'Service Name' : 'Product Name';
   document.getElementById('prodId').value=p?p.id:'';
@@ -2294,6 +2302,19 @@ function handleProdImg(input){
     const compressed=await _compressImg(b64);
     _prodPendingImgs.push(compressed);
     renderProdThumbs();
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+function handleInvImg(input){
+  const file=input.files[0];if(!file)return;
+  if(_invPendingImgs.length>=4){showToast('Max 4 photos.',true);return;}
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const b64=ev.target.result.split(',')[1];
+    const compressed=await _compressImg(b64);
+    _invPendingImgs.push(compressed);
+    renderInvThumbs();
   };
   reader.readAsDataURL(file);
   input.value='';
@@ -3152,7 +3173,14 @@ async function openInvModal(item){
     }
   }
   renderInvThumbs();
-  document.getElementById('invModalTitle').textContent=item?'Edit Item':'Add Inventory Item';
+  const isServiceBiz = TRUE_SERVICE_BIZ.has(STORE?.business_type || '');
+  document.getElementById('invModalTitle').textContent = item ? (isServiceBiz?'Edit Service':'Edit Item') : (isServiceBiz?'Add Service':'Add Inventory Item');
+  document.getElementById('btnInvCam').style.display    = isServiceBiz ? 'none' : '';
+  document.getElementById('btnInvUpload').style.display = isServiceBiz ? '' : 'none';
+  document.getElementById('invCamHint').textContent     = isServiceBiz ? 'Up to 4 photos showing this service.' : 'Take up to 4 photos from different angles. Barcode auto-detected.';
+  document.getElementById('invStockRow').style.display    = isServiceBiz ? 'none' : '';
+  document.getElementById('invCostCalc').style.display    = isServiceBiz ? 'none' : '';
+  document.getElementById('invLowStockField').style.display = isServiceBiz ? 'none' : '';
   document.getElementById('invItemId').value=item?item.id:'';
   document.getElementById('invName').placeholder = _bizPlaceholder('inv');
   document.getElementById('invName').value=item?item.name:'';
