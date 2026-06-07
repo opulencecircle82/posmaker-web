@@ -982,14 +982,15 @@ input:checked + .slider:before{transform:translateX(18px)}
 <div class="modal" id="receiptModal">
   <div class="mbox" style="width:min(500px,100%)">
     <h3>&#129534; Receipt</h3>
-    <div style="text-align:center;margin-bottom:12px;background:var(--bg);border-radius:8px;padding:8px">
+    <div id="receiptStatusBanner" style="display:none;text-align:center;font-size:13px;padding:14px;border-radius:8px;margin-bottom:12px"></div>
+    <div id="receiptImgWrap" style="text-align:center;margin-bottom:12px;background:var(--bg);border-radius:8px;padding:8px">
       <img id="receiptImg" src="" style="max-width:100%;max-height:60vh;object-fit:contain;border-radius:6px">
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:16px" id="receiptMeta"></div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('receiptModal')">Close</button>
-      <button class="btn btn-danger btn-sm" onclick="invalidateReceipt()">&#10007; Invalid</button>
-      <button class="btn btn-accent btn-sm" onclick="acceptReceipt()">&#10003; Accept</button>
+      <button class="btn btn-danger btn-sm" id="receiptInvalidBtn" onclick="invalidateReceipt()">&#10007; Invalid</button>
+      <button class="btn btn-accent btn-sm" id="receiptAcceptBtn" onclick="acceptReceipt()">&#10003; Accept</button>
     </div>
   </div>
 </div>
@@ -2636,13 +2637,74 @@ function viewReceipt(logId) {
   const r = _receiptCache[logId];
   if (!r) return;
   _currentReceiptLogId = logId;
-  document.getElementById('receiptImg').src = r.b64;
+  const log = _activityLogs.find(l => l.id === logId);
+  let status = '';
+  try { status = log?.details ? (JSON.parse(log.details).receipt_status || '') : ''; } catch(_) {}
+
+  const banner    = document.getElementById('receiptStatusBanner');
+  const imgWrap   = document.getElementById('receiptImgWrap');
+  const img       = document.getElementById('receiptImg');
+  const invalidBtn = document.getElementById('receiptInvalidBtn');
+  const acceptBtn  = document.getElementById('receiptAcceptBtn');
   document.getElementById('receiptMeta').textContent = 'Uploaded by: ' + (r.actorName || '—');
+
+  banner.style.display = 'none';
+  imgWrap.style.display = '';
+  invalidBtn.style.display = '';
+  acceptBtn.style.display = '';
+
+  if (status === 'invalid') {
+    banner.style.display = '';
+    banner.style.background = '#2e1a0d';
+    banner.style.color = '#f59e0b';
+    banner.textContent = '⏳ Waiting for valid receipt — ' + (r.actorName || 'the staff') + ' still needs to upload a new one.';
+    imgWrap.style.display = 'none';
+    invalidBtn.style.display = 'none';
+    acceptBtn.style.display = 'none';
+  } else if (status === 'pending_review') {
+    banner.style.display = '';
+    banner.style.background = '#0d1a2e';
+    banner.style.color = '#00b4d8';
+    banner.textContent = '🔍 Pending validation — ' + (r.actorName || 'the staff') + ' uploaded a new receipt. Please review it.';
+    img.src = r.b64;
+    invalidBtn.textContent = '✗ Invalid';
+    invalidBtn.onclick = invalidateReceipt;
+    acceptBtn.textContent = '✓ Confirm';
+    acceptBtn.onclick = confirmReceiptValid;
+  } else if (status === 'valid') {
+    banner.style.display = '';
+    banner.style.background = '#0d2e1f';
+    banner.style.color = '#10b981';
+    banner.textContent = '✓ This is a valid receipt.';
+    img.src = r.b64;
+    invalidBtn.style.display = 'none';
+    acceptBtn.style.display = 'none';
+  } else {
+    img.src = r.b64;
+    invalidBtn.textContent = '✗ Invalid';
+    invalidBtn.onclick = invalidateReceipt;
+    acceptBtn.textContent = '✓ Accept';
+    acceptBtn.onclick = acceptReceipt;
+  }
+
   document.getElementById('receiptModal').classList.add('show');
 }
 function acceptReceipt() {
   showToast('Receipt accepted.');
   closeModal('receiptModal');
+}
+async function confirmReceiptValid() {
+  const log = _activityLogs.find(l => l.id === _currentReceiptLogId);
+  closeModal('receiptModal');
+  if (log) {
+    let d = {};
+    try { d = log.details ? JSON.parse(log.details) : {}; } catch(_) { d = {}; }
+    d.receipt_status = 'valid';
+    const newDetails = JSON.stringify(d);
+    await _sb.from('activity_logs').update({ details: newDetails }).eq('id', log.id);
+    log.details = newDetails;
+  }
+  showToast('Receipt confirmed as valid.');
 }
 async function invalidateReceipt() {
   const r = _receiptCache[_currentReceiptLogId];

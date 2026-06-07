@@ -1038,7 +1038,7 @@ async function submitReuploadReceipt() {
   let d = {};
   try { d = log.details ? JSON.parse(log.details) : {}; } catch(_) { d = {}; }
   d.receipt_b64 = b64;
-  delete d.receipt_status;
+  d.receipt_status = 'pending_review';
   const { error } = await _sb.from('activity_logs').update({ details: JSON.stringify(d) }).eq('id', logId);
   btn.disabled = false; btn.textContent = 'Upload';
   if (error) { showToast(error.message, true); return; }
