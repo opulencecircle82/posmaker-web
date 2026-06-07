@@ -164,7 +164,7 @@ async function doCreateAccount() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Sending confirmation…';
 
-  const { error: authErr } = await _sb.auth.signUp({
+  const { data: signUpData, error: authErr } = await _sb.auth.signUp({
     email,
     password,
     options: {
@@ -175,6 +175,13 @@ async function doCreateAccount() {
 
   btn.disabled = false; btn.textContent = 'Create Account →';
   if (authErr) { errEl.textContent = authErr.message; return; }
+
+  // If "Confirm email" is disabled in Supabase, signUp() returns an active session
+  // right away — skip the email step and go straight to store setup.
+  if (signUpData && signUpData.session) {
+    showStep('store');
+    return;
+  }
 
   document.getElementById('confirmEmail').textContent = email;
   showStep('confirm');
