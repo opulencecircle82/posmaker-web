@@ -41,10 +41,11 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
   <div class="logo">POS<span>Maker</span></div>
   <div class="card">
 
-    <!-- STEP 1: account (email + full name, passwordless) -->
-    <div id="stepAccount">
+    <!-- SINGLE STEP: account + store, all in one form -->
+    <div id="stepAll">
       <h1>Create your account</h1>
-      <p class="sub">Enter your email and full name. We'll send you a confirmation link — once you click it, you'll set your password and finish setting up your store.</p>
+      <p class="sub">Fill in your details below to create your account and set up your store — all in one go.</p>
+
       <div class="field">
         <label>Full Name</label>
         <input id="fullName" type="text" placeholder="e.g. Juan dela Cruz" autocomplete="name">
@@ -53,31 +54,15 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
         <label>Your Email</label>
         <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
       </div>
-      <div class="err" id="errAccount"></div>
-      <button class="btn" id="btnAccount" onclick="doCreateAccount()">Create Account →</button>
-      <div class="login-link">Already have a store? <a href="login.html">Log in</a></div>
-    </div>
-
-    <!-- STEP 2: confirmation sent -->
-    <div id="stepConfirm" style="display:none;text-align:center;padding:8px 0">
-      <div style="font-size:44px;margin-bottom:14px">📧</div>
-      <h1 style="margin-bottom:8px">Check your email</h1>
-      <p class="sub" style="margin-bottom:0">We sent a confirmation link to <strong id="confirmEmail" style="color:#f0f0f8"></strong>. Please check your inbox (and spam folder), then click the link to continue setting up your store.</p>
-    </div>
-
-    <!-- STEP 3: store details (after email confirmed) -->
-    <div id="stepStore" style="display:none">
-      <h1>Set up your store</h1>
-      <p class="sub" id="subMsg">You're verified! Just a few more details and your POS will be ready.</p>
-
       <div class="field">
-        <label>Set a Password</label>
+        <label>Password</label>
         <input id="password" type="password" placeholder="At least 6 characters" autocomplete="new-password">
       </div>
       <div class="field">
         <label>Confirm Password</label>
         <input id="password2" type="password" placeholder="Re-enter your password" autocomplete="new-password">
       </div>
+      <hr class="divider">
       <div class="field">
         <label>Store Name</label>
         <input id="storeName" type="text" placeholder="e.g. Jollibee Taguig" autocomplete="organization">
@@ -130,8 +115,16 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
         </div>
       </div>
 
-      <div class="err" id="errStore"></div>
-      <button class="btn" id="btnStore" onclick="doCreateStore()">Create Store &amp; Continue →</button>
+      <div class="err" id="errAll"></div>
+      <button class="btn" id="btnAll" onclick="doSignup()">Create Account &amp; Store →</button>
+      <div class="login-link">Already have a store? <a href="login.html">Log in</a></div>
+    </div>
+
+    <!-- Fallback: confirmation sent (only shown if "Confirm email" is enabled in Supabase) -->
+    <div id="stepConfirm" style="display:none;text-align:center;padding:8px 0">
+      <div style="font-size:44px;margin-bottom:14px">📧</div>
+      <h1 style="margin-bottom:8px">Check your email</h1>
+      <p class="sub" style="margin-bottom:0">We sent a confirmation link to <strong id="confirmEmail" style="color:#f0f0f8"></strong>. Please check your inbox (and spam folder), then click the link to finish creating your store.</p>
     </div>
   </div>
 </div>
@@ -141,77 +134,17 @@ const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 function showStep(step) {
-  document.getElementById('stepAccount').style.display = step === 'account' ? '' : 'none';
+  document.getElementById('stepAll').style.display     = step === 'all'     ? '' : 'none';
   document.getElementById('stepConfirm').style.display = step === 'confirm' ? '' : 'none';
-  document.getElementById('stepStore').style.display   = step === 'store'   ? '' : 'none';
 }
 
-// STEP 1 → create the auth account; Supabase sends a confirmation email if enabled
-// Passwordless: send a magic link to the email, carrying the full name as user metadata
-async function doCreateAccount() {
-  const fullName = document.getElementById('fullName').value.trim();
-  const email    = document.getElementById('email').value.trim();
-  const errEl    = document.getElementById('errAccount');
-  const btn      = document.getElementById('btnAccount');
+// Pending store details, kept while we wait on session/email confirmation
+let _pendingStore = null;
 
-  errEl.textContent = '';
-  if (!fullName)            { errEl.textContent = 'Full name is required.'; return; }
-  if (!email.includes('@')) { errEl.textContent = 'Please enter a valid email address.'; return; }
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Sending confirmation…';
-
-  const { error: authErr } = await _sb.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: location.origin + location.pathname,
-      data: { full_name: fullName },
-      shouldCreateUser: true
-    }
-  });
-
-  btn.disabled = false; btn.textContent = 'Create Account →';
-  if (authErr) { errEl.textContent = authErr.message; return; }
-
-  document.getElementById('confirmEmail').textContent = email;
-  showStep('confirm');
-}
-
-// STEP 3 → set the account password and create the store using the now-confirmed session
-async function doCreateStore() {
-  const password  = document.getElementById('password').value;
-  const password2 = document.getElementById('password2').value;
-  const storeName = document.getElementById('storeName').value.trim();
-  const bizType   = document.getElementById('bizType').value;
-  const currency  = document.getElementById('currency').value.trim() || '₱';
-  const taxRate   = parseFloat(document.getElementById('taxRate').value) || 0;
-  const errEl     = document.getElementById('errStore');
-  const btn       = document.getElementById('btnStore');
-
-  errEl.textContent = '';
-  if (password.length < 6)    { errEl.textContent = 'Password must be at least 6 characters.'; return; }
-  if (password !== password2) { errEl.textContent = 'Passwords do not match.'; return; }
-  if (!storeName) { errEl.textContent = 'Store name is required.'; return; }
-  if (!bizType)   { errEl.textContent = 'Please select a business type.'; return; }
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Creating store…';
-
-  const { data: { session } } = await _sb.auth.getSession();
-  if (!session) {
-    errEl.innerHTML = 'Your session has expired. Please <a href="login.html" style="color:#00b4d8;font-weight:600">log in</a> to continue.';
-    btn.disabled = false; btn.textContent = 'Create Store & Continue →';
-    return;
-  }
+async function _finishStoreSetup(session) {
+  localStorage.removeItem('pm_pending_store');
   const userId = session.user.id;
-
-  // Set the password on this account so it can be used to log in later
-  const { error: pwErr } = await _sb.auth.updateUser({ password });
-  if (pwErr) {
-    errEl.textContent = pwErr.message;
-    btn.disabled = false; btn.textContent = 'Create Store & Continue →';
-    return;
-  }
+  const { storeName, bizType, currency, taxRate } = _pendingStore;
 
   // Check if this user already has a store
   const { data: existing } = await _sb.from('stores').select('id').eq('owner_id', userId).single();
@@ -220,7 +153,6 @@ async function doCreateStore() {
     location.href = 'dashboard.html'; return;
   }
 
-  // Generate unique store code
   async function genUniqueCode(name) {
     const prefix = (name||'STORE').toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,6).padEnd(3,'X');
     let code, taken = true;
@@ -233,7 +165,6 @@ async function doCreateStore() {
   }
   const storeCode = await genUniqueCode(storeName);
 
-  // Create store record (fallback without business_type if column not yet in DB)
   let { data: store, error: storeErr } = await _sb
     .from('stores')
     .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate, business_type: bizType, store_code: storeCode })
@@ -246,13 +177,8 @@ async function doCreateStore() {
       .select().single());
   }
 
-  if (storeErr) {
-    errEl.textContent = storeErr.message;
-    btn.disabled = false; btn.textContent = 'Create Store & Continue →';
-    return;
-  }
+  if (storeErr) { return { error: storeErr }; }
 
-  // Auto-create default product categories based on business type
   const prodCats = getDefaultProdCats(bizType);
   const invCats  = getDefaultInvCats(bizType);
   if (prodCats.length) {
@@ -264,6 +190,65 @@ async function doCreateStore() {
 
   localStorage.setItem('pm_store_id', store.id);
   location.href = 'dashboard.html';
+}
+
+// Single combined step → create the auth account (with password) and the store together
+async function doSignup() {
+  const fullName  = document.getElementById('fullName').value.trim();
+  const email     = document.getElementById('email').value.trim();
+  const password  = document.getElementById('password').value;
+  const password2 = document.getElementById('password2').value;
+  const storeName = document.getElementById('storeName').value.trim();
+  const bizType   = document.getElementById('bizType').value;
+  const currency  = document.getElementById('currency').value.trim() || '₱';
+  const taxRate   = parseFloat(document.getElementById('taxRate').value) || 0;
+  const errEl     = document.getElementById('errAll');
+  const btn       = document.getElementById('btnAll');
+
+  errEl.textContent = '';
+  if (!fullName)               { errEl.textContent = 'Full name is required.'; return; }
+  if (!email.includes('@'))    { errEl.textContent = 'Please enter a valid email address.'; return; }
+  if (password.length < 6)     { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if (password !== password2)  { errEl.textContent = 'Passwords do not match.'; return; }
+  if (!storeName)              { errEl.textContent = 'Store name is required.'; return; }
+  if (!bizType)                { errEl.textContent = 'Please select a business type.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating your account…';
+
+  _pendingStore = { storeName, bizType, currency, taxRate };
+  localStorage.setItem('pm_pending_store', JSON.stringify(_pendingStore));
+
+  const { data: signUpData, error: authErr } = await _sb.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: location.origin + location.pathname,
+      data: { full_name: fullName }
+    }
+  });
+
+  if (authErr) {
+    btn.disabled = false; btn.textContent = 'Create Account & Store →';
+    errEl.textContent = authErr.message;
+    return;
+  }
+
+  // If "Confirm email" is disabled in Supabase, signUp() returns an active session
+  // right away — finish creating the store immediately, no email needed.
+  if (signUpData && signUpData.session) {
+    const result = await _finishStoreSetup(signUpData.session);
+    if (result && result.error) {
+      btn.disabled = false; btn.textContent = 'Create Account & Store →';
+      errEl.textContent = result.error.message;
+    }
+    return;
+  }
+
+  // Otherwise, Supabase requires email confirmation — wait for it, then finish on return
+  btn.disabled = false; btn.textContent = 'Create Account & Store →';
+  document.getElementById('confirmEmail').textContent = email;
+  showStep('confirm');
 }
 
 // Default product categories per business type
@@ -308,21 +293,30 @@ function getDefaultInvCats(biz) {
   return [];
 }
 
-// Allow Enter key — submits whichever step is currently visible
+// Allow Enter key — submits the form
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  if (document.getElementById('stepStore').style.display !== 'none') doCreateStore();
-  else if (document.getElementById('stepAccount').style.display !== 'none') doCreateAccount();
+  if (document.getElementById('stepAll').style.display !== 'none') doSignup();
 });
 
 // If already logged in (e.g. returning from the confirmation email link):
-// redirect to dashboard if a store exists, else jump straight to the store-setup step.
+// redirect to dashboard if a store exists, else finish creating the store
+// using the details we stashed in localStorage before redirecting for confirmation.
 (async () => {
   const { data: { session } } = await _sb.auth.getSession();
   if (!session) return;
   const { data: store } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).maybeSingle();
   if (store) { location.replace('dashboard.html'); return; }
-  showStep('store');
+
+  const saved = localStorage.getItem('pm_pending_store');
+  if (saved) {
+    _pendingStore = JSON.parse(saved);
+    localStorage.removeItem('pm_pending_store');
+    await _finishStoreSetup(session);
+    return;
+  }
+  // No pending details found (e.g. opened the link in a different browser) — let them fill the form again
+  showStep('all');
 })();
 </script>
 </body>
