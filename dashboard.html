@@ -796,6 +796,10 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div id="invQcResult" style="margin-top:6px;font-size:13px;color:#00b4d8;font-weight:600;min-height:18px"></div>
       </div>
     </div>
+    <div class="field" id="invServiceCostField" style="display:none">
+      <label>Cost <span style="color:var(--dim);font-weight:400">(optional — your cost to provide this)</span></label>
+      <input id="invServiceCost" type="number" min="0" step="0.01" placeholder="e.g. 50" oninput="document.getElementById('invCost').value = this.value || 0">
+    </div>
     <input type="hidden" id="invCost" value="0">
     <input type="hidden" id="invQcQty" value="0">
     <input type="hidden" id="invQcUnit" value="pc">
@@ -3181,6 +3185,8 @@ async function openInvModal(item){
   document.getElementById('invStockRow').style.display    = isServiceBiz ? 'none' : '';
   document.getElementById('invCostCalc').style.display    = isServiceBiz ? 'none' : '';
   document.getElementById('invLowStockField').style.display = isServiceBiz ? 'none' : '';
+  document.getElementById('invServiceCostField').style.display = isServiceBiz ? '' : 'none';
+  document.getElementById('invServiceCost').value = item ? (item.cost_price || '') : '';
   document.getElementById('invItemId').value=item?item.id:'';
   document.getElementById('invName').placeholder = _bizPlaceholder('inv');
   document.getElementById('invName').value=item?item.name:'';
