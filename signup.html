@@ -41,17 +41,17 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
   <div class="logo">POS<span>Maker</span></div>
   <div class="card">
 
-    <!-- STEP 1: account (email + password) -->
+    <!-- STEP 1: account (email + full name, passwordless) -->
     <div id="stepAccount">
       <h1>Create your account</h1>
-      <p class="sub">Enter your email and choose a password. We'll send you a confirmation email — once you confirm, you'll set up your store.</p>
+      <p class="sub">Enter your email and full name. We'll send you a confirmation link — once you click it, you'll set up your store. No password needed.</p>
+      <div class="field">
+        <label>Full Name</label>
+        <input id="fullName" type="text" placeholder="e.g. Juan dela Cruz" autocomplete="name">
+      </div>
       <div class="field">
         <label>Your Email</label>
         <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <input id="pw" type="password" placeholder="At least 6 characters" autocomplete="new-password">
       </div>
       <div class="err" id="errAccount"></div>
       <button class="btn" id="btnAccount" onclick="doCreateAccount()">Create Account →</button>
@@ -139,52 +139,34 @@ function showStep(step) {
 }
 
 // STEP 1 → create the auth account; Supabase sends a confirmation email if enabled
+// Passwordless: send a magic link to the email, carrying the full name as user metadata
 async function doCreateAccount() {
-  const email = document.getElementById('email').value.trim();
-  const pw    = document.getElementById('pw').value;
-  const errEl = document.getElementById('errAccount');
-  const btn   = document.getElementById('btnAccount');
+  const fullName = document.getElementById('fullName').value.trim();
+  const email    = document.getElementById('email').value.trim();
+  const errEl    = document.getElementById('errAccount');
+  const btn      = document.getElementById('btnAccount');
 
   errEl.textContent = '';
-  if (!email)        { errEl.textContent = 'Email is required.'; return; }
-  if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if (!fullName)            { errEl.textContent = 'Full name is required.'; return; }
+  if (!email.includes('@')) { errEl.textContent = 'Please enter a valid email address.'; return; }
 
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Creating account…';
+  btn.innerHTML = '<span class="spinner"></span>Sending confirmation…';
 
-  const { data: authData, error: authErr } = await _sb.auth.signUp({
-    email, password: pw,
-    options: { emailRedirectTo: location.origin + location.pathname }
+  const { error: authErr } = await _sb.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: location.origin + location.pathname,
+      data: { full_name: fullName },
+      shouldCreateUser: true
+    }
   });
 
-  if (authErr) {
-    if (authErr.message.toLowerCase().includes('already registered') || authErr.message.toLowerCase().includes('already been registered')) {
-      const { data: signIn, error: signInErr } = await _sb.auth.signInWithPassword({ email, password: pw });
-      if (signInErr) {
-        errEl.innerHTML = 'This email is already registered. <a href="login.html" style="color:#00b4d8;font-weight:600">Log in here</a> — then complete your store setup from the dashboard.';
-        btn.disabled = false; btn.textContent = 'Create Account →';
-        return;
-      }
-      // Already confirmed and signed in — go straight to store setup
-      showStep('store');
-      btn.disabled = false; btn.textContent = 'Create Account →';
-      return;
-    }
-    errEl.textContent = authErr.message;
-    btn.disabled = false; btn.textContent = 'Create Account →';
-    return;
-  }
-
   btn.disabled = false; btn.textContent = 'Create Account →';
+  if (authErr) { errEl.textContent = authErr.message; return; }
 
-  if (authData.session) {
-    // Email confirmation disabled on this project — session is active immediately
-    showStep('store');
-  } else {
-    // Confirmation email sent — wait for the user to click the link
-    document.getElementById('confirmEmail').textContent = email;
-    showStep('confirm');
-  }
+  document.getElementById('confirmEmail').textContent = email;
+  showStep('confirm');
 }
 
 // STEP 3 → create the store using the now-confirmed session
