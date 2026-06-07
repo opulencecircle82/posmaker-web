@@ -1253,7 +1253,11 @@ async function loadAgents() {
   const tb = document.getElementById('agentsTbody');
   tb.innerHTML = '<tr class="empty-row"><td colspan="8">Loading…</td></tr>';
   const { data, error } = await _sb.rpc('dev_get_agents', { p_token: _devToken });
-  if (error) { handleAuthError(error); return; }
+  if (error) {
+    handleAuthError(error);
+    tb.innerHTML = `<tr class="empty-row"><td colspan="8" style="color:var(--danger)">Failed to load: ${esc(error.message)}${error.message?.includes('does not exist') ? ' — run the new "Agent Referral Program" SQL block from sql/schema.sql in Supabase first.' : ''}</td></tr>`;
+    return;
+  }
   _allAgents = data || [];
   renderAgents();
 }
@@ -1327,7 +1331,11 @@ async function loadReferrals() {
   const tb = document.getElementById('referralsTbody');
   tb.innerHTML = '<tr class="empty-row"><td colspan="7">Loading…</td></tr>';
   const { data, error } = await _sb.rpc('dev_get_agent_referrals', { p_token: _devToken });
-  if (error) { handleAuthError(error); return; }
+  if (error) {
+    handleAuthError(error);
+    tb.innerHTML = `<tr class="empty-row"><td colspan="7" style="color:var(--danger)">Failed to load: ${esc(error.message)}${error.message?.includes('does not exist') ? ' — run the new "Agent Referral Program" SQL block from sql/schema.sql in Supabase first.' : ''}</td></tr>`;
+    return;
+  }
   _allReferrals = data || [];
   renderReferrals();
 }
