@@ -326,8 +326,10 @@ CREATE TABLE IF NOT EXISTS agents (
   description    TEXT        DEFAULT '',
   referral_code  TEXT        UNIQUE,
   status         TEXT        DEFAULT 'pending',  -- pending | approved | rejected
+  default_free_months INTEGER DEFAULT 1,         -- free period (1-12) granted by default to this agent's referrals
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS default_free_months INTEGER DEFAULT 1;
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS agents_all ON agents;
 CREATE POLICY agents_all ON agents FOR ALL TO anon USING (true) WITH CHECK (true);
@@ -385,19 +387,21 @@ BEGIN
 END; $$;
 
 -- Admin: list agent applications
+DROP FUNCTION IF EXISTS dev_get_agents(text);
 CREATE OR REPLACE FUNCTION dev_get_agents(p_token text)
 RETURNS TABLE(id uuid, name text, contact_number text, address text, description text,
-              referral_code text, status text, created_at timestamptz)
+              referral_code text, status text, default_free_months integer, created_at timestamptz)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   RETURN QUERY SELECT a.id, a.name, a.contact_number, a.address, a.description,
-    a.referral_code, a.status, a.created_at FROM agents a ORDER BY a.created_at DESC;
+    a.referral_code, a.status, a.default_free_months, a.created_at FROM agents a ORDER BY a.created_at DESC;
 END; $$;
 
 -- Admin: approve an agent application — generates their referral code on first approval
-CREATE OR REPLACE FUNCTION dev_approve_agent(p_token text, p_agent_id uuid)
+-- and sets the default free period (1-12 months) granted to accounts they refer.
+CREATE OR REPLACE FUNCTION dev_approve_agent(p_token text, p_agent_id uuid, p_months integer DEFAULT 1)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_code text;
 BEGIN
@@ -408,7 +412,7 @@ BEGIN
     v_code := substr(replace(gen_random_uuid()::text, '-', ''), 1, 10);
     UPDATE agents SET referral_code = v_code WHERE id = p_agent_id;
   END IF;
-  UPDATE agents SET status = 'approved' WHERE id = p_agent_id;
+  UPDATE agents SET status = 'approved', default_free_months = p_months WHERE id = p_agent_id;
   RETURN v_code;
 END; $$;
 
@@ -423,8 +427,9 @@ BEGIN
 END; $$;
 
 -- Admin: list referral signup requests
+DROP FUNCTION IF EXISTS dev_get_agent_referrals(text);
 CREATE OR REPLACE FUNCTION dev_get_agent_referrals(p_token text)
-RETURNS TABLE(id uuid, agent_id uuid, agent_name text, store_name text, business_type text,
+RETURNS TABLE(id uuid, agent_id uuid, agent_name text, agent_default_months integer, store_name text, business_type text,
               owner_email text, contact_number text, notes text, status text,
               free_period text, store_id uuid, created_at timestamptz)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -432,7 +437,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   RETURN QUERY
-    SELECT r.id, r.agent_id, a.name, r.store_name, r.business_type, r.owner_email,
+    SELECT r.id, r.agent_id, a.name, a.default_free_months, r.store_name, r.business_type, r.owner_email,
            r.contact_number, r.notes, r.status, r.free_period, r.store_id, r.created_at
     FROM agent_referrals r JOIN agents a ON a.id = r.agent_id
     ORDER BY r.created_at DESC;
