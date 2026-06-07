@@ -983,6 +983,7 @@ input:checked + .slider:before{transform:translateX(18px)}
         <select id="sfRole">
           <option value="cashier">Cashier</option>
           <option value="manager">Manager</option>
+          <option value="barber">Barber / Stylist</option>
         </select>
       </div>
     </div>
@@ -2528,7 +2529,7 @@ function renderStaff(staff) {
     return `<tr>
       <td style="font-weight:600;font-family:monospace">${s.username}</td>
       <td>${s.full_name || '&#8212;'}</td>
-      <td><span class="badge bg-cash" style="${s.role==='manager'?'background:#1a1a3a;color:#818cf8':''}">${s.role}</span></td>
+      <td><span class="badge bg-cash" style="${s.role==='manager'?'background:#1a1a3a;color:#818cf8':(s.role==='barber'?'background:#2a1a0a;color:#f59e0b':'')}">${s.role==='barber'?'Barber / Stylist':s.role}</span></td>
       <td><label class="toggle"><input type="checkbox" ${s.active?'checked':''} onchange="toggleStaff('${s.id}',this.checked)"><span class="slider"></span></label></td>
       <td style="font-size:12px;color:var(--muted)">${lastLogin}</td>
       <td style="white-space:nowrap">
@@ -2697,7 +2698,7 @@ function renderActivityLog() {
       }
     } catch(_) { details = l.details || ''; }
     if (receiptB64) _receiptCache[l.id] = { b64: receiptB64, actorName: l.actor_name || '' };
-    const roleColor = l.actor_role === 'manager' ? 'background:#1a1a3a;color:#818cf8' : 'background:#0a2a1a;color:#10b981';
+    const roleColor = l.actor_role === 'manager' ? 'background:#1a1a3a;color:#818cf8' : (l.actor_role === 'barber' ? 'background:#2a1a0a;color:#f59e0b' : 'background:#0a2a1a;color:#10b981');
     const receiptCell = receiptB64
       ? `<button class="btn btn-ghost btn-sm" onclick="viewReceipt('${l.id}')" style="font-size:12px">&#129534; View</button>`
       : '<span style="color:var(--dim)">—</span>';
