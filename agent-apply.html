@@ -40,31 +40,19 @@ input::placeholder,textarea::placeholder{color:#44445a}
 
   <div class="card" id="formCard">
     <h1>&#127919; Become an Agent</h1>
-    <p style="font-size:13px;color:#8888aa;margin-bottom:24px">Apply to become a POSMaker referral agent. Tell us who you are so our team can review your application — once approved, you'll get your own personal link for signing up new clients.</p>
+    <p style="font-size:13px;color:#8888aa;margin-bottom:24px">Apply to become a POSMaker referral agent. Just leave your email — once we review and approve your application, we'll reach out with your personal referral link that you can share with prospective clients.</p>
     <div class="field">
-      <label>Full Name</label>
-      <input id="agName" type="text" placeholder="e.g. Juan dela Cruz" oninput="agCheck()">
-    </div>
-    <div class="field">
-      <label>Contact Number</label>
-      <input id="agContact" type="text" placeholder="e.g. 0917 123 4567" oninput="agCheck()">
-    </div>
-    <div class="field">
-      <label>Address</label>
-      <input id="agAddress" type="text" placeholder="e.g. Quezon City, Metro Manila" oninput="agCheck()">
-    </div>
-    <div class="field">
-      <label>Description</label>
-      <textarea id="agDescription" rows="4" placeholder="Tell us about yourself — how do you know POSMaker, who are your prospective clients, etc." oninput="agCheck()"></textarea>
+      <label>Email Address</label>
+      <input id="agEmail" type="email" placeholder="e.g. you@email.com" oninput="agCheck()">
     </div>
     <div class="err" id="agErr"></div>
-    <button class="btn" id="agBtn" onclick="submitApplication()" disabled>Submit Application →</button>
+    <button class="btn" id="agBtn" onclick="submitApplication()" disabled>Apply →</button>
   </div>
 
   <div class="card done" id="doneCard" style="display:none">
     <div class="ico">&#9989;</div>
-    <h2>Application Submitted</h2>
-    <p>Thanks! Our team will review your application. Once approved, we'll reach out with your personal referral link that you can share with prospective clients.</p>
+    <h2>Application Received</h2>
+    <p>Thanks! Please wait while we review and approve your application for affiliate. We'll reach out to your email once it's approved — along with your personal referral link.</p>
   </div>
 </div>
 
@@ -73,34 +61,27 @@ const {createClient} = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 function agCheck() {
-  const name = document.getElementById('agName').value.trim();
-  const contact = document.getElementById('agContact').value.trim();
-  const address = document.getElementById('agAddress').value.trim();
-  document.getElementById('agBtn').disabled = !(name && contact && address);
+  const email = document.getElementById('agEmail').value.trim();
+  document.getElementById('agBtn').disabled = !email.includes('@');
 }
 
 async function submitApplication() {
-  const name = document.getElementById('agName').value.trim();
-  const contact = document.getElementById('agContact').value.trim();
-  const address = document.getElementById('agAddress').value.trim();
-  const description = document.getElementById('agDescription').value.trim();
+  const email = document.getElementById('agEmail').value.trim();
   const errEl = document.getElementById('agErr');
   const btn = document.getElementById('agBtn');
   errEl.textContent = '';
-  if (!name || !contact || !address) { errEl.textContent = 'Please fill in your name, contact number, and address.'; return; }
+  if (!email.includes('@')) { errEl.textContent = 'Please enter a valid email address.'; return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Submitting…';
   try {
-    const { error } = await _sb.rpc('submit_agent_application', {
-      p_name: name, p_contact: contact, p_address: address, p_description: description
-    });
+    const { error } = await _sb.rpc('submit_agent_application', { p_email: email });
     if (error) throw error;
     document.getElementById('formCard').style.display = 'none';
     document.getElementById('doneCard').style.display = '';
   } catch(e) {
     errEl.textContent = e.message || 'Something went wrong. Please try again.';
-    btn.disabled = false; btn.textContent = 'Submit Application →';
+    btn.disabled = false; btn.textContent = 'Apply →';
   }
 }
 </script>

@@ -40,76 +40,91 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
 <div class="wrap">
   <div class="logo">POS<span>Maker</span></div>
   <div class="card">
-    <h1>Create your store</h1>
-    <p class="sub" id="subMsg">Set up your POS in under a minute — it's free.</p>
-    <div id="sessionBanner" style="display:none;background:rgba(0,180,216,.1);border:1px solid #00b4d8;border-radius:8px;padding:10px 14px;font-size:13px;color:#00b4d8;margin-bottom:16px">
-      ✓ You're logged in. Just fill in your store details below — email &amp; password not needed.
-    </div>
 
-    <div class="field">
-      <label>Store Name</label>
-      <input id="storeName" type="text" placeholder="e.g. Jollibee Taguig" autocomplete="organization">
-    </div>
-    <div class="field">
-      <label>Type of Business</label>
-      <select id="bizType">
-        <option value="">— Select your business type —</option>
-        <optgroup label="Food &amp; Beverage">
-          <option value="Fast Food">🍔 Fast Food / Burger Shop</option>
-          <option value="Carinderya">🍛 Carinderya / Turo-Turo</option>
-          <option value="Coffee Shop">☕ Coffee Shop / Café</option>
-          <option value="Bakery">🥖 Bakery / Panaderya</option>
-          <option value="Lechon">🍖 Lechon / Ihaw-Ihaw</option>
-          <option value="Pizza / Pasta">🍕 Pizza / Pasta</option>
-          <option value="Seafood">🦐 Seafood / Paluto</option>
-          <option value="Milk Tea / Drinks">🧋 Milk Tea / Drinks</option>
-          <option value="Karinderya / Buffet">🍽 Buffet / Eat All You Can</option>
-          <option value="Snack Bar">🍡 Snack Bar / Merienda</option>
-        </optgroup>
-        <optgroup label="Retail &amp; Supplies">
-          <option value="Sari-Sari Store">🏪 Sari-Sari Store / Grocery</option>
-          <option value="Bigasan">🌾 Bigasan / Rice Store</option>
-          <option value="Hardware">🔧 Hardware Store</option>
-          <option value="Agri Supply">🌱 Agri Supply / Farm Supplies</option>
-          <option value="Drug Store">💊 Drug Store / Pharmacy</option>
-          <option value="Pet Store">🐾 Pet Store / Veterinary</option>
-          <option value="Clothing">👗 Clothing / Fashion</option>
-          <option value="Electronics">📱 Electronics / Gadgets</option>
-          <option value="Furniture">🪑 Furniture / Home Decor</option>
-        </optgroup>
-        <optgroup label="Services">
-          <option value="Salon / Barbershop">✂️ Salon / Barbershop</option>
-          <option value="Laundry">🧺 Laundry Shop</option>
-          <option value="Printing / Photocopy">🖨 Printing / Photocopy</option>
-          <option value="Auto Parts">🚗 Auto Parts / Accessories</option>
-          <option value="School Supplies">📚 School / Office Supplies</option>
-        </optgroup>
-        <option value="Other">📦 Other</option>
-      </select>
-    </div>
-    <div class="row2">
+    <!-- STEP 1: account (email + password) -->
+    <div id="stepAccount">
+      <h1>Create your account</h1>
+      <p class="sub">Enter your email and choose a password. We'll send you a confirmation email — once you confirm, you'll set up your store.</p>
       <div class="field">
-        <label>Currency Symbol</label>
-        <input id="currency" type="text" value="₱" maxlength="4">
+        <label>Your Email</label>
+        <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
       </div>
       <div class="field">
-        <label>Tax Rate (%)</label>
-        <input id="taxRate" type="number" value="12" min="0" max="100" step="0.5">
+        <label>Password</label>
+        <input id="pw" type="password" placeholder="At least 6 characters" autocomplete="new-password">
       </div>
-    </div>
-    <hr class="divider">
-    <div class="field">
-      <label>Your Email</label>
-      <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input id="pw" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+      <div class="err" id="errAccount"></div>
+      <button class="btn" id="btnAccount" onclick="doCreateAccount()">Create Account →</button>
+      <div class="login-link">Already have a store? <a href="login.html">Log in</a></div>
     </div>
 
-    <div class="err" id="err"></div>
-    <button class="btn" id="btn" onclick="doSignup()">Create Store &amp; Continue →</button>
-    <div class="login-link">Already have a store? <a href="login.html">Log in</a></div>
+    <!-- STEP 2: confirmation sent -->
+    <div id="stepConfirm" style="display:none;text-align:center;padding:8px 0">
+      <div style="font-size:44px;margin-bottom:14px">📧</div>
+      <h1 style="margin-bottom:8px">Check your email</h1>
+      <p class="sub" style="margin-bottom:0">We sent a confirmation link to <strong id="confirmEmail" style="color:#f0f0f8"></strong>. Please check your inbox (and spam folder), then click the link to continue setting up your store.</p>
+    </div>
+
+    <!-- STEP 3: store details (after email confirmed) -->
+    <div id="stepStore" style="display:none">
+      <h1>Set up your store</h1>
+      <p class="sub" id="subMsg">You're verified! Just a few more details and your POS will be ready.</p>
+
+      <div class="field">
+        <label>Store Name</label>
+        <input id="storeName" type="text" placeholder="e.g. Jollibee Taguig" autocomplete="organization">
+      </div>
+      <div class="field">
+        <label>Type of Business</label>
+        <select id="bizType">
+          <option value="">— Select your business type —</option>
+          <optgroup label="Food &amp; Beverage">
+            <option value="Fast Food">🍔 Fast Food / Burger Shop</option>
+            <option value="Carinderya">🍛 Carinderya / Turo-Turo</option>
+            <option value="Coffee Shop">☕ Coffee Shop / Café</option>
+            <option value="Bakery">🥖 Bakery / Panaderya</option>
+            <option value="Lechon">🍖 Lechon / Ihaw-Ihaw</option>
+            <option value="Pizza / Pasta">🍕 Pizza / Pasta</option>
+            <option value="Seafood">🦐 Seafood / Paluto</option>
+            <option value="Milk Tea / Drinks">🧋 Milk Tea / Drinks</option>
+            <option value="Karinderya / Buffet">🍽 Buffet / Eat All You Can</option>
+            <option value="Snack Bar">🍡 Snack Bar / Merienda</option>
+          </optgroup>
+          <optgroup label="Retail &amp; Supplies">
+            <option value="Sari-Sari Store">🏪 Sari-Sari Store / Grocery</option>
+            <option value="Bigasan">🌾 Bigasan / Rice Store</option>
+            <option value="Hardware">🔧 Hardware Store</option>
+            <option value="Agri Supply">🌱 Agri Supply / Farm Supplies</option>
+            <option value="Drug Store">💊 Drug Store / Pharmacy</option>
+            <option value="Pet Store">🐾 Pet Store / Veterinary</option>
+            <option value="Clothing">👗 Clothing / Fashion</option>
+            <option value="Electronics">📱 Electronics / Gadgets</option>
+            <option value="Furniture">🪑 Furniture / Home Decor</option>
+          </optgroup>
+          <optgroup label="Services">
+            <option value="Salon / Barbershop">✂️ Salon / Barbershop</option>
+            <option value="Laundry">🧺 Laundry Shop</option>
+            <option value="Printing / Photocopy">🖨 Printing / Photocopy</option>
+            <option value="Auto Parts">🚗 Auto Parts / Accessories</option>
+            <option value="School Supplies">📚 School / Office Supplies</option>
+          </optgroup>
+          <option value="Other">📦 Other</option>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Currency Symbol</label>
+          <input id="currency" type="text" value="₱" maxlength="4">
+        </div>
+        <div class="field">
+          <label>Tax Rate (%)</label>
+          <input id="taxRate" type="number" value="12" min="0" max="100" step="0.5">
+        </div>
+      </div>
+
+      <div class="err" id="errStore"></div>
+      <button class="btn" id="btnStore" onclick="doCreateStore()">Create Store &amp; Continue →</button>
+    </div>
   </div>
 </div>
 
@@ -117,15 +132,69 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
 const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-async function doSignup() {
+function showStep(step) {
+  document.getElementById('stepAccount').style.display = step === 'account' ? '' : 'none';
+  document.getElementById('stepConfirm').style.display = step === 'confirm' ? '' : 'none';
+  document.getElementById('stepStore').style.display   = step === 'store'   ? '' : 'none';
+}
+
+// STEP 1 → create the auth account; Supabase sends a confirmation email if enabled
+async function doCreateAccount() {
+  const email = document.getElementById('email').value.trim();
+  const pw    = document.getElementById('pw').value;
+  const errEl = document.getElementById('errAccount');
+  const btn   = document.getElementById('btnAccount');
+
+  errEl.textContent = '';
+  if (!email)        { errEl.textContent = 'Email is required.'; return; }
+  if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating account…';
+
+  const { data: authData, error: authErr } = await _sb.auth.signUp({
+    email, password: pw,
+    options: { emailRedirectTo: location.origin + location.pathname }
+  });
+
+  if (authErr) {
+    if (authErr.message.toLowerCase().includes('already registered') || authErr.message.toLowerCase().includes('already been registered')) {
+      const { data: signIn, error: signInErr } = await _sb.auth.signInWithPassword({ email, password: pw });
+      if (signInErr) {
+        errEl.innerHTML = 'This email is already registered. <a href="login.html" style="color:#00b4d8;font-weight:600">Log in here</a> — then complete your store setup from the dashboard.';
+        btn.disabled = false; btn.textContent = 'Create Account →';
+        return;
+      }
+      // Already confirmed and signed in — go straight to store setup
+      showStep('store');
+      btn.disabled = false; btn.textContent = 'Create Account →';
+      return;
+    }
+    errEl.textContent = authErr.message;
+    btn.disabled = false; btn.textContent = 'Create Account →';
+    return;
+  }
+
+  btn.disabled = false; btn.textContent = 'Create Account →';
+
+  if (authData.session) {
+    // Email confirmation disabled on this project — session is active immediately
+    showStep('store');
+  } else {
+    // Confirmation email sent — wait for the user to click the link
+    document.getElementById('confirmEmail').textContent = email;
+    showStep('confirm');
+  }
+}
+
+// STEP 3 → create the store using the now-confirmed session
+async function doCreateStore() {
   const storeName = document.getElementById('storeName').value.trim();
   const bizType   = document.getElementById('bizType').value;
   const currency  = document.getElementById('currency').value.trim() || '₱';
   const taxRate   = parseFloat(document.getElementById('taxRate').value) || 0;
-  const email     = document.getElementById('email').value.trim();
-  const pw        = document.getElementById('pw').value;
-  const errEl     = document.getElementById('err');
-  const btn       = document.getElementById('btn');
+  const errEl     = document.getElementById('errStore');
+  const btn       = document.getElementById('btnStore');
 
   errEl.textContent = '';
   if (!storeName) { errEl.textContent = 'Store name is required.'; return; }
@@ -134,39 +203,13 @@ async function doSignup() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Creating store…';
 
-  let userId;
-
-  // Check if user is already authenticated (previous signup failed mid-way)
-  const { data: { session: existingSession } } = await _sb.auth.getSession();
-  if (existingSession) {
-    userId = existingSession.user.id;
-  } else {
-    // Normal path: email + password required
-    if (!email)          { errEl.textContent = 'Email is required.'; btn.disabled = false; btn.textContent = 'Create Store & Continue →'; return; }
-    if (pw.length < 6)   { errEl.textContent = 'Password must be at least 6 characters.'; btn.disabled = false; btn.textContent = 'Create Store & Continue →'; return; }
-
-    const { data: authData, error: authErr } = await _sb.auth.signUp({ email, password: pw });
-    if (authErr) {
-      // If already registered, try signing in instead
-      if (authErr.message.toLowerCase().includes('already registered') || authErr.message.toLowerCase().includes('already been registered')) {
-        const { data: signIn, error: signInErr } = await _sb.auth.signInWithPassword({ email, password: pw });
-        if (signInErr) {
-          errEl.textContent = 'This email is already registered. Please log in instead.';
-          btn.disabled = false; btn.textContent = 'Create Store & Continue →';
-          // Show link to login
-          errEl.innerHTML = 'This email is already registered. <a href="login.html" style="color:#00b4d8;font-weight:600">Log in here</a> — then complete your store setup from the dashboard.';
-          return;
-        }
-        userId = signIn.user.id;
-      } else {
-        errEl.textContent = authErr.message;
-        btn.disabled = false; btn.textContent = 'Create Store & Continue →';
-        return;
-      }
-    } else {
-      userId = authData.user.id;
-    }
+  const { data: { session } } = await _sb.auth.getSession();
+  if (!session) {
+    errEl.innerHTML = 'Your session has expired. Please <a href="login.html" style="color:#00b4d8;font-weight:600">log in</a> to continue.';
+    btn.disabled = false; btn.textContent = 'Create Store & Continue →';
+    return;
   }
+  const userId = session.user.id;
 
   // Check if this user already has a store
   const { data: existing } = await _sb.from('stores').select('id').eq('owner_id', userId).single();
@@ -263,19 +306,21 @@ function getDefaultInvCats(biz) {
   return [];
 }
 
-// Allow Enter key
-document.addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
+// Allow Enter key — submits whichever step is currently visible
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (document.getElementById('stepStore').style.display !== 'none') doCreateStore();
+  else if (document.getElementById('stepAccount').style.display !== 'none') doCreateAccount();
+});
 
-// If already logged in: redirect to dashboard if store exists, else show banner
+// If already logged in (e.g. returning from the confirmation email link):
+// redirect to dashboard if a store exists, else jump straight to the store-setup step.
 (async () => {
   const { data: { session } } = await _sb.auth.getSession();
   if (!session) return;
   const { data: store } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).maybeSingle();
   if (store) { location.replace('dashboard.html'); return; }
-  document.getElementById('sessionBanner').style.display = 'block';
-  document.getElementById('email').closest('.field').style.display = 'none';
-  document.getElementById('pw').closest('.field').style.display = 'none';
-  document.querySelector('.divider').style.display = 'none';
+  showStep('store');
 })();
 </script>
 </body>

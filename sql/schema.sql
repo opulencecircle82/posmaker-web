@@ -320,7 +320,8 @@ $$;
 -- People who apply to become POSMaker referral agents
 CREATE TABLE IF NOT EXISTS agents (
   id             UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  name           TEXT        NOT NULL,
+  name           TEXT        DEFAULT '',
+  email          TEXT        DEFAULT '',
   contact_number TEXT        DEFAULT '',
   address        TEXT        DEFAULT '',
   description    TEXT        DEFAULT '',
@@ -330,6 +331,9 @@ CREATE TABLE IF NOT EXISTS agents (
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS default_free_months INTEGER DEFAULT 1;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS email TEXT DEFAULT '';
+ALTER TABLE agents ALTER COLUMN name DROP NOT NULL;
+ALTER TABLE agents ALTER COLUMN name SET DEFAULT '';
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS agents_all ON agents;
 CREATE POLICY agents_all ON agents FOR ALL TO anon USING (true) WITH CHECK (true);
@@ -352,13 +356,15 @@ ALTER TABLE agent_referrals ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS agent_referrals_all ON agent_referrals;
 CREATE POLICY agent_referrals_all ON agent_referrals FOR ALL TO anon USING (true) WITH CHECK (true);
 
--- Public: submit an agent application (from agent-apply.html)
-CREATE OR REPLACE FUNCTION submit_agent_application(p_name text, p_contact text, p_address text, p_description text)
+-- Public: submit an agent application (from agent-apply.html) — email-only lead capture;
+-- the owner follows up by email to learn more before approving.
+DROP FUNCTION IF EXISTS submit_agent_application(text, text, text, text);
+CREATE OR REPLACE FUNCTION submit_agent_application(p_email text)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_id uuid;
 BEGIN
-  INSERT INTO agents (name, contact_number, address, description, status)
-  VALUES (p_name, p_contact, p_address, p_description, 'pending')
+  INSERT INTO agents (name, email, status)
+  VALUES (p_email, p_email, 'pending')
   RETURNING id INTO v_id;
   RETURN v_id;
 END; $$;
@@ -389,13 +395,13 @@ END; $$;
 -- Admin: list agent applications
 DROP FUNCTION IF EXISTS dev_get_agents(text);
 CREATE OR REPLACE FUNCTION dev_get_agents(p_token text)
-RETURNS TABLE(id uuid, name text, contact_number text, address text, description text,
+RETURNS TABLE(id uuid, name text, email text, contact_number text, address text, description text,
               referral_code text, status text, default_free_months integer, created_at timestamptz)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
-  RETURN QUERY SELECT a.id, a.name, a.contact_number, a.address, a.description,
+  RETURN QUERY SELECT a.id, a.name, a.email, a.contact_number, a.address, a.description,
     a.referral_code, a.status, a.default_free_months, a.created_at FROM agents a ORDER BY a.created_at DESC;
 END; $$;
 

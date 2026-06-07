@@ -284,8 +284,8 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
         <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">People apply to become an agent via the public &quot;Become an Agent&quot; form. Approve someone you recognize to activate their personal referral link &mdash; reject anyone you don't know.</p>
         <div style="overflow-x:auto">
           <table>
-            <thead><tr><th>#</th><th>Name</th><th>Contact / Address</th><th>Description</th><th>Status</th><th>Free Period</th><th>Referral Link</th><th>Applied</th><th></th></tr></thead>
-            <tbody id="agentsTbody"><tr class="empty-row"><td colspan="9">Loading…</td></tr></tbody>
+            <thead><tr><th>#</th><th>Applicant</th><th>Status</th><th>Free Period</th><th>Referral Link</th><th>Applied</th><th></th></tr></thead>
+            <tbody id="agentsTbody"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1297,11 +1297,11 @@ function _agentLink(code) {
 
 async function loadAgents() {
   const tb = document.getElementById('agentsTbody');
-  tb.innerHTML = '<tr class="empty-row"><td colspan="9">Loading…</td></tr>';
+  tb.innerHTML = '<tr class="empty-row"><td colspan="7">Loading…</td></tr>';
   const { data, error } = await _sb.rpc('dev_get_agents', { p_token: _devToken });
   if (error) {
     handleAuthError(error);
-    tb.innerHTML = `<tr class="empty-row"><td colspan="9" style="color:var(--danger)">Failed to load: ${esc(error.message)}${error.message?.includes('does not exist') ? ' — run the new "Agent Referral Program" SQL block from sql/schema.sql in Supabase first.' : ''}</td></tr>`;
+    tb.innerHTML = `<tr class="empty-row"><td colspan="7" style="color:var(--danger)">Failed to load: ${esc(error.message)}${error.message?.includes('does not exist') ? ' — run the new "Agent Referral Program" SQL block from sql/schema.sql in Supabase first.' : ''}</td></tr>`;
     return;
   }
   _allAgents = data || [];
@@ -1317,7 +1317,7 @@ function _agentBadge(status) {
 function renderAgents(items) {
   const list = items ?? _allAgents;
   const tb = document.getElementById('agentsTbody');
-  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="9">No agent applications yet.</td></tr>'; return; }
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="7">No agent applications yet.</td></tr>'; return; }
   tb.innerHTML = list.map((a, i) => {
     const dt = new Date(a.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
     const linkCell = (a.status === 'approved' && a.referral_code)
@@ -1333,11 +1333,13 @@ function renderAgents(items) {
       : a.status === 'approved'
       ? `<button class="btn btn-danger btn-sm" onclick="rejectAgent('${a.id}')">&#10007; Revoke</button>`
       : `<button class="btn btn-accent btn-sm" onclick="approveAgent('${a.id}')">&#10003; Approve</button>`;
+    const applicant = a.email
+      ? `<strong>${esc(a.email)}</strong>${a.name && a.name !== a.email ? `<div style="font-size:11px;color:var(--muted)">${esc(a.name)}</div>` : ''}`
+      : `<strong>${esc(a.name || '—')}</strong>`;
+    const extra = [a.contact_number, a.address, a.description].filter(Boolean);
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${i + 1}</td>
-      <td><strong>${esc(a.name)}</strong></td>
-      <td style="color:var(--muted);font-size:12px">${esc(a.contact_number || '—')}<br>${esc(a.address || '—')}</td>
-      <td style="font-size:12px;max-width:220px;color:var(--muted)">${esc(a.description || '—')}</td>
+      <td>${applicant}${extra.length ? `<div style="font-size:11px;color:var(--dim);max-width:220px">${extra.map(esc).join(' &middot; ')}</div>` : ''}</td>
       <td>${_agentBadge(a.status)}</td>
       <td>${periodCell}</td>
       <td>${linkCell}</td>
