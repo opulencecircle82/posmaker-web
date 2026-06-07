@@ -3124,7 +3124,8 @@ async function loadInventory() {
   sel.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
   renderInv(invItems);
   updateAddBtnLabels();
-  const _lsCount=invItems.filter(i=>parseFloat(i.stock??0)<=parseFloat(i.low_stock_threshold??5)).length;
+  const _isTrueServiceBiz=TRUE_SERVICE_BIZ.has(STORE?.business_type||'');
+  const _lsCount=invItems.filter(i=>!(_isTrueServiceBiz&&parseFloat(i.stock??0)===0)&&parseFloat(i.stock??0)<=parseFloat(i.low_stock_threshold??5)).length;
   _updateLowStockBadge(_lsCount);
 }
 function filterInv() {

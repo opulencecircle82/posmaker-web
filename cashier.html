@@ -1054,14 +1054,14 @@ async function loadProds() {
           const inv = invById[invId];
           if (inv) eff = Math.min(eff, _resolveSupplyStock(inv.stock, useQty));
         }
-        if (eff !== Infinity) { p.stock = eff; p._invResolved = true; }
+        p.stock = eff; p._invResolved = true;
       } else if (!(p.stock > 0)) {
         const key = (p.name || '').toLowerCase().trim();
         const skuKey = (p.sku || '').toLowerCase().trim();
         const inv = invByName[key] || (skuKey ? invByName[skuKey] : null);
         if (inv) {
           const resolved = _resolveSupplyStock(inv.stock, 1);
-          if (resolved !== Infinity) { p.stock = resolved; p._invResolved = true; p._autoInvLink = inv.id; }
+          p.stock = resolved; p._invResolved = true; p._autoInvLink = inv.id;
         }
       }
     });
