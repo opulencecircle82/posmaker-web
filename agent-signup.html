@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Get Started</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#09090f;color:#f0f0f8;font-family:'Inter',sans-serif;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:min(460px,100%)}
+.logo{text-align:center;font-size:22px;font-weight:800;margin-bottom:8px}
+.logo span{color:#00b4d8}
+.sub{text-align:center;font-size:13px;color:#8888aa;margin-bottom:28px;min-height:18px}
+.card{background:#111120;border:1px solid #252540;border-radius:16px;padding:36px}
+h1{font-size:20px;font-weight:800;margin-bottom:4px}
+.field{margin-bottom:16px}
+label{display:block;font-size:12px;font-weight:600;color:#aaa;margin-bottom:6px}
+input,select,textarea{width:100%;padding:11px 14px;background:#09090f;border:1.5px solid #252540;border-radius:8px;color:#f0f0f8;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:#00b4d8}
+input::placeholder,textarea::placeholder{color:#44445a}
+.btn{width:100%;padding:13px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.err{color:#ef4444;font-size:13px;min-height:18px;margin-bottom:10px;text-align:center}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.done,.bad{text-align:center;padding:24px 0}
+.done .ico,.bad .ico{font-size:48px;margin-bottom:16px}
+.done h2,.bad h2{font-size:18px;font-weight:700;margin-bottom:8px}
+.done p,.bad p{font-size:13px;color:#8888aa;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">POS<span>Maker</span></div>
+  <div class="sub" id="agentLine">Referral Signup</div>
+
+  <div class="card" id="formCard" style="display:none">
+    <h1>&#128640; Get Started with POSMaker</h1>
+    <p style="font-size:13px;color:#8888aa;margin-bottom:24px">You were referred by <strong id="agentName" style="color:#f0f0f8"></strong>. Tell us about your business and our team will set up your account.</p>
+    <div class="field"><label>Store / Business Name</label><input id="rfStore" type="text" placeholder="e.g. Juan's Pharmacy" oninput="rfCheck()"></div>
+    <div class="field">
+      <label>Business Type</label>
+      <select id="rfBiz">
+        <option value="retail">Retail</option>
+        <option value="food">Food &amp; Beverage</option>
+        <option value="pharmacy">Pharmacy / Drug Store</option>
+        <option value="salon">Salon / Services</option>
+      </select>
+    </div>
+    <div class="field"><label>Your Email</label><input id="rfEmail" type="email" placeholder="e.g. owner@email.com" oninput="rfCheck()"></div>
+    <div class="field"><label>Contact Number</label><input id="rfContact" type="text" placeholder="e.g. 0917 123 4567" oninput="rfCheck()"></div>
+    <div class="field">
+      <label>Notes (optional)</label>
+      <textarea id="rfNotes" rows="3" placeholder="Anything else you'd like us to know"></textarea>
+    </div>
+    <div class="err" id="rfErr"></div>
+    <button class="btn" id="rfBtn" onclick="submitReferral()" disabled>Submit →</button>
+  </div>
+
+  <div class="card done" id="doneCard" style="display:none">
+    <div class="ico">&#9989;</div>
+    <h2>Request Received</h2>
+    <p>Thanks! Our team will review your request and set up your POSMaker account. We'll reach out to you by email once it's ready.</p>
+  </div>
+
+  <div class="card bad" id="badCard" style="display:none">
+    <div class="ico">&#128279;</div>
+    <h2>Invalid or Inactive Link</h2>
+    <p>This referral link is no longer active. Please ask your agent for an updated link, or contact POSMaker support directly.</p>
+  </div>
+</div>
+
+<script>
+const {createClient} = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+const REF = new URLSearchParams(location.search).get('ref') || '';
+
+async function init() {
+  if (!REF) { showBad(); return; }
+  const { data, error } = await _sb.rpc('get_agent_by_code', { p_code: REF });
+  if (error || !data || !data.length) { showBad(); return; }
+  const agent = data[0];
+  document.getElementById('agentLine').textContent = 'Referred by ' + agent.name;
+  document.getElementById('agentName').textContent = agent.name;
+  document.getElementById('formCard').style.display = '';
+}
+
+function showBad() {
+  document.getElementById('agentLine').textContent = '';
+  document.getElementById('badCard').style.display = '';
+}
+
+function rfCheck() {
+  const store = document.getElementById('rfStore').value.trim();
+  const email = document.getElementById('rfEmail').value.trim();
+  const contact = document.getElementById('rfContact').value.trim();
+  document.getElementById('rfBtn').disabled = !(store && email.includes('@') && contact);
+}
+
+async function submitReferral() {
+  const store = document.getElementById('rfStore').value.trim();
+  const biz = document.getElementById('rfBiz').value;
+  const email = document.getElementById('rfEmail').value.trim();
+  const contact = document.getElementById('rfContact').value.trim();
+  const notes = document.getElementById('rfNotes').value.trim();
+  const errEl = document.getElementById('rfErr');
+  const btn = document.getElementById('rfBtn');
+  errEl.textContent = '';
+  if (!store || !email.includes('@') || !contact) { errEl.textContent = 'Please fill in all required fields.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Submitting…';
+  try {
+    const { error } = await _sb.rpc('submit_agent_referral', {
+      p_ref_code: REF, p_store_name: store, p_business_type: biz,
+      p_owner_email: email, p_contact: contact, p_notes: notes
+    });
+    if (error) throw error;
+    document.getElementById('formCard').style.display = 'none';
+    document.getElementById('doneCard').style.display = '';
+  } catch(e) {
+    errEl.textContent = e.message || 'Something went wrong. Please try again.';
+    btn.disabled = false; btn.textContent = 'Submit →';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -167,6 +167,8 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
       <button class="tab-btn" id="tabStaff"    onclick="showTab('staff')">&#129309; Partners</button>
       <button class="tab-btn" id="tabOrders"   onclick="showTab('orders')">&#128200; Orders</button>
       <button class="tab-btn" id="tabSubs"     onclick="showTab('subs')">&#128178; Subscriptions</button>
+      <button class="tab-btn" id="tabAgents"   onclick="showTab('agents')">&#127919; Agents</button>
+      <button class="tab-btn" id="tabReferrals" onclick="showTab('referrals')">&#128279; Referrals</button>
       <button class="tab-btn" id="tabSupport"  onclick="showTab('support')">&#128139; Support</button>
     </div>
 
@@ -264,6 +266,56 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
         </div>
       </div>
     </div>
+    <!-- AGENTS -->
+    <div id="secAgents" style="display:none">
+      <div class="card">
+        <div class="card-title">
+          Agent Applications
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="filter-sel" id="agentsStatusFilter" onchange="filterAgents()">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadAgents()">&#8635; Refresh</button>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">People apply to become an agent via the public &quot;Become an Agent&quot; form. Approve someone you recognize to activate their personal referral link &mdash; reject anyone you don't know.</p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Contact / Address</th><th>Description</th><th>Status</th><th>Referral Link</th><th>Applied</th><th></th></tr></thead>
+            <tbody id="agentsTbody"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- AGENT REFERRALS -->
+    <div id="secReferrals" style="display:none">
+      <div class="card">
+        <div class="card-title">
+          Agent Referral Signups
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="filter-sel" id="referralsStatusFilter" onchange="filterReferrals()">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="granted">Granted</option>
+              <option value="denied">Denied</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadReferrals()">&#8635; Refresh</button>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">Accounts requested through an agent's referral link land here. Grant 1 month or 1 year free if you recognize/trust the referral, or deny it.</p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Date</th><th>Agent</th><th>Store / Owner</th><th>Type</th><th>Status</th><th></th></tr></thead>
+            <tbody id="referralsTbody"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- SUPPORT TICKETS -->
     <div id="secSupport" style="display:none">
       <div class="card">
@@ -475,6 +527,48 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
   </div>
 </div>
 
+<!-- ── GRANT REFERRAL MODAL ── -->
+<div class="modal" id="grantReferralModal">
+  <div class="mbox">
+    <h3>&#127873; Create Account &amp; Grant Free Access</h3>
+    <input type="hidden" id="grReferralId">
+    <input type="hidden" id="grFreePeriod">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:18px">Creates the store account requested through this referral and grants <strong id="grPeriodLabel" style="color:var(--text)"></strong> of free access.</p>
+    <div class="field"><label>Store Name</label><input id="grStore" type="text" oninput="grCheck()"></div>
+    <div class="field">
+      <label>Business Type</label>
+      <select id="grBiz">
+        <option value="retail">Retail</option>
+        <option value="food">Food &amp; Beverage</option>
+        <option value="pharmacy">Pharmacy / Drug Store</option>
+        <option value="salon">Salon / Services</option>
+      </select>
+    </div>
+    <div class="field"><label>Owner Email</label><input id="grEmail" type="email" oninput="grCheck()"></div>
+    <div class="field">
+      <label>Password</label>
+      <input id="grPass" type="password" placeholder="Create a strong password" oninput="grCheck()" onfocus="document.getElementById('grReqBox').classList.add('show')">
+    </div>
+    <div class="pw-reqs" id="grReqBox">
+      <div class="req" id="greq-len"><span class="req-icon">✗</span>Minimum 8 characters</div>
+      <div class="req" id="greq-upper"><span class="req-icon">✗</span>Uppercase letter (A–Z)</div>
+      <div class="req" id="greq-lower"><span class="req-icon">✗</span>Lowercase letter (a–z)</div>
+      <div class="req" id="greq-num"><span class="req-icon">✗</span>Number (0–9)</div>
+      <div class="req" id="greq-sym"><span class="req-icon">✗</span>Special character (!@#$%^&amp;*)</div>
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <input id="grPass2" type="password" placeholder="Re-enter password" oninput="grCheck()">
+      <div id="grMatchErr" style="font-size:11px;color:var(--danger);margin-top:4px;min-height:13px"></div>
+    </div>
+    <div id="grErr" style="font-size:12px;color:var(--danger);margin-bottom:8px;min-height:14px"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('grantReferralModal')">Cancel</button>
+      <button class="btn btn-accent" id="grSaveBtn" onclick="doGrantReferral()" disabled>Create &amp; Grant</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── STORE DETAIL MODAL ── -->
 <div class="modal" id="storeDetailModal">
   <div class="mbox" style="max-width:560px">
@@ -494,6 +588,7 @@ const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let _devToken = null, _devUser = '';
 let _allStores = [], _allStaff = [], _allOrders = [], _allPartners = [];
+let _allAgents = [], _allReferrals = [];
 
 // ── SHA-256 ──────────────────────────────────────────────────────────────────
 async function sha256(text) {
@@ -1149,15 +1244,231 @@ async function cancelSub(id) {
   loadSubs();
 }
 
+// ── Agents ────────────────────────────────────────────────────────────────────
+function _agentLink(code) {
+  return `${location.origin}${location.pathname.replace('dev-support.html','agent-signup.html')}?ref=${code}`;
+}
+
+async function loadAgents() {
+  const tb = document.getElementById('agentsTbody');
+  tb.innerHTML = '<tr class="empty-row"><td colspan="8">Loading…</td></tr>';
+  const { data, error } = await _sb.rpc('dev_get_agents', { p_token: _devToken });
+  if (error) { handleAuthError(error); return; }
+  _allAgents = data || [];
+  renderAgents();
+}
+
+function _agentBadge(status) {
+  const map = { pending: ['badge-warn','Pending'], approved: ['badge-ok','Approved'], rejected: ['badge-danger','Rejected'] };
+  const [c, l] = map[status] || ['badge-muted', status];
+  return `<span class="badge ${c}">${l}</span>`;
+}
+
+function renderAgents(items) {
+  const list = items ?? _allAgents;
+  const tb = document.getElementById('agentsTbody');
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="8">No agent applications yet.</td></tr>'; return; }
+  tb.innerHTML = list.map((a, i) => {
+    const dt = new Date(a.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const linkCell = (a.status === 'approved' && a.referral_code)
+      ? `<div style="display:flex;gap:6px;align-items:center"><span style="font-size:11px;color:var(--accent);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(_agentLink(a.referral_code))}</span><button class="btn btn-ghost btn-sm" onclick="copyAgentLink('${a.id}')">&#128203;</button></div>`
+      : '<span style="color:var(--dim)">—</span>';
+    const actions = a.status === 'pending'
+      ? `<button class="btn btn-accent btn-sm" onclick="approveAgent('${a.id}')">&#10003; Approve</button>
+         <button class="btn btn-danger btn-sm" onclick="rejectAgent('${a.id}')">&#10007; Reject</button>`
+      : a.status === 'approved'
+      ? `<button class="btn btn-danger btn-sm" onclick="rejectAgent('${a.id}')">&#10007; Revoke</button>`
+      : `<button class="btn btn-accent btn-sm" onclick="approveAgent('${a.id}')">&#10003; Approve</button>`;
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
+      <td><strong>${esc(a.name)}</strong></td>
+      <td style="color:var(--muted);font-size:12px">${esc(a.contact_number || '—')}<br>${esc(a.address || '—')}</td>
+      <td style="font-size:12px;max-width:220px;color:var(--muted)">${esc(a.description || '—')}</td>
+      <td>${_agentBadge(a.status)}</td>
+      <td>${linkCell}</td>
+      <td style="color:var(--muted);font-size:12px">${dt}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterAgents() {
+  const st = document.getElementById('agentsStatusFilter').value;
+  renderAgents(st ? _allAgents.filter(a => a.status === st) : _allAgents);
+}
+
+async function approveAgent(id) {
+  const { data, error } = await _sb.rpc('dev_approve_agent', { p_token: _devToken, p_agent_id: id });
+  if (error) { showToast(error.message, true); return; }
+  const a = _allAgents.find(x => x.id === id);
+  if (a) { a.status = 'approved'; a.referral_code = data; }
+  renderAgents();
+  showToast('Agent approved — their referral link is now active.');
+}
+
+async function rejectAgent(id) {
+  if (!confirm('Reject / revoke this agent? Their referral link will stop working.')) return;
+  const { error } = await _sb.rpc('dev_reject_agent', { p_token: _devToken, p_agent_id: id });
+  if (error) { showToast(error.message, true); return; }
+  const a = _allAgents.find(x => x.id === id);
+  if (a) a.status = 'rejected';
+  renderAgents();
+  showToast('Agent application rejected.');
+}
+
+function copyAgentLink(id) {
+  const a = _allAgents.find(x => x.id === id);
+  if (!a || !a.referral_code) return;
+  navigator.clipboard.writeText(_agentLink(a.referral_code)).then(() => showToast('Referral link copied!'));
+}
+
+// ── Agent Referrals ───────────────────────────────────────────────────────────
+async function loadReferrals() {
+  const tb = document.getElementById('referralsTbody');
+  tb.innerHTML = '<tr class="empty-row"><td colspan="7">Loading…</td></tr>';
+  const { data, error } = await _sb.rpc('dev_get_agent_referrals', { p_token: _devToken });
+  if (error) { handleAuthError(error); return; }
+  _allReferrals = data || [];
+  renderReferrals();
+}
+
+function _referralBadge(r) {
+  if (r.status === 'granted') return `<span class="badge badge-ok">Granted &middot; ${r.free_period === '1year' ? '1 Year' : '1 Month'} Free</span>`;
+  if (r.status === 'denied')  return `<span class="badge badge-danger">Denied</span>`;
+  return `<span class="badge badge-warn">Pending</span>`;
+}
+
+function renderReferrals(items) {
+  const list = items ?? _allReferrals;
+  const tb = document.getElementById('referralsTbody');
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="7">No referral signups yet.</td></tr>'; return; }
+  tb.innerHTML = list.map((r, i) => {
+    const dt = new Date(r.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const actions = r.status === 'pending'
+      ? `<button class="btn btn-accent btn-sm" onclick="openGrantModal('${r.id}','1month')">&#127873; Free 1 Month</button>
+         <button class="btn btn-accent btn-sm" onclick="openGrantModal('${r.id}','1year')">&#127873; Free 1 Year</button>
+         <button class="btn btn-danger btn-sm" onclick="denyReferral('${r.id}')">&#10007; Deny</button>`
+      : '';
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
+      <td style="color:var(--muted);font-size:12px">${dt}</td>
+      <td><strong>${esc(r.agent_name)}</strong></td>
+      <td><strong>${esc(r.store_name)}</strong><div style="font-size:11px;color:var(--muted)">${esc(r.owner_email)}</div>${r.contact_number ? `<div style="font-size:11px;color:var(--muted)">&#128222; ${esc(r.contact_number)}</div>` : ''}${r.notes ? `<div style="font-size:11px;color:var(--dim);max-width:200px">${esc(r.notes)}</div>` : ''}</td>
+      <td><span class="badge badge-muted">${esc(r.business_type || '—')}</span></td>
+      <td>${_referralBadge(r)}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterReferrals() {
+  const st = document.getElementById('referralsStatusFilter').value;
+  renderReferrals(st ? _allReferrals.filter(r => r.status === st) : _allReferrals);
+}
+
+async function denyReferral(id) {
+  if (!confirm('Deny this referral signup?')) return;
+  const { error } = await _sb.rpc('dev_deny_referral', { p_token: _devToken, p_referral_id: id });
+  if (error) { showToast(error.message, true); return; }
+  const r = _allReferrals.find(x => x.id === id);
+  if (r) r.status = 'denied';
+  renderReferrals();
+  showToast('Referral denied.');
+}
+
+// ── Grant Referral (creates the account + free subscription) ─────────────────
+function openGrantModal(referralId, freePeriod) {
+  const r = _allReferrals.find(x => x.id === referralId);
+  if (!r) return;
+  document.getElementById('grReferralId').value = referralId;
+  document.getElementById('grFreePeriod').value = freePeriod;
+  document.getElementById('grPeriodLabel').textContent = freePeriod === '1year' ? '1 year' : '1 month';
+  document.getElementById('grStore').value = r.store_name || '';
+  document.getElementById('grBiz').value = r.business_type || 'retail';
+  document.getElementById('grEmail').value = r.owner_email || '';
+  document.getElementById('grPass').value = '';
+  document.getElementById('grPass2').value = '';
+  document.getElementById('grErr').textContent = '';
+  document.getElementById('grMatchErr').textContent = '';
+  document.getElementById('grReqBox').classList.remove('show');
+  document.getElementById('grSaveBtn').disabled = true;
+  document.getElementById('grSaveBtn').textContent = 'Create & Grant';
+  document.getElementById('grantReferralModal').classList.add('show');
+}
+
+function grCheck() {
+  const store = document.getElementById('grStore').value.trim();
+  const email = document.getElementById('grEmail').value.trim();
+  const pw    = document.getElementById('grPass').value;
+  const pw2   = document.getElementById('grPass2').value;
+  const pwOk  = checkPwReqs(pw, 'greq-');
+  const match = pw === pw2 && pw2 !== '';
+  document.getElementById('grMatchErr').textContent = pw2 && !match ? 'Passwords do not match.' : '';
+  document.getElementById('grSaveBtn').disabled = !(store && email.includes('@') && pwOk && match);
+}
+
+async function doGrantReferral() {
+  const referralId = document.getElementById('grReferralId').value;
+  const freePeriod = document.getElementById('grFreePeriod').value;
+  const storeName  = document.getElementById('grStore').value.trim();
+  const biz        = document.getElementById('grBiz').value;
+  const email      = document.getElementById('grEmail').value.trim();
+  const pw         = document.getElementById('grPass').value;
+  const errEl      = document.getElementById('grErr');
+  const btn        = document.getElementById('grSaveBtn');
+  errEl.textContent = '';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Creating…';
+
+  const { error: createErr } = await _sb.rpc('dev_create_partner', {
+    p_token: _devToken, p_email: email, p_password: pw,
+    p_store_name: storeName, p_business_type: biz
+  });
+  if (createErr) {
+    btn.disabled = false; btn.textContent = 'Create & Grant';
+    errEl.textContent = createErr.message?.includes('duplicate') ? 'Email already registered.' : createErr.message;
+    return;
+  }
+
+  await loadStaff();
+  const newPartner = _allPartners.find(p => (p.owner_email || '').toLowerCase() === email.toLowerCase());
+  if (!newPartner) {
+    btn.disabled = false; btn.textContent = 'Create & Grant';
+    errEl.textContent = 'Account was created, but could not locate it to grant free access. Please grant the subscription manually from the Subscriptions tab.';
+    return;
+  }
+
+  const { error: grantErr } = await _sb.rpc('dev_grant_referral', {
+    p_token: _devToken, p_referral_id: referralId, p_store_id: newPartner.store_id, p_free_period: freePeriod
+  });
+  btn.disabled = false; btn.textContent = 'Create & Grant';
+  if (grantErr) { errEl.textContent = 'Account created, but granting free access failed: ' + grantErr.message; return; }
+
+  closeModal('grantReferralModal');
+  document.getElementById('cdStore').textContent = storeName;
+  document.getElementById('cdName').textContent  = storeName;
+  document.getElementById('cdUser').textContent  = email;
+  document.getElementById('cdPass').textContent  = pw;
+  document.getElementById('credsModal').classList.add('show');
+
+  const r = _allReferrals.find(x => x.id === referralId);
+  if (r) { r.status = 'granted'; r.free_period = freePeriod; r.store_id = newPartner.store_id; }
+  renderReferrals();
+  await loadStores();
+  document.getElementById('stStores').textContent = _allStores.length;
+  showToast('Account created — ' + (freePeriod === '1year' ? '1 year' : '1 month') + ' free access granted!');
+}
+
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function showTab(tab) {
-  const secMap = {stores:'Stores',staff:'Staff',orders:'Orders',subs:'Subs',support:'Support'};
-  const tabMap = {stores:'Stores',staff:'Staff',orders:'Orders',subs:'Subs',support:'Support'};
+  const secMap = {stores:'Stores',staff:'Staff',orders:'Orders',subs:'Subs',agents:'Agents',referrals:'Referrals',support:'Support'};
+  const tabMap = {stores:'Stores',staff:'Staff',orders:'Orders',subs:'Subs',agents:'Agents',referrals:'Referrals',support:'Support'};
   Object.keys(secMap).forEach(t => {
     document.getElementById('sec' + secMap[t]).style.display = t === tab ? '' : 'none';
     document.getElementById('tab' + tabMap[t]).classList.toggle('active', t === tab);
   });
   if (tab === 'subs' && !_allSubs.length) loadSubs();
+  if (tab === 'agents' && !_allAgents.length) loadAgents();
+  if (tab === 'referrals' && !_allReferrals.length) loadReferrals();
   if (tab === 'support') { if (_allTickets.length) renderTickets(); else loadTickets(); }
 }
 

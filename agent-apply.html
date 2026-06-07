@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Become an Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#09090f;color:#f0f0f8;font-family:'Inter',sans-serif;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:min(460px,100%)}
+.logo{text-align:center;font-size:22px;font-weight:800;margin-bottom:8px}
+.logo span{color:#00b4d8}
+.sub{text-align:center;font-size:13px;color:#8888aa;margin-bottom:28px}
+.card{background:#111120;border:1px solid #252540;border-radius:16px;padding:36px}
+h1{font-size:20px;font-weight:800;margin-bottom:4px}
+.field{margin-bottom:16px}
+label{display:block;font-size:12px;font-weight:600;color:#aaa;margin-bottom:6px}
+input,textarea{width:100%;padding:11px 14px;background:#09090f;border:1.5px solid #252540;border-radius:8px;color:#f0f0f8;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s;resize:vertical}
+input:focus,textarea:focus{border-color:#00b4d8}
+input::placeholder,textarea::placeholder{color:#44445a}
+.btn{width:100%;padding:13px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.err{color:#ef4444;font-size:13px;min-height:18px;margin-bottom:10px;text-align:center}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.done{text-align:center;padding:24px 0}
+.done .ico{font-size:48px;margin-bottom:16px}
+.done h2{font-size:18px;font-weight:700;margin-bottom:8px}
+.done p{font-size:13px;color:#8888aa;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">POS<span>Maker</span></div>
+  <div class="sub">Partner Agent Program</div>
+
+  <div class="card" id="formCard">
+    <h1>&#127919; Become an Agent</h1>
+    <p style="font-size:13px;color:#8888aa;margin-bottom:24px">Apply to become a POSMaker referral agent. Tell us who you are so our team can review your application — once approved, you'll get your own personal link for signing up new clients.</p>
+    <div class="field">
+      <label>Full Name</label>
+      <input id="agName" type="text" placeholder="e.g. Juan dela Cruz" oninput="agCheck()">
+    </div>
+    <div class="field">
+      <label>Contact Number</label>
+      <input id="agContact" type="text" placeholder="e.g. 0917 123 4567" oninput="agCheck()">
+    </div>
+    <div class="field">
+      <label>Address</label>
+      <input id="agAddress" type="text" placeholder="e.g. Quezon City, Metro Manila" oninput="agCheck()">
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <textarea id="agDescription" rows="4" placeholder="Tell us about yourself — how do you know POSMaker, who are your prospective clients, etc." oninput="agCheck()"></textarea>
+    </div>
+    <div class="err" id="agErr"></div>
+    <button class="btn" id="agBtn" onclick="submitApplication()" disabled>Submit Application →</button>
+  </div>
+
+  <div class="card done" id="doneCard" style="display:none">
+    <div class="ico">&#9989;</div>
+    <h2>Application Submitted</h2>
+    <p>Thanks! Our team will review your application. Once approved, we'll reach out with your personal referral link that you can share with prospective clients.</p>
+  </div>
+</div>
+
+<script>
+const {createClient} = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+function agCheck() {
+  const name = document.getElementById('agName').value.trim();
+  const contact = document.getElementById('agContact').value.trim();
+  const address = document.getElementById('agAddress').value.trim();
+  document.getElementById('agBtn').disabled = !(name && contact && address);
+}
+
+async function submitApplication() {
+  const name = document.getElementById('agName').value.trim();
+  const contact = document.getElementById('agContact').value.trim();
+  const address = document.getElementById('agAddress').value.trim();
+  const description = document.getElementById('agDescription').value.trim();
+  const errEl = document.getElementById('agErr');
+  const btn = document.getElementById('agBtn');
+  errEl.textContent = '';
+  if (!name || !contact || !address) { errEl.textContent = 'Please fill in your name, contact number, and address.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Submitting…';
+  try {
+    const { error } = await _sb.rpc('submit_agent_application', {
+      p_name: name, p_contact: contact, p_address: address, p_description: description
+    });
+    if (error) throw error;
+    document.getElementById('formCard').style.display = 'none';
+    document.getElementById('doneCard').style.display = '';
+  } catch(e) {
+    errEl.textContent = e.message || 'Something went wrong. Please try again.';
+    btn.disabled = false; btn.textContent = 'Submit Application →';
+  }
+}
+</script>
+</body>
+</html>

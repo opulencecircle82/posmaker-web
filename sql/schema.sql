@@ -311,3 +311,158 @@ BEGIN
   UPDATE store_users SET last_seen = NULL WHERE id = p_staff_id;
 END;
 $$;
+
+-- ============================================================
+--  Agent Referral Program
+--  Run this block in Supabase → SQL Editor (once)
+-- ============================================================
+
+-- People who apply to become POSMaker referral agents
+CREATE TABLE IF NOT EXISTS agents (
+  id             UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  name           TEXT        NOT NULL,
+  contact_number TEXT        DEFAULT '',
+  address        TEXT        DEFAULT '',
+  description    TEXT        DEFAULT '',
+  referral_code  TEXT        UNIQUE,
+  status         TEXT        DEFAULT 'pending',  -- pending | approved | rejected
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS agents_all ON agents;
+CREATE POLICY agents_all ON agents FOR ALL TO anon USING (true) WITH CHECK (true);
+
+-- Accounts requested through an agent's referral link (pending admin review)
+CREATE TABLE IF NOT EXISTS agent_referrals (
+  id             UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  agent_id       UUID        REFERENCES agents NOT NULL,
+  store_name     TEXT        NOT NULL,
+  business_type  TEXT        DEFAULT 'retail',
+  owner_email    TEXT        NOT NULL,
+  contact_number TEXT        DEFAULT '',
+  notes          TEXT        DEFAULT '',
+  status         TEXT        DEFAULT 'pending',  -- pending | granted | denied
+  free_period    TEXT        DEFAULT '',         -- '1month' | '1year'
+  store_id       UUID        REFERENCES stores,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE agent_referrals ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS agent_referrals_all ON agent_referrals;
+CREATE POLICY agent_referrals_all ON agent_referrals FOR ALL TO anon USING (true) WITH CHECK (true);
+
+-- Public: submit an agent application (from agent-apply.html)
+CREATE OR REPLACE FUNCTION submit_agent_application(p_name text, p_contact text, p_address text, p_description text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_id uuid;
+BEGIN
+  INSERT INTO agents (name, contact_number, address, description, status)
+  VALUES (p_name, p_contact, p_address, p_description, 'pending')
+  RETURNING id INTO v_id;
+  RETURN v_id;
+END; $$;
+
+-- Public: look up an approved agent by referral code (used by agent-signup.html)
+CREATE OR REPLACE FUNCTION get_agent_by_code(p_code text)
+RETURNS TABLE(id uuid, name text, status text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY SELECT a.id, a.name, a.status FROM agents a
+    WHERE a.referral_code = p_code AND a.status = 'approved';
+END; $$;
+
+-- Public: submit a referral signup request (from agent-signup.html) — does NOT create the account
+CREATE OR REPLACE FUNCTION submit_agent_referral(p_ref_code text, p_store_name text,
+  p_business_type text, p_owner_email text, p_contact text, p_notes text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_agent_id uuid; v_id uuid;
+BEGIN
+  SELECT id INTO v_agent_id FROM agents WHERE referral_code = p_ref_code AND status = 'approved';
+  IF v_agent_id IS NULL THEN RAISE EXCEPTION 'Invalid or inactive referral link.'; END IF;
+  INSERT INTO agent_referrals (agent_id, store_name, business_type, owner_email, contact_number, notes, status)
+  VALUES (v_agent_id, p_store_name, p_business_type, p_owner_email, p_contact, p_notes, 'pending')
+  RETURNING id INTO v_id;
+  RETURN v_id;
+END; $$;
+
+-- Admin: list agent applications
+CREATE OR REPLACE FUNCTION dev_get_agents(p_token text)
+RETURNS TABLE(id uuid, name text, contact_number text, address text, description text,
+              referral_code text, status text, created_at timestamptz)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  RETURN QUERY SELECT a.id, a.name, a.contact_number, a.address, a.description,
+    a.referral_code, a.status, a.created_at FROM agents a ORDER BY a.created_at DESC;
+END; $$;
+
+-- Admin: approve an agent application — generates their referral code on first approval
+CREATE OR REPLACE FUNCTION dev_approve_agent(p_token text, p_agent_id uuid)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_code text;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT referral_code INTO v_code FROM agents WHERE id = p_agent_id;
+  IF v_code IS NULL THEN
+    v_code := substr(replace(gen_random_uuid()::text, '-', ''), 1, 10);
+    UPDATE agents SET referral_code = v_code WHERE id = p_agent_id;
+  END IF;
+  UPDATE agents SET status = 'approved' WHERE id = p_agent_id;
+  RETURN v_code;
+END; $$;
+
+-- Admin: reject / revoke an agent application
+CREATE OR REPLACE FUNCTION dev_reject_agent(p_token text, p_agent_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  UPDATE agents SET status = 'rejected' WHERE id = p_agent_id;
+  RETURN FOUND;
+END; $$;
+
+-- Admin: list referral signup requests
+CREATE OR REPLACE FUNCTION dev_get_agent_referrals(p_token text)
+RETURNS TABLE(id uuid, agent_id uuid, agent_name text, store_name text, business_type text,
+              owner_email text, contact_number text, notes text, status text,
+              free_period text, store_id uuid, created_at timestamptz)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  RETURN QUERY
+    SELECT r.id, r.agent_id, a.name, r.store_name, r.business_type, r.owner_email,
+           r.contact_number, r.notes, r.status, r.free_period, r.store_id, r.created_at
+    FROM agent_referrals r JOIN agents a ON a.id = r.agent_id
+    ORDER BY r.created_at DESC;
+END; $$;
+
+-- Admin: deny a referral signup request
+CREATE OR REPLACE FUNCTION dev_deny_referral(p_token text, p_referral_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  UPDATE agent_referrals SET status = 'denied' WHERE id = p_referral_id;
+  RETURN FOUND;
+END; $$;
+
+-- Admin: grant free access for a referral — call AFTER creating the store via dev_create_partner.
+-- Records a free subscription (amount = 0) and links the referral to the new store.
+CREATE OR REPLACE FUNCTION dev_grant_referral(p_token text, p_referral_id uuid,
+  p_store_id uuid, p_free_period text)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_email text; v_expires timestamptz;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT owner_email INTO v_email FROM agent_referrals WHERE id = p_referral_id;
+  v_expires := CASE WHEN p_free_period = '1year' THEN now() + interval '1 year'
+                    ELSE now() + interval '1 month' END;
+  INSERT INTO subscriptions (store_id, subscriber_email, plan_name, amount, status, started_at, expires_at)
+  VALUES (p_store_id, v_email, 'Agent Referral - Free', 0, 'active', now(), v_expires);
+  UPDATE agent_referrals SET status = 'granted', free_period = p_free_period, store_id = p_store_id
+    WHERE id = p_referral_id;
+  RETURN true;
+END; $$;
