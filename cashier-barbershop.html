@@ -1568,8 +1568,8 @@ function selectChair(id) {
 async function _getBarberOptions() {
   if (_barberOptionsCache) return _barberOptionsCache;
   try {
-    const { data } = await _sb.from('store_users').select('full_name,username,active').eq('store_id', STORE.id);
-    _barberOptionsCache = [...new Set((data || []).filter(s => s.active !== false).map(s => (s.full_name || s.username || '').trim()).filter(Boolean))];
+    const { data } = await _sb.from('products').select('barber_name').eq('store_id', STORE.id);
+    _barberOptionsCache = [...new Set((data || []).map(p => (p.barber_name || '').trim()).filter(Boolean))];
   } catch (_) { _barberOptionsCache = []; }
   return _barberOptionsCache;
 }
