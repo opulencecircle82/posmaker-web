@@ -1193,7 +1193,7 @@ function _sig(ms = 25000) {
   appWrap.style.display = 'flex';
 
   // Set cashier link
-  const cashierUrl = `${location.origin}${location.pathname.replace('dashboard.html','cashier.html')}?store=${store.id}`;
+  const cashierUrl = `${location.origin}${location.pathname.replace('dashboard-barbershop.html','cashier-barbershop.html')}?store=${store.id}`;
   document.getElementById('cashierLinkBox').textContent = cashierUrl;
   document.getElementById('openCashierBtn').href = cashierUrl;
   const _tpb = document.getElementById('testPosBtn'); if (_tpb) _tpb.href = cashierUrl;
@@ -2039,7 +2039,7 @@ function renderPOSTerminals() {
   const pSub   = document.getElementById('posPlanSub');
   if (pTitle) pTitle.textContent = IS_PRO ? 'Pro Plan — Unlimited POS Terminals' : 'Free Plan — 1 POS Terminal Included';
   if (pSub)   pSub.textContent   = IS_PRO ? `You have ${allStores.length} POS terminal${allStores.length !== 1 ? 's' : ''}. Click + Add POS to create another terminal for a second counter or branch.` : 'Upgrade to Pro to run multiple POS counters or locations under one account.';
-  const base = location.origin + location.pathname.replace('dashboard.html','cashier.html');
+  const base = location.origin + location.pathname.replace('dashboard-barbershop.html','cashier-barbershop.html');
   if (!allStores.length) { list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted)">No POS terminals found.</div>'; return; }
   list.innerHTML = allStores.map((s, i) => {
     const url  = `${base}?store=${s.id}`;
@@ -2138,13 +2138,13 @@ function downloadStoreConfig() {
 }
 function openPWABuilder() {
   if (!allStores.length) { showToast('No POS terminal found.', true); return; }
-  const base = location.origin + location.pathname.replace('dashboard.html','cashier.html');
+  const base = location.origin + location.pathname.replace('dashboard-barbershop.html','cashier-barbershop.html');
   const url = `${base}?store=${allStores[0].id}`;
   window.open('https://www.pwabuilder.com/?site=' + encodeURIComponent(url), '_blank');
 }
 function showInstallModal(type) {
   if (!allStores.length) return;
-  const base = location.origin + location.pathname.replace('dashboard.html','cashier.html');
+  const base = location.origin + location.pathname.replace('dashboard-barbershop.html','cashier-barbershop.html');
   const url = `${base}?store=${allStores[0].id}`;
   document.getElementById('posInstallType').textContent = type;
   document.getElementById('posInstallUrl').textContent = url;
