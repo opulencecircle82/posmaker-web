@@ -41,10 +41,10 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
   <div class="logo">POS<span>Maker</span></div>
   <div class="card">
 
-    <!-- STEP 1: account (email + full name, passwordless) -->
+    <!-- STEP 1: account (email + full name + password) -->
     <div id="stepAccount">
       <h1>Create your account</h1>
-      <p class="sub">Enter your email and full name. We'll send you a confirmation link — once you click it, you'll set up your store. No password needed.</p>
+      <p class="sub">Enter your details below. We'll send you a confirmation link — once you click it, you'll set up your store and can log in anytime with your email and password.</p>
       <div class="field">
         <label>Full Name</label>
         <input id="fullName" type="text" placeholder="e.g. Juan dela Cruz" autocomplete="name">
@@ -52,6 +52,14 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
       <div class="field">
         <label>Your Email</label>
         <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="password" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input id="password2" type="password" placeholder="Re-enter your password" autocomplete="new-password">
       </div>
       <div class="err" id="errAccount"></div>
       <button class="btn" id="btnAccount" onclick="doCreateAccount()">Create Account →</button>
@@ -138,27 +146,30 @@ function showStep(step) {
   document.getElementById('stepStore').style.display   = step === 'store'   ? '' : 'none';
 }
 
-// STEP 1 → create the auth account; Supabase sends a confirmation email if enabled
-// Passwordless: send a magic link to the email, carrying the full name as user metadata
+// STEP 1 → create the auth account with email + password; Supabase sends a confirmation email if enabled
 async function doCreateAccount() {
   const fullName = document.getElementById('fullName').value.trim();
   const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const password2 = document.getElementById('password2').value;
   const errEl    = document.getElementById('errAccount');
   const btn      = document.getElementById('btnAccount');
 
   errEl.textContent = '';
   if (!fullName)            { errEl.textContent = 'Full name is required.'; return; }
   if (!email.includes('@')) { errEl.textContent = 'Please enter a valid email address.'; return; }
+  if (password.length < 6)  { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if (password !== password2) { errEl.textContent = 'Passwords do not match.'; return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Sending confirmation…';
 
-  const { error: authErr } = await _sb.auth.signInWithOtp({
+  const { error: authErr } = await _sb.auth.signUp({
     email,
+    password,
     options: {
       emailRedirectTo: location.origin + location.pathname,
-      data: { full_name: fullName },
-      shouldCreateUser: true
+      data: { full_name: fullName }
     }
   });
 
