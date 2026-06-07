@@ -532,8 +532,24 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
   <div class="mbox">
     <h3>&#127873; Create Account &amp; Grant Free Access</h3>
     <input type="hidden" id="grReferralId">
-    <input type="hidden" id="grFreePeriod">
-    <p style="font-size:12px;color:var(--muted);margin-bottom:18px">Creates the store account requested through this referral and grants <strong id="grPeriodLabel" style="color:var(--text)"></strong> of free access.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:18px">Creates the store account requested through this referral and grants free access for the period you choose below.</p>
+    <div class="field">
+      <label>Free Access Period</label>
+      <select id="grMonths">
+        <option value="1">1 Month</option>
+        <option value="2">2 Months</option>
+        <option value="3">3 Months</option>
+        <option value="4">4 Months</option>
+        <option value="5">5 Months</option>
+        <option value="6">6 Months</option>
+        <option value="7">7 Months</option>
+        <option value="8">8 Months</option>
+        <option value="9">9 Months</option>
+        <option value="10">10 Months</option>
+        <option value="11">11 Months</option>
+        <option value="12">12 Months (1 Year)</option>
+      </select>
+    </div>
     <div class="field"><label>Store Name</label><input id="grStore" type="text" oninput="grCheck()"></div>
     <div class="field">
       <label>Business Type</label>
@@ -1341,7 +1357,7 @@ async function loadReferrals() {
 }
 
 function _referralBadge(r) {
-  if (r.status === 'granted') return `<span class="badge badge-ok">Granted &middot; ${r.free_period === '1year' ? '1 Year' : '1 Month'} Free</span>`;
+  if (r.status === 'granted') { const m = parseInt(r.free_period, 10) || 1; return `<span class="badge badge-ok">Granted &middot; ${m} Month${m === 1 ? '' : 's'} Free</span>`; }
   if (r.status === 'denied')  return `<span class="badge badge-danger">Denied</span>`;
   return `<span class="badge badge-warn">Pending</span>`;
 }
@@ -1353,8 +1369,7 @@ function renderReferrals(items) {
   tb.innerHTML = list.map((r, i) => {
     const dt = new Date(r.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
     const actions = r.status === 'pending'
-      ? `<button class="btn btn-accent btn-sm" onclick="openGrantModal('${r.id}','1month')">&#127873; Free 1 Month</button>
-         <button class="btn btn-accent btn-sm" onclick="openGrantModal('${r.id}','1year')">&#127873; Free 1 Year</button>
+      ? `<button class="btn btn-accent btn-sm" onclick="openGrantModal('${r.id}')">&#127873; Grant Free Access</button>
          <button class="btn btn-danger btn-sm" onclick="denyReferral('${r.id}')">&#10007; Deny</button>`
       : '';
     return `<tr>
@@ -1385,12 +1400,11 @@ async function denyReferral(id) {
 }
 
 // ── Grant Referral (creates the account + free subscription) ─────────────────
-function openGrantModal(referralId, freePeriod) {
+function openGrantModal(referralId) {
   const r = _allReferrals.find(x => x.id === referralId);
   if (!r) return;
   document.getElementById('grReferralId').value = referralId;
-  document.getElementById('grFreePeriod').value = freePeriod;
-  document.getElementById('grPeriodLabel').textContent = freePeriod === '1year' ? '1 year' : '1 month';
+  document.getElementById('grMonths').value = '1';
   document.getElementById('grStore').value = r.store_name || '';
   document.getElementById('grBiz').value = r.business_type || 'retail';
   document.getElementById('grEmail').value = r.owner_email || '';
@@ -1417,7 +1431,7 @@ function grCheck() {
 
 async function doGrantReferral() {
   const referralId = document.getElementById('grReferralId').value;
-  const freePeriod = document.getElementById('grFreePeriod').value;
+  const months     = parseInt(document.getElementById('grMonths').value, 10);
   const storeName  = document.getElementById('grStore').value.trim();
   const biz        = document.getElementById('grBiz').value;
   const email      = document.getElementById('grEmail').value.trim();
@@ -1446,7 +1460,7 @@ async function doGrantReferral() {
   }
 
   const { error: grantErr } = await _sb.rpc('dev_grant_referral', {
-    p_token: _devToken, p_referral_id: referralId, p_store_id: newPartner.store_id, p_free_period: freePeriod
+    p_token: _devToken, p_referral_id: referralId, p_store_id: newPartner.store_id, p_months: months
   });
   btn.disabled = false; btn.textContent = 'Create & Grant';
   if (grantErr) { errEl.textContent = 'Account created, but granting free access failed: ' + grantErr.message; return; }
@@ -1459,11 +1473,11 @@ async function doGrantReferral() {
   document.getElementById('credsModal').classList.add('show');
 
   const r = _allReferrals.find(x => x.id === referralId);
-  if (r) { r.status = 'granted'; r.free_period = freePeriod; r.store_id = newPartner.store_id; }
+  if (r) { r.status = 'granted'; r.free_period = String(months); r.store_id = newPartner.store_id; }
   renderReferrals();
   await loadStores();
   document.getElementById('stStores').textContent = _allStores.length;
-  showToast('Account created — ' + (freePeriod === '1year' ? '1 year' : '1 month') + ' free access granted!');
+  showToast('Account created — ' + months + ' month' + (months === 1 ? '' : 's') + ' free access granted!');
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────

@@ -450,19 +450,20 @@ END; $$;
 
 -- Admin: grant free access for a referral — call AFTER creating the store via dev_create_partner.
 -- Records a free subscription (amount = 0) and links the referral to the new store.
+-- Free period is a number of months (1-12), chosen by the admin per referral.
+DROP FUNCTION IF EXISTS dev_grant_referral(text, uuid, uuid, text);
 CREATE OR REPLACE FUNCTION dev_grant_referral(p_token text, p_referral_id uuid,
-  p_store_id uuid, p_free_period text)
+  p_store_id uuid, p_months integer)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_email text; v_expires timestamptz;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   SELECT owner_email INTO v_email FROM agent_referrals WHERE id = p_referral_id;
-  v_expires := CASE WHEN p_free_period = '1year' THEN now() + interval '1 year'
-                    ELSE now() + interval '1 month' END;
+  v_expires := now() + (p_months || ' months')::interval;
   INSERT INTO subscriptions (store_id, subscriber_email, plan_name, amount, status, started_at, expires_at)
   VALUES (p_store_id, v_email, 'Agent Referral - Free', 0, 'active', now(), v_expires);
-  UPDATE agent_referrals SET status = 'granted', free_period = p_free_period, store_id = p_store_id
+  UPDATE agent_referrals SET status = 'granted', free_period = p_months::text, store_id = p_store_id
     WHERE id = p_referral_id;
   RETURN true;
 END; $$;
