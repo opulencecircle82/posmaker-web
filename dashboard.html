@@ -2644,10 +2644,22 @@ function acceptReceipt() {
   showToast('Receipt accepted.');
   closeModal('receiptModal');
 }
-function invalidateReceipt() {
+async function invalidateReceipt() {
   const r = _receiptCache[_currentReceiptLogId];
   closeModal('receiptModal');
-  openCompose(r?.actorName, 'Please validate your uploaded receipt — it could not be verified. Kindly re-upload a clear photo of the receipt.');
+  const toStaff = (allStaff || []).find(s => s.full_name === r?.actorName || s.username === r?.actorName);
+  if (!toStaff) { showToast('Could not identify staff to notify.', true); return; }
+  const { error } = await _sb.from('store_messages').insert({
+    store_id: STORE.id,
+    from_name: STORE.name || 'Owner',
+    from_role: 'owner',
+    to_username: toStaff.username,
+    to_name: toStaff.full_name || toStaff.username,
+    body: 'Your uploaded receipt is invalid — it could not be verified. Please upload the receipt again with a clear photo.',
+    read: false,
+  });
+  if (error) { showToast(error.message, true); return; }
+  showToast('Invalid receipt notice sent to ' + (toStaff.full_name || toStaff.username) + '.');
 }
 
 // ── Staff Messaging ─────────────────────────────────────────────────────────
