@@ -182,6 +182,20 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .tbl-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,180,216,.1)}
 .tbl-btn.none-btn{border-style:dashed;color:#444;font-size:11px}
 
+/* Chair layout strip (barbershop) */
+.chair-strip{border-bottom:1px solid var(--border);padding:8px;flex-shrink:0}
+.chair-strip-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:10px;color:#666;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+.chair-strip-head .act-btn.on{border-color:var(--accent);color:var(--accent);background:rgba(0,180,216,.12)}
+.chair-area{position:relative;min-height:160px}
+.chair-area.arranging{background:repeating-linear-gradient(45deg,rgba(0,180,216,.04) 0 10px,transparent 10px 20px);border-radius:8px}
+.chair-card{position:absolute;width:84px;padding:8px 6px;background:var(--s2);border:2px solid var(--border);border-radius:9px;text-align:center;cursor:pointer;user-select:none;touch-action:none;transition:border-color .12s,background .12s}
+.chair-card.active{border-color:var(--accent);background:rgba(0,180,216,.14)}
+.chair-card.dragging{opacity:.7;z-index:50;box-shadow:0 6px 18px rgba(0,0,0,.4);transition:none}
+.chair-card .cc-emoji{font-size:20px;line-height:1}
+.chair-card .cc-label{font-size:11px;font-weight:700;color:var(--text);margin-top:3px}
+.chair-card .cc-barber{font-size:9px;color:var(--accent);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chair-card .cc-barber.unassigned{color:#666;font-style:italic}
+
 /* Draft list */
 .draft-item{padding:9px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;margin-bottom:5px;transition:border-color .15s;position:relative}
 .draft-item:active{border-color:var(--accent)}
@@ -312,6 +326,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
   <!-- Retail mid: cart items list (retail mode) -->
   <div class="retail-mid" id="retailMid">
+    <div class="chair-strip" id="chairStrip" style="display:none">
+      <div class="chair-strip-head">
+        <span>&#128142; Chairs</span>
+        <button class="act-btn" id="btnArrangeChairs" style="flex:none;padding:4px 12px" onclick="toggleChairArrange()">&#8645; Arrange</button>
+      </div>
+      <div class="chair-area" id="chairArea"></div>
+    </div>
     <div class="cart-acts" id="cartActs">
       <button class="act-btn" onclick="showDrafts()">&#128203; Drafts</button>
       <button class="act-btn" id="btnTable" onclick="showTableModal()">&#127963; Table: &#8212;</button>
@@ -393,6 +414,17 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="tbl-grid" id="tblGrid"></div>
     <div class="m-actions">
       <button class="btn-cancel" onclick="closeM('mTable')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ASSIGN BARBER TO CHAIR MODAL ── -->
+<div class="modal" id="mChairBarber">
+  <div class="mbox">
+    <div class="mtitle">&#128142; Assign Barber</div>
+    <div class="tbl-grid" id="chairBarberGrid" style="grid-template-columns:1fr"></div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeM('mChairBarber')">Close</button>
     </div>
   </div>
 </div>
@@ -660,6 +692,10 @@ function adaptCashierMode(bizType) {
   document.getElementById('btnTable').style.display = (isRestaurant || usesChairs) ? '' : 'none';
   document.getElementById('btnKOT').style.display   = isRestaurant ? '' : 'none';
   updateTableBtn();
+
+  // Chair layout strip (barbershop): visual chair grid replaces the need to open the chair-select modal
+  document.getElementById('chairStrip').style.display = usesChairs ? '' : 'none';
+  if (usesChairs) loadChairLayout();
 
   // Show retail panels
   document.getElementById('retailLeft').style.display = IS_RETAIL ? 'flex' : 'none';
@@ -1428,6 +1464,161 @@ function updateTableBtn() {
   }
 }
 
+// ── Chair Layout (barbershop): visual chair grid, drag-to-arrange, barber assignment ──
+let chairLayout = [];
+let _chairArranging = false;
+let _chairDrag = null;
+let _barberOptionsCache = null;
+
+function _defaultChairLayout() {
+  const cols = 4, gapX = 23, gapY = 46, startX = 4, startY = 12;
+  return Array.from({ length: 12 }, (_, i) => ({
+    id: 'C' + (i + 1),
+    label: 'C' + (i + 1),
+    barber: '',
+    x: startX + (i % cols) * gapX,
+    y: startY + Math.floor(i / cols) * gapY
+  }));
+}
+
+function loadChairLayout() {
+  let saved = null;
+  try { saved = STORE.chair_layout ? JSON.parse(STORE.chair_layout) : null; } catch (_) {}
+  chairLayout = (Array.isArray(saved) && saved.length) ? saved : _defaultChairLayout();
+  renderChairArea();
+}
+
+function renderChairArea() {
+  const area = document.getElementById('chairArea');
+  if (!area) return;
+  area.classList.toggle('arranging', _chairArranging);
+  area.innerHTML = chairLayout.map(c => {
+    const barberLabel = c.barber || (_chairArranging ? 'Tap to assign barber' : 'No barber');
+    return `
+    <div class="chair-card${tableNo === c.label ? ' active' : ''}" id="chair_${c.id}"
+         style="left:${c.x}%;top:${c.y}%" data-id="${c.id}"
+         onpointerdown="_chairPointerDown(event,'${c.id}')">
+      <div class="cc-emoji">&#128142;</div>
+      <div class="cc-label">${c.label}</div>
+      <div class="cc-barber${c.barber ? '' : ' unassigned'}">${barberLabel}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleChairArrange() {
+  _chairArranging = !_chairArranging;
+  const btn = document.getElementById('btnArrangeChairs');
+  btn.classList.toggle('on', _chairArranging);
+  btn.textContent = _chairArranging ? '✓ Done' : '⇄ Arrange';
+  renderChairArea();
+}
+
+function _chairPointerDown(e, id) {
+  e.preventDefault();
+  const card = document.getElementById('chair_' + id);
+  const area = document.getElementById('chairArea');
+  const chair = chairLayout.find(c => c.id === id);
+  if (!card || !area || !chair) return;
+  _chairDrag = {
+    id, chair, card, areaRect: area.getBoundingClientRect(),
+    startX: e.clientX, startY: e.clientY,
+    origX: chair.x, origY: chair.y, moved: false
+  };
+  card.setPointerCapture(e.pointerId);
+  card.addEventListener('pointermove', _chairPointerMove);
+  card.addEventListener('pointerup', _chairPointerUp);
+  card.addEventListener('pointercancel', _chairPointerUp);
+}
+
+function _chairPointerMove(e) {
+  const d = _chairDrag;
+  if (!d || !_chairArranging) return;
+  const dxPct = (e.clientX - d.startX) / d.areaRect.width  * 100;
+  const dyPct = (e.clientY - d.startY) / d.areaRect.height * 100;
+  if (Math.abs(dxPct) > 1.2 || Math.abs(dyPct) > 1.2) d.moved = true;
+  if (!d.moved) return;
+  d.card.classList.add('dragging');
+  d.chair.x = Math.max(0, Math.min(88, d.origX + dxPct));
+  d.chair.y = Math.max(0, Math.min(86, d.origY + dyPct));
+  d.card.style.left = d.chair.x + '%';
+  d.card.style.top  = d.chair.y + '%';
+}
+
+function _chairPointerUp() {
+  const d = _chairDrag;
+  if (!d) return;
+  d.card.classList.remove('dragging');
+  d.card.removeEventListener('pointermove', _chairPointerMove);
+  d.card.removeEventListener('pointerup', _chairPointerUp);
+  d.card.removeEventListener('pointercancel', _chairPointerUp);
+  _chairDrag = null;
+  if (d.moved) saveChairLayout();
+  else if (_chairArranging) openChairBarberPicker(d.id);
+  else selectChair(d.id);
+}
+
+function selectChair(id) {
+  const chair = chairLayout.find(c => c.id === id);
+  if (!chair) return;
+  tableNo = (tableNo === chair.label) ? '' : chair.label;
+  updateTableBtn();
+  renderChairArea();
+}
+
+async function _getBarberOptions() {
+  if (_barberOptionsCache) return _barberOptionsCache;
+  try {
+    const { data } = await _sb.from('store_users').select('full_name,username,active').eq('store_id', STORE.id);
+    _barberOptionsCache = [...new Set((data || []).filter(s => s.active !== false).map(s => (s.full_name || s.username || '').trim()).filter(Boolean))];
+  } catch (_) { _barberOptionsCache = []; }
+  return _barberOptionsCache;
+}
+
+async function openChairBarberPicker(id) {
+  const chair = chairLayout.find(c => c.id === id);
+  if (!chair) return;
+  const names = await _getBarberOptions();
+  const grid = document.getElementById('chairBarberGrid');
+  document.querySelector('#mChairBarber .mtitle').innerHTML = `\u{1FA91} Assign Barber — ${chair.label}`;
+  const opts = ['', ...names];
+  grid.innerHTML = opts.map(n => {
+    const lbl = n || '(No barber)';
+    const active = (chair.barber || '') === n;
+    return `<button class="tbl-btn${active ? ' active' : ''}${!n ? ' none-btn' : ''}" onclick="_pickChairBarber('${id}', ${JSON.stringify(n)})">${lbl}</button>`;
+  }).join('');
+  document.getElementById('mChairBarber').classList.add('show');
+}
+
+function _pickChairBarber(id, name) {
+  const chair = chairLayout.find(c => c.id === id);
+  if (!chair) return;
+  chair.barber = name || '';
+  closeM('mChairBarber');
+  renderChairArea();
+  saveChairLayout();
+}
+
+let _chairSaveTimer = null;
+function saveChairLayout() {
+  clearTimeout(_chairSaveTimer);
+  _chairSaveTimer = setTimeout(() => {
+    const json = JSON.stringify(chairLayout);
+    STORE.chair_layout = json;
+    _sb.from('stores').update({ chair_layout: json }).eq('id', STORE.id).then(() => {});
+  }, 400);
+}
+
+// When a service with a default barber is added, auto-select that barber's chair
+function _autoSelectChairForProduct(p) {
+  if (!USES_CHAIRS || !p || !p.barber_name || !chairLayout.length) return;
+  const chair = chairLayout.find(c => c.barber === p.barber_name);
+  if (chair && tableNo !== chair.label) {
+    tableNo = chair.label;
+    updateTableBtn();
+    renderChairArea();
+  }
+}
+
 // ── KOT toggle ────────────────────────────────────────────────────────────
 function toggleKOT() {
   isKOT = !isKOT;
@@ -1455,6 +1646,7 @@ function addItem(id) {
   }
   cart[id].qty++;
   redrawCart();
+  _autoSelectChairForProduct(p);
 }
 
 function adjQty(id, d) {
