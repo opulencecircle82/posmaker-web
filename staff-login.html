@@ -143,7 +143,7 @@ async function doLogin() {
     if (staff.password_hash !== hash) { errEl.textContent = 'Invalid username or password.'; btn.disabled = false; btn.textContent = 'Log In →'; return; }
     if (!staff.active) { errEl.textContent = 'Your account is disabled. Contact your owner.'; btn.disabled = false; btn.textContent = 'Log In →'; return; }
 
-    const session = { store_id: SID, staff_id: staff.id, name: staff.full_name || staff.username, role: staff.role, ts: Date.now() };
+    const session = { store_id: SID, staff_id: staff.id, username: staff.username, name: staff.full_name || staff.username, role: staff.role, ts: Date.now() };
     localStorage.setItem('pm_mgr', JSON.stringify(session));
     // Record login to staff_logs so dashboard shows Last Login
     await _sb.rpc('log_staff_login', { p_store_id: SID, p_staff_id: staff.id, p_username: staff.username });
