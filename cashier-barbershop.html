@@ -195,6 +195,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .chair-card .cc-label{font-size:11px;font-weight:700;color:var(--text);margin-top:3px}
 .chair-card .cc-barber{font-size:9px;color:var(--accent);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chair-card .cc-barber.unassigned{color:#666;font-style:italic}
+.chair-card .cc-pay{margin-top:3px;font-size:8px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:1px 5px;border-radius:3px;display:inline-block}
+.chair-card .cc-pay.unpaid{color:#ef4444;background:rgba(239,68,68,.15)}
+.chair-card .cc-pay.paid{color:#10b981;background:rgba(16,185,129,.13)}
+.chair-card.has-unpaid{border-color:rgba(239,68,68,.5)}
 
 /* Draft list */
 .draft-item{padding:9px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;margin-bottom:5px;transition:border-color .15s;position:relative}
@@ -353,6 +357,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <!-- Cart right panel: totals + payment + confirm -->
   <div class="cart" id="cartPanel">
     <!-- (restaurant mode: cart-acts/list/disc moved here by adaptCashierMode) -->
+    <!-- Chair / order status banner (barbershop) -->
+    <div id="chairStatusBanner" style="display:none;margin:8px 8px 0;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:700;justify-content:space-between;align-items:center"></div>
     <!-- Totals -->
     <div class="totals">
       <div class="t-row"><span>Subtotal (ex-VAT)</span><span id="tSub">&#8212;</span></div>
@@ -1253,13 +1259,17 @@ function renderRetailList(list) {
         const sc     = stockClass(stock);
         const unit   = p.unit || 'pc';
         const sku    = p.sku  || '';
-        const sLabel = oos ? 'Out' : !isFinite(stock) ? 'Unlimited' : (stock % 1 === 0 ? stock : stock.toFixed(1)) + ' ' + unit;
+        const sLabel = USES_CHAIRS
+          ? (p.available !== false ? 'Available' : 'Not Available')
+          : (oos ? 'Out' : !isFinite(stock) ? 'Unlimited' : (stock % 1 === 0 ? stock : stock.toFixed(1)) + ' ' + unit);
+        const sCls   = USES_CHAIRS ? (p.available !== false ? 'ok' : 'zero') : sc;
+        const blocked = USES_CHAIRS ? p.available === false : oos;
         return `
-        <div class="r-card${oos?' out-of-stock':''}" id="rcard_${p.id}" onclick="${oos?'void 0':'addProductDirect(\''+p.id+'\')'}">
+        <div class="r-card${blocked?' out-of-stock':''}" id="rcard_${p.id}" onclick="${blocked?'void 0':'addProductDirect(\''+p.id+'\')'}">
           <div class="r-card-name">${p.name}</div>
           <div class="r-card-row">
             <span class="r-card-price">${CUR}${parseFloat(p.price).toFixed(2)}</span>
-            <span class="r-card-stock ${sc}">${sLabel}</span>
+            <span class="r-card-stock ${sCls}">${sLabel}</span>
           </div>
         </div>`; }).join('')
     : `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
@@ -1481,10 +1491,22 @@ function _defaultChairLayout() {
   }));
 }
 
-function loadChairLayout() {
+let _chairUnpaidSet = new Set();
+
+async function _loadChairUnpaidSet() {
+  _chairUnpaidSet = new Set();
+  if (IS_DEMO || !STORE_ID) return;
+  try {
+    const { data } = await _sb.from('draft_orders').select('table_no').eq('store_id', STORE_ID);
+    (data || []).forEach(d => { if (d.table_no) _chairUnpaidSet.add(d.table_no); });
+  } catch (_) {}
+}
+
+async function loadChairLayout() {
   let saved = null;
   try { saved = STORE.chair_layout ? JSON.parse(STORE.chair_layout) : null; } catch (_) {}
   chairLayout = (Array.isArray(saved) && saved.length) ? saved : _defaultChairLayout();
+  await _loadChairUnpaidSet();
   renderChairArea();
 }
 
@@ -1494,13 +1516,19 @@ function renderChairArea() {
   area.classList.toggle('arranging', _chairArranging);
   area.innerHTML = chairLayout.map(c => {
     const barberLabel = c.barber || (_chairArranging ? 'Tap to assign barber' : 'No barber');
+    const isSelectedUnpaid = tableNo === c.label && Object.keys(cart).length > 0;
+    const isUnpaid = _chairUnpaidSet.has(c.label) || isSelectedUnpaid;
+    const payBadge = !_chairArranging
+      ? `<div class="cc-pay${isUnpaid ? ' unpaid' : ' paid'}">${isUnpaid ? 'Unpaid' : 'Available'}</div>`
+      : '';
     return `
-    <div class="chair-card${tableNo === c.label ? ' active' : ''}" id="chair_${c.id}"
+    <div class="chair-card${tableNo === c.label ? ' active' : ''}${isUnpaid ? ' has-unpaid' : ''}" id="chair_${c.id}"
          style="left:${c.x}%;top:${c.y}%" data-id="${c.id}"
          onpointerdown="_chairPointerDown(event,'${c.id}')">
       <div class="cc-emoji">&#128142;</div>
       <div class="cc-label">${c.label}</div>
       <div class="cc-barber${c.barber ? '' : ' unassigned'}">${barberLabel}</div>
+      ${payBadge}
     </div>`;
   }).join('');
 }
@@ -1563,6 +1591,7 @@ function selectChair(id) {
   tableNo = (tableNo === chair.label) ? '' : chair.label;
   updateTableBtn();
   renderChairArea();
+  redrawCart();
 }
 
 async function _getBarberOptions() {
@@ -1689,6 +1718,20 @@ function redrawCart() {
   document.getElementById('tSub').textContent = CUR + sub.toFixed(2);
   document.getElementById('tTax').textContent = CUR + tax.toFixed(2);
   document.getElementById('tTot').textContent = CUR + total.toFixed(2);
+
+  // Chair status banner (barbershop): "Chair C1 — ₱100.00 — Unpaid"
+  const banner = document.getElementById('chairStatusBanner');
+  if (USES_CHAIRS && tableNo) {
+    const chair = chairLayout.find(c => c.label === tableNo);
+    const label = chair ? chair.label : tableNo;
+    const isUnpaid = hasItems;
+    banner.style.display = 'flex';
+    banner.style.background = isUnpaid ? 'rgba(239,68,68,.13)' : 'rgba(16,185,129,.13)';
+    banner.style.color      = isUnpaid ? '#ef4444' : '#10b981';
+    banner.innerHTML = `<span>&#128142; Chair ${label} — ${CUR}${total.toFixed(2)}</span><span>${isUnpaid ? 'UNPAID' : 'No open order'}</span>`;
+  } else {
+    banner.style.display = 'none';
+  }
 
   const discRow = document.getElementById('tDiscRow');
   if (disc > 0) {
@@ -2041,6 +2084,7 @@ async function saveDraft() {
     return;
   }
   await loadDraftList();
+  if (USES_CHAIRS) { await _loadChairUnpaidSet(); renderChairArea(); }
 }
 
 async function loadDraft(id) {
@@ -2062,12 +2106,14 @@ async function loadDraft(id) {
 
   await _sb.from('draft_orders').delete().eq('id', id);
   closeM('mDraft');
+  if (USES_CHAIRS) { await _loadChairUnpaidSet(); renderChairArea(); }
   redrawCart();
 }
 
 async function deleteDraft(id) {
   await _sb.from('draft_orders').delete().eq('id', id);
   await loadDraftList();
+  if (USES_CHAIRS) { await _loadChairUnpaidSet(); renderChairArea(); }
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────
