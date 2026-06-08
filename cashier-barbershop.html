@@ -186,7 +186,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .chair-strip{border-bottom:1px solid var(--border);padding:8px;flex-shrink:0}
 .chair-strip-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:10px;color:#666;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
 .chair-strip-head .act-btn.on{border-color:var(--accent);color:var(--accent);background:rgba(0,180,216,.12)}
-.chair-area{position:relative;min-height:160px}
+.chair-area{position:relative;height:300px;overflow-y:auto}
 .chair-area.arranging{background:repeating-linear-gradient(45deg,rgba(0,180,216,.04) 0 10px,transparent 10px 20px);border-radius:8px}
 .chair-card{position:absolute;width:84px;padding:8px 6px;background:var(--s2);border:2px solid var(--border);border-radius:9px;text-align:center;cursor:pointer;user-select:none;touch-action:none;transition:border-color .12s,background .12s}
 .chair-card.active{border-color:var(--accent);background:rgba(0,180,216,.14)}
@@ -199,6 +199,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .chair-card .cc-pay.unpaid{color:#ef4444;background:rgba(239,68,68,.15)}
 .chair-card .cc-pay.paid{color:#10b981;background:rgba(16,185,129,.13)}
 .chair-card.has-unpaid{border-color:rgba(239,68,68,.5)}
+.chair-card .cc-del{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;border:2px solid var(--bg);font-size:12px;line-height:16px;font-weight:700;cursor:pointer;display:none}
+.chair-area.arranging .chair-card .cc-del{display:block}
 
 /* Draft list */
 .draft-item{padding:9px 10px;border:1px solid var(--border);border-radius:7px;cursor:pointer;margin-bottom:5px;transition:border-color .15s;position:relative}
@@ -333,7 +335,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="chair-strip" id="chairStrip" style="display:none">
       <div class="chair-strip-head">
         <span>&#128142; Chairs</span>
-        <button class="act-btn" id="btnArrangeChairs" style="flex:none;padding:4px 12px" onclick="toggleChairArrange()">&#8645; Arrange</button>
+        <div style="display:flex;gap:6px">
+          <button class="act-btn" id="btnAddChair" style="flex:none;padding:4px 12px;display:none" onclick="addChair()">&#10133; Add Chair</button>
+          <button class="act-btn" id="btnArrangeChairs" style="flex:none;padding:4px 12px" onclick="toggleChairArrange()">&#8645; Arrange</button>
+        </div>
       </div>
       <div class="chair-area" id="chairArea"></div>
     </div>
@@ -1481,7 +1486,7 @@ let _chairDrag = null;
 let _barberOptionsCache = null;
 
 function _defaultChairLayout() {
-  const cols = 4, gapX = 23, gapY = 46, startX = 4, startY = 12;
+  const cols = 4, gapX = 23, gapY = 30, startX = 4, startY = 6;
   return Array.from({ length: 12 }, (_, i) => ({
     id: 'C' + (i + 1),
     label: 'C' + (i + 1),
@@ -1521,10 +1526,14 @@ function renderChairArea() {
     const payBadge = !_chairArranging
       ? `<div class="cc-pay${isUnpaid ? ' unpaid' : ' paid'}">${isUnpaid ? 'In Service' : 'Available'}</div>`
       : '';
+    const delBtn = _chairArranging
+      ? `<div class="cc-del" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();removeChair('${c.id}')">&times;</div>`
+      : '';
     return `
     <div class="chair-card${tableNo === c.label ? ' active' : ''}${isUnpaid ? ' has-unpaid' : ''}" id="chair_${c.id}"
          style="left:${c.x}%;top:${c.y}%" data-id="${c.id}"
          onpointerdown="_chairPointerDown(event,'${c.id}')">
+      ${delBtn}
       <div class="cc-emoji">&#128142;</div>
       <div class="cc-label">${c.label}</div>
       <div class="cc-barber${c.barber ? '' : ' unassigned'}">${barberLabel}</div>
@@ -1538,7 +1547,36 @@ function toggleChairArrange() {
   const btn = document.getElementById('btnArrangeChairs');
   btn.classList.toggle('on', _chairArranging);
   btn.textContent = _chairArranging ? '✓ Done' : '⇄ Arrange';
+  const addBtn = document.getElementById('btnAddChair');
+  if (addBtn) addBtn.style.display = _chairArranging ? '' : 'none';
   renderChairArea();
+}
+
+function addChair() {
+  let n = chairLayout.length + 1;
+  const used = new Set(chairLayout.map(c => c.label));
+  while (used.has('C' + n)) n++;
+  const id = 'C' + n;
+  const cols = 4, gapX = 23, gapY = 30, startX = 4, startY = 6;
+  const idx = chairLayout.length;
+  chairLayout.push({
+    id, label: id, barber: '',
+    x: Math.min(88, startX + (idx % cols) * gapX),
+    y: Math.min(86, startY + Math.floor(idx / cols) * gapY)
+  });
+  renderChairArea();
+  saveChairLayout();
+}
+
+function removeChair(id) {
+  if (!confirm('Remove this chair?')) return;
+  chairLayout = chairLayout.filter(c => c.id !== id);
+  if (tableNo) {
+    const stillExists = chairLayout.some(c => c.label === tableNo);
+    if (!stillExists) { tableNo = ''; updateTableBtn(); redrawCart(); }
+  }
+  renderChairArea();
+  saveChairLayout();
 }
 
 function _chairPointerDown(e, id) {
