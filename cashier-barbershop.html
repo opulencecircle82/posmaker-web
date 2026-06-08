@@ -1519,7 +1519,7 @@ function renderChairArea() {
     const isSelectedUnpaid = tableNo === c.label && Object.keys(cart).length > 0;
     const isUnpaid = _chairUnpaidSet.has(c.label) || isSelectedUnpaid;
     const payBadge = !_chairArranging
-      ? `<div class="cc-pay${isUnpaid ? ' unpaid' : ' paid'}">${isUnpaid ? 'Unpaid' : 'Available'}</div>`
+      ? `<div class="cc-pay${isUnpaid ? ' unpaid' : ' paid'}">${isUnpaid ? 'In Service' : 'Available'}</div>`
       : '';
     return `
     <div class="chair-card${tableNo === c.label ? ' active' : ''}${isUnpaid ? ' has-unpaid' : ''}" id="chair_${c.id}"
@@ -1728,7 +1728,7 @@ function redrawCart() {
     banner.style.display = 'flex';
     banner.style.background = isUnpaid ? 'rgba(239,68,68,.13)' : 'rgba(16,185,129,.13)';
     banner.style.color      = isUnpaid ? '#ef4444' : '#10b981';
-    banner.innerHTML = `<span>&#128142; Chair ${label} — ${CUR}${total.toFixed(2)}</span><span>${isUnpaid ? 'UNPAID' : 'No open order'}</span>`;
+    banner.innerHTML = `<span>&#128142; Chair ${label} — ${CUR}${total.toFixed(2)}</span><span>${isUnpaid ? 'IN SERVICE' : 'Available'}</span>`;
   } else {
     banner.style.display = 'none';
   }
