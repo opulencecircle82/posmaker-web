@@ -210,12 +210,6 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div class="stat-card"><div class="sc-label">Month Revenue</div><div class="sc-val" id="moRev">&#8212;</div><div class="sc-sub">this month</div></div>
       </div>
 
-      <!-- Barber Earnings Today -->
-      <div id="barberEarningsWidget" style="display:none;margin-bottom:20px">
-        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">✂️ Barber Earnings Today</div>
-        <div id="barberEarningsList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px"></div>
-      </div>
-
       <!-- Quick Access Tiles -->
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">
 
@@ -264,11 +258,24 @@ input:checked + .slider:before{transform:translateX(18px)}
       </div>
 
       <div class="tbl-wrap">
-        <div class="tbl-head"><h3>Recent Orders</h3></div>
-        <table id="ordersTable">
-          <thead><tr><th>#</th><th>Date &amp; Time</th><th>Cashier</th><th>Total</th><th>Method</th></tr></thead>
-          <tbody id="ordersTbody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading orders...</td></tr></tbody>
-        </table>
+        <div class="tbl-head" style="flex-wrap:wrap;gap:10px">
+          <h3 id="dashOrdersTitle">Today's Orders</h3>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button class="btn btn-accent btn-sm" id="dashTabBtnOrders" onclick="dashTab('orders')">Today's Orders</button>
+            <button class="btn btn-ghost btn-sm" id="dashTabBtnEarnings" onclick="dashTab('earnings')">Barber Earnings</button>
+          </div>
+        </div>
+        <div id="dashPanelOrders">
+          <table id="ordersTable">
+            <thead><tr><th>#</th><th>Date &amp; Time</th><th>Cashier</th><th>Total</th><th>Method</th></tr></thead>
+            <tbody id="ordersTbody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading orders...</td></tr></tbody>
+          </table>
+        </div>
+        <div id="dashPanelEarnings" style="display:none;padding:16px">
+          <div id="barberEarningsList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px">
+            <div style="color:var(--muted);font-size:13px;grid-column:1/-1;text-align:center;padding:24px">Loading earnings...</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1618,6 +1625,14 @@ async function doLogout() {
 }
 
 // â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function dashTab(tab) {
+  const isOrders = tab === 'orders';
+  document.getElementById('dashPanelOrders').style.display   = isOrders ? '' : 'none';
+  document.getElementById('dashPanelEarnings').style.display = isOrders ? 'none' : 'block';
+  document.getElementById('dashTabBtnOrders').className   = 'btn btn-sm ' + (isOrders ? 'btn-accent' : 'btn-ghost');
+  document.getElementById('dashTabBtnEarnings').className = 'btn btn-sm ' + (isOrders ? 'btn-ghost' : 'btn-accent');
+}
+
 async function loadDashboard() {
   if (!STORE) return;
   const _tbody = document.getElementById('ordersTbody');
@@ -1686,17 +1701,19 @@ async function loadDashboard() {
       if (qaEl('qaInvCount')) qaEl('qaInvCount').textContent = (count || 0) + ' items';
     });
 
-    // Barber earnings today widget
+    // Barber earnings today (for the Barber Earnings tab)
     _sb.from('barber_earnings')
       .select('barber_id, earned')
       .eq('store_id', STORE.id)
       .gte('earned_at', todayStart)
       .lte('earned_at', todayEnd)
       .then(async ({ data: earns }) => {
-        const widget = document.getElementById('barberEarningsWidget');
-        const list   = document.getElementById('barberEarningsList');
-        if (!widget || !list) return;
-        if (!earns || !earns.length) { widget.style.display = 'none'; return; }
+        const list = document.getElementById('barberEarningsList');
+        if (!list) return;
+        if (!earns || !earns.length) {
+          list.innerHTML = `<div style="color:var(--muted);font-size:13px;grid-column:1/-1;text-align:center;padding:24px">No earnings recorded today.</div>`;
+          return;
+        }
         const totals = {};
         earns.forEach(e => { totals[e.barber_id] = (totals[e.barber_id] || 0) + parseFloat(e.earned || 0); });
         const barberIds = Object.keys(totals);
@@ -1718,7 +1735,6 @@ async function loadDashboard() {
           <div style="font-size:22px;font-weight:800;color:#22c55e">${CUR}${totalAll.toFixed(2)}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">all barbers today</div>
         </div>`;
-        widget.style.display = 'block';
       });
 
     // Low stock alert
@@ -1751,7 +1767,7 @@ async function loadDashboard() {
 
     // Update table header with today's date
     const dateLabel = now.toLocaleDateString('en-PH', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
-    document.querySelector('#sec-dashboard .tbl-head h3').textContent = "Today's Orders — " + dateLabel;
+    document.getElementById('dashOrdersTitle').textContent = "Today's Orders — " + dateLabel;
 
     const tbody = document.getElementById('ordersTbody');
     if (!todayOrders.length) {
