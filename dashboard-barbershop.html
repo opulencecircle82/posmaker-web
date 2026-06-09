@@ -3995,38 +3995,43 @@ async function loadBarbers() {
   const tbody = document.getElementById('barberTbody');
   if (!tbody) return;
   tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr>`;
-  const { data } = await _sb.from('barbers').select('*').eq('store_id', STORE.id).order('created_at');
-  _barberList = (data || []).map(b => ({
-    ...b, skills: typeof b.skills === 'string' ? JSON.parse(b.skills || '[]') : (b.skills || [])
-  }));
-  if (!_barberList.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No barbers yet. Add your first barber.</td></tr>`;
-    return;
+  try {
+    const { data, error } = await _sb.from('barbers').select('*').eq('store_id', STORE.id).order('created_at');
+    if (error) throw error;
+    _barberList = (data || []).map(b => ({
+      ...b, skills: Array.isArray(b.skills) ? b.skills : (typeof b.skills === 'string' ? JSON.parse(b.skills || '[]') : [])
+    }));
+    if (!_barberList.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No barbers yet. Add your first barber.</td></tr>`;
+      return;
+    }
+    const today = new Date(); today.setHours(0,0,0,0);
+    const { data: earns } = await _sb.from('barber_earnings')
+      .select('barber_id, earned').eq('store_id', STORE.id).gte('earned_at', today.toISOString());
+    const earnMap = {};
+    (earns || []).forEach(e => { earnMap[e.barber_id] = (earnMap[e.barber_id] || 0) + parseFloat(e.earned || 0); });
+    tbody.innerHTML = _barberList.map(b => {
+      const skillStr = (b.skills || []).map(s => `${s.product_name} (${s.percentage}%)`).join(', ') || '—';
+      const earned = earnMap[b.id] || 0;
+      const nameHtml = b.nickname
+        ? `${b.full_name} <span style="color:var(--accent);font-size:11px">"${b.nickname}"</span>`
+        : b.full_name;
+      return `<tr>
+        <td>${nameHtml}<br><span style="font-size:11px;color:var(--muted)">${skillStr}</span></td>
+        <td>${b.contact_number || '—'}</td>
+        <td style="font-size:12px">${b.address || '—'}</td>
+        <td style="font-weight:700;color:${earned > 0 ? '#10b981' : 'var(--muted)'}">${CUR}${earned.toFixed(2)}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-ghost btn-sm" onclick="viewBarberEarnings('${b.id}')">&#128176;</button>
+          <button class="btn btn-ghost btn-sm" onclick="openBarberModal('${b.id}')">Edit</button>
+          <button class="btn btn-sm" style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)" onclick="deleteBarber('${b.id}')">Delete</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    console.error('loadBarbers error:', err);
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px">Error loading barbers: ${err.message}</td></tr>`;
   }
-  // Load today's earnings for all barbers in one query
-  const today = new Date(); today.setHours(0,0,0,0);
-  const { data: earns } = await _sb.from('barber_earnings')
-    .select('barber_id, earned')
-    .eq('store_id', STORE.id)
-    .gte('earned_at', today.toISOString());
-  const earnMap = {};
-  (earns || []).forEach(e => { earnMap[e.barber_id] = (earnMap[e.barber_id] || 0) + parseFloat(e.earned || 0); });
-  tbody.innerHTML = _barberList.map(b => {
-    const skills = (b.skills || []).map(s => `${s.product_name} (${s.percentage}%)`).join(', ') || '—';
-    const earned = earnMap[b.id] || 0;
-    const displayName = b.nickname ? `${b.full_name} <span style="color:var(--accent);font-size:11px">"${b.nickname}"</span>` : b.full_name;
-    return `<tr>
-      <td>${displayName}<br><span style="font-size:11px;color:var(--muted)">${skills}</span></td>
-      <td>${b.contact_number || '—'}</td>
-      <td style="font-size:12px">${b.address || '—'}</td>
-      <td style="font-weight:700;color:${earned > 0 ? '#10b981' : 'var(--muted)'}">${CUR}${earned.toFixed(2)}</td>
-      <td style="text-align:right;white-space:nowrap">
-        <button class="btn btn-ghost btn-sm" onclick="viewBarberEarnings('${b.id}')">&#128176;</button>
-        <button class="btn btn-ghost btn-sm" onclick="openBarberModal('${b.id}')">Edit</button>
-        <button class="btn btn-sm" style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)" onclick="deleteBarber('${b.id}')">Delete</button>
-      </td>
-    </tr>`;
-  }).join('');
 }
 
 function _addBarberSkillRow(productId, productName, pct) {
@@ -4096,7 +4101,7 @@ async function saveBarber() {
     await _sb.from('barbers').insert(row);
   }
   closeModal('barberModal');
-  loadBarbers();
+  await loadBarbers();
   showToast(editId ? 'Barber updated' : `Barber "${name}" added`);
 }
 
