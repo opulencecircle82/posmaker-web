@@ -1728,7 +1728,7 @@ async function selectChair(id) {
       try { items = JSON.parse(d.items_json || '[]'); } catch (_) {}
       cart = {};
       items.forEach(i => { cart[i.id] = { id: i.id, name: i.name, price: parseFloat(i.price), qty: i.qty }; });
-      await _sb.from('draft_orders').delete().eq('id', d.id);
+      await _sb.from('draft_orders').delete().eq('store_id', STORE_ID).eq('table_no', chair.label);
     }
     tableNo = chair.label;
     const session = _chairSessionMap.get(chair.label);
@@ -2269,12 +2269,20 @@ function newOrder() {
   document.getElementById('btnKOT').textContent = '\u{1F468}‍\u{1F373} KOT';
   // Clear chair selection — chair returns to Available after payment
   if (USES_CHAIRS && tableNo) {
-    _chairSessionMap.delete(tableNo);
+    const _doneChair = tableNo;
+    _chairSessionMap.delete(_doneChair);
     _saveChairSessions();
     tableNo = '';
     _activeBarber = null;
     updateTableBtn();
-    if (USES_CHAIRS) { _loadChairUnpaidSet().then(() => renderChairArea()); }
+    if (USES_CHAIRS && !IS_DEMO && STORE_ID) {
+      // Delete any stale drafts for this chair before refreshing status
+      _sb.from('draft_orders').delete().eq('store_id', STORE_ID).eq('table_no', _doneChair)
+        .then(() => _loadChairUnpaidSet())
+        .then(() => renderChairArea());
+    } else {
+      _loadChairUnpaidSet().then(() => renderChairArea());
+    }
   }
   redrawCart();
   closeM('mConfirm');
