@@ -209,6 +209,13 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div class="stat-card"><div class="sc-label">Month Orders</div><div class="sc-val" id="moOrders">&#8212;</div><div class="sc-sub">this month</div></div>
         <div class="stat-card"><div class="sc-label">Month Revenue</div><div class="sc-val" id="moRev">&#8212;</div><div class="sc-sub">this month</div></div>
       </div>
+
+      <!-- Barber Earnings Today -->
+      <div id="barberEarningsWidget" style="display:none;margin-bottom:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">✂️ Barber Earnings Today</div>
+        <div id="barberEarningsList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px"></div>
+      </div>
+
       <!-- Quick Access Tiles -->
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">
 
@@ -1678,6 +1685,41 @@ async function loadDashboard() {
     _sb.from('inventory_items').select('id', { count:'exact', head:true }).eq('store_id', STORE.id).then(({count}) => {
       if (qaEl('qaInvCount')) qaEl('qaInvCount').textContent = (count || 0) + ' items';
     });
+
+    // Barber earnings today widget
+    _sb.from('barber_earnings')
+      .select('barber_id, earned')
+      .eq('store_id', STORE.id)
+      .gte('earned_at', todayStart)
+      .lte('earned_at', todayEnd)
+      .then(async ({ data: earns }) => {
+        const widget = document.getElementById('barberEarningsWidget');
+        const list   = document.getElementById('barberEarningsList');
+        if (!widget || !list) return;
+        if (!earns || !earns.length) { widget.style.display = 'none'; return; }
+        const totals = {};
+        earns.forEach(e => { totals[e.barber_id] = (totals[e.barber_id] || 0) + parseFloat(e.earned || 0); });
+        const barberIds = Object.keys(totals);
+        const { data: barbers } = await _sb.from('barbers').select('id,full_name,nickname').in('id', barberIds);
+        const bmap = {};
+        (barbers || []).forEach(b => { bmap[b.id] = b; });
+        const totalAll = Object.values(totals).reduce((s, v) => s + v, 0);
+        list.innerHTML = barberIds.map(bid => {
+          const b = bmap[bid];
+          const name = b ? (b.nickname || b.full_name) : 'Barber';
+          const earned = totals[bid];
+          return `<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">✂️ ${name}</div>
+            <div style="font-size:22px;font-weight:800;color:var(--accent)">${CUR}${earned.toFixed(2)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">today's earnings</div>
+          </div>`;
+        }).join('') + `<div style="background:linear-gradient(135deg,#0a2a1a,#0a1a2a);border:1px solid var(--accent);border-radius:12px;padding:14px 16px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">💰 Total Barber Pay</div>
+          <div style="font-size:22px;font-weight:800;color:#22c55e">${CUR}${totalAll.toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">all barbers today</div>
+        </div>`;
+        widget.style.display = 'block';
+      });
 
     // Low stock alert
     const { data: invForAlert } = await _sb.from('inventory_items')
