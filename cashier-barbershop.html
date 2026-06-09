@@ -372,6 +372,20 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <div class="t-row big"><span>TOTAL</span><span id="tTot">&#8212;</span></div>
     </div>
 
+    <!-- Tips (barbershop: goes directly to barber, not to shop total) -->
+    <div id="tipsSection" style="display:none;padding:6px 10px 2px;border-top:1px solid var(--border)">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">&#10024; Tips for Barber</div>
+      <div style="display:flex;gap:5px;margin-bottom:5px">
+        <button onclick="addTip(20)"  style="flex:1;padding:5px 0;background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;font-weight:600;cursor:pointer">+&#8369;20</button>
+        <button onclick="addTip(50)"  style="flex:1;padding:5px 0;background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;font-weight:600;cursor:pointer">+&#8369;50</button>
+        <button onclick="addTip(100)" style="flex:1;padding:5px 0;background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;font-weight:600;cursor:pointer">+&#8369;100</button>
+        <button onclick="clearTip()"  style="flex:none;padding:5px 8px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#ef4444;font-size:11px;font-weight:600;cursor:pointer">&#10005;</button>
+      </div>
+      <input id="tipAmt" type="number" min="0" step="1" placeholder="Custom tip amount" oninput="onTipInput()"
+        style="width:100%;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;margin-bottom:4px">
+      <div id="tipDisplay" style="display:none;font-size:11px;font-weight:700;color:#10b981;text-align:right;padding-bottom:2px"></div>
+    </div>
+
     <!-- Payment method -->
     <div class="pay-section" id="paySection" style="display:none">
       <div class="pay-label">Payment Method</div>
@@ -1521,6 +1535,39 @@ function _defaultChairLayout() {
 }
 
 let _chairUnpaidSet = new Set();
+let _tipAmount = 0;
+
+function addTip(amt) {
+  _tipAmount = (_tipAmount || 0) + amt;
+  document.getElementById('tipAmt').value = _tipAmount;
+  _updateTipDisplay();
+}
+function clearTip() {
+  _tipAmount = 0;
+  const el = document.getElementById('tipAmt');
+  if (el) el.value = '';
+  _updateTipDisplay();
+}
+function onTipInput() {
+  _tipAmount = parseFloat(document.getElementById('tipAmt').value) || 0;
+  _updateTipDisplay();
+}
+function _updateTipDisplay() {
+  const disp = document.getElementById('tipDisplay');
+  if (!disp) return;
+  if (_tipAmount > 0 && _activeBarber) {
+    const name = _activeBarber.nickname || _activeBarber.full_name;
+    disp.style.display = 'block';
+    disp.textContent = `✨ ${CUR}${_tipAmount.toFixed(2)} tip → ${name}`;
+  } else {
+    disp.style.display = 'none';
+  }
+}
+function _showTipsSection() {
+  const sec = document.getElementById('tipsSection');
+  if (!sec) return;
+  sec.style.display = (USES_CHAIRS && _activeBarber) ? 'block' : 'none';
+}
 
 function _saveChairSessions() {
   if (!STORE_ID) return;
@@ -1968,6 +2015,7 @@ function redrawCart() {
   document.getElementById('discSection').classList.toggle('show', hasItems);
   document.getElementById('paySection').style.display = hasItems ? '' : 'none';
   document.getElementById('btnCO').disabled = !hasItems;
+  _showTipsSection();
 
   if (hasItems) {
     const denoms = [50, 100, 200, 500, 1000];
@@ -2096,7 +2144,7 @@ async function confirmOrder() {
 
   if (payMeth === 'Cash' && tender < total) { alert('Amount tendered is less than total.'); return; }
 
-  const receiptData = { order_id: 'DEMO', items, sub, tax, total, disc, tender, change, method: payMeth, cashier: CASHIER_NAME, orderType, tableNo, isKOT };
+  const receiptData = { order_id: 'DEMO', items, sub, tax, total, disc, tender, change, method: payMeth, cashier: CASHIER_NAME, orderType, tableNo, isKOT, tip: _tipAmount };
 
   if (IS_DEMO) { showReceipt(receiptData); return; }
 
@@ -2214,6 +2262,15 @@ async function confirmOrder() {
         if (error) showToast('⚠️ Earnings not saved: ' + error.message);
       });
     }
+    // Record tip directly to barber (not part of shop revenue)
+    if (_tipAmount > 0) {
+      _sb.from('barber_earnings').insert({
+        store_id: STORE_ID, barber_id: barber.id, order_id: Number(ord.id) || null,
+        product_name: 'Tip', sale_amount: _tipAmount, percentage: 100, earned: _tipAmount
+      }).then(({ error }) => {
+        if (error) showToast('⚠️ Tip not saved: ' + error.message);
+      });
+    }
     _chairSessionMap.delete(tableNo);
     _saveChairSessions();
     _activeBarber = null;
@@ -2237,6 +2294,7 @@ function buildReceiptText(d) {
   s += `VAT:      ${CUR}${d.tax.toFixed(2)}\nTOTAL:    ${CUR}${d.total.toFixed(2)}\n`;
   if (d.method === 'Cash') s += `Cash:     ${CUR}${d.tender.toFixed(2)}\nChange:   ${CUR}${d.change.toFixed(2)}\n`;
   else s += `Paid via: ${d.method}\n`;
+  if (d.tip > 0) s += `Tip:      ${CUR}${d.tip.toFixed(2)} (for barber)\n`;
   s += `${ln}\n${STORE?.receipt_footer || 'Thank you!'}`;
   return s;
 }
@@ -2259,6 +2317,7 @@ function doPrint() {
 function newOrder() {
   cart = {}; payMeth = 'Cash';
   discPct = 0; discAmt = 0;
+  clearTip();
   document.getElementById('tendered').value = '';
   document.getElementById('chgDisp').textContent = '';
   document.getElementById('discPct').value = '';
