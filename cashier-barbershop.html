@@ -1710,10 +1710,15 @@ async function _loadBarbers() {
 function _openChairSessionModal(chair, barbers) {
   const services = (prods || []).filter(p => p.available !== false);
   document.querySelector('#mChairSession .mtitle').innerHTML = `&#128142; ${chair.label} — Select Barber &amp; Service`;
+  // Only show barbers NOT already in service at another chair
+  const busyBarberIds = new Set([..._chairSessionMap.values()].map(s => s.barberId));
+  const availableBarbers = barbers.filter(b => !busyBarberIds.has(b.id));
   const bGrid = document.getElementById('csBarberGrid');
-  bGrid.innerHTML = barbers.map(b =>
-    `<button class="tbl-btn" data-bid="${b.id}" onclick="_csPickBarber(this,'${b.id}')">${b.full_name}</button>`
-  ).join('');
+  bGrid.innerHTML = availableBarbers.length
+    ? availableBarbers.map(b =>
+        `<button class="tbl-btn" data-bid="${b.id}" onclick="_csPickBarber(this,'${b.id}')">${b.full_name}</button>`
+      ).join('')
+    : `<div style="color:var(--dim);font-size:12px;padding:8px">All barbers are currently in service</div>`;
   const sGrid = document.getElementById('csServiceGrid');
   sGrid.innerHTML = services.length
     ? services.map(s => `<button class="tbl-btn" data-sid="${s.id}" onclick="_csPickService(this,'${s.id}')">${s.name} — ${CUR}${parseFloat(s.price||0).toFixed(2)}</button>`).join('')
