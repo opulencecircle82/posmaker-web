@@ -1671,9 +1671,10 @@ function _chairPointerUp() {
 async function selectChair(id) {
   const chair = chairLayout.find(c => c.id === id);
   if (!chair) return;
+
+  // Clicking the SAME chair — ignore if in service
   if (tableNo === chair.label) {
-    // Don't deselect while in service (has items in cart or open draft)
-    const hasItems = Object.keys(cart).some(k => cart[k].qty > 0);
+    const hasItems = Object.values(cart).some(i => i.qty > 0);
     const hasOpenDraft = _chairUnpaidSet.has(chair.label);
     if (hasItems || hasOpenDraft) return;
     tableNo = '';
@@ -1683,6 +1684,41 @@ async function selectChair(id) {
     redrawCart();
     return;
   }
+
+  // Auto-save current chair's cart as draft before switching
+  const hasCurrentItems = Object.values(cart).some(i => i.qty > 0);
+  if (hasCurrentItems && tableNo && !IS_DEMO && STORE_ID) {
+    await _sb.from('draft_orders').insert({
+      store_id: STORE_ID, cashier_name: CASHIER_NAME,
+      order_type: orderType, table_no: tableNo,
+      items_json: JSON.stringify(Object.values(cart))
+    });
+    cart = {};
+  }
+
+  // If target chair already has an open draft, load it directly (no barber picker)
+  if (_chairUnpaidSet.has(chair.label) && !IS_DEMO && STORE_ID) {
+    const { data: drafts } = await _sb.from('draft_orders')
+      .select('*').eq('store_id', STORE_ID).eq('table_no', chair.label).limit(1);
+    if (drafts && drafts.length) {
+      const d = drafts[0];
+      let items = [];
+      try { items = JSON.parse(d.items_json || '[]'); } catch (_) {}
+      cart = {};
+      items.forEach(i => { cart[i.id] = { id: i.id, name: i.name, price: parseFloat(i.price), qty: i.qty }; });
+      await _sb.from('draft_orders').delete().eq('id', d.id);
+      tableNo = chair.label;
+      const session = _chairSessionMap.get(chair.label);
+      _activeBarber = session ? (_barbersCache || []).find(b => b.id === session.barberId) || null : null;
+      updateTableBtn();
+      await _loadChairUnpaidSet();
+      renderChairArea();
+      redrawCart();
+      return;
+    }
+  }
+
+  // New chair — show barber + service picker if barbers exist
   const barbers = await _loadBarbers();
   if (barbers.length > 0) {
     _pendingChairId = id;
