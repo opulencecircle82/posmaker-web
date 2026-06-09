@@ -346,6 +346,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <button class="act-btn" onclick="showDrafts()">&#128203; Drafts</button>
       <button class="act-btn" id="btnTable" onclick="showTableModal()">&#127963; Table: &#8212;</button>
       <button class="act-btn" id="btnKOT"   onclick="toggleKOT()">&#128104;&#8205;&#127859; KOT</button>
+      <button class="act-btn" id="btnDirectSale" style="display:none;color:var(--accent);font-weight:700" onclick="openDirectSale()">&#43; Direct Sale</button>
     </div>
     <div class="cart-list" id="cartList"><div class="cart-empty">Cart is empty</div></div>
     <div class="disc-section" id="discSection">
@@ -471,6 +472,32 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="m-actions">
       <button class="btn-cancel" onclick="closeM('mChairSession')">Cancel</button>
       <button class="btn btn-accent" onclick="_confirmChairSession()">&#10003; Start Service</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DIRECT SALE ── -->
+<div class="modal" id="mDirectSale">
+  <div class="mbox" style="width:min(360px,96vw)">
+    <div class="mtitle">&#43; Direct Sale</div>
+    <div style="font-size:12px;color:#888;margin-bottom:14px">Add a product or service directly to cart.</div>
+    <div class="field" style="margin-bottom:10px">
+      <label style="font-size:11px;font-weight:700;color:#aaa;display:block;margin-bottom:5px">Item Name</label>
+      <input class="inp" id="dsName" type="text" placeholder="e.g. Shampoo, Hair Wax..." style="width:100%;padding:10px 12px">
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1">
+        <label style="font-size:11px;font-weight:700;color:#aaa;display:block;margin-bottom:5px">Price</label>
+        <input class="inp" id="dsPrice" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:10px 12px;font-size:18px;font-weight:700;text-align:center">
+      </div>
+      <div style="width:90px">
+        <label style="font-size:11px;font-weight:700;color:#aaa;display:block;margin-bottom:5px">Qty</label>
+        <input class="inp" id="dsQty" type="number" min="1" value="1" style="width:100%;padding:10px 12px;font-size:18px;font-weight:700;text-align:center">
+      </div>
+    </div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeM('mDirectSale')">Cancel</button>
+      <button class="btn-confirm" onclick="confirmDirectSale()">&#43; Add to Cart</button>
     </div>
   </div>
 </div>
@@ -743,9 +770,11 @@ function adaptCashierMode(bizType) {
   document.getElementById('chairStrip').style.display = usesChairs ? '' : 'none';
   if (usesChairs) loadChairLayout();
 
-  // Show retail panels
-  document.getElementById('retailLeft').style.display = IS_RETAIL ? 'flex' : 'none';
+  // Show retail panels (chair shops don't use the product list — they use chair/barber picker + direct sale)
+  document.getElementById('retailLeft').style.display = (IS_RETAIL && !usesChairs) ? 'flex' : 'none';
   document.getElementById('retailMid').style.display  = IS_RETAIL ? 'flex' : 'none';
+  document.getElementById('catBar').style.display     = (IS_RETAIL && !usesChairs) ? '' : 'none';
+  document.getElementById('btnDirectSale').style.display = usesChairs ? '' : 'none';
   document.getElementById('cartPanel').classList.toggle('retail-pay', IS_RETAIL);
 
   // Restaurant mode: move cart items/actions back into cart panel
@@ -1933,6 +1962,26 @@ function _maxStock(id) {
   if (!STORE.track_stock && !p._invResolved) return Infinity;
   if (p.stock == null) return Infinity;
   return Math.max(0, parseFloat(p.stock));
+}
+
+function openDirectSale() {
+  document.getElementById('dsName').value  = '';
+  document.getElementById('dsPrice').value = '';
+  document.getElementById('dsQty').value   = '1';
+  document.getElementById('mDirectSale').classList.add('show');
+  setTimeout(() => document.getElementById('dsName').focus(), 100);
+}
+
+function confirmDirectSale() {
+  const name  = (document.getElementById('dsName').value || '').trim();
+  const price = parseFloat(document.getElementById('dsPrice').value) || 0;
+  const qty   = Math.max(1, parseInt(document.getElementById('dsQty').value) || 1);
+  if (!name) { showToast('Enter item name.', true); return; }
+  if (price <= 0) { showToast('Enter a valid price.', true); return; }
+  const key = 'ds_' + Date.now();
+  cart[key] = { id: key, name: qty > 1 ? `${name} x${qty}` : name, price: price * qty, qty: 1 };
+  closeM('mDirectSale');
+  redrawCart();
 }
 
 function addItem(id) {
