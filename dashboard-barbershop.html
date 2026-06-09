@@ -287,8 +287,8 @@ input:checked + .slider:before{transform:translateX(18px)}
           </div>
         </div>
         <table>
-          <thead><tr><th>#</th><th>Date &amp; Time</th><th>Cashier</th><th>Items</th><th>Subtotal</th><th>Tax</th><th>Discount</th><th>Total</th><th>Method</th><th>Tendered</th><th>Change</th></tr></thead>
-          <tbody id="ordTbody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
+          <thead><tr><th>#</th><th>Date &amp; Time</th><th>Cashier</th><th>Barber</th><th>Items</th><th>Subtotal</th><th>Tax</th><th>Discount</th><th>Total</th><th>Method</th><th>Tendered</th><th>Change</th></tr></thead>
+          <tbody id="ordTbody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
         </table>
         <div style="padding:12px 18px;font-size:12px;color:var(--muted)" id="ordCount"></div>
       </div>
@@ -3076,6 +3076,24 @@ async function quickSetup() {
 
 // â”€â”€ Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let allOrders = [];
+let _orderBarberMap = {}; // order_id → barber display name
+
+async function _loadOrderBarberMap(ids) {
+  if (!ids.length) { _orderBarberMap = {}; return; }
+  const { data: earns } = await _sb.from('barber_earnings').select('order_id,barber_id').in('order_id', ids);
+  if (!earns || !earns.length) { _orderBarberMap = {}; return; }
+  const barberIds = [...new Set(earns.map(e => e.barber_id))];
+  const { data: barbers } = await _sb.from('barbers').select('id,full_name,nickname').in('id', barberIds);
+  const bmap = {};
+  (barbers || []).forEach(b => { bmap[b.id] = b; });
+  _orderBarberMap = {};
+  earns.forEach(e => {
+    if (_orderBarberMap[e.order_id]) return;
+    const b = bmap[e.barber_id];
+    if (b) _orderBarberMap[e.order_id] = b.nickname ? `${b.full_name} "${b.nickname}"` : b.full_name;
+  });
+}
+
 async function loadOrders() {
   if (!STORE) return;
   const from = document.getElementById('ordFrom').value;
@@ -3098,14 +3116,17 @@ async function loadOrders() {
   allOrders = data || [];
   if (allOrders.length) {
     const ids = allOrders.map(o => o.id);
-    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids).abortSignal(_sig(30000));
+    const [{ data: items }] = await Promise.all([
+      _sb.from('order_items').select('order_id,name,qty').in('order_id', ids).abortSignal(_sig(30000)),
+      _loadOrderBarberMap(ids)
+    ]);
     const imap = {};
     (items || []).forEach(i => {
       if (!imap[i.order_id]) imap[i.order_id] = [];
       imap[i.order_id].push(i.qty > 1 ? `${i.name} x${i.qty}` : i.name);
     });
     allOrders.forEach(o => { o._items = imap[o.id] || []; });
-  }
+  } else { _orderBarberMap = {}; }
 
   // Update header label
   const isToday = useFrom === todayISO && useTo === todayISO;
@@ -3133,18 +3154,20 @@ function renderOrders(orders) {
   const tbody = document.getElementById('ordTbody');
   document.getElementById('ordCount').textContent = orders.length + ' order(s)';
   if (!orders.length) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td></tr>'; return;
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px">No orders found.</td></tr>'; return;
   }
   tbody.innerHTML = orders.map(o => {
-    const dt   = new Date(o.timestamp).toLocaleString('en-PH', {year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const m    = (o.payment_method || 'Cash').toLowerCase();
-    const bg   = m === 'cash' ? 'bg-cash' : m === 'card' ? 'bg-card' : 'bg-gcash';
-    const disc = parseFloat(o.discount_pct || 0);
-    const itms = (o._items || []).join(', ') || '&#8212;';
+    const dt     = new Date(o.timestamp).toLocaleString('en-PH', {year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const m      = (o.payment_method || 'Cash').toLowerCase();
+    const bg     = m === 'cash' ? 'bg-cash' : m === 'card' ? 'bg-card' : 'bg-gcash';
+    const disc   = parseFloat(o.discount_pct || 0);
+    const itms   = (o._items || []).join(', ') || '&#8212;';
+    const barber = _orderBarberMap[o.id] || '&#8212;';
     return `<tr style="cursor:pointer" onclick="viewOrder(${o.id})">
       <td style="font-weight:600">#${o.id}</td>
       <td>${dt}</td>
       <td>${o.cashier_name || ''}</td>
+      <td style="color:var(--accent);font-size:12px;font-weight:600">${barber}</td>
       <td style="color:var(--muted);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(o._items||[]).join(', ')}">${itms}</td>
       <td>${CUR}${parseFloat(o.subtotal||0).toFixed(2)}</td>
       <td style="color:var(--muted)">${CUR}${parseFloat(o.tax||0).toFixed(2)}</td>
@@ -3166,6 +3189,7 @@ async function viewOrder(ordId) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:16px;font-size:12px;color:var(--muted)">
       <span>Date</span><span style="color:var(--text)">${dt}</span>
       <span>Cashier</span><span style="color:var(--text)">${o.cashier_name || '&#8212;'}</span>
+      ${_orderBarberMap[o.id] ? `<span>Barber</span><span style="color:var(--accent);font-weight:600">${_orderBarberMap[o.id]}</span>` : ''}
       <span>Payment</span><span style="color:var(--text)">${o.payment_method || 'Cash'}</span>
       ${disc > 0 ? `<span>Discount</span><span style="color:#f59e0b">${disc}%</span>` : ''}
     </div>
@@ -3203,23 +3227,27 @@ async function clearOrdFilter() {
   allOrders = data || [];
   if (allOrders.length) {
     const ids = allOrders.map(o => o.id);
-    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids).abortSignal(_sig(30000));
+    const [{ data: items }] = await Promise.all([
+      _sb.from('order_items').select('order_id,name,qty').in('order_id', ids).abortSignal(_sig(30000)),
+      _loadOrderBarberMap(ids)
+    ]);
     const imap = {};
     (items || []).forEach(i => {
       if (!imap[i.order_id]) imap[i.order_id] = [];
       imap[i.order_id].push(i.qty > 1 ? `${i.name} x${i.qty}` : i.name);
     });
     allOrders.forEach(o => { o._items = imap[o.id] || []; });
-  }
+  } else { _orderBarberMap = {}; }
   renderOrders(allOrders);
 }
 function exportOrdCSV() {
   if (!allOrders.length) { showToast('No orders to export.', true); return; }
-  const hdr = ['ID','Date','Cashier','Items','Subtotal','Tax','Discount%','Total','Method','Tendered','Change'];
+  const hdr = ['ID','Date','Cashier','Barber','Items','Subtotal','Tax','Discount%','Total','Method','Tendered','Change'];
   const rows = allOrders.map(o => [
     o.id,
     new Date(o.timestamp).toLocaleString('en-PH'),
     o.cashier_name || '',
+    _orderBarberMap[o.id] || '',
     (o._items || []).join('; '),
     parseFloat(o.subtotal||0).toFixed(2),
     parseFloat(o.tax||0).toFixed(2),
