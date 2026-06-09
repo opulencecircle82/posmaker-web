@@ -1694,10 +1694,12 @@ async function selectChair(id) {
       items_json: JSON.stringify(Object.values(cart))
     });
     cart = {};
+    await _loadChairUnpaidSet(); // update so target chair's in-service status is accurate
   }
 
-  // If target chair already has an open draft, load it directly (no barber picker)
-  if (_chairUnpaidSet.has(chair.label) && !IS_DEMO && STORE_ID) {
+  // If target chair already has an open draft OR is in the session map → load it directly, no barber picker
+  const targetHasDraft = _chairUnpaidSet.has(chair.label) || _chairSessionMap.has(chair.label);
+  if (targetHasDraft && !IS_DEMO && STORE_ID) {
     const { data: drafts } = await _sb.from('draft_orders')
       .select('*').eq('store_id', STORE_ID).eq('table_no', chair.label).limit(1);
     if (drafts && drafts.length) {
@@ -1707,18 +1709,18 @@ async function selectChair(id) {
       cart = {};
       items.forEach(i => { cart[i.id] = { id: i.id, name: i.name, price: parseFloat(i.price), qty: i.qty }; });
       await _sb.from('draft_orders').delete().eq('id', d.id);
-      tableNo = chair.label;
-      const session = _chairSessionMap.get(chair.label);
-      _activeBarber = session ? (_barbersCache || []).find(b => b.id === session.barberId) || null : null;
-      updateTableBtn();
-      await _loadChairUnpaidSet();
-      renderChairArea();
-      redrawCart();
-      return;
     }
+    tableNo = chair.label;
+    const session = _chairSessionMap.get(chair.label);
+    _activeBarber = session ? (_barbersCache || []).find(b => b.id === session.barberId) || null : null;
+    updateTableBtn();
+    await _loadChairUnpaidSet();
+    renderChairArea();
+    redrawCart();
+    return;
   }
 
-  // New chair — show barber + service picker if barbers exist
+  // New available chair — show barber + service picker if barbers exist
   const barbers = await _loadBarbers();
   if (barbers.length > 0) {
     _pendingChairId = id;
