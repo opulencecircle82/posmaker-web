@@ -4049,17 +4049,25 @@ function _addBarberSkillRow(productId, productName, pct) {
 }
 
 async function openBarberModal(editId) {
-  if (!allProds.length) await loadProducts();
-  const b = editId ? _barberList.find(x => x.id === editId) : null;
-  document.getElementById('barberModalTitle').textContent = b ? 'Edit Barber' : 'Add Barber';
-  document.getElementById('barberId').value = editId || '';
-  document.getElementById('brName').value = b ? b.full_name : '';
-  document.getElementById('brNickname').value = b ? (b.nickname || '') : '';
-  document.getElementById('brContact').value = b ? b.contact_number : '';
-  document.getElementById('brAddress').value = b ? b.address : '';
-  document.getElementById('brSkillsList').innerHTML = '';
-  (b?.skills || []).forEach(s => _addBarberSkillRow(s.product_id, s.product_name, s.percentage));
-  document.getElementById('barberModal').classList.add('show');
+  try {
+    if (!allProds.length) {
+      const { data } = await _sb.from('products').select('id,name').eq('store_id', STORE.id).order('name');
+      allProds = data || [];
+    }
+    const b = editId ? _barberList.find(x => x.id === editId) : null;
+    document.getElementById('barberModalTitle').textContent = b ? 'Edit Barber' : 'Add Barber';
+    document.getElementById('barberId').value = editId || '';
+    document.getElementById('brName').value = b ? b.full_name : '';
+    document.getElementById('brNickname').value = b ? (b.nickname || '') : '';
+    document.getElementById('brContact').value = b ? b.contact_number : '';
+    document.getElementById('brAddress').value = b ? b.address : '';
+    document.getElementById('brSkillsList').innerHTML = '';
+    (b?.skills || []).forEach(s => _addBarberSkillRow(s.product_id, s.product_name, s.percentage));
+    document.getElementById('barberModal').classList.add('show');
+  } catch (err) {
+    console.error('openBarberModal error:', err);
+    alert('Could not open barber form: ' + err.message);
+  }
 }
 
 async function saveBarber() {
