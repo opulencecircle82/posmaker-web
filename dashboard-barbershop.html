@@ -1793,14 +1793,17 @@ async function loadReport(period) {
   _rptAllData = data || [];
   if(_rptAllData.length) {
     const ids = _rptAllData.map(o => o.id);
-    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids);
+    const [{ data: items }] = await Promise.all([
+      _sb.from('order_items').select('order_id,name,qty').in('order_id', ids),
+      _loadOrderBarberMap(ids)
+    ]);
     const imap = {};
     (items || []).forEach(i => {
       if(!imap[i.order_id]) imap[i.order_id] = [];
       imap[i.order_id].push(i.qty > 1 ? `${i.name} x${i.qty}` : i.name);
     });
     _rptAllData.forEach(o => { o._items = imap[o.id] || []; });
-  }
+  } else { _orderBarberMap = {}; }
   _rptFrom = from; _rptTo = to;
   const _cs = document.getElementById('rptCashier');
   const _prev = _cs.value;
@@ -1872,7 +1875,7 @@ function renderReport(orders, from, to) {
         </tr></thead>
         <tbody>
           ${rows.map(o => {
-            const barber = o.barber_name || '&#8212;';
+            const barber = o.barber_name || _orderBarberMap[o.id] || '&#8212;';
             const chair  = o.table_no  || '&#8212;';
             return `<tr style=”border-top:1px solid rgba(255,255,255,.04)”>
             <td style=”padding:6px 10px;color:var(--dim)”>#${o.id}</td>
