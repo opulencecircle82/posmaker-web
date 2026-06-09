@@ -4110,30 +4110,17 @@ async function loadBarbers() {
       tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No barbers yet. Add your first barber.</td></tr>`;
       return;
     }
-    const today = new Date(); today.setHours(0,0,0,0);
-    const { data: earns } = await _sb.from('barber_earnings')
-      .select('barber_id, earned, product_name').eq('store_id', STORE.id).gte('earned_at', today.toISOString());
-    const commMap = {};
-    const tipsMap = {};
-    (earns || []).forEach(e => {
-      const isTip = (e.product_name || '') === 'Tip';
-      const bucket = isTip ? tipsMap : commMap;
-      bucket[e.barber_id] = (bucket[e.barber_id] || 0) + parseFloat(e.earned || 0);
-    });
+    // Render barbers first — earnings fetched separately so a DB error won't blank the list
     tbody.innerHTML = _barberList.map(b => {
       const skillStr = (b.skills || []).map(s => `${s.product_name} (${s.percentage}%)`).join(', ') || '—';
-      const comm = commMap[b.id] || 0;
-      const tips = tipsMap[b.id] || 0;
       const nameHtml = b.nickname
         ? `${b.full_name} <span style="color:var(--accent);font-size:11px">"${b.nickname}"</span>`
         : b.full_name;
-      const earningsHtml = `<div style="font-weight:700;color:${comm > 0 ? '#10b981' : 'var(--muted)'}">${CUR}${comm.toFixed(2)}</div>`
-        + (tips > 0 ? `<div style="font-size:11px;color:#f59e0b;margin-top:2px">+ ${CUR}${tips.toFixed(2)} tips</div>` : '');
-      return `<tr>
+      return `<tr id="barberRow_${b.id}">
         <td>${nameHtml}<br><span style="font-size:11px;color:var(--muted)">${skillStr}</span></td>
         <td>${b.contact_number || '—'}</td>
         <td style="font-size:12px">${b.address || '—'}</td>
-        <td>${earningsHtml}</td>
+        <td id="barberEarn_${b.id}" style="color:var(--muted)">—</td>
         <td style="text-align:right;white-space:nowrap">
           <button class="btn btn-ghost btn-sm" onclick="viewBarberEarnings('${b.id}')">&#128176;</button>
           <button class="btn btn-ghost btn-sm" onclick="openBarberModal('${b.id}')">Edit</button>
@@ -4141,6 +4128,30 @@ async function loadBarbers() {
         </td>
       </tr>`;
     }).join('');
+
+    // Load earnings separately — won't break the list if it fails
+    const today = new Date(); today.setHours(0,0,0,0);
+    _sb.from('barber_earnings')
+      .select('barber_id, earned, product_name')
+      .eq('store_id', STORE.id)
+      .gte('earned_at', today.toISOString())
+      .then(({ data: earns }) => {
+        const commMap = {};
+        const tipsMap = {};
+        (earns || []).forEach(e => {
+          const isTip = (e.product_name || '') === 'Tip';
+          const bucket = isTip ? tipsMap : commMap;
+          bucket[e.barber_id] = (bucket[e.barber_id] || 0) + parseFloat(e.earned || 0);
+        });
+        _barberList.forEach(b => {
+          const el = document.getElementById(`barberEarn_${b.id}`);
+          if (!el) return;
+          const comm = commMap[b.id] || 0;
+          const tips = tipsMap[b.id] || 0;
+          el.innerHTML = `<div style="font-weight:700;color:${comm > 0 ? '#10b981' : 'var(--muted)'}">${CUR}${comm.toFixed(2)}</div>`
+            + (tips > 0 ? `<div style="font-size:11px;color:#f59e0b;margin-top:2px">+ ${CUR}${tips.toFixed(2)} tips</div>` : '');
+        });
+      });
   } catch (err) {
     console.error('loadBarbers error:', err);
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px">Error loading barbers: ${err.message}</td></tr>`;
