@@ -887,7 +887,10 @@ function startPing() {
   if (_pingInterval) clearInterval(_pingInterval);
   if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
   _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); }, 30 * 1000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
+    if (!document.hidden && USES_CHAIRS) _refreshChairLayoutIfChanged();
+  });
   checkCashierInbox();
   setInterval(checkCashierInbox, 60000);
 }
@@ -1531,6 +1534,18 @@ async function loadChairLayout() {
   chairLayout = (Array.isArray(saved) && saved.length) ? saved : _defaultChairLayout();
   await _loadChairUnpaidSet();
   renderChairArea();
+}
+
+async function _refreshChairLayoutIfChanged() {
+  try {
+    const { data } = await _sb.from('stores').select('chair_layout').eq('id', STORE_ID).single();
+    if (!data) return;
+    const newJson = data.chair_layout || '[]';
+    if (newJson !== STORE.chair_layout) {
+      STORE.chair_layout = newJson;
+      await loadChairLayout();
+    }
+  } catch (_) {}
 }
 
 function renderChairArea() {
