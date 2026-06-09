@@ -3922,8 +3922,10 @@ function _getChairLayout() {
   try { return STORE.chair_layout ? JSON.parse(STORE.chair_layout) : []; } catch { return []; }
 }
 async function _saveChairLayout(layout) {
-  STORE.chair_layout = JSON.stringify(layout);
-  await _sb.from('stores').update({ chair_layout: STORE.chair_layout }).eq('id', STORE.id);
+  const json = JSON.stringify(layout);
+  STORE.chair_layout = json;
+  const { error } = await _sb.from('stores').update({ chair_layout: json }).eq('id', STORE.id);
+  if (error) throw new Error('Could not save chairs: ' + error.message);
 }
 
 function loadChairsSection() {
@@ -3967,16 +3969,19 @@ async function saveChairDash() {
     const idx = layout.length;
     layout.push({
       id: 'C' + (layout.length + 1) + '_' + Date.now().toString(36),
-      label,
-      barber: '',
+      label, barber: '',
       x: Math.min(88, startX + (idx % cols) * gapX),
       y: Math.min(86, startY + Math.floor(idx / cols) * gapY)
     });
   }
-  await _saveChairLayout(layout);
-  closeModal('chairDashModal');
-  loadChairsSection();
-  showToast(editId ? `Chair renamed to "${label}"` : `Chair "${label}" added`);
+  try {
+    await _saveChairLayout(layout);
+    closeModal('chairDashModal');
+    loadChairsSection();
+    showToast(editId ? `Chair renamed to "${label}"` : `Chair "${label}" added`);
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 async function deleteChairDash(id) {
