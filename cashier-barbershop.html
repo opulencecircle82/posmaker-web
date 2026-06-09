@@ -440,6 +440,27 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
+<!-- ── CHAIR SESSION: select barber + service ── -->
+<div class="modal" id="mChairSession">
+  <div class="mbox" style="width:min(520px,97vw)">
+    <div class="mtitle">&#128142; Select Barber &amp; Service</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Barber</div>
+        <div class="tbl-grid" id="csBarberGrid" style="grid-template-columns:1fr"></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Service</div>
+        <div class="tbl-grid" id="csServiceGrid" style="grid-template-columns:1fr"></div>
+      </div>
+    </div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeM('mChairSession')">Cancel</button>
+      <button class="btn btn-accent" onclick="_confirmChairSession()">&#10003; Start Service</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── CASH REMITTANCE ON LOGOUT ── -->
 <div class="modal" id="mRemitLogout">
   <div class="mbox" style="width:min(380px,96vw)">
@@ -1484,16 +1505,13 @@ let chairLayout = [];
 let _chairArranging = false;
 let _chairDrag = null;
 let _barberOptionsCache = null;
+let _barbersCache = null;
+let _chairSessionMap = new Map();  // chairLabel → {barberId, barberName, serviceId, serviceName}
+let _activeBarber = null;          // barber record for current order (earnings recording)
+let _pendingChairId = null;        // chair being assigned in the session modal
 
 function _defaultChairLayout() {
-  const cols = 4, gapX = 23, gapY = 30, startX = 4, startY = 6;
-  return Array.from({ length: 12 }, (_, i) => ({
-    id: 'C' + (i + 1),
-    label: 'C' + (i + 1),
-    barber: '',
-    x: startX + (i % cols) * gapX,
-    y: startY + Math.floor(i / cols) * gapY
-  }));
+  return [];
 }
 
 let _chairUnpaidSet = new Set();
@@ -1519,8 +1537,17 @@ function renderChairArea() {
   const area = document.getElementById('chairArea');
   if (!area) return;
   area.classList.toggle('arranging', _chairArranging);
+  if (!chairLayout.length) {
+    area.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--dim);font-size:12px">
+      <span style="font-size:28px">💎</span>
+      <span>No chairs yet — owner adds chairs from the Dashboard</span>
+    </div>`;
+    return;
+  }
   area.innerHTML = chairLayout.map(c => {
-    const barberLabel = c.barber || (_chairArranging ? 'Tap to assign barber' : 'No barber');
+    const session = _chairSessionMap.get(c.label);
+    const barberLabel = session ? session.barberName : (c.barber || (_chairArranging ? 'Tap to assign barber' : 'No barber'));
+    const barberAssigned = !!(session || c.barber);
     const isSelectedUnpaid = tableNo === c.label && Object.keys(cart).length > 0;
     const isUnpaid = _chairUnpaidSet.has(c.label) || isSelectedUnpaid;
     const payBadge = !_chairArranging
@@ -1536,7 +1563,7 @@ function renderChairArea() {
       ${delBtn}
       <div class="cc-emoji">&#128142;</div>
       <div class="cc-label">${c.label}</div>
-      <div class="cc-barber${c.barber ? '' : ' unassigned'}">${barberLabel}</div>
+      <div class="cc-barber${barberAssigned ? '' : ' unassigned'}">${barberLabel}</div>
       ${payBadge}
     </div>`;
   }).join('');
@@ -1623,11 +1650,84 @@ function _chairPointerUp() {
   else selectChair(d.id);
 }
 
-function selectChair(id) {
+async function selectChair(id) {
   const chair = chairLayout.find(c => c.id === id);
   if (!chair) return;
-  tableNo = (tableNo === chair.label) ? '' : chair.label;
+  if (tableNo === chair.label) {
+    tableNo = '';
+    _activeBarber = null;
+    updateTableBtn();
+    renderChairArea();
+    redrawCart();
+    return;
+  }
+  const barbers = await _loadBarbers();
+  if (barbers.length > 0) {
+    _pendingChairId = id;
+    _openChairSessionModal(chair, barbers);
+  } else {
+    tableNo = chair.label;
+    _activeBarber = null;
+    updateTableBtn();
+    renderChairArea();
+    redrawCart();
+  }
+}
+
+async function _loadBarbers() {
+  if (_barbersCache) return _barbersCache;
+  try {
+    const { data } = await _sb.from('barbers').select('*').eq('store_id', STORE_ID);
+    _barbersCache = (data || []).map(b => ({
+      ...b, skills: typeof b.skills === 'string' ? JSON.parse(b.skills || '[]') : (b.skills || [])
+    }));
+  } catch (_) { _barbersCache = []; }
+  return _barbersCache;
+}
+
+function _openChairSessionModal(chair, barbers) {
+  const services = (prods || []).filter(p => p.available !== false);
+  document.querySelector('#mChairSession .mtitle').innerHTML = `&#128142; ${chair.label} — Select Barber &amp; Service`;
+  const bGrid = document.getElementById('csBarberGrid');
+  bGrid.innerHTML = barbers.map(b =>
+    `<button class="tbl-btn" data-bid="${b.id}" onclick="_csPickBarber(this,'${b.id}')">${b.full_name}</button>`
+  ).join('');
+  const sGrid = document.getElementById('csServiceGrid');
+  sGrid.innerHTML = services.length
+    ? services.map(s => `<button class="tbl-btn" data-sid="${s.id}" onclick="_csPickService(this,'${s.id}')">${s.name} — ${CUR}${parseFloat(s.price||0).toFixed(2)}</button>`).join('')
+    : `<div style="color:var(--dim);font-size:12px;padding:8px">No services found</div>`;
+  document.getElementById('mChairSession').classList.add('show');
+}
+
+function _csPickBarber(btn, bid) {
+  document.querySelectorAll('#csBarberGrid .tbl-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function _csPickService(btn, sid) {
+  document.querySelectorAll('#csServiceGrid .tbl-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function _confirmChairSession() {
+  const chair = chairLayout.find(c => c.id === _pendingChairId);
+  if (!chair) { closeM('mChairSession'); return; }
+  const barbers = _barbersCache || [];
+  const bBtn = document.querySelector('#csBarberGrid .tbl-btn.active');
+  const sBtn = document.querySelector('#csServiceGrid .tbl-btn.active');
+  const barber = bBtn ? barbers.find(b => b.id === bBtn.dataset.bid) : null;
+  const service = sBtn ? (prods || []).find(p => p.id === sBtn.dataset.sid) : null;
+  tableNo = chair.label;
+  _activeBarber = barber || null;
+  if (barber) {
+    _chairSessionMap.set(chair.label, {
+      barberId: barber.id, barberName: barber.full_name,
+      serviceId: service?.id, serviceName: service?.name
+    });
+  }
+  closeM('mChairSession');
   updateTableBtn();
+  if (service) addItem(service.id);
   renderChairArea();
   redrawCart();
 }
@@ -2006,6 +2106,26 @@ async function confirmOrder() {
     target_name: `Order #${ord.id}`,
     details:     `Total: ${CUR}${total.toFixed(2)} | ${items.length} item(s) | ${payMeth}`
   }).then(() => {});
+
+  // Record barber commission earnings
+  if (USES_CHAIRS && _activeBarber && tableNo) {
+    const barber = _activeBarber;
+    const skills = barber.skills || [];
+    const earnRows = items
+      .map(item => {
+        const skill = skills.find(sk => sk.product_id === item.id);
+        if (!skill || !skill.percentage) return null;
+        const saleAmt = parseFloat((item.price * item.qty).toFixed(2));
+        return { store_id: STORE_ID, barber_id: barber.id, order_id: ord.id,
+                 product_name: item.name, sale_amount: saleAmt,
+                 percentage: skill.percentage,
+                 earned: parseFloat((saleAmt * skill.percentage / 100).toFixed(2)) };
+      })
+      .filter(Boolean);
+    if (earnRows.length) _sb.from('barber_earnings').insert(earnRows).then(() => {});
+    _chairSessionMap.delete(tableNo);
+    _activeBarber = null;
+  }
 
   receiptData.order_id = ord.id;
   showReceipt(receiptData);
