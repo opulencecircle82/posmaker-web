@@ -2187,9 +2187,11 @@ async function confirmOrder() {
                  earned: parseFloat((saleAmt * skill.percentage / 100).toFixed(2)) };
       })
       .filter(Boolean);
-    if (earnRows.length) _sb.from('barber_earnings').insert(earnRows).then(({ error }) => {
-    if (error) console.error('barber_earnings insert failed:', error.message);
-  });
+    if (earnRows.length) {
+      _sb.from('barber_earnings').insert(earnRows).then(({ error }) => {
+        if (error) showToast('⚠️ Earnings not saved: ' + error.message);
+      });
+    }
     _chairSessionMap.delete(tableNo);
     _activeBarber = null;
   }
