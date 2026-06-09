@@ -1033,9 +1033,12 @@ input:checked + .slider:before{transform:translateX(18px)}
     <input type="hidden" id="barberId">
     <div class="row2">
       <div class="field"><label>Full Name</label><input id="brName" type="text" placeholder="e.g. Jonabe Uglanes" autocomplete="off"></div>
-      <div class="field"><label>Contact Number</label><input id="brContact" type="text" placeholder="e.g. 09xx-xxx-xxxx" autocomplete="off"></div>
+      <div class="field"><label>Nickname</label><input id="brNickname" type="text" placeholder="e.g. Jong" autocomplete="off"></div>
     </div>
-    <div class="field"><label>Address</label><input id="brAddress" type="text" placeholder="e.g. 123 Rizal St, Manila" autocomplete="off"></div>
+    <div class="row2">
+      <div class="field"><label>Contact Number</label><input id="brContact" type="text" placeholder="e.g. 09xx-xxx-xxxx" autocomplete="off"></div>
+      <div class="field"><label>Address</label><input id="brAddress" type="text" placeholder="e.g. 123 Rizal St, Manila" autocomplete="off"></div>
+    </div>
     <div class="field">
       <label style="display:flex;justify-content:space-between;align-items:center">
         <span>Skills &amp; Commission</span>
@@ -4011,8 +4014,9 @@ async function loadBarbers() {
   tbody.innerHTML = _barberList.map(b => {
     const skills = (b.skills || []).map(s => `${s.product_name} (${s.percentage}%)`).join(', ') || '—';
     const earned = earnMap[b.id] || 0;
+    const displayName = b.nickname ? `${b.full_name} <span style="color:var(--accent);font-size:11px">"${b.nickname}"</span>` : b.full_name;
     return `<tr>
-      <td><strong>${b.full_name}</strong><br><span style="font-size:11px;color:var(--muted)">${skills}</span></td>
+      <td>${displayName}<br><span style="font-size:11px;color:var(--muted)">${skills}</span></td>
       <td>${b.contact_number || '—'}</td>
       <td style="font-size:12px">${b.address || '—'}</td>
       <td style="font-weight:700;color:${earned > 0 ? '#10b981' : 'var(--muted)'}">${CUR}${earned.toFixed(2)}</td>
@@ -4050,6 +4054,7 @@ async function openBarberModal(editId) {
   document.getElementById('barberModalTitle').textContent = b ? 'Edit Barber' : 'Add Barber';
   document.getElementById('barberId').value = editId || '';
   document.getElementById('brName').value = b ? b.full_name : '';
+  document.getElementById('brNickname').value = b ? (b.nickname || '') : '';
   document.getElementById('brContact').value = b ? b.contact_number : '';
   document.getElementById('brAddress').value = b ? b.address : '';
   document.getElementById('brSkillsList').innerHTML = '';
@@ -4060,6 +4065,7 @@ async function openBarberModal(editId) {
 async function saveBarber() {
   const name = document.getElementById('brName').value.trim();
   if (!name) { alert('Full name is required.'); return; }
+  const nickname = document.getElementById('brNickname').value.trim();
   const contact = document.getElementById('brContact').value.trim();
   const address = document.getElementById('brAddress').value.trim();
   // Collect skills from rows
@@ -4075,7 +4081,7 @@ async function saveBarber() {
     skills.push({ product_id: opt.value, product_name: opt.dataset.name || opt.text, percentage: pct });
   });
   const editId = document.getElementById('barberId').value;
-  const row = { store_id: STORE.id, full_name: name, contact_number: contact, address, skills };
+  const row = { store_id: STORE.id, full_name: name, nickname, contact_number: contact, address, skills };
   if (editId) {
     await _sb.from('barbers').update(row).eq('id', editId);
   } else {
@@ -4097,7 +4103,8 @@ async function deleteBarber(id) {
 async function viewBarberEarnings(id) {
   const b = _barberList.find(x => x.id === id);
   if (!b) return;
-  document.getElementById('barberEarnTitle').textContent = `&#128176; ${b.full_name} — Today's Earnings`;
+  const earnName = b.nickname ? `${b.nickname} (${b.full_name})` : b.full_name;
+  document.getElementById('barberEarnTitle').textContent = `&#128176; ${earnName} — Today's Earnings`;
   const body = document.getElementById('barberEarnBody');
   body.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted)">Loading...</div>';
   document.getElementById('barberEarnModal').classList.add('show');
