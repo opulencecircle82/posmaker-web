@@ -1180,13 +1180,14 @@ function _sig(ms = 25000) {
   document.getElementById('sbStore').textContent = store.name;
   adaptDashboardToBizType(store.business_type);
 
-  // Check subscription → unlock pro features if active (by store_id OR owner email)
+  // Check subscription → unlock pro features if active (by store_id OR owner email OR free_until)
   const _now = new Date().toISOString();
   const [{ data: _subByStore }, { data: _subByEmail }] = await Promise.all([
     _sb.from('subscriptions').select('id').eq('store_id', store.id).eq('status','active').gte('expires_at',_now).limit(1),
     _sb.from('subscriptions').select('id').eq('subscriber_email', session.user.email).eq('status','active').gte('expires_at',_now).limit(1)
   ]);
-  IS_PRO = !!( (_subByStore && _subByStore.length > 0) || (_subByEmail && _subByEmail.length > 0) );
+  const _freeUntilActive = store.free_until && new Date(store.free_until) > new Date();
+  IS_PRO = !!( (_subByStore && _subByStore.length > 0) || (_subByEmail && _subByEmail.length > 0) || _freeUntilActive );
 
   document.getElementById('loadingPage').style.display = 'none';
   const appWrap = document.getElementById('appWrap');

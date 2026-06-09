@@ -1279,13 +1279,14 @@ function _sig(ms = 25000) {
   document.getElementById('sbStore').textContent = store.name;
   adaptDashboardToBizType(store.business_type);
 
-  // Check subscription → unlock pro features if active (by store_id OR owner email)
+  // Check subscription → unlock pro features if active (by store_id OR owner email OR free_until)
   const _now = new Date().toISOString();
   const [{ data: _subByStore }, { data: _subByEmail }] = await Promise.all([
     _sb.from('subscriptions').select('id').eq('store_id', store.id).eq('status','active').gte('expires_at',_now).limit(1),
     _sb.from('subscriptions').select('id').eq('subscriber_email', session.user.email).eq('status','active').gte('expires_at',_now).limit(1)
   ]);
-  IS_PRO = !!( (_subByStore && _subByStore.length > 0) || (_subByEmail && _subByEmail.length > 0) );
+  const _freeUntilActive = store.free_until && new Date(store.free_until) > new Date();
+  IS_PRO = !!( (_subByStore && _subByStore.length > 0) || (_subByEmail && _subByEmail.length > 0) || _freeUntilActive );
 
   document.getElementById('loadingPage').style.display = 'none';
   const appWrap = document.getElementById('appWrap');
@@ -4161,7 +4162,11 @@ async function loadBarbers() {
 function _addBarberSkillRow(productId, productName, pct) {
   const services = allProds || [];
   const rowId = 'bsr_' + Date.now() + Math.random().toString(36).slice(2);
-  const opts = services.map(p => `<option value="${p.id}" data-name="${p.name}"${p.id === productId ? ' selected' : ''}>${p.name}</option>`).join('');
+  let opts = services.map(p => `<option value="${p.id}" data-name="${p.name}"${p.id === productId ? ' selected' : ''}>${p.name}</option>`).join('');
+  // If productId exists but not found in current products list, keep it as a selected option so it doesn't get wiped on save
+  if (productId && !services.find(p => p.id === productId)) {
+    opts = `<option value="${productId}" data-name="${productName || ''}" selected>${productName || 'Unknown service'}</option>` + opts;
+  }
   const row = document.createElement('div');
   row.id = rowId;
   row.style.cssText = 'display:flex;gap:8px;align-items:center';
