@@ -2181,7 +2181,7 @@ async function confirmOrder() {
         const skill = skills.find(sk => sk.product_id === item.id);
         if (!skill || !skill.percentage) return null;
         const saleAmt = parseFloat((item.price * item.qty).toFixed(2));
-        return { store_id: STORE_ID, barber_id: barber.id, order_id: ord.id,
+        return { store_id: STORE_ID, barber_id: barber.id, order_id: Number(ord.id) || null,
                  product_name: item.name, sale_amount: saleAmt,
                  percentage: skill.percentage,
                  earned: parseFloat((saleAmt * skill.percentage / 100).toFixed(2)) };
