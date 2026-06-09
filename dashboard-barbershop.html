@@ -4095,11 +4095,13 @@ async function saveBarber() {
   });
   const editId = document.getElementById('barberId').value;
   const row = { store_id: STORE.id, full_name: name, nickname, contact_number: contact, address, skills };
+  let dbErr;
   if (editId) {
-    await _sb.from('barbers').update(row).eq('id', editId);
+    ({ error: dbErr } = await _sb.from('barbers').update(row).eq('id', editId));
   } else {
-    await _sb.from('barbers').insert(row);
+    ({ error: dbErr } = await _sb.from('barbers').insert(row));
   }
+  if (dbErr) { alert('Save failed: ' + dbErr.message); return; }
   closeModal('barberModal');
   await loadBarbers();
   showToast(editId ? 'Barber updated' : `Barber "${name}" added`);
