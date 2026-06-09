@@ -1672,6 +1672,10 @@ async function selectChair(id) {
   const chair = chairLayout.find(c => c.id === id);
   if (!chair) return;
   if (tableNo === chair.label) {
+    // Don't deselect while in service (has items in cart or open draft)
+    const hasItems = Object.keys(cart).some(k => cart[k].qty > 0);
+    const hasOpenDraft = _chairUnpaidSet.has(chair.label);
+    if (hasItems || hasOpenDraft) return;
     tableNo = '';
     _activeBarber = null;
     updateTableBtn();
@@ -2195,6 +2199,14 @@ function newOrder() {
   isKOT = false;
   document.getElementById('btnKOT').classList.remove('on');
   document.getElementById('btnKOT').textContent = '\u{1F468}‍\u{1F373} KOT';
+  // Clear chair selection — chair returns to Available after payment
+  if (USES_CHAIRS && tableNo) {
+    _chairSessionMap.delete(tableNo);
+    tableNo = '';
+    _activeBarber = null;
+    updateTableBtn();
+    if (USES_CHAIRS) { _loadChairUnpaidSet().then(() => renderChairArea()); }
+  }
   redrawCart();
   closeM('mConfirm');
 }
