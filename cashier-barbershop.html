@@ -889,7 +889,10 @@ function startPing() {
   _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); }, 30 * 1000);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
-    if (!document.hidden && USES_CHAIRS) _refreshChairLayoutIfChanged();
+    if (!document.hidden && USES_CHAIRS) {
+      _refreshChairLayoutIfChanged();
+      _barbersCache = null;  // re-fetch barbers on next chair click
+    }
   });
   checkCashierInbox();
   setInterval(checkCashierInbox, 60000);
@@ -2137,7 +2140,9 @@ async function confirmOrder() {
                  earned: parseFloat((saleAmt * skill.percentage / 100).toFixed(2)) };
       })
       .filter(Boolean);
-    if (earnRows.length) _sb.from('barber_earnings').insert(earnRows).then(() => {});
+    if (earnRows.length) _sb.from('barber_earnings').insert(earnRows).then(({ error }) => {
+    if (error) console.error('barber_earnings insert failed:', error.message);
+  });
     _chairSessionMap.delete(tableNo);
     _activeBarber = null;
   }
