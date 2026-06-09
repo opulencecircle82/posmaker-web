@@ -2116,7 +2116,8 @@ async function confirmOrder() {
     change_given:    change,
     discount_pct:    dPct,
   };
-  const fullRow = { ...baseRow, discount_amt: disc, order_type: orderType, table_no: tableNo, is_kot: isKOT };
+  const fullRow = { ...baseRow, discount_amt: disc, order_type: orderType, table_no: tableNo, is_kot: isKOT,
+                    barber_name: (USES_CHAIRS && _activeBarber) ? _activeBarber.full_name : null };
 
   let { data: ord, error: oErr } = await _sb.from('orders').insert(fullRow).select('id').single();
 

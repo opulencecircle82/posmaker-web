@@ -287,7 +287,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           </div>
         </div>
         <table>
-          <thead><tr><th>#</th><th>Date &amp; Time</th><th>Cashier</th><th>Barber</th><th>Items</th><th>Subtotal</th><th>Tax</th><th>Discount</th><th>Total</th><th>Method</th><th>Tendered</th><th>Change</th></tr></thead>
+          <thead><tr><th>#</th><th>Date &amp; Time</th><th>Cashier</th><th>Barber</th><th>Chair</th><th>Items</th><th>Subtotal</th><th>Tax</th><th>Total</th><th>Method</th><th>Tendered</th><th>Change</th></tr></thead>
           <tbody id="ordTbody"><tr><td colspan="12" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
         </table>
         <div style="padding:12px 18px;font-size:12px;color:var(--muted)" id="ordCount"></div>
@@ -3160,18 +3160,18 @@ function renderOrders(orders) {
     const dt     = new Date(o.timestamp).toLocaleString('en-PH', {year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'});
     const m      = (o.payment_method || 'Cash').toLowerCase();
     const bg     = m === 'cash' ? 'bg-cash' : m === 'card' ? 'bg-card' : 'bg-gcash';
-    const disc   = parseFloat(o.discount_pct || 0);
     const itms   = (o._items || []).join(', ') || '&#8212;';
-    const barber = _orderBarberMap[o.id] || '&#8212;';
+    const barber = o.barber_name || _orderBarberMap[o.id] || '&#8212;';
+    const chair  = o.table_no || '&#8212;';
     return `<tr style="cursor:pointer" onclick="viewOrder(${o.id})">
       <td style="font-weight:600">#${o.id}</td>
       <td>${dt}</td>
       <td>${o.cashier_name || ''}</td>
       <td style="color:var(--accent);font-size:12px;font-weight:600">${barber}</td>
-      <td style="color:var(--muted);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(o._items||[]).join(', ')}">${itms}</td>
+      <td style="text-align:center;font-weight:700;color:var(--muted)">${chair}</td>
+      <td style="color:var(--muted);font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(o._items||[]).join(', ')}">${itms}</td>
       <td>${CUR}${parseFloat(o.subtotal||0).toFixed(2)}</td>
       <td style="color:var(--muted)">${CUR}${parseFloat(o.tax||0).toFixed(2)}</td>
-      <td style="color:${disc>0?'#f59e0b':'var(--muted)'}">${disc>0?disc+'%':'&#8212;'}</td>
       <td style="color:var(--accent);font-weight:700">${CUR}${parseFloat(o.total||0).toFixed(2)}</td>
       <td><span class="badge ${bg}">${o.payment_method||'Cash'}</span></td>
       <td>${CUR}${parseFloat(o.amount_tendered||0).toFixed(2)}</td>
@@ -3189,7 +3189,8 @@ async function viewOrder(ordId) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:16px;font-size:12px;color:var(--muted)">
       <span>Date</span><span style="color:var(--text)">${dt}</span>
       <span>Cashier</span><span style="color:var(--text)">${o.cashier_name || '&#8212;'}</span>
-      ${_orderBarberMap[o.id] ? `<span>Barber</span><span style="color:var(--accent);font-weight:600">${_orderBarberMap[o.id]}</span>` : ''}
+      ${(o.barber_name || _orderBarberMap[o.id]) ? `<span>Barber</span><span style="color:var(--accent);font-weight:600">${o.barber_name || _orderBarberMap[o.id]}</span>` : ''}
+      ${o.table_no ? `<span>Chair</span><span style="color:var(--text);font-weight:600">${o.table_no}</span>` : ''}
       <span>Payment</span><span style="color:var(--text)">${o.payment_method || 'Cash'}</span>
       ${disc > 0 ? `<span>Discount</span><span style="color:#f59e0b">${disc}%</span>` : ''}
     </div>
@@ -3242,16 +3243,16 @@ async function clearOrdFilter() {
 }
 function exportOrdCSV() {
   if (!allOrders.length) { showToast('No orders to export.', true); return; }
-  const hdr = ['ID','Date','Cashier','Barber','Items','Subtotal','Tax','Discount%','Total','Method','Tendered','Change'];
+  const hdr = ['ID','Date','Cashier','Barber','Chair','Items','Subtotal','Tax','Total','Method','Tendered','Change'];
   const rows = allOrders.map(o => [
     o.id,
     new Date(o.timestamp).toLocaleString('en-PH'),
     o.cashier_name || '',
-    _orderBarberMap[o.id] || '',
+    o.barber_name || _orderBarberMap[o.id] || '',
+    o.table_no || '',
     (o._items || []).join('; '),
     parseFloat(o.subtotal||0).toFixed(2),
     parseFloat(o.tax||0).toFixed(2),
-    parseFloat(o.discount_pct||0).toFixed(2),
     parseFloat(o.total||0).toFixed(2),
     o.payment_method || 'Cash',
     parseFloat(o.amount_tendered||0).toFixed(2),
