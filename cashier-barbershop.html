@@ -770,10 +770,10 @@ function adaptCashierMode(bizType) {
   document.getElementById('chairStrip').style.display = usesChairs ? '' : 'none';
   if (usesChairs) loadChairLayout();
 
-  // Show retail panels (chair shops don't use the product list — they use chair/barber picker + direct sale)
-  document.getElementById('retailLeft').style.display = (IS_RETAIL && !usesChairs) ? 'flex' : 'none';
+  // Show retail panels
+  document.getElementById('retailLeft').style.display = IS_RETAIL ? 'flex' : 'none';
   document.getElementById('retailMid').style.display  = IS_RETAIL ? 'flex' : 'none';
-  document.getElementById('catBar').style.display     = (IS_RETAIL && !usesChairs) ? '' : 'none';
+  document.getElementById('catBar').style.display     = IS_RETAIL ? '' : 'none';
   document.getElementById('btnDirectSale').style.display = usesChairs ? '' : 'none';
   document.getElementById('cartPanel').classList.toggle('retail-pay', IS_RETAIL);
 
