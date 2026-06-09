@@ -1522,6 +1522,25 @@ function _defaultChairLayout() {
 
 let _chairUnpaidSet = new Set();
 
+function _saveChairSessions() {
+  if (!STORE_ID) return;
+  const obj = {};
+  _chairSessionMap.forEach((v, k) => { obj[k] = v; });
+  try { localStorage.setItem(`cs_${STORE_ID}`, JSON.stringify(obj)); } catch (_) {}
+}
+function _restoreChairSessions() {
+  if (!STORE_ID) return;
+  try {
+    const raw = localStorage.getItem(`cs_${STORE_ID}`);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    // Only restore sessions for chairs still IN SERVICE (have open drafts)
+    Object.entries(obj).forEach(([label, session]) => {
+      if (_chairUnpaidSet.has(label)) _chairSessionMap.set(label, session);
+    });
+  } catch (_) {}
+}
+
 async function _loadChairUnpaidSet() {
   _chairUnpaidSet = new Set();
   if (IS_DEMO || !STORE_ID) return;
@@ -1529,6 +1548,7 @@ async function _loadChairUnpaidSet() {
     const { data } = await _sb.from('draft_orders').select('table_no').eq('store_id', STORE_ID);
     (data || []).forEach(d => { if (d.table_no) _chairUnpaidSet.add(d.table_no); });
   } catch (_) {}
+  _restoreChairSessions(); // re-apply saved barber assignments for IN SERVICE chairs
 }
 
 async function loadChairLayout() {
@@ -1789,6 +1809,7 @@ function _confirmChairSession() {
       barberId: barber.id, barberName: barber.full_name,
       serviceId: service?.id, serviceName: service?.name
     });
+    _saveChairSessions();
   }
   closeM('mChairSession');
   updateTableBtn();
@@ -2194,6 +2215,7 @@ async function confirmOrder() {
       });
     }
     _chairSessionMap.delete(tableNo);
+    _saveChairSessions();
     _activeBarber = null;
   }
 
@@ -2248,6 +2270,7 @@ function newOrder() {
   // Clear chair selection — chair returns to Available after payment
   if (USES_CHAIRS && tableNo) {
     _chairSessionMap.delete(tableNo);
+    _saveChairSessions();
     tableNo = '';
     _activeBarber = null;
     updateTableBtn();
