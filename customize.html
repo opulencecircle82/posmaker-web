@@ -600,6 +600,10 @@ function adaptPreviewToStore(store) {
   const isRetail = store.business_type && !RESTAURANT_TYPES_CZ.has(store.business_type);
 
   if (isBarbershop) {
+    // Use generic name in preview — not the real store name
+    document.getElementById('pmStoreName').textContent = 'Salon/Barber Shop';
+    document.getElementById('pmLogo').textContent = 'S';
+
     // Hide order type tabs
     document.querySelector('.pm-ot-bar').style.display = 'none';
 
