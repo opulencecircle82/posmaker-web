@@ -280,6 +280,21 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
 .pos-mock[data-bs="glass"] .pm-list-row{background:rgba(255,255,255,.06)!important;backdrop-filter:blur(10px);border-color:rgba(255,255,255,.14)}
 .pos-mock[data-bs="pill"] .pm-list-row{border-radius:24px!important}
 
+/* ── BARBERSHOP PREVIEW ───────────────────────────────────── */
+.pm-chairs-strip{background:var(--pm-s1,#111120);border-bottom:1px solid var(--pm-border,#252540);padding:6px 8px;flex-shrink:0}
+.pm-chairs-head{font-size:8px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.pm-chairs-grid{display:flex;gap:6px}
+.pm-chair-card{background:var(--pm-s2,#191929);border:1.5px solid var(--pm-border,#252540);border-radius:var(--pm-radius,10px);padding:5px 8px;min-width:76px;text-align:center;cursor:pointer}
+.pm-chair-card.ins{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.07)}
+.pm-chair-card.ins.active-chair{border-color:rgba(239,68,68,.8);box-shadow:0 0 0 2px rgba(239,68,68,.25)}
+.pm-chair-ico{font-size:13px;margin-bottom:2px}
+.pm-chair-lbl{font-size:11px;font-weight:800;color:var(--pm-text,#f0f0f8)}
+.pm-chair-sub{font-size:7px;color:#777;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:2px 0}
+.pm-chair-badge{font-size:7px;font-weight:800;letter-spacing:.4px;border-radius:3px;padding:1px 5px;display:inline-block}
+.pm-chair-badge.ins{background:rgba(239,68,68,.2);color:#ef4444}
+.pm-chair-badge.av{background:rgba(16,185,129,.15);color:#10b981}
+.pm-chair-status-bar{margin:0 7px 0;padding:6px 10px;border-radius:7px;font-size:10px;font-weight:700;display:flex;justify-content:space-between;align-items:center;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;flex-shrink:0}
+
 /* TOAST */
 .toast{position:fixed;bottom:20px;right:20px;background:#1a3a2a;border:1px solid #10b981;color:#10b981;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;z-index:500;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
@@ -581,7 +596,74 @@ const RETAIL_MOCKS = [
 ];
 
 function adaptPreviewToStore(store) {
+  const isBarbershop = store.business_type === 'Salon / Barbershop';
   const isRetail = store.business_type && !RESTAURANT_TYPES_CZ.has(store.business_type);
+
+  if (isBarbershop) {
+    // Hide order type tabs
+    document.querySelector('.pm-ot-bar').style.display = 'none';
+
+    // Insert chairs strip above pm-body
+    const pmMock = document.getElementById('posMock');
+    const pmBody = document.querySelector('.pm-body');
+    const strip = document.createElement('div');
+    strip.className = 'pm-chairs-strip';
+    strip.innerHTML = `
+      <div class="pm-chairs-head">&#128142; CHAIRS</div>
+      <div class="pm-chairs-grid">
+        <div class="pm-chair-card ins">
+          <div class="pm-chair-ico">&#128142;</div>
+          <div class="pm-chair-lbl">C1</div>
+          <div class="pm-chair-sub">June Delicana</div>
+          <div class="pm-chair-badge ins">IN SERVICE</div>
+        </div>
+        <div class="pm-chair-card ins active-chair">
+          <div class="pm-chair-ico">&#128142;</div>
+          <div class="pm-chair-lbl">C2</div>
+          <div class="pm-chair-sub">Gerald Bocboc</div>
+          <div class="pm-chair-badge ins">IN SERVICE</div>
+        </div>
+        <div class="pm-chair-card">
+          <div class="pm-chair-ico">&#128142;</div>
+          <div class="pm-chair-lbl">C3</div>
+          <div class="pm-chair-sub">Available</div>
+          <div class="pm-chair-badge av">AVAILABLE</div>
+        </div>
+      </div>`;
+    pmMock.insertBefore(strip, pmBody);
+
+    // Chair status banner inside cart
+    const pmCart = document.querySelector('.pm-cart');
+    const banner = document.createElement('div');
+    banner.className = 'pm-chair-status-bar';
+    banner.innerHTML = `&#128142; Chair C2 &mdash; <span>IN SERVICE</span>`;
+    pmCart.insertBefore(banner, pmCart.firstChild);
+
+    // Barbershop services list
+    const pmGrid = document.getElementById('pmGrid');
+    pmGrid.className = 'pm-list';
+    pmGrid.innerHTML = [
+      {n:'&#9986;&#65039; Hair Cut',p:100},
+      {n:'&#129304; Beard Trim',p:60},
+      {n:'&#9986;&#65039; Hair + Beard Combo',p:140},
+      {n:'&#128581; Head Massage',p:80},
+    ].map(m => `<div class="pm-list-row"><div class="pm-list-name">${m.n}</div><div class="pm-list-price">&#8369;${m.p}</div></div>`).join('');
+
+    // Categories
+    document.querySelector('.pm-cats').innerHTML =
+      '<div class="pm-cat active">All</div><div class="pm-cat">Haircut</div><div class="pm-cat">Beard</div>';
+
+    // Cart acts: Drafts + active chair tab
+    document.querySelector('.pm-cart-acts').innerHTML =
+      '<div class="pm-act-btn" style="flex:none;padding:4px 12px">&#128196; Drafts</div>' +
+      '<div class="pm-act-btn" style="flex:none;padding:4px 12px;background:rgba(239,68,68,.15);color:#ef4444;border-color:rgba(239,68,68,.35)">&#8593; C2</div>';
+
+    // Cart items
+    document.querySelector('.pm-cart-body').innerHTML =
+      '<div class="pm-cart-item"><span>Hair Cut</span><span>&#8369;100</span></div>';
+    return;
+  }
+
   if (!isRetail) return;
 
   // Hide restaurant-specific order type tabs
