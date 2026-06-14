@@ -5,6 +5,8 @@
     "☕ Coffee Shop: Raw Materials category — fixed item-name examples (e.g. Powder → Milk Powder, Cinnamon Powder)",
     "☕ Coffee Shop: \"Beverages\" raw-material category auto-renamed to \"Syrups\" (Beverages is for menu products, not raw materials; avoids overlap with existing \"Powder\" category)",
     "🔧 Fixed: new POS device sometimes bounced back to \"Enter Store Code\" right after connecting (device registration wasn't finished before reload)",
+    "🖼️ Fixed: product photos uploaded from the dashboard weren't showing on the POS menu grid",
+    "🔤 Fixed garbled currency symbols/emojis (₱ and icons showing as strange characters) across all POS screens",
     "💬 Messages inbox — owner can message staff; staff see unread badge",
     "🧾 Activity Log — receipt shows as button (View/Accept/Invalid)",
     "✉️ Invalid receipt → auto-sends message to staff to resubmit",
