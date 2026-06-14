@@ -842,7 +842,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div class="field">
         <label>Category</label>
         <div style="display:flex;gap:6px">
-          <select id="invCat" style="flex:1;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none"><option value="">&#8212; Select &#8212;</option></select>
+          <select id="invCat" onchange="updateInvNamePlaceholder()" style="flex:1;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none"><option value="">&#8212; Select &#8212;</option></select>
           <button type="button" class="btn btn-ghost btn-sm" onclick="openInvCatQuick()">+ New</button>
         </div>
       </div>
@@ -2659,6 +2659,18 @@ function _bizPlaceholder(field) {
   };
   return field === 'inv' ? (inv[biz] || 'e.g. Item Name') : (prod[biz] || 'e.g. Product Name');
 }
+// Category-specific item name examples (overrides _bizPlaceholder('inv') when the
+// selected inventory category matches, e.g. a generic "Powder" category).
+const INV_CAT_PLACEHOLDERS = {
+  'powder':    'e.g. Milk Powder, Cinnamon Powder',
+  'beverages': 'e.g. Bottled Water, Soda',
+  'packaging': 'e.g. Paper Cups, Lids, Straws',
+  'condiments':'e.g. Sugar, Creamer, Syrup',
+};
+function updateInvNamePlaceholder(){
+  const cat=(document.getElementById('invCat').value||'').trim().toLowerCase();
+  document.getElementById('invName').placeholder = INV_CAT_PLACEHOLDERS[cat] || _bizPlaceholder('inv');
+}
 function openProdModal(p) {
   if(typeof p === 'string') p = allProds.find(x => x.id === p) || null;
   if (!IS_PRO && !p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
@@ -3638,7 +3650,6 @@ async function openInvModal(item){
     toggleServiceUnlimitedStock();
   }
   document.getElementById('invItemId').value=item?item.id:'';
-  document.getElementById('invName').placeholder = _bizPlaceholder('inv');
   document.getElementById('invName').value=item?item.name:'';
   document.getElementById('invSku').value=item?(item.sku||''):'';
   const u=item?(item.unit||'pc'):'pc';
@@ -3660,6 +3671,7 @@ async function openInvModal(item){
   document.getElementById('invQcUnit').value=u;
   if(costPer>0) calcUsageCost();
   populateInvCatSelect(document.getElementById('invCat'),item?item.category:'');
+  updateInvNamePlaceholder();
   document.getElementById('invModal').classList.add('show');
   setTimeout(()=>document.getElementById('invName').focus(),50);
 }
@@ -3669,6 +3681,7 @@ async function openInvCatQuick(){
   const n=name.trim();
   if(!getInvCatList().includes(n)){await _sb.from('categories').insert({store_id:STORE.id,name:n,type:'inv'});await loadDbCategories();}
   populateInvCatSelect(document.getElementById('invCat'),n);
+  updateInvNamePlaceholder();
 }
 function qcCalc(){
   const price=parseFloat(document.getElementById('invQcPrice').value)||0;
