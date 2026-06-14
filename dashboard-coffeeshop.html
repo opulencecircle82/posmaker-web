@@ -2348,12 +2348,14 @@ async function loadDbCategories(){
     dbCats=(data||[]).filter(r=>r.type==='prod').map(r=>r.name);
     dbInvCats=(data||[]).filter(r=>r.type==='inv').map(r=>r.name);
     // One-time cleanup: "Beverages" is a product category, not a raw-material one.
-    // Rename any leftover "Beverages" raw-material category to "Syrups".
-    if(dbInvCats.includes('Beverages')){
-      await _sb.from('categories').update({name:'Syrups'}).eq('store_id',STORE.id).eq('type','inv').eq('name','Beverages');
-      await _sb.from('inventory_items').update({category:'Syrups'}).eq('store_id',STORE.id).eq('category','Beverages');
-      dbInvCats=dbInvCats.map(c=>c==='Beverages'?'Syrups':c);
-      invItems.forEach(i=>{if(i.category==='Beverages')i.category='Syrups';});
+    // Rename any leftover "Beverages" (or earlier-renamed "Syrups & Powders",
+    // which duplicated the existing "Powder" category) to just "Syrups".
+    const _oldCat = dbInvCats.includes('Beverages') ? 'Beverages' : (dbInvCats.includes('Syrups & Powders') ? 'Syrups & Powders' : null);
+    if(_oldCat){
+      await _sb.from('categories').update({name:'Syrups'}).eq('store_id',STORE.id).eq('type','inv').eq('name',_oldCat);
+      await _sb.from('inventory_items').update({category:'Syrups'}).eq('store_id',STORE.id).eq('category',_oldCat);
+      dbInvCats=dbInvCats.map(c=>c===_oldCat?'Syrups':c);
+      invItems.forEach(i=>{if(i.category===_oldCat)i.category='Syrups';});
     }
   }catch(e){/* categories table not yet created */}
 }
