@@ -2662,10 +2662,11 @@ function _bizPlaceholder(field) {
 // Category-specific item name examples (overrides _bizPlaceholder('inv') when the
 // selected inventory category matches, e.g. a generic "Powder" category).
 const INV_CAT_PLACEHOLDERS = {
-  'powder':    'e.g. Milk Powder, Cinnamon Powder',
-  'beverages': 'e.g. Bottled Water, Soda',
-  'packaging': 'e.g. Paper Cups, Lids, Straws',
-  'condiments':'e.g. Sugar, Creamer, Syrup',
+  'powder':            'e.g. Milk Powder, Cinnamon Powder',
+  'syrups & powders':  'e.g. Caramel Syrup, Sugar Powder, Choco Powder',
+  'beverages':         'e.g. Bottled Water, Soda',
+  'packaging':         'e.g. Paper Cups, Lids, Straws',
+  'condiments':        'e.g. Sugar, Creamer, Syrup',
 };
 function updateInvNamePlaceholder(){
   const cat=(document.getElementById('invCat').value||'').trim().toLowerCase();

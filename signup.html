@@ -257,6 +257,7 @@ function getDefaultProdCats(biz) {
 // Default inventory categories per business type
 function getDefaultInvCats(biz) {
   const foodTypes = ['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon','Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar'];
+  if (biz === 'Coffee Shop')   return ['Ingredients','Packaging','Syrups & Powders','Condiments'];
   if (foodTypes.includes(biz)) return ['Ingredients','Packaging','Beverages','Condiments'];
   if (biz === 'Hardware')      return ['Tools','Electrical','Plumbing','Paint'];
   if (biz === 'Agri Supply')   return ['Seeds','Fertilizer','Pesticide'];
