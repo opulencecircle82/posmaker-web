@@ -83,6 +83,15 @@ section.features{padding:70px 5vw;max-width:1100px;margin:0 auto}
 .feat h3{font-size:16px;font-weight:700;margin-bottom:7px}
 .feat p{font-size:13px;color:var(--muted);line-height:1.65}
 
+/* ABOUT */
+.about-section{padding:70px 5vw 20px;max-width:1100px;margin:0 auto}
+.about-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-top:44px}
+.about-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;transition:border-color .2s,transform .2s}
+.about-card:hover{border-color:var(--accent);transform:translateY(-3px)}
+.about-card .ico{font-size:30px;margin-bottom:12px}
+.about-card h3{font-size:16px;font-weight:700;margin-bottom:8px}
+.about-card p{font-size:13px;color:var(--muted);line-height:1.65}
+
 /* FEATURE SLIDESHOW */
 .slides-section{background:#fff;overflow:hidden}
 .slide{display:none;min-height:360px;align-items:stretch}
@@ -152,6 +161,35 @@ footer{border-top:1px solid var(--border);padding:28px 5vw;display:flex;justify-
   <div class="badge">⚡ No sign-up · No install · 100% Free</div>
   <h1>Your Business POS,<br><span class="g">Ready in 60 Seconds</span></h1>
   <p class="hero-sub">Add your products below and launch a real, fully working POS cashier — no login, no install needed. Try it right now.</p>
+</section>
+
+<!-- ABOUT -->
+<section class="about-section" id="about">
+  <div class="sec-label">What is POSMaker?</div>
+  <h2 class="sec-title">A complete POS &amp; business management platform</h2>
+  <p class="sec-sub">POSMaker helps small business owners — from carinderyas, fast food stalls, and sari-sari stores to salons, barbershops, and retail shops — run their daily operations from one simple, cloud-based system. No technical skills needed, and you can get started for free.</p>
+  <div class="about-grid">
+    <div class="about-card">
+      <div class="ico">🧾</div>
+      <h3>Point of Sale</h3>
+      <p>A fast, fully customizable cashier app that runs on Windows, Android, or any browser — built for real checkout speed.</p>
+    </div>
+    <div class="about-card">
+      <div class="ico">☁️</div>
+      <h3>Cloud Dashboard</h3>
+      <p>Track sales, revenue, and staff activity in real time from your phone or computer, anywhere you are.</p>
+    </div>
+    <div class="about-card">
+      <div class="ico">📦</div>
+      <h3>Inventory &amp; Costing</h3>
+      <p>Track stock levels and ingredient costs automatically — know your exact profit margin on every item.</p>
+    </div>
+    <div class="about-card">
+      <div class="ico">👥</div>
+      <h3>Staff &amp; Reports</h3>
+      <p>Create cashier accounts, generate daily sales reports, and log expenses — all from one dashboard.</p>
+    </div>
+  </div>
 </section>
 
 <!-- FEATURE SLIDESHOW -->
