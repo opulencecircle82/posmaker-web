@@ -494,9 +494,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
             <!-- Category tabs -->
             <div class="pm-cats">
               <div class="pm-cat active">All</div>
-              <div class="pm-cat">Food</div>
-              <div class="pm-cat">Drinks</div>
-              <div class="pm-cat">Snacks</div>
+              <div class="pm-cat">Coffee</div>
+              <div class="pm-cat">Frappe</div>
+              <div class="pm-cat">Pastries</div>
             </div>
             <!-- Product grid (large image cards) -->
             <div class="pm-grid" id="pmGrid"></div>
@@ -511,9 +511,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
             </div>
             <!-- Items -->
             <div class="pm-cart-body">
-              <div class="pm-cart-item"><span>Chicken Rice</span><span>&#8369;88</span></div>
-              <div class="pm-cart-item"><span>Coke x2</span><span>&#8369;60</span></div>
-              <div class="pm-cart-item"><span>Fries</span><span>&#8369;65</span></div>
+              <div class="pm-cart-item"><span>Caffe Latte</span><span>&#8369;120</span></div>
+              <div class="pm-cart-item"><span>Croissant</span><span>&#8369;65</span></div>
+              <div class="pm-cart-item"><span>Bottled Water</span><span>&#8369;28</span></div>
             </div>
             <!-- Totals -->
             <div class="pm-totals">
@@ -536,6 +536,20 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
 const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 let STORE = null, bgImgData = '', bgScale = 'cover', btnStyle = 'default';
+
+// ── Per-business-type cashier routing (matches dashboard.html) ────────────────
+const BIZ_FILE_MAP = {
+  'Fast Food': 'fastfood', 'Carinderya': 'carinderya', 'Coffee Shop': 'coffeeshop', 'Bakery': 'bakery',
+  'Lechon': 'lechon', 'Pizza / Pasta': 'pizzapasta', 'Seafood': 'seafood', 'Milk Tea / Drinks': 'milktea',
+  'Karinderya / Buffet': 'buffet', 'Snack Bar': 'snackbar',
+  'Sari-Sari Store': 'sarisari', 'Bigasan': 'bigasan', 'Hardware': 'hardware', 'Agri Supply': 'agrisupply',
+  'Drug Store': 'drugstore', 'Pet Store': 'petstore', 'Clothing': 'clothing', 'Electronics': 'electronics',
+  'Furniture': 'furniture',
+  'Salon / Barbershop': 'barbershop', 'Laundry': 'laundry', 'Printing / Photocopy': 'printing',
+  'Auto Parts': 'autoparts', 'School Supplies': 'schoolsupplies'
+};
+function bizCashierFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `cashier-${s}.html` : 'cashier.html'; }
+function cashierUrlFor(s) { return `${location.origin}${location.pathname.replace(/[^/]+\.html$/, bizCashierFile(s.business_type))}?store=${s.id}`; }
 
 // ── Templates ─────────────────────────────────────────────────────────────────
 const TEMPLATES = [
@@ -571,10 +585,10 @@ const SCALES = [
 
 // ── Mock products ─────────────────────────────────────────────────────────────
 const MOCKS = [
-  {n:'Chicken',p:88},{n:'Rice',p:35},{n:'Coke',p:30},{n:'Water',p:20},
-  {n:'Fries',p:65},{n:'Burger',p:120},{n:'Juice',p:45},{n:'Coffee',p:55},
+  {n:'Caffe Latte',p:120},{n:'Cappuccino',p:110},{n:'Caramel Macchiato',p:135},{n:'Iced Americano',p:95},
+  {n:'Mango Frappe',p:145},{n:'Croissant',p:65},{n:'Blueberry Muffin',p:70},{n:'Bottled Water',p:28},
 ];
-const MOCK_ICONS = ['&#127829;','&#127859;','&#127866;','&#128167;','&#127839;','&#127828;','&#127818;','&#9749;'];
+const MOCK_ICONS = ['&#9749;','&#9749;','&#9749;','&#129508;','&#129508;','&#129360;','&#129472;','&#128167;'];
 document.getElementById('pmGrid').innerHTML = MOCKS.map((m, i) =>
   `<div class="pm-card">
     <div class="pm-card-img">${MOCK_ICONS[i % MOCK_ICONS.length]}</div>
@@ -783,7 +797,7 @@ function setScale(id) {
   document.getElementById('czStoreName').textContent = store.name;
   document.getElementById('pmStoreName').textContent = store.name;
   document.getElementById('pmLogo').textContent = (store.name || 'P')[0].toUpperCase();
-  const _czUrl = `${location.origin}${location.pathname.replace('customize.html','cashier.html')}?store=${store.id}`;
+  const _czUrl = cashierUrlFor(store);
   document.getElementById('openPosBtn').href = _czUrl;
   document.getElementById('czLinkBox').textContent = _czUrl;
   document.getElementById('czFooter').value  = store.receipt_footer || '';
