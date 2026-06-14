@@ -1132,6 +1132,21 @@ input:checked + .slider:before{transform:translateX(18px)}
 const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
+// Maps each business type to its dedicated cashier/dashboard page slug (cashier-<slug>.html / dashboard-<slug>.html)
+const BIZ_FILE_MAP = {
+  'Fast Food': 'fastfood', 'Carinderya': 'carinderya', 'Coffee Shop': 'coffeeshop', 'Bakery': 'bakery',
+  'Lechon': 'lechon', 'Pizza / Pasta': 'pizzapasta', 'Seafood': 'seafood', 'Milk Tea / Drinks': 'milktea',
+  'Karinderya / Buffet': 'buffet', 'Snack Bar': 'snackbar',
+  'Sari-Sari Store': 'sarisari', 'Bigasan': 'bigasan', 'Hardware': 'hardware', 'Agri Supply': 'agrisupply',
+  'Drug Store': 'drugstore', 'Pet Store': 'petstore', 'Clothing': 'clothing', 'Electronics': 'electronics',
+  'Furniture': 'furniture',
+  'Salon / Barbershop': 'barbershop', 'Laundry': 'laundry', 'Printing / Photocopy': 'printing',
+  'Auto Parts': 'autoparts', 'School Supplies': 'schoolsupplies'
+};
+function bizCashierFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `cashier-${s}.html` : 'cashier.html'; }
+function bizDashboardFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `dashboard-${s}.html` : 'dashboard.html'; }
+function cashierUrlFor(s) { return `${location.origin}${location.pathname.replace(/[^/]+\.html$/, bizCashierFile(s.business_type))}?store=${s.id}`; }
+
 // ── Custom Date Picker ──────────────────────────────────────────────────────────
 const _dpState = {};
 function toggleDP(id) {
@@ -1269,9 +1284,13 @@ function _sig(ms = 25000) {
     location.href = 'signup.html'; return;
   }
 
-  if (store.business_type === 'Salon / Barbershop' && !location.pathname.endsWith('dashboard-barbershop.html')) {
-    location.replace(location.pathname.replace(/dashboard\.html$/, 'dashboard-barbershop.html') + location.search);
-    return;
+  // Route to this store's dedicated dashboard page based on business type
+  {
+    const _expected = bizDashboardFile(store.business_type);
+    if (!location.pathname.endsWith(_expected)) {
+      location.replace(location.pathname.replace(/[^/]+\.html$/, _expected) + location.search);
+      return;
+    }
   }
   STORE = store; TAX = store.tax_rate || 12;
   { const _t = document.createElement('textarea'); _t.innerHTML = store.currency || '₱'; CUR = _t.value || '₱'; }
@@ -1293,7 +1312,7 @@ function _sig(ms = 25000) {
   appWrap.style.display = 'flex';
 
   // Set cashier link
-  const cashierUrl = `${location.origin}${location.pathname.replace('dashboard-barbershop.html','cashier-barbershop.html')}?store=${store.id}`;
+  const cashierUrl = cashierUrlFor(store);
   document.getElementById('cashierLinkBox').textContent = cashierUrl;
   document.getElementById('openCashierBtn').href = cashierUrl;
   const _tpb = document.getElementById('testPosBtn'); if (_tpb) _tpb.href = cashierUrl;
@@ -2206,10 +2225,9 @@ function renderPOSTerminals() {
   const pSub   = document.getElementById('posPlanSub');
   if (pTitle) pTitle.textContent = IS_PRO ? 'Pro Plan — Unlimited POS Terminals' : 'Free Plan — 1 POS Terminal Included';
   if (pSub)   pSub.textContent   = IS_PRO ? `You have ${allStores.length} POS terminal${allStores.length !== 1 ? 's' : ''}. Click + Add POS to create another terminal for a second counter or branch.` : 'Upgrade to Pro to run multiple POS counters or locations under one account.';
-  const base = location.origin + location.pathname.replace('dashboard-barbershop.html','cashier-barbershop.html');
   if (!allStores.length) { list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted)">No POS terminals found.</div>'; return; }
   list.innerHTML = allStores.map((s, i) => {
-    const url  = `${base}?store=${s.id}`;
+    const url  = cashierUrlFor(s);
     const code = s.store_code || '—';
     const dev  = posDevices.find(d => d.store_id === s.id);
     const devIcon = dev ? ({'android':'&#128241;','ios':'&#128241;','windows':'&#128187;','web':'&#127760;'}[dev.platform]||'&#128187;') : '';
@@ -2305,14 +2323,12 @@ function downloadStoreConfig() {
 }
 function openPWABuilder() {
   if (!allStores.length) { showToast('No POS terminal found.', true); return; }
-  const base = location.origin + location.pathname.replace('dashboard-barbershop.html','cashier-barbershop.html');
-  const url = `${base}?store=${allStores[0].id}`;
+  const url = cashierUrlFor(allStores[0]);
   window.open('https://www.pwabuilder.com/?site=' + encodeURIComponent(url), '_blank');
 }
 function showInstallModal(type) {
   if (!allStores.length) return;
-  const base = location.origin + location.pathname.replace('dashboard-barbershop.html','cashier-barbershop.html');
-  const url = `${base}?store=${allStores[0].id}`;
+  const url = cashierUrlFor(allStores[0]);
   document.getElementById('posInstallType').textContent = type;
   document.getElementById('posInstallUrl').textContent = url;
   const steps = type === 'Android'

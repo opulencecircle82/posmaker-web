@@ -597,6 +597,20 @@ const IS_DEMO  = params.get('demo') === '1';
 // Hide login immediately if demo — must run synchronously before any async code
 if (IS_DEMO) document.getElementById('loginWrap').style.display = 'none';
 
+// Maps each business type to its dedicated cashier/dashboard page slug (cashier-<slug>.html / dashboard-<slug>.html)
+const BIZ_FILE_MAP = {
+  'Fast Food': 'fastfood', 'Carinderya': 'carinderya', 'Coffee Shop': 'coffeeshop', 'Bakery': 'bakery',
+  'Lechon': 'lechon', 'Pizza / Pasta': 'pizzapasta', 'Seafood': 'seafood', 'Milk Tea / Drinks': 'milktea',
+  'Karinderya / Buffet': 'buffet', 'Snack Bar': 'snackbar',
+  'Sari-Sari Store': 'sarisari', 'Bigasan': 'bigasan', 'Hardware': 'hardware', 'Agri Supply': 'agrisupply',
+  'Drug Store': 'drugstore', 'Pet Store': 'petstore', 'Clothing': 'clothing', 'Electronics': 'electronics',
+  'Furniture': 'furniture',
+  'Salon / Barbershop': 'barbershop', 'Laundry': 'laundry', 'Printing / Photocopy': 'printing',
+  'Auto Parts': 'autoparts', 'School Supplies': 'schoolsupplies'
+};
+function bizCashierFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `cashier-${s}.html` : 'cashier.html'; }
+function bizDashboardFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `dashboard-${s}.html` : 'dashboard.html'; }
+
 let STORE = null, CUR = '₱', TAX = 0, CASHIER = null, CASHIER_NAME = '';
 let prods = [], cart = {}, payMeth = 'Cash';
 let storeInvItems = [], invById = {}, invByName = {};
@@ -715,9 +729,13 @@ async function checkWebDevice(storeId, register = false) {
     document.getElementById('actErr').textContent = 'This POS is already active on another device. Ask your store manager to reset it from the dashboard.';
     return;
   }
-  if (store.business_type === 'Salon / Barbershop' && !location.pathname.endsWith('cashier-barbershop.html')) {
-    location.replace(location.pathname.replace(/cashier\.html$/, 'cashier-barbershop.html') + location.search);
-    return;
+  // Route to this store's dedicated cashier page based on business type
+  {
+    const _expected = bizCashierFile(store.business_type);
+    if (!location.pathname.endsWith(_expected)) {
+      location.replace(location.pathname.replace(/[^/]+\.html$/, _expected) + location.search);
+      return;
+    }
   }
   STORE = store; CUR = store.currency || '₱'; TAX = parseFloat(store.tax_rate) || 0;
   setStoreUI();
