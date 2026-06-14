@@ -494,9 +494,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
             <!-- Category tabs -->
             <div class="pm-cats">
               <div class="pm-cat active">All</div>
-              <div class="pm-cat">Food</div>
-              <div class="pm-cat">Drinks</div>
-              <div class="pm-cat">Snacks</div>
+              <div class="pm-cat">Coffee</div>
+              <div class="pm-cat">Frappe</div>
+              <div class="pm-cat">Pastries</div>
             </div>
             <!-- Product grid (large image cards) -->
             <div class="pm-grid" id="pmGrid"></div>
@@ -511,9 +511,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
             </div>
             <!-- Items -->
             <div class="pm-cart-body">
-              <div class="pm-cart-item"><span>Chicken Rice</span><span>&#8369;88</span></div>
-              <div class="pm-cart-item"><span>Coke x2</span><span>&#8369;60</span></div>
-              <div class="pm-cart-item"><span>Fries</span><span>&#8369;65</span></div>
+              <div class="pm-cart-item"><span>Caffe Latte</span><span>&#8369;120</span></div>
+              <div class="pm-cart-item"><span>Croissant</span><span>&#8369;65</span></div>
+              <div class="pm-cart-item"><span>Bottled Water</span><span>&#8369;28</span></div>
             </div>
             <!-- Totals -->
             <div class="pm-totals">
@@ -586,10 +586,10 @@ const SCALES = [
 
 // ── Mock products ─────────────────────────────────────────────────────────────
 const MOCKS = [
-  {n:'Chicken',p:88},{n:'Rice',p:35},{n:'Coke',p:30},{n:'Water',p:20},
-  {n:'Fries',p:65},{n:'Burger',p:120},{n:'Juice',p:45},{n:'Coffee',p:55},
+  {n:'Caffe Latte',p:120},{n:'Cappuccino',p:110},{n:'Caramel Macchiato',p:135},{n:'Iced Americano',p:95},
+  {n:'Mango Frappe',p:145},{n:'Croissant',p:65},{n:'Blueberry Muffin',p:70},{n:'Bottled Water',p:28},
 ];
-const MOCK_ICONS = ['&#127829;','&#127859;','&#127866;','&#128167;','&#127839;','&#127828;','&#127818;','&#9749;'];
+const MOCK_ICONS = ['&#9749;','&#9749;','&#9749;','&#129508;','&#129508;','&#129360;','&#129472;','&#128167;'];
 document.getElementById('pmGrid').innerHTML = MOCKS.map((m, i) =>
   `<div class="pm-card">
     <div class="pm-card-img">${MOCK_ICONS[i % MOCK_ICONS.length]}</div>

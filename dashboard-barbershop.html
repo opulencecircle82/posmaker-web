@@ -163,7 +163,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="sb-item" onclick="nav('expenses')"><span class="ico">&#128176;</span> Other Expenses</div>
     <div class="sb-item" onclick="nav('settings')"><span class="ico">&#9881;</span> Settings</div>
     <a href="support.html" target="_blank" class="sb-item" style="text-decoration:none;color:inherit"><span class="ico">&#128139;</span> Support</a>
-    <div class="sb-item" onclick="location.href='customize.html'"><span class="ico">&#127912;</span> Customize POS</div>
+    <div class="sb-item" onclick="location.href=bizCustomizeFile(STORE.business_type)"><span class="ico">&#127912;</span> Customize POS</div>
     <div class="sb-item" onclick="nav('access')"><span class="ico">&#128279;</span> Cashier Link</div>
     <div class="sb-item" onclick="nav('pos')"><span class="ico">&#128187;</span> My POS <span id="posNavBadge" style="margin-left:auto;font-size:10px;background:rgba(0,180,216,.2);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
   </div>
@@ -227,7 +227,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="margin-top:auto;font-size:11px;color:var(--accent);font-weight:600;letter-spacing:2px;font-family:monospace" id="qaStoreCode">—</div>
         </div>
 
-        <div onclick="location.href='customize.html'" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
+        <div onclick="location.href=bizCustomizeFile(STORE.business_type)" style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .15s,transform .1s;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">
           <div style="font-size:28px;line-height:1">🎨</div>
           <div style="font-size:13px;font-weight:700">Customize POS</div>
           <div style="font-size:11px;color:var(--muted);line-height:1.4">Theme, colors, font &amp; layout</div>
@@ -1144,6 +1144,7 @@ const BIZ_FILE_MAP = {
   'Auto Parts': 'autoparts', 'School Supplies': 'schoolsupplies'
 };
 function bizCashierFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `cashier-${s}.html` : 'cashier.html'; }
+function bizCustomizeFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `customize-${s}.html` : 'customize.html'; }
 function bizDashboardFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `dashboard-${s}.html` : 'dashboard.html'; }
 function cashierUrlFor(s) { return `${location.origin}${location.pathname.replace(/[^/]+\.html$/, bizCashierFile(s.business_type))}?store=${s.id}`; }
 
@@ -1316,6 +1317,7 @@ function _sig(ms = 25000) {
   document.getElementById('cashierLinkBox').textContent = cashierUrl;
   document.getElementById('openCashierBtn').href = cashierUrl;
   const _tpb = document.getElementById('testPosBtn'); if (_tpb) _tpb.href = cashierUrl;
+  const _cpb = document.getElementById('customizePosBtn'); if (_cpb) _cpb.href = bizCustomizeFile(store.business_type);
 
   // Fill settings form
   document.getElementById('sName').value     = store.name || '';
