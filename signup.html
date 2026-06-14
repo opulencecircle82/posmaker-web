@@ -52,7 +52,7 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
       </div>
       <div class="field">
         <label>Your Email</label>
-        <input id="email" type="email" placeholder="owner@example.com" autocomplete="email">
+        <input id="email" type="email" placeholder="owner@gmail.com" autocomplete="email">
       </div>
       <div class="field">
         <label>Password</label>
@@ -207,7 +207,7 @@ async function doSignup() {
 
   errEl.textContent = '';
   if (!fullName)               { errEl.textContent = 'Full name is required.'; return; }
-  if (!email.includes('@'))    { errEl.textContent = 'Please enter a valid email address.'; return; }
+  if (!email.toLowerCase().endsWith('@gmail.com')) { errEl.textContent = 'Please use a real Gmail address (e.g. yourname@gmail.com).'; return; }
   if (password.length < 6)     { errEl.textContent = 'Password must be at least 6 characters.'; return; }
   if (password !== password2)  { errEl.textContent = 'Passwords do not match.'; return; }
   if (!storeName)              { errEl.textContent = 'Store name is required.'; return; }
