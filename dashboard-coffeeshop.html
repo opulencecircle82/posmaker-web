@@ -2348,12 +2348,12 @@ async function loadDbCategories(){
     dbCats=(data||[]).filter(r=>r.type==='prod').map(r=>r.name);
     dbInvCats=(data||[]).filter(r=>r.type==='inv').map(r=>r.name);
     // One-time cleanup: "Beverages" is a product category, not a raw-material one.
-    // Rename any leftover "Beverages" raw-material category to "Syrups & Powders".
+    // Rename any leftover "Beverages" raw-material category to "Syrups".
     if(dbInvCats.includes('Beverages')){
-      await _sb.from('categories').update({name:'Syrups & Powders'}).eq('store_id',STORE.id).eq('type','inv').eq('name','Beverages');
-      await _sb.from('inventory_items').update({category:'Syrups & Powders'}).eq('store_id',STORE.id).eq('category','Beverages');
-      dbInvCats=dbInvCats.map(c=>c==='Beverages'?'Syrups & Powders':c);
-      invItems.forEach(i=>{if(i.category==='Beverages')i.category='Syrups & Powders';});
+      await _sb.from('categories').update({name:'Syrups'}).eq('store_id',STORE.id).eq('type','inv').eq('name','Beverages');
+      await _sb.from('inventory_items').update({category:'Syrups'}).eq('store_id',STORE.id).eq('category','Beverages');
+      dbInvCats=dbInvCats.map(c=>c==='Beverages'?'Syrups':c);
+      invItems.forEach(i=>{if(i.category==='Beverages')i.category='Syrups';});
     }
   }catch(e){/* categories table not yet created */}
 }
@@ -2671,7 +2671,7 @@ function _bizPlaceholder(field) {
 // selected inventory category matches, e.g. a generic "Powder" category).
 const INV_CAT_PLACEHOLDERS = {
   'powder':            'e.g. Milk Powder, Cinnamon Powder',
-  'syrups & powders':  'e.g. Caramel Syrup, Sugar Powder, Choco Powder',
+  'syrups':            'e.g. Caramel Syrup, Vanilla Syrup, Chocolate Syrup',
   'beverages':         'e.g. Bottled Water, Soda',
   'packaging':         'e.g. Paper Cups, Lids, Straws',
   'condiments':        'e.g. Sugar, Creamer, Syrup',
