@@ -625,6 +625,9 @@ const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery
 // Business types that track customers by chair instead of table, and skip the camera scanner
 const CHAIR_TYPES = new Set(['Salon / Barbershop']);
 
+// Business types that sell barcoded/packaged items — only these get the camera/product scanner
+const SCANNER_TYPES = new Set(['Sari-Sari Store','Drug Store']);
+
 // Service businesses where a linked supply showing 0 stock means "unlimited" (labor-based, not stock-limited)
 const UNLIMITED_STOCK_TYPES = new Set(['Salon / Barbershop','Laundry','Printing / Photocopy']);
 function _resolveSupplyStock(rawStock, useQty) {
@@ -648,6 +651,7 @@ function setStoreUI() {
 
 let IS_RETAIL = false;
 let USES_CHAIRS = false;
+let SHOW_SCANNER = false;
 
 function adaptCashierMode(bizType) {
   const isRestaurant = !bizType || RESTAURANT_TYPES.has(bizType);
@@ -682,8 +686,10 @@ function adaptCashierMode(bizType) {
   // Dock floating scanner into left panel for retail, restore float for restaurant
   const overlay = document.getElementById('camOverlay');
   const btnCam  = document.getElementById('btnCam');
-  if (usesChairs) {
-    // Chair-based shops (e.g. salon/barbershop) sell services, not scannable products — drop the camera entirely
+  const showScanner = SCANNER_TYPES.has(bizType);
+  SHOW_SCANNER = showScanner;
+  if (!showScanner) {
+    // Only grocery/convenience and drug stores sell scannable packaged items — drop the camera for everyone else
     if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('retail-docked'); }
     if (btnCam)  btnCam.style.display = 'none';
   } else {
@@ -695,7 +701,7 @@ function adaptCashierMode(bizType) {
 
   // Push retail-left product list below the docked camera
   const rlEl = document.getElementById('retailLeft');
-  if (IS_RETAIL && !usesChairs && rlEl && overlay) {
+  if (IS_RETAIL && showScanner && rlEl && overlay) {
     setTimeout(() => {
       const rlTop = rlEl.getBoundingClientRect().top;
       const ovRect = overlay.getBoundingClientRect();
@@ -836,8 +842,8 @@ function showPOS(name) {
   updateNetStatus();
   syncOfflineQueue();
   startPing();
-  // Auto-open scanner (retail: docked in left panel; restaurant: floating) — skipped for chair-based shops (no camera)
-  if (!USES_CHAIRS) {
+  // Auto-open scanner (retail: docked in left panel; restaurant: floating) — only for grocery/convenience/drug stores
+  if (SHOW_SCANNER) {
     const _tryAutoScan = () => { _openScanTimer = setTimeout(openScanner, 500); };
     if (navigator.permissions) {
       navigator.permissions.query({name:'camera'}).then(s => { if (s.state !== 'denied') _tryAutoScan(); }).catch(_tryAutoScan);
