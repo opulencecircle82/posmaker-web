@@ -3,6 +3,7 @@
   "date": "2026-06-15",
   "changes": [
     "☕ Coffee Shop: Raw Materials category — fixed item-name examples (e.g. Powder → Milk Powder, Cinnamon Powder)",
+    "☕ Coffee Shop: \"Beverages\" raw-material category auto-renamed to \"Syrups & Powders\" (Beverages is for menu products, not raw materials)",
     "💬 Messages inbox — owner can message staff; staff see unread badge",
     "🧾 Activity Log — receipt shows as button (View/Accept/Invalid)",
     "✉️ Invalid receipt → auto-sends message to staff to resubmit",
