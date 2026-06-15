@@ -24,6 +24,9 @@ input::placeholder{color:#44445a}
 select option{background:#111120;color:#f0f0f8}
 select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.closed-days{display:flex;flex-wrap:wrap;gap:10px}
+.closed-days label{display:flex;align-items:center;gap:5px;width:auto;margin:0;font-size:13px;font-weight:500;color:#f0f0f8}
+.closed-days input{width:auto;padding:0}
 .btn{width:100%;padding:13px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;font-family:'Inter',sans-serif;transition:opacity .15s}
 .btn:hover{opacity:.88}
 .btn:disabled{opacity:.4;cursor:not-allowed}
@@ -86,6 +89,28 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
           <input id="taxRate" type="number" value="12" min="0" max="100" step="0.5">
         </div>
       </div>
+      <div class="row2">
+        <div class="field">
+          <label>Opening Time</label>
+          <input id="openTime" type="time" value="08:00">
+        </div>
+        <div class="field">
+          <label>Closing Time</label>
+          <input id="closeTime" type="time" value="20:00">
+        </div>
+      </div>
+      <div class="field">
+        <label>Closed Days (optional)</label>
+        <div class="closed-days">
+          <label><input type="checkbox" id="closedDay0"> Sun</label>
+          <label><input type="checkbox" id="closedDay1"> Mon</label>
+          <label><input type="checkbox" id="closedDay2"> Tue</label>
+          <label><input type="checkbox" id="closedDay3"> Wed</label>
+          <label><input type="checkbox" id="closedDay4"> Thu</label>
+          <label><input type="checkbox" id="closedDay5"> Fri</label>
+          <label><input type="checkbox" id="closedDay6"> Sat</label>
+        </div>
+      </div>
 
       <div class="err" id="errAll"></div>
       <button class="btn" id="btnAll" onclick="doSignup()">Create Account &amp; Store →</button>
@@ -117,7 +142,7 @@ let _pendingStore = null;
 async function _finishStoreSetup(session) {
   localStorage.removeItem('pm_pending_store');
   const userId = session.user.id;
-  const { storeName, bizType, currency, taxRate, refCode } = _pendingStore;
+  const { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, refCode } = _pendingStore;
 
   // Check if this user already has a store
   const { data: existing } = await _sb.from('stores').select('id').eq('owner_id', userId).single();
@@ -152,6 +177,10 @@ async function _finishStoreSetup(session) {
 
   if (storeErr) { return { error: storeErr }; }
 
+  // Best-effort: store hours columns may not exist yet if the SQL migration
+  // hasn't been run — don't let that block account/store creation.
+  await _sb.from('stores').update({ open_time: openTime, close_time: closeTime, closed_days: closedDays }).eq('id', store.id);
+
   const prodCats = getDefaultProdCats(bizType);
   const invCats  = getDefaultInvCats(bizType);
   if (prodCats.length) {
@@ -182,6 +211,9 @@ async function doSignup() {
   const bizType   = document.getElementById('bizType').value;
   const currency  = document.getElementById('currency').value.trim() || '₱';
   const taxRate   = parseFloat(document.getElementById('taxRate').value) || 0;
+  const openTime  = document.getElementById('openTime').value || '08:00';
+  const closeTime = document.getElementById('closeTime').value || '20:00';
+  const closedDays = [0,1,2,3,4,5,6].filter(d => document.getElementById('closedDay'+d).checked).join(',');
   const errEl     = document.getElementById('errAll');
   const btn       = document.getElementById('btnAll');
 
@@ -196,7 +228,7 @@ async function doSignup() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Creating your account…';
 
-  _pendingStore = { storeName, bizType, currency, taxRate, refCode: REF };
+  _pendingStore = { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, refCode: REF };
   localStorage.setItem('pm_pending_store', JSON.stringify(_pendingStore));
   localStorage.removeItem('pm_ref_code');
 

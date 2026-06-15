@@ -629,3 +629,14 @@ BEGIN
 END; $$;
 
 GRANT EXECUTE ON FUNCTION save_ops_data(uuid, jsonb) TO anon, authenticated;
+
+-- ============================================================
+--  Store Hours (opening/closing time + closed days)
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+
+-- "HH:MM" 24-hour strings; closed_days is a comma-separated list of
+-- weekday numbers (0=Sun .. 6=Sat), empty = open every day.
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS open_time   TEXT DEFAULT '08:00';
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS close_time  TEXT DEFAULT '20:00';
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS closed_days TEXT DEFAULT '';
