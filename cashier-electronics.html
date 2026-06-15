@@ -427,7 +427,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
         <span id="remitLogDiff" style="font-size:18px;font-weight:800;color:var(--muted)">—</span>
       </div>
       <div class="m-actions" style="margin-top:14px">
-        <button class="btn-cancel" onclick="skipRemitLogout()">Cancel</button>
+        <button class="btn-cancel" onclick="cancelRemitLogout()">Cancel</button>
         <button class="btn-confirm" id="remitLogCheckBtn" onclick="remitLogStep2()" disabled style="opacity:.4">Double Check &#10003;</button>
       </div>
     </div>
@@ -1019,9 +1019,8 @@ async function confirmRemitLogout() {
   _actualLogout();
 }
 
-function skipRemitLogout() {
+function cancelRemitLogout() {
   document.getElementById('mRemitLogout').classList.remove('show');
-  _actualLogout();
 }
 
 function _actualLogout() {
