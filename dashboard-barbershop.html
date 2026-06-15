@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -149,23 +149,23 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="sb-logo">POS<span>Maker</span></div>
   <div class="sb-store" id="sbStore">Loading...</div>
   <div class="sb-nav">
-    <div class="sb-item active" onclick="nav('dashboard')"><span class="ico">&#128202;</span> Dashboard</div>
-    <div class="sb-item" id="navOrders"    onclick="nav('orders')"><span class="ico">&#128221;</span> <span id="navOrdersLbl">Orders</span></div>
-    <div class="sb-item" id="navInventory" onclick="nav('inventory')"><span class="ico">&#128230;</span> <span id="navInventoryLbl">Inventory</span> <span id="lowStockBadge" style="display:none;margin-left:auto;font-size:10px;background:#f59e0b;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
-    <div class="sb-item" onclick="nav('categories')"><span class="ico">&#128194;</span> Categories</div>
-    <div class="sb-item" id="navProducts"  onclick="nav('products')"><span class="ico">&#127991;</span> <span id="navProductsLbl">Products</span></div>
+    <div class="sb-item active" onclick="nav('dashboard')" title="Overview of your store: sales, orders, and quick stats for today."><span class="ico">&#128202;</span> Dashboard</div>
+    <div class="sb-item" id="navOrders"    onclick="nav('orders')" title="See incoming and past orders from your POS."><span class="ico">&#128221;</span> <span id="navOrdersLbl">Orders</span></div>
+    <div class="sb-item" id="navInventory" onclick="nav('inventory')" title="Track stock levels for your raw materials and supplies, and add new items."><span class="ico">&#128230;</span> <span id="navInventoryLbl">Inventory</span> <span id="lowStockBadge" style="display:none;margin-left:auto;font-size:10px;background:#f59e0b;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
+    <div class="sb-item" onclick="nav('categories')" title="Organize your products and inventory items into categories."><span class="ico">&#128194;</span> Categories</div>
+    <div class="sb-item" id="navProducts"  onclick="nav('products')" title="Add, edit, or remove the items you sell &mdash; set price, photo, and category."><span class="ico">&#127991;</span> <span id="navProductsLbl">Products</span></div>
     <div class="sb-item" id="navChairs"  onclick="nav('chairs')"  style="display:none"><span class="ico">&#128142;</span> Chairs</div>
     <div class="sb-item" id="navBarbers" onclick="nav('barbers')" style="display:none"><span class="ico">&#9988;&#65039;</span> Barbers</div>
-    <div class="sb-item" onclick="nav('staff')"><span class="ico">&#128101;</span> Staff</div>
-    <div class="sb-item" onclick="nav('activitylog')"><span class="ico">&#128203;</span> Activity Log</div>
-    <div class="sb-item" onclick="nav('messages')" id="sbMessages"><span class="ico">&#128172;</span> Messages <span id="msgUnreadBadge" style="display:none;margin-left:auto;font-size:10px;background:#ef4444;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
-    <div class="sb-item" onclick="nav('salesreport')"><span class="ico">&#128202;</span> Sales Report</div>
-    <div class="sb-item" onclick="nav('expenses')"><span class="ico">&#128176;</span> Other Expenses</div>
-    <div class="sb-item" onclick="nav('settings')"><span class="ico">&#9881;</span> Settings</div>
-    <a href="support.html" target="_blank" class="sb-item" style="text-decoration:none;color:inherit"><span class="ico">&#128139;</span> Support</a>
-    <div class="sb-item" onclick="location.href=bizCustomizeFile(STORE.business_type)"><span class="ico">&#127912;</span> Customize POS</div>
-    <div class="sb-item" onclick="nav('access')"><span class="ico">&#128279;</span> Cashier Link</div>
-    <div class="sb-item" onclick="nav('pos')"><span class="ico">&#128187;</span> My POS <span id="posNavBadge" style="margin-left:auto;font-size:10px;background:rgba(0,180,216,.2);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
+    <div class="sb-item" onclick="nav('staff')" title="Add your staff here &mdash; create their accounts, set name, password, and control access."><span class="ico">&#128101;</span> Staff</div>
+    <div class="sb-item" onclick="nav('activitylog')" title="See a log of staff actions and submitted receipts &mdash; view, accept, or mark as invalid."><span class="ico">&#128203;</span> Activity Log</div>
+    <div class="sb-item" onclick="nav('messages')" id="sbMessages" title="Send and receive messages with your staff."><span class="ico">&#128172;</span> Messages <span id="msgUnreadBadge" style="display:none;margin-left:auto;font-size:10px;background:#ef4444;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
+    <div class="sb-item" onclick="nav('salesreport')" title="View your sales totals, best sellers, and reports by day or date range."><span class="ico">&#128202;</span> Sales Report</div>
+    <div class="sb-item" onclick="nav('expenses')" title="Record other costs like rent, bills, or supplies that are not part of your inventory."><span class="ico">&#128176;</span> Other Expenses</div>
+    <div class="sb-item" onclick="nav('settings')" title="Update your store details, currency, tax rate, and account settings."><span class="ico">&#9881;</span> Settings</div>
+    <a href="support.html" target="_blank" class="sb-item" style="text-decoration:none;color:inherit" title="Need help? Contact POSMaker support."><span class="ico">&#128139;</span> Support</a>
+    <div class="sb-item" onclick="location.href=bizCustomizeFile(STORE.business_type)" title="Customize how your POS screen looks &mdash; colors, logo, and layout."><span class="ico">&#127912;</span> Customize POS</div>
+    <div class="sb-item" onclick="nav('access')" title="Get the store code or link your staff use to connect their POS device."><span class="ico">&#128279;</span> Cashier Link</div>
+    <div class="sb-item" onclick="nav('pos')" title="Open your store POS screen to start taking orders."><span class="ico">&#128187;</span> My POS <span id="posNavBadge" style="margin-left:auto;font-size:10px;background:rgba(0,180,216,.2);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
   </div>
   <div class="sb-bottom">
     <div class="sb-user" id="sbUser"></div>
@@ -316,7 +316,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input class="search" id="invSearch" placeholder="Search..." oninput="filterInv()" style="width:130px">
             <select class="search" id="invCatFilter" onchange="filterInv()" style="width:130px"><option value="">All Categories</option></select>
-            <button class="btn btn-accent btn-sm" id="btnAddInv" onclick="openInvModal()">+ Add Item</button>
+            <button class="btn btn-accent btn-sm" id="btnAddInv" onclick="openInvModal()" title="Add a new raw material or stock item and set its quantity and cost.">+ Add Item</button>
           </div>
         </div>
         <table>
@@ -380,7 +380,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="display:flex;gap:8px;align-items:center">
             <input class="search" id="prodSearch" placeholder="Search..." oninput="filterProds()">
             <button class="btn btn-sm" id="btnReindexAI" onclick="bulkReindexAI()" style="background:#1a2a3a;border:1px solid #2563eb;color:#60a5fa" title="Recompute AI embeddings for all products">🤖 Re-index AI</button>
-            <button class="btn btn-accent btn-sm" id="btnAddProd" onclick="openProdModal()">+ Add</button>
+            <button class="btn btn-accent btn-sm" id="btnAddProd" onclick="openProdModal()" title="Add a new item you sell &mdash; name, price, photo, and category.">+ Add</button>
           </div>
         </div>
         <table>
@@ -395,7 +395,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div class="tbl-wrap">
         <div class="tbl-head">
           <h3>Staff / Cashiers</h3>
-          <button class="btn btn-accent btn-sm" id="btnAddStaff" onclick="openStaffModal()">+ Add Staff</button>
+          <button class="btn btn-accent btn-sm" id="btnAddStaff" onclick="openStaffModal()" title="Add your staff here &mdash; create their account: set name, username, password, and role.">+ Add Staff</button>
         </div>
         <table>
           <thead><tr><th>Username</th><th>Full Name</th><th>Role</th><th>Active</th><th>Last Login</th><th></th></tr></thead>
@@ -624,7 +624,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="font-size:16px;font-weight:700">My POS Terminals</div>
           <div style="font-size:13px;color:var(--muted);margin-top:2px">Each terminal has its own unique Store Code</div>
         </div>
-        <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()">+ Add POS</button>
+        <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()" title="Add another POS terminal for a second counter, cashier station, or branch.">+ Add POS</button>
       </div>
       <div id="posPlanBanner" style="background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.25);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
         <span style="font-size:22px">&#127381;</span>
@@ -2240,7 +2240,7 @@ function renderPOSTerminals() {
              <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px">${devIcon} ${dev.device_name||'Unknown Device'} <span style="font-size:11px;color:var(--muted);font-weight:400">(${dev.platform||'web'})</span></div>
              <div style="font-size:11px;color:var(--muted);margin-top:1px">Since ${new Date(dev.registered_at).toLocaleDateString()}</div>
            </div>
-           <button class="btn btn-danger btn-sm" onclick="resetPOSDevice('${s.id}')">&#128260; Reset Device</button>
+           <button class="btn btn-danger btn-sm" onclick="resetPOSDevice('${s.id}')" title="Unlink the device currently connected to this terminal so a different device can use this Store Code.">&#128260; Reset Device</button>
          </div>`
       : `<div style="background:#2a1a00;border:1px solid #f59e0b;border-radius:8px;padding:10px 12px;margin-bottom:12px">
            <div style="font-size:12px;color:#f59e0b;font-weight:600">&#9888; No device registered yet</div>
@@ -2258,15 +2258,15 @@ function renderPOSTerminals() {
       <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">&#128273; Store Code — Share this with your cashier</div>
       <div style="display:flex;align-items:center;gap:10px;background:var(--s2);border:2px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:12px">
         <div style="flex:1;font-size:26px;font-weight:900;letter-spacing:6px;color:var(--accent);font-family:monospace">${code}</div>
-        <button class="btn btn-accent btn-sm" onclick="_copyText('${code}').then(ok=>ok?showToast('Store code copied!'):showToast('Copy failed.',true))">&#128203; Copy</button>
-        <button class="btn btn-ghost btn-sm" onclick="editStoreCode('${s.id}','${code}')">&#9998; Edit</button>
+        <button class="btn btn-accent btn-sm" onclick="_copyText('${code}').then(ok=>ok?showToast('Store code copied!'):showToast('Copy failed.',true))" title="Copy this Store Code to share with your cashier.">&#128203; Copy</button>
+        <button class="btn btn-ghost btn-sm" onclick="editStoreCode('${s.id}','${code}')" title="Change the Store Code for this terminal.">&#9998; Edit</button>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
         Cashier enters this code once on first launch of the Windows app or Android APK to connect their device to your store.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="_copyText('${url}').then(ok=>ok?showToast('Cashier link copied!'):showToast('Copy failed.',true))">&#128203; Copy Browser Link</button>
-        <a class="btn btn-ghost btn-sm" href="${url}" target="_blank">Open in Browser</a>
+        <button class="btn btn-ghost btn-sm" onclick="_copyText('${url}').then(ok=>ok?showToast('Cashier link copied!'):showToast('Copy failed.',true))" title="Copy the web link for this POS terminal &mdash; open it on any browser or device.">&#128203; Copy Browser Link</button>
+        <a class="btn btn-ghost btn-sm" href="${url}" target="_blank" title="Open this POS terminal in a new browser tab.">Open in Browser</a>
       </div>
     </div>`;
   }).join('');

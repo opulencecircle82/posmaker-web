@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -650,7 +650,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="font-size:16px;font-weight:700">My POS Terminals</div>
           <div style="font-size:13px;color:var(--muted);margin-top:2px">Each terminal has its own unique Store Code</div>
         </div>
-        <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()">+ Add POS</button>
+        <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()" title="Add another POS terminal for a second counter, cashier station, or branch.">+ Add POS</button>
       </div>
       <div id="posPlanBanner" style="background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.25);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
         <span style="font-size:22px">&#127381;</span>
@@ -2467,7 +2467,7 @@ function renderPOSTerminals() {
              <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px">${devIcon} ${dev.device_name||'Unknown Device'} <span style="font-size:11px;color:var(--muted);font-weight:400">(${dev.platform||'web'})</span></div>
              <div style="font-size:11px;color:var(--muted);margin-top:1px">Since ${new Date(dev.registered_at).toLocaleDateString()}</div>
            </div>
-           <button class="btn btn-danger btn-sm" onclick="resetPOSDevice('${s.id}')">&#128260; Reset Device</button>
+           <button class="btn btn-danger btn-sm" onclick="resetPOSDevice('${s.id}')" title="Unlink the device currently connected to this terminal so a different device can use this Store Code.">&#128260; Reset Device</button>
          </div>`
       : `<div style="background:#2a1a00;border:1px solid #f59e0b;border-radius:8px;padding:10px 12px;margin-bottom:12px">
            <div style="font-size:12px;color:#f59e0b;font-weight:600">&#9888; No device registered yet</div>
@@ -2485,15 +2485,15 @@ function renderPOSTerminals() {
       <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">&#128273; Store Code — Share this with your cashier</div>
       <div style="display:flex;align-items:center;gap:10px;background:var(--s2);border:2px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:12px">
         <div style="flex:1;font-size:26px;font-weight:900;letter-spacing:6px;color:var(--accent);font-family:monospace">${code}</div>
-        <button class="btn btn-accent btn-sm" onclick="_copyText('${code}').then(ok=>ok?showToast('Store code copied!'):showToast('Copy failed.',true))">&#128203; Copy</button>
-        <button class="btn btn-ghost btn-sm" onclick="editStoreCode('${s.id}','${code}')">&#9998; Edit</button>
+        <button class="btn btn-accent btn-sm" onclick="_copyText('${code}').then(ok=>ok?showToast('Store code copied!'):showToast('Copy failed.',true))" title="Copy this Store Code to share with your cashier.">&#128203; Copy</button>
+        <button class="btn btn-ghost btn-sm" onclick="editStoreCode('${s.id}','${code}')" title="Change the Store Code for this terminal.">&#9998; Edit</button>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
         Cashier enters this code once on first launch of the Windows app or Android APK to connect their device to your store.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="_copyText('${url}').then(ok=>ok?showToast('Cashier link copied!'):showToast('Copy failed.',true))">&#128203; Copy Browser Link</button>
-        <a class="btn btn-ghost btn-sm" href="${url}" target="_blank">Open in Browser</a>
+        <button class="btn btn-ghost btn-sm" onclick="_copyText('${url}').then(ok=>ok?showToast('Cashier link copied!'):showToast('Copy failed.',true))" title="Copy the web link for this POS terminal &mdash; open it on any browser or device.">&#128203; Copy Browser Link</button>
+        <a class="btn btn-ghost btn-sm" href="${url}" target="_blank" title="Open this POS terminal in a new browser tab.">Open in Browser</a>
       </div>
     </div>`;
   }).join('');
