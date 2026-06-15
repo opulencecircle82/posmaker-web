@@ -71,7 +71,7 @@ th{color:#8888aa;font-size:11px;text-transform:uppercase;font-weight:700}
 
       <div id="referralLinkBox" style="display:none">
         <h2 style="margin-top:20px">Your Referral Link</h2>
-        <p class="sub">Share this link with business owners. When they sign up through it, their request appears for review.</p>
+        <p class="sub">Share this link with business owners. When they sign up through it, their store is created instantly and shows up below — with their free trial period already applied.</p>
         <div class="link-box">
           <span id="referralLink"></span>
           <button class="btn" style="width:auto;padding:8px 14px" onclick="copyReferralLink()">Copy</button>
@@ -117,7 +117,7 @@ function esc(s) {
 }
 
 function _agentLink(code) {
-  return `${location.origin}${location.pathname.replace('affiliate-dashboard.html','agent-signup.html')}?ref=${code}`;
+  return `${location.origin}${location.pathname.replace('affiliate-dashboard.html','signup.html')}?ref=${code}`;
 }
 
 function copyReferralLink() {
@@ -146,6 +146,12 @@ function _statusMessage(status) {
   return '';
 }
 
+function _refStatusLabel(status) {
+  if (status === 'granted') return '<span class="badge badge-ok">Active</span>';
+  if (status === 'denied')  return '<span class="badge badge-danger">Denied</span>';
+  return '<span class="badge badge-warn">Pending</span>';
+}
+
 async function loadReferrals() {
   const { data } = await _sb.rpc('get_my_referrals', { p_auth_user_id: _userId });
   const tb = document.getElementById('referralsTbody');
@@ -162,7 +168,7 @@ async function loadReferrals() {
     const commissionCell = commission > 0
       ? `&#8369;${commission.toFixed(2)}`
       : '<span style="color:#8888aa">—</span>';
-    return `<tr><td>${esc(r.store_name)}</td><td>${esc(r.business_type)}</td><td>${esc(r.status)}</td><td>${dt}</td><td>${commissionCell}</td></tr>`;
+    return `<tr><td>${esc(r.store_name)}</td><td>${esc(r.business_type)}</td><td>${_refStatusLabel(r.status)}</td><td>${dt}</td><td>${commissionCell}</td></tr>`;
   }).join('');
   document.getElementById('totalCommission').innerHTML = `&#8369;${total.toFixed(2)}`;
 }

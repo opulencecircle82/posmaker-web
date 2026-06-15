@@ -104,6 +104,7 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
 <script>
 const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+const REF = new URLSearchParams(location.search).get('ref') || '';
 
 function showStep(step) {
   document.getElementById('stepAll').style.display     = step === 'all'     ? '' : 'none';
@@ -116,7 +117,7 @@ let _pendingStore = null;
 async function _finishStoreSetup(session) {
   localStorage.removeItem('pm_pending_store');
   const userId = session.user.id;
-  const { storeName, bizType, currency, taxRate } = _pendingStore;
+  const { storeName, bizType, currency, taxRate, refCode } = _pendingStore;
 
   // Check if this user already has a store
   const { data: existing } = await _sb.from('stores').select('id').eq('owner_id', userId).single();
@@ -160,6 +161,13 @@ async function _finishStoreSetup(session) {
     await _sb.from('categories').insert(invCats.map(n => ({ store_id: store.id, name: n, type: 'inv' })));
   }
 
+  if (refCode) {
+    await _sb.rpc('track_referral', {
+      p_ref_code: refCode, p_store_id: store.id, p_store_name: storeName,
+      p_business_type: bizType, p_owner_email: session.user.email
+    });
+  }
+
   localStorage.setItem('pm_store_id', store.id);
   location.href = 'dashboard.html';
 }
@@ -188,7 +196,7 @@ async function doSignup() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Creating your account…';
 
-  _pendingStore = { storeName, bizType, currency, taxRate };
+  _pendingStore = { storeName, bizType, currency, taxRate, refCode: REF };
   localStorage.setItem('pm_pending_store', JSON.stringify(_pendingStore));
 
   const { data: signUpData, error: authErr } = await _sb.auth.signUp({

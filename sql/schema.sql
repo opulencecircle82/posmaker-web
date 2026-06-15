@@ -547,3 +547,24 @@ BEGIN
     ) s ON true
     WHERE r.agent_id = v_agent_id ORDER BY r.created_at DESC;
 END; $$;
+
+-- Public: called automatically by signup.html right after a new store is created via a
+-- referral link (?ref=CODE). Records the referral against the affiliate and immediately
+-- grants the affiliate's default free-trial period (as a 0-amount active subscription) —
+-- no admin review needed. Silently does nothing if the code is missing/invalid/unapproved,
+-- so signup always proceeds normally either way.
+CREATE OR REPLACE FUNCTION track_referral(p_ref_code text, p_store_id uuid, p_store_name text,
+  p_business_type text, p_owner_email text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_agent_id uuid; v_months integer;
+BEGIN
+  SELECT id, default_free_months INTO v_agent_id, v_months FROM agents
+    WHERE referral_code = p_ref_code AND status = 'approved';
+  IF v_agent_id IS NULL THEN RETURN; END IF;
+
+  INSERT INTO agent_referrals (agent_id, store_name, business_type, owner_email, status, free_period, store_id)
+  VALUES (v_agent_id, p_store_name, p_business_type, p_owner_email, 'granted', v_months::text, p_store_id);
+
+  INSERT INTO subscriptions (store_id, subscriber_email, plan_name, amount, status, started_at, expires_at)
+  VALUES (p_store_id, p_owner_email, 'Referral - Free Trial', 0, 'active', now(), now() + (v_months || ' months')::interval);
+END; $$;
