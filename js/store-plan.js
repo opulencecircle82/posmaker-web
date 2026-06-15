@@ -60,8 +60,17 @@ function _defaultOpsData() {
     },
     checklistLog: {},
     checklistPhotos: {},
+    checklistCaptureTokens: {},
     sopNotes: []
   };
+}
+
+// Normalizes a checklistPhotos[date][kind][idx] entry to {img, status, capturedAt, capturedBy}.
+// Older entries were stored as a plain base64 data-URI string — treat those as approved.
+function _photoEntry(p) {
+  if (!p) return null;
+  if (typeof p === 'string') return { img: p, status: 'approved' };
+  return p;
 }
 
 async function loadOpsData() {
@@ -80,6 +89,7 @@ async function loadOpsData() {
   if (!_opsData.checklistItems) _opsData.checklistItems = _defaultOpsData().checklistItems;
   if (!_opsData.checklistLog) _opsData.checklistLog = {};
   if (!_opsData.checklistPhotos) _opsData.checklistPhotos = {};
+  if (!_opsData.checklistCaptureTokens) _opsData.checklistCaptureTokens = {};
   if (!_opsData.sopNotes) _opsData.sopNotes = [];
   if (_pruneOldChecklistPhotos()) await saveOpsData();
   return _opsData;
@@ -89,23 +99,42 @@ async function saveOpsData() {
   if (!_OPS_STORE_ID || !_opsData) return;
   localStorage.setItem(_opsKey(), JSON.stringify(_opsData));
   if (!_opsUseLocal) {
-    const { error } = await _sb.from('stores').update({ ops_data: _opsData }).eq('id', _OPS_STORE_ID);
+    const { error } = await _sb.rpc('save_ops_data', { p_store_id: _OPS_STORE_ID, p_ops_data: _opsData });
     if (error) _opsUseLocal = true;
   }
 }
 
+// Force a fresh read from Supabase (used by manager.html while polling for a
+// phone-uploaded checklist photo).
+async function refreshOpsData() {
+  _opsData = null;
+  return loadOpsData();
+}
+
 // Deletes checklistPhotos for any date older than 5 days, keeping checklistLog
-// (done/not-done history) intact. Returns true if anything was pruned.
+// (done/not-done history) intact. Also drops expired checklist capture tokens
+// (older than 2 hours). Returns true if anything was pruned.
 function _pruneOldChecklistPhotos() {
-  if (!_opsData.checklistPhotos) return false;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 5);
-  cutoff.setHours(0, 0, 0, 0);
   let changed = false;
-  for (const dateKey of Object.keys(_opsData.checklistPhotos)) {
-    if (new Date(dateKey + 'T00:00:00') < cutoff) {
-      delete _opsData.checklistPhotos[dateKey];
-      changed = true;
+  if (_opsData.checklistPhotos) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 5);
+    cutoff.setHours(0, 0, 0, 0);
+    for (const dateKey of Object.keys(_opsData.checklistPhotos)) {
+      if (new Date(dateKey + 'T00:00:00') < cutoff) {
+        delete _opsData.checklistPhotos[dateKey];
+        changed = true;
+      }
+    }
+  }
+  if (_opsData.checklistCaptureTokens) {
+    const now = Date.now();
+    for (const token of Object.keys(_opsData.checklistCaptureTokens)) {
+      const t = _opsData.checklistCaptureTokens[token];
+      if (!t || now - t.createdAt > 2 * 60 * 60 * 1000) {
+        delete _opsData.checklistCaptureTokens[token];
+        changed = true;
+      }
     }
   }
   return changed;
@@ -127,18 +156,37 @@ function renderChecklist() {
     const done   = _opsData.checklistLog[today][kind] || [];
     const photos = _opsData.checklistPhotos[today][kind] || {};
     const list   = document.getElementById(kind === 'opening' ? 'ckOpenList' : 'ckCloseList');
+    if (!list) return; // page has no checklist UI (e.g. checklist-capture.html)
     if (!items.length) {
       list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No tasks yet &#8212; add one below.</div>';
     } else {
       list.innerHTML = items.map((text, i) => {
-        const photo = photos[i];
-        const thumb = photo ? `<img src="${photo}" onclick="window.open('${photo}','_blank')" style="width:28px;height:28px;border-radius:4px;object-fit:cover;cursor:pointer;flex-shrink:0" title="View photo proof">` : '';
+        const entry = _photoEntry(photos[i]);
         const removeBtn = readOnly ? '' : `<button type="button" onclick="removeChecklistItem('${kind}',${i})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 6px">&times;</button>`;
+        let proof = '', hint = '';
+        if (entry) {
+          const thumb = `<img src="${entry.img}" onclick="window.open('${entry.img}','_blank')" style="width:28px;height:28px;border-radius:4px;object-fit:cover;cursor:pointer;flex-shrink:0" title="View photo proof">`;
+          if (entry.status === 'pending' && !readOnly) {
+            proof = thumb
+              + `<button type="button" onclick="approveChecklistPhoto('${kind}',${i})" class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px;color:#10b981;border-color:#10b98155" title="Approve">&#10003;</button>`
+              + `<button type="button" onclick="declineChecklistPhoto('${kind}',${i})" class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px;color:#ef4444;border-color:#ef444455" title="Decline">&#10005;</button>`;
+          } else if (entry.status === 'pending') {
+            proof = thumb + ' <span class="badge" style="background:#2a1a00;color:#f59e0b">Pending review</span>';
+          } else if (entry.status === 'approved') {
+            proof = thumb + ' <span class="badge" style="background:#0d2e1f;color:#10b981">Approved</span>';
+          } else if (entry.status === 'declined') {
+            proof = thumb + ' <span class="badge" style="background:#2e0d0d;color:#ef4444">Declined</span>';
+            if (readOnly) hint = '<div style="font-size:11px;color:#ef4444;margin-top:2px">&#9888; Na-decline ng owner ang larawang ito &#8212; i-toggle ulit ang gawain para kumuha ng bago.</div>';
+          }
+        }
         return `
         <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)">
           <label class="toggle" style="flex-shrink:0"><input type="checkbox" ${done.includes(i)?'checked':''} onchange="toggleChecklistItem('${kind}',${i},this.checked,this)"><span class="slider"></span></label>
-          <span style="flex:1;font-size:13px;${done.includes(i)?'color:var(--muted);text-decoration:line-through':''}">${text}</span>
-          ${thumb}
+          <div style="flex:1">
+            <span style="font-size:13px;${done.includes(i)?'color:var(--muted);text-decoration:line-through':''}">${text}</span>
+            ${hint}
+          </div>
+          ${proof}
           ${removeBtn}
         </div>`;
       }).join('');
@@ -170,16 +218,60 @@ function toggleChecklistItem(kind, idx, checked, checkboxEl) {
   renderChecklist();
 }
 
-// Called by manager.html once a photo has been attached for a checklist item.
-function completeChecklistItemWithPhoto(kind, idx, photoB64) {
+// Called by manager.html / checklist-capture.html once a photo has been attached
+// for a checklist item. New photos always start as 'pending' owner review.
+function completeChecklistItemWithPhoto(kind, idx, photoB64, capturedBy) {
   const today = _todayKey();
   if (!_opsData.checklistLog[today]) _opsData.checklistLog[today] = { opening: [], closing: [] };
   if (!_opsData.checklistPhotos[today]) _opsData.checklistPhotos[today] = { opening: {}, closing: {} };
   const log = _opsData.checklistLog[today][kind];
   if (!log.includes(idx)) log.push(idx);
-  _opsData.checklistPhotos[today][kind][idx] = photoB64;
+  _opsData.checklistPhotos[today][kind][idx] = {
+    img: photoB64, status: 'pending', capturedAt: new Date().toISOString(), capturedBy: capturedBy || 'upload'
+  };
   saveOpsData();
   renderChecklist();
+}
+
+// Owner approves a pending checklist photo.
+function approveChecklistPhoto(kind, idx) {
+  const today = _todayKey();
+  const photos = _opsData.checklistPhotos[today] && _opsData.checklistPhotos[today][kind];
+  const entry = photos && _photoEntry(photos[idx]);
+  if (!entry) return;
+  entry.status = 'approved';
+  photos[idx] = entry;
+  saveOpsData();
+  renderChecklist();
+}
+
+// Owner declines a pending checklist photo — un-checks the item so staff can retake it.
+function declineChecklistPhoto(kind, idx) {
+  const today = _todayKey();
+  const photos = _opsData.checklistPhotos[today] && _opsData.checklistPhotos[today][kind];
+  const entry = photos && _photoEntry(photos[idx]);
+  if (!entry) return;
+  entry.status = 'declined';
+  photos[idx] = entry;
+  const log = _opsData.checklistLog[today][kind] || [];
+  _opsData.checklistLog[today][kind] = log.filter(i => i !== idx);
+  saveOpsData();
+  renderChecklist();
+}
+
+// Returns a capture token for today's `kind` checklist, reusing a non-expired one
+// if it exists (so re-opening the QR modal shows the same link/QR).
+async function getOrCreateCaptureToken(kind) {
+  await loadOpsData();
+  const today = _todayKey();
+  const tokens = _opsData.checklistCaptureTokens;
+  for (const [tok, t] of Object.entries(tokens)) {
+    if (t && t.kind === kind && t.date === today && Date.now() - t.createdAt < 2 * 60 * 60 * 1000) return tok;
+  }
+  const token = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)));
+  tokens[token] = { kind, date: today, createdAt: Date.now() };
+  await saveOpsData();
+  return token;
 }
 
 function addChecklistItem(kind) {

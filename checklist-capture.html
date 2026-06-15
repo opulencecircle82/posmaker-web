@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Checklist Photo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/store-plan.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--muted:#8888aa;--dim:#44445a}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100dvh}
+.logo{font-size:18px;font-weight:800}.logo span{color:var(--accent)}
+.wrap{max-width:480px;margin:0 auto;padding:16px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0}
+.badge-ok{background:#0d2e1f;color:#10b981}
+.btn{padding:8px 16px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-size:13px;font-family:'Inter',sans-serif;transition:.15s}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{opacity:.88}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--s2)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.mbox{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:24px;width:min(420px,100%);max-height:90vh;overflow-y:auto}
+.mbox h3{font-size:16px;font-weight:700;margin-bottom:6px}
+.m-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+input[type=file]{width:100%;color:var(--text);font-size:13px;margin-bottom:12px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;pointer-events:none;opacity:0}
+button{cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="logo" style="margin-bottom:6px">POS<span>Maker</span></div>
+    <div id="pageTitle" style="font-weight:800;font-size:16px"></div>
+    <div id="pageSub" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
+  </div>
+  <div id="itemList"></div>
+</div>
+
+<!-- CAPTURE MODAL -->
+<div class="modal" id="captureModal">
+  <div class="mbox">
+    <h3>&#128247; Take Photo</h3>
+    <p id="capItemText" style="font-size:13px;color:var(--muted);margin-bottom:14px"></p>
+    <input id="capInput" type="file" accept="image/*" capture="environment" onchange="previewCapture()">
+    <div id="capPreviewWrap" style="display:none;text-align:center;margin-bottom:12px">
+      <img id="capImg" style="max-width:100%;border-radius:8px">
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('captureModal')">Cancel</button>
+      <button class="btn btn-accent" id="capUploadBtn" disabled onclick="uploadCapture()">Upload</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const {createClient} = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const _params = new URLSearchParams(location.search);
+const SID   = _params.get('sid');
+const DATE  = _params.get('date');
+const KIND  = _params.get('kind');
+const TOKEN = _params.get('token');
+
+let _capTarget = null;
+
+async function init(){
+  if(!SID || !DATE || !KIND || !TOKEN || (KIND !== 'opening' && KIND !== 'closing')){
+    showError('Invalid link.');
+    return;
+  }
+  _OPS_STORE_ID = SID;
+  await loadOpsData();
+  const tok = _opsData.checklistCaptureTokens && _opsData.checklistCaptureTokens[TOKEN];
+  if(!tok || tok.kind !== KIND || tok.date !== DATE || (Date.now() - tok.createdAt) > 2 * 60 * 60 * 1000){
+    showError('Expired or invalid link &#8212; ask your manager for a new QR code.');
+    return;
+  }
+  renderItems();
+}
+
+function showError(msg){
+  document.getElementById('pageTitle').textContent = 'Daily Checklist';
+  document.getElementById('itemList').innerHTML = `<div class="card" style="text-align:center;color:#ef4444;font-size:13px">${msg}</div>`;
+}
+
+function renderItems(){
+  const items = _opsData.checklistItems[KIND] || [];
+  const done  = (_opsData.checklistLog[DATE] && _opsData.checklistLog[DATE][KIND]) || [];
+  document.getElementById('pageTitle').textContent = (KIND === 'opening' ? '☀ Opening Checklist' : '🌙 Closing Checklist');
+  document.getElementById('pageSub').textContent = DATE;
+  const list = document.getElementById('itemList');
+  if(!items.length){
+    list.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);font-size:13px">No checklist items yet.</div>';
+    return;
+  }
+  list.innerHTML = items.map((text, i) => {
+    const isDone = done.includes(i);
+    return `<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+      <div style="flex:1;font-size:14px;${isDone ? 'color:var(--muted);text-decoration:line-through' : ''}">${text}</div>
+      ${isDone
+        ? '<span class="badge badge-ok">&#10003; Done</span>'
+        : `<button class="btn btn-accent btn-sm" onclick="openCapture(${i})">&#128247; Take Photo</button>`}
+    </div>`;
+  }).join('');
+  if(done.length === items.length){
+    list.innerHTML += '<div class="card" style="text-align:center;color:#10b981;font-size:14px;font-weight:700">&#9989; Tapos na! Puwede mo na isara ang page na ito.</div>';
+  }
+}
+
+function openCapture(idx){
+  _capTarget = idx;
+  const items = _opsData.checklistItems[KIND] || [];
+  document.getElementById('capItemText').textContent = items[idx] || '';
+  document.getElementById('capInput').value = '';
+  document.getElementById('capPreviewWrap').style.display = 'none';
+  document.getElementById('capImg').src = '';
+  document.getElementById('capUploadBtn').disabled = true;
+  document.getElementById('captureModal').classList.add('show');
+}
+
+function previewCapture(){
+  const file = document.getElementById('capInput').files[0];
+  if(!file){
+    document.getElementById('capPreviewWrap').style.display = 'none';
+    document.getElementById('capUploadBtn').disabled = true;
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800, cv = document.createElement('canvas');
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      cv.width = img.width * scale; cv.height = img.height * scale;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      document.getElementById('capImg').src = cv.toDataURL('image/jpeg', 0.6);
+      document.getElementById('capPreviewWrap').style.display = '';
+      document.getElementById('capUploadBtn').disabled = false;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadCapture(){
+  const img = document.getElementById('capImg');
+  if(_capTarget == null || !img.src.startsWith('data:')) return;
+  const btn = document.getElementById('capUploadBtn');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+  await completeChecklistItemWithPhoto(KIND, _capTarget, img.src, 'qr');
+  btn.textContent = 'Upload';
+  closeModal('captureModal');
+  renderItems();
+  showToast('Photo uploaded!');
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+let _toastT;
+function showToast(msg, isErr){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.color = isErr ? '#ef4444' : 'var(--text)';
+  el.style.opacity = '1';
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => el.style.opacity = '0', 2800);
+}
+
+init();
+</script>
+</body>
+</html>

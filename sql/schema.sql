@@ -607,3 +607,25 @@ BEGIN
 END; $$;
 
 GRANT EXECUTE ON FUNCTION get_store_pro_status(uuid) TO anon, authenticated;
+
+-- ============================================================
+--  Daily Checklist / SOP Notes / Photo Proof (ops_data)
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+
+-- Stores per-store checklist items, today's completion log, SOP notes, and
+-- checklist photo-proof images/capture tokens (see js/store-plan.js).
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS ops_data JSONB DEFAULT '{}'::jsonb;
+
+-- manager.html and checklist-capture.html run as `anon` (custom store_users login,
+-- not Supabase Auth), so the owner-only stores_owner policy doesn't cover their
+-- writes. Rather than grant anon broad UPDATE on `stores` (which would let anyone
+-- with a store id rewrite owner_id, telegram tokens, etc.), expose a narrow
+-- SECURITY DEFINER RPC that can only touch the ops_data column.
+CREATE OR REPLACE FUNCTION save_ops_data(p_store_id uuid, p_ops_data jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE stores SET ops_data = p_ops_data WHERE id = p_store_id;
+END; $$;
+
+GRANT EXECUTE ON FUNCTION save_ops_data(uuid, jsonb) TO anon, authenticated;
