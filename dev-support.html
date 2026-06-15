@@ -284,8 +284,8 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
         <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">People apply to become an agent via the public &quot;Become an Agent&quot; form. Approve someone you recognize to activate their personal referral link &mdash; reject anyone you don't know.</p>
         <div style="overflow-x:auto">
           <table>
-            <thead><tr><th>#</th><th>Applicant</th><th>Status</th><th>Free Period</th><th>Referral Link</th><th>Applied</th><th></th></tr></thead>
-            <tbody id="agentsTbody"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+            <thead><tr><th>#</th><th>Applicant</th><th>Status</th><th>Free Period</th><th>Commission</th><th>Referral Link</th><th>Applied</th><th></th></tr></thead>
+            <tbody id="agentsTbody"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -549,6 +549,11 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
         <option value="11">11 Months</option>
         <option value="12">12 Months (1 Year)</option>
       </select>
+    </div>
+    <div class="field">
+      <label>Monthly Commission Rate (%)</label>
+      <input type="number" id="aaCommission" min="0" max="100" step="0.5" value="10">
+      <p style="font-size:11px;color:var(--muted);margin-top:6px">The agent earns this % of each referred store's monthly subscription, for as long as that store stays subscribed.</p>
     </div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('approveAgentModal')">Cancel</button>
@@ -1297,11 +1302,11 @@ function _agentLink(code) {
 
 async function loadAgents() {
   const tb = document.getElementById('agentsTbody');
-  tb.innerHTML = '<tr class="empty-row"><td colspan="7">Loading…</td></tr>';
+  tb.innerHTML = '<tr class="empty-row"><td colspan="8">Loading…</td></tr>';
   const { data, error } = await _sb.rpc('dev_get_agents', { p_token: _devToken });
   if (error) {
     handleAuthError(error);
-    tb.innerHTML = `<tr class="empty-row"><td colspan="7" style="color:var(--danger)">Failed to load: ${esc(error.message)}${error.message?.includes('does not exist') ? ' — run the new "Agent Referral Program" SQL block from sql/schema.sql in Supabase first.' : ''}</td></tr>`;
+    tb.innerHTML = `<tr class="empty-row"><td colspan="8" style="color:var(--danger)">Failed to load: ${esc(error.message)}${error.message?.includes('does not exist') ? ' — run the new "Agent Referral Program" SQL block from sql/schema.sql in Supabase first.' : ''}</td></tr>`;
     return;
   }
   _allAgents = data || [];
@@ -1317,7 +1322,7 @@ function _agentBadge(status) {
 function renderAgents(items) {
   const list = items ?? _allAgents;
   const tb = document.getElementById('agentsTbody');
-  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="7">No agent applications yet.</td></tr>'; return; }
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="8">No agent applications yet.</td></tr>'; return; }
   tb.innerHTML = list.map((a, i) => {
     const dt = new Date(a.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
     const linkCell = (a.status === 'approved' && a.referral_code)
@@ -1326,6 +1331,9 @@ function renderAgents(items) {
     const m = parseInt(a.default_free_months, 10) || 1;
     const periodCell = a.status === 'approved'
       ? `<span class="badge badge-muted">${m} Month${m === 1 ? '' : 's'}</span>`
+      : '<span style="color:var(--dim)">—</span>';
+    const commissionCell = a.status === 'approved'
+      ? `<span class="badge badge-muted">${a.commission_rate ?? 10}%</span>`
       : '<span style="color:var(--dim)">—</span>';
     const actions = a.status === 'pending'
       ? `<button class="btn btn-accent btn-sm" onclick="approveAgent('${a.id}')">&#10003; Approve</button>
@@ -1342,6 +1350,7 @@ function renderAgents(items) {
       <td>${applicant}${extra.length ? `<div style="font-size:11px;color:var(--dim);max-width:220px">${extra.map(esc).join(' &middot; ')}</div>` : ''}</td>
       <td>${_agentBadge(a.status)}</td>
       <td>${periodCell}</td>
+      <td>${commissionCell}</td>
       <td>${linkCell}</td>
       <td style="color:var(--muted);font-size:12px">${dt}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">${actions}</td>
@@ -1360,16 +1369,18 @@ function approveAgent(id) {
   document.getElementById('aaAgentId').value = id;
   document.getElementById('aaAgentName').textContent = a.name;
   document.getElementById('aaMonths').value = String(a.default_free_months || 1);
+  document.getElementById('aaCommission').value = String(a.commission_rate ?? 10);
   document.getElementById('approveAgentModal').classList.add('show');
 }
 
 async function doApproveAgent() {
   const id = document.getElementById('aaAgentId').value;
   const months = parseInt(document.getElementById('aaMonths').value, 10);
-  const { data, error } = await _sb.rpc('dev_approve_agent', { p_token: _devToken, p_agent_id: id, p_months: months });
+  const commission = parseFloat(document.getElementById('aaCommission').value) || 0;
+  const { data, error } = await _sb.rpc('dev_approve_agent', { p_token: _devToken, p_agent_id: id, p_months: months, p_commission_rate: commission });
   if (error) { showToast(error.message, true); return; }
   const a = _allAgents.find(x => x.id === id);
-  if (a) { a.status = 'approved'; a.referral_code = data; a.default_free_months = months; }
+  if (a) { a.status = 'approved'; a.referral_code = data; a.default_free_months = months; a.commission_rate = commission; }
   closeModal('approveAgentModal');
   renderAgents();
   showToast('Agent approved — their referral link is now active.');

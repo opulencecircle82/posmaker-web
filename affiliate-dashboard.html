@@ -76,6 +76,10 @@ th{color:#8888aa;font-size:11px;text-transform:uppercase;font-weight:700}
           <span id="referralLink"></span>
           <button class="btn" style="width:auto;padding:8px 14px" onclick="copyReferralLink()">Copy</button>
         </div>
+        <p class="sub" style="margin-top:14px;margin-bottom:0">
+          Commission rate: <strong id="commissionRate" style="color:#f0f0f8"></strong> of each referred store's monthly subscription.
+          Estimated total: <strong id="totalCommission" style="color:#10b981"></strong> / month.
+        </p>
       </div>
     </div>
 
@@ -84,7 +88,7 @@ th{color:#8888aa;font-size:11px;text-transform:uppercase;font-weight:700}
       <h2>Your Referrals</h2>
       <table>
         <thead>
-          <tr><th>Store Name</th><th>Business Type</th><th>Status</th><th>Date</th></tr>
+          <tr><th>Store Name</th><th>Business Type</th><th>Status</th><th>Date</th><th>Your Monthly Commission</th></tr>
         </thead>
         <tbody id="referralsTbody">
           <tr><td class="empty-row" colspan="4">No referrals yet.</td></tr>
@@ -145,11 +149,22 @@ function _statusMessage(status) {
 async function loadReferrals() {
   const { data } = await _sb.rpc('get_my_referrals', { p_auth_user_id: _userId });
   const tb = document.getElementById('referralsTbody');
-  if (!data || !data.length) { tb.innerHTML = '<tr><td class="empty-row" colspan="4">No referrals yet.</td></tr>'; return; }
+  if (!data || !data.length) {
+    tb.innerHTML = '<tr><td class="empty-row" colspan="5">No referrals yet.</td></tr>';
+    document.getElementById('totalCommission').innerHTML = '&#8369;0.00';
+    return;
+  }
+  let total = 0;
   tb.innerHTML = data.map(r => {
     const dt = new Date(r.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-    return `<tr><td>${esc(r.store_name)}</td><td>${esc(r.business_type)}</td><td>${esc(r.status)}</td><td>${dt}</td></tr>`;
+    const commission = parseFloat(r.monthly_commission || 0);
+    total += commission;
+    const commissionCell = commission > 0
+      ? `&#8369;${commission.toFixed(2)}`
+      : '<span style="color:#8888aa">—</span>';
+    return `<tr><td>${esc(r.store_name)}</td><td>${esc(r.business_type)}</td><td>${esc(r.status)}</td><td>${dt}</td><td>${commissionCell}</td></tr>`;
   }).join('');
+  document.getElementById('totalCommission').innerHTML = `&#8369;${total.toFixed(2)}`;
 }
 
 let _userId = null;
@@ -189,6 +204,7 @@ let _userId = null;
     _referralCode = a.referral_code;
     document.getElementById('referralLinkBox').style.display = '';
     document.getElementById('referralLink').textContent = _agentLink(a.referral_code);
+    document.getElementById('commissionRate').textContent = (a.commission_rate ?? 10) + '%';
     document.getElementById('referralsCard').style.display = '';
     loadReferrals();
   }

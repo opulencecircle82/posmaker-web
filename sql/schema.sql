@@ -400,18 +400,20 @@ END; $$;
 DROP FUNCTION IF EXISTS dev_get_agents(text);
 CREATE OR REPLACE FUNCTION dev_get_agents(p_token text)
 RETURNS TABLE(id uuid, name text, email text, contact_number text, address text, description text,
-              referral_code text, status text, default_free_months integer, created_at timestamptz)
+              referral_code text, status text, default_free_months integer, commission_rate numeric, created_at timestamptz)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   RETURN QUERY SELECT a.id, a.name, a.email, a.contact_number, a.address, a.description,
-    a.referral_code, a.status, a.default_free_months, a.created_at FROM agents a ORDER BY a.created_at DESC;
+    a.referral_code, a.status, a.default_free_months, a.commission_rate, a.created_at FROM agents a ORDER BY a.created_at DESC;
 END; $$;
 
--- Admin: approve an agent application — generates their referral code on first approval
--- and sets the default free period (1-12 months) granted to accounts they refer.
-CREATE OR REPLACE FUNCTION dev_approve_agent(p_token text, p_agent_id uuid, p_months integer DEFAULT 1)
+-- Admin: approve an agent application — generates their referral code on first approval,
+-- sets the default free period (1-12 months) granted to accounts they refer, and the
+-- commission rate (%) the agent earns each month on their referred stores' subscriptions.
+DROP FUNCTION IF EXISTS dev_approve_agent(text, uuid, integer);
+CREATE OR REPLACE FUNCTION dev_approve_agent(p_token text, p_agent_id uuid, p_months integer DEFAULT 1, p_commission_rate numeric DEFAULT 10)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_code text;
 BEGIN
@@ -422,7 +424,7 @@ BEGIN
     v_code := substr(replace(gen_random_uuid()::text, '-', ''), 1, 10);
     UPDATE agents SET referral_code = v_code WHERE id = p_agent_id;
   END IF;
-  UPDATE agents SET status = 'approved', default_free_months = p_months WHERE id = p_agent_id;
+  UPDATE agents SET status = 'approved', default_free_months = p_months, commission_rate = p_commission_rate WHERE id = p_agent_id;
   RETURN v_code;
 END; $$;
 
@@ -489,6 +491,7 @@ END; $$;
 
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS auth_user_id UUID;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS agreed_terms BOOLEAN DEFAULT false;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS commission_rate NUMERIC DEFAULT 10;
 
 -- Public (authenticated affiliate): submit/update their affiliate application after creating
 -- their Supabase Auth account in agent-apply.html. Idempotent on auth_user_id so returning
@@ -510,23 +513,37 @@ BEGIN
 END; $$;
 
 -- Public (authenticated affiliate): fetch their own application/status for affiliate-dashboard.html
+DROP FUNCTION IF EXISTS get_my_affiliate(uuid);
 CREATE OR REPLACE FUNCTION get_my_affiliate(p_auth_user_id uuid)
 RETURNS TABLE(id uuid, name text, email text, status text, referral_code text,
-              default_free_months integer, created_at timestamptz)
+              default_free_months integer, commission_rate numeric, created_at timestamptz)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  RETURN QUERY SELECT a.id, a.name, a.email, a.status, a.referral_code, a.default_free_months, a.created_at
+  RETURN QUERY SELECT a.id, a.name, a.email, a.status, a.referral_code, a.default_free_months, a.commission_rate, a.created_at
     FROM agents a WHERE a.auth_user_id = p_auth_user_id;
 END; $$;
 
--- Public (authenticated affiliate): list their own referrals for affiliate-dashboard.html
+-- Public (authenticated affiliate): list their own referrals for affiliate-dashboard.html, including
+-- the referred store's current active subscription amount and the resulting monthly commission
+-- (subscription amount x the affiliate's commission_rate).
+DROP FUNCTION IF EXISTS get_my_referrals(uuid);
 CREATE OR REPLACE FUNCTION get_my_referrals(p_auth_user_id uuid)
-RETURNS TABLE(id uuid, store_name text, business_type text, status text, free_period text, created_at timestamptz)
+RETURNS TABLE(id uuid, store_name text, business_type text, status text, free_period text,
+              created_at timestamptz, subscription_amount numeric, monthly_commission numeric)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_agent_id uuid;
+DECLARE v_agent_id uuid; v_rate numeric;
 BEGIN
-  SELECT id INTO v_agent_id FROM agents WHERE auth_user_id = p_auth_user_id;
+  SELECT id, commission_rate INTO v_agent_id, v_rate FROM agents WHERE auth_user_id = p_auth_user_id;
   IF v_agent_id IS NULL THEN RETURN; END IF;
-  RETURN QUERY SELECT r.id, r.store_name, r.business_type, r.status, r.free_period, r.created_at
-    FROM agent_referrals r WHERE r.agent_id = v_agent_id ORDER BY r.created_at DESC;
+  RETURN QUERY
+    SELECT r.id, r.store_name, r.business_type, r.status, r.free_period, r.created_at,
+           s.amount,
+           ROUND(COALESCE(s.amount, 0) * COALESCE(v_rate, 10) / 100, 2)
+    FROM agent_referrals r
+    LEFT JOIN LATERAL (
+      SELECT amount FROM subscriptions
+      WHERE store_id = r.store_id AND status = 'active' AND (expires_at IS NULL OR expires_at >= now())
+      ORDER BY started_at DESC LIMIT 1
+    ) s ON true
+    WHERE r.agent_id = v_agent_id ORDER BY r.created_at DESC;
 END; $$;
