@@ -1,7 +1,8 @@
 {
-  "version": "1.2.1",
+  "version": "1.2.2",
   "date": "2026-06-15",
   "changes": [
+    "☕ Coffee Shop: Hover tooltips added — point your cursor over sidebar items and buttons (e.g. Add Staff, Inventory) for a quick explanation of what they do",
     "☕ Coffee Shop: Raw Materials category — fixed item-name examples (e.g. Powder → Milk Powder, Cinnamon Powder)",
     "☕ Coffee Shop: \"Beverages\" raw-material category auto-renamed to \"Syrups\" (Beverages is for menu products, not raw materials; avoids overlap with existing \"Powder\" category)",
     "🔧 Fixed: new POS device sometimes bounced back to \"Enter Store Code\" right after connecting (device registration wasn't finished before reload)",

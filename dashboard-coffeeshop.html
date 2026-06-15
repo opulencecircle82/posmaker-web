@@ -149,23 +149,23 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="sb-logo">POS<span>Maker</span></div>
   <div class="sb-store" id="sbStore">Loading...</div>
   <div class="sb-nav">
-    <div class="sb-item active" onclick="nav('dashboard')"><span class="ico">&#128202;</span> Dashboard</div>
-    <div class="sb-item" id="navOrders"    onclick="nav('orders')"><span class="ico">&#128221;</span> <span id="navOrdersLbl">Orders</span></div>
-    <div class="sb-item" id="navInventory" onclick="nav('inventory')"><span class="ico">&#128230;</span> <span id="navInventoryLbl">Inventory</span> <span id="lowStockBadge" style="display:none;margin-left:auto;font-size:10px;background:#f59e0b;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
-    <div class="sb-item" onclick="nav('categories')"><span class="ico">&#128194;</span> Categories</div>
-    <div class="sb-item" id="navProducts"  onclick="nav('products')"><span class="ico">&#127991;</span> <span id="navProductsLbl">Products</span></div>
-    <div class="sb-item" onclick="nav('staff')"><span class="ico">&#128101;</span> Staff</div>
-    <div class="sb-item" onclick="nav('activitylog')"><span class="ico">&#128203;</span> Activity Log</div>
-    <div class="sb-item" onclick="nav('messages')" id="sbMessages"><span class="ico">&#128172;</span> Messages <span id="msgUnreadBadge" style="display:none;margin-left:auto;font-size:10px;background:#ef4444;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
-    <div class="sb-item" onclick="nav('salesreport')"><span class="ico">&#128202;</span> Sales Report</div>
-    <div class="sb-item" onclick="nav('profitmargin')"><span class="ico">&#128201;</span> Profit Margin</div>
-    <div class="sb-item" onclick="nav('checklist')"><span class="ico">&#9989;</span> Daily Checklist</div>
-    <div class="sb-item" onclick="nav('expenses')"><span class="ico">&#128176;</span> Other Expenses</div>
-    <div class="sb-item" onclick="nav('settings')"><span class="ico">&#9881;</span> Settings</div>
-    <a href="support.html" target="_blank" class="sb-item" style="text-decoration:none;color:inherit"><span class="ico">&#128139;</span> Support</a>
-    <div class="sb-item" onclick="location.href=bizCustomizeFile(STORE.business_type)"><span class="ico">&#127912;</span> Customize POS</div>
-    <div class="sb-item" onclick="nav('access')"><span class="ico">&#128279;</span> Cashier Link</div>
-    <div class="sb-item" onclick="nav('pos')"><span class="ico">&#128187;</span> My POS <span id="posNavBadge" style="margin-left:auto;font-size:10px;background:rgba(0,180,216,.2);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
+    <div class="sb-item active" onclick="nav('dashboard')" title="Overview of your store — today's sales, orders, and quick stats."><span class="ico">&#128202;</span> Dashboard</div>
+    <div class="sb-item" id="navOrders"    onclick="nav('orders')" title="See incoming and past orders from your POS."><span class="ico">&#128221;</span> <span id="navOrdersLbl">Orders</span></div>
+    <div class="sb-item" id="navInventory" onclick="nav('inventory')" title="Manage your raw materials and ingredients — track stock levels and add new items."><span class="ico">&#128230;</span> <span id="navInventoryLbl">Inventory</span> <span id="lowStockBadge" style="display:none;margin-left:auto;font-size:10px;background:#f59e0b;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
+    <div class="sb-item" onclick="nav('categories')" title="Organize your menu items and raw materials into categories."><span class="ico">&#128194;</span> Categories</div>
+    <div class="sb-item" id="navProducts"  onclick="nav('products')" title="Add, edit, or remove the menu items your customers can order."><span class="ico">&#127991;</span> <span id="navProductsLbl">Products</span></div>
+    <div class="sb-item" onclick="nav('staff')" title="Add your staff here — create their accounts, set name, password, and control access."><span class="ico">&#128101;</span> Staff</div>
+    <div class="sb-item" onclick="nav('activitylog')" title="See a log of staff actions and submitted receipts — view, accept, or mark as invalid."><span class="ico">&#128203;</span> Activity Log</div>
+    <div class="sb-item" onclick="nav('messages')" id="sbMessages" title="Send and receive messages with your staff."><span class="ico">&#128172;</span> Messages <span id="msgUnreadBadge" style="display:none;margin-left:auto;font-size:10px;background:#ef4444;color:#fff;padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
+    <div class="sb-item" onclick="nav('salesreport')" title="View your sales totals, best sellers, and reports by day or date range."><span class="ico">&#128202;</span> Sales Report</div>
+    <div class="sb-item" onclick="nav('profitmargin')" title="Check how much profit each product makes based on its cost vs. selling price."><span class="ico">&#128201;</span> Profit Margin</div>
+    <div class="sb-item" onclick="nav('checklist')" title="Set tasks your staff must complete when opening or closing the store."><span class="ico">&#9989;</span> Daily Checklist</div>
+    <div class="sb-item" onclick="nav('expenses')" title="Record other costs like rent, bills, or supplies that aren't part of your inventory."><span class="ico">&#128176;</span> Other Expenses</div>
+    <div class="sb-item" onclick="nav('settings')" title="Update your store details, currency, tax rate, and account settings."><span class="ico">&#9881;</span> Settings</div>
+    <a href="support.html" target="_blank" class="sb-item" style="text-decoration:none;color:inherit" title="Need help? Contact POSMaker support."><span class="ico">&#128139;</span> Support</a>
+    <div class="sb-item" onclick="location.href=bizCustomizeFile(STORE.business_type)" title="Customize how your POS screen looks — colors, logo, and layout."><span class="ico">&#127912;</span> Customize POS</div>
+    <div class="sb-item" onclick="nav('access')" title="Get the store code/link your staff use to connect their POS device."><span class="ico">&#128279;</span> Cashier Link</div>
+    <div class="sb-item" onclick="nav('pos')" title="Open your store's POS screen to start taking orders." ><span class="ico">&#128187;</span> My POS <span id="posNavBadge" style="margin-left:auto;font-size:10px;background:rgba(0,180,216,.2);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
   </div>
   <div class="sb-bottom">
     <div class="sb-user" id="sbUser"></div>
@@ -316,7 +316,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input class="search" id="invSearch" placeholder="Search..." oninput="filterInv()" style="width:130px">
             <select class="search" id="invCatFilter" onchange="filterInv()" style="width:130px"><option value="">All Categories</option></select>
-            <button class="btn btn-accent btn-sm" id="btnAddInv" onclick="openInvModal()">+ Add Item</button>
+            <button class="btn btn-accent btn-sm" id="btnAddInv" onclick="openInvModal()" title="Add a new raw material or supply (e.g. coffee beans, cups, sugar) and set its stock and cost.">+ Add Item</button>
           </div>
         </div>
         <table>
@@ -352,7 +352,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="display:flex;gap:8px;align-items:center">
             <input class="search" id="prodSearch" placeholder="Search..." oninput="filterProds()">
             <button class="btn btn-sm" id="btnReindexAI" onclick="bulkReindexAI()" style="background:#1a2a3a;border:1px solid #2563eb;color:#60a5fa" title="Recompute AI embeddings for all products">🤖 Re-index AI</button>
-            <button class="btn btn-accent btn-sm" id="btnAddProd" onclick="openProdModal()">+ Add</button>
+            <button class="btn btn-accent btn-sm" id="btnAddProd" onclick="openProdModal()" title="Add a new menu item that customers can order — name, price, photo, and category.">+ Add</button>
           </div>
         </div>
         <table>
@@ -367,7 +367,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div class="tbl-wrap">
         <div class="tbl-head">
           <h3>Staff / Cashiers</h3>
-          <button class="btn btn-accent btn-sm" id="btnAddStaff" onclick="openStaffModal()">+ Add Staff</button>
+          <button class="btn btn-accent btn-sm" id="btnAddStaff" onclick="openStaffModal()" title="Add your staff here — create their account: set name, username, password, and role.">+ Add Staff</button>
         </div>
         <table>
           <thead><tr><th>Username</th><th>Full Name</th><th>Role</th><th>Active</th><th>Last Login</th><th></th></tr></thead>
