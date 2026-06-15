@@ -24,3 +24,17 @@ async function getStorePro(sb, storeId) {
   if (error) { console.error('getStorePro error:', error); return false; }
   return !!data;
 }
+
+// Auto-generate a SKU like "COF-001" from a category name, based on the
+// highest existing SKU number already used in that category.
+function genAutoSku(category, items) {
+  const prefix = (category || 'ITM').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'ITM';
+  const re = new RegExp('^' + prefix + '-(\\d+)$');
+  let max = 0;
+  for (const it of items) {
+    if (it.category !== category) continue;
+    const m = (it.sku || '').match(re);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return prefix + '-' + String(max + 1).padStart(3, '0');
+}
