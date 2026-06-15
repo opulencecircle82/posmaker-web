@@ -104,7 +104,7 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
 <script>
 const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
-const REF = new URLSearchParams(location.search).get('ref') || '';
+const REF = new URLSearchParams(location.search).get('ref') || localStorage.getItem('pm_ref_code') || '';
 
 function showStep(step) {
   document.getElementById('stepAll').style.display     = step === 'all'     ? '' : 'none';
@@ -198,6 +198,7 @@ async function doSignup() {
 
   _pendingStore = { storeName, bizType, currency, taxRate, refCode: REF };
   localStorage.setItem('pm_pending_store', JSON.stringify(_pendingStore));
+  localStorage.removeItem('pm_ref_code');
 
   const { data: signUpData, error: authErr } = await _sb.auth.signUp({
     email,

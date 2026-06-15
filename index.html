@@ -417,6 +417,19 @@ footer{border-top:1px solid var(--border);padding:28px 5vw;display:flex;justify-
 </div>
 
 <script>
+// Carry an affiliate referral code (?ref=CODE) through to signup.html, even if the
+// visitor browses other pages/links first before signing up.
+(function() {
+  const ref = new URLSearchParams(location.search).get('ref');
+  if (ref) localStorage.setItem('pm_ref_code', ref);
+  const code = ref || localStorage.getItem('pm_ref_code');
+  if (code) {
+    document.querySelectorAll('a[href="signup.html"]').forEach(a => {
+      a.href = 'signup.html?ref=' + encodeURIComponent(code);
+    });
+  }
+})();
+
 let demoProd = [];
 
 function addDemoProd() {
