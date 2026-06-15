@@ -74,9 +74,9 @@ input::placeholder,textarea::placeholder{color:#44445a}
 
   <!-- STEP 2: Sign-up form -->
   <div class="card" id="stepForm" style="display:none">
-    <a class="back-link" onclick="showStep('intro')">&#8592; Back</a>
-    <h1>Create your affiliate account</h1>
-    <p style="font-size:13px;color:#8888aa;margin-bottom:20px">Fill in your details below to apply.</p>
+    <a class="back-link" id="formBackLink" onclick="showStep('intro')">&#8592; Back</a>
+    <h1 id="formTitle">Create your affiliate account</h1>
+    <p style="font-size:13px;color:#8888aa;margin-bottom:20px" id="formSub">Fill in your details below to apply.</p>
 
     <div class="field">
       <label>Full Name</label>
@@ -90,13 +90,15 @@ input::placeholder,textarea::placeholder{color:#44445a}
       <label>Email Address</label>
       <input id="afEmail" type="email" placeholder="e.g. you@email.com" autocomplete="email">
     </div>
-    <div class="field">
-      <label>Password</label>
-      <input id="afPassword" type="password" placeholder="At least 6 characters" autocomplete="new-password">
-    </div>
-    <div class="field">
-      <label>Confirm Password</label>
-      <input id="afPassword2" type="password" placeholder="Re-enter your password" autocomplete="new-password">
+    <div id="passwordFields">
+      <div class="field">
+        <label>Password</label>
+        <input id="afPassword" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input id="afPassword2" type="password" placeholder="Re-enter your password" autocomplete="new-password">
+      </div>
     </div>
 
     <div class="tnc-box">
@@ -153,6 +155,11 @@ function afCheck() {
 // Pending application details, kept while we wait on session/email confirmation
 let _pendingAffiliate = null;
 
+// Set when the user already has an account/session (e.g. confirmed their email in a
+// different browser) but hasn't submitted their application yet — skips account creation.
+let _resumeMode = false;
+let _session = null;
+
 async function _finishAffiliateApplication(session) {
   localStorage.removeItem('pm_pending_affiliate');
   const { name, address, email } = _pendingAffiliate;
@@ -167,8 +174,6 @@ async function submitAffiliate() {
   const name      = document.getElementById('afName').value.trim();
   const address   = document.getElementById('afAddress').value.trim();
   const email     = document.getElementById('afEmail').value.trim();
-  const password  = document.getElementById('afPassword').value;
-  const password2 = document.getElementById('afPassword2').value;
   const errEl     = document.getElementById('errForm');
   const btn       = document.getElementById('btnForm');
 
@@ -176,9 +181,29 @@ async function submitAffiliate() {
   if (!name)                   { errEl.textContent = 'Full name is required.'; return; }
   if (!address)                { errEl.textContent = 'Address is required.'; return; }
   if (!email.includes('@'))    { errEl.textContent = 'Please enter a valid email address.'; return; }
+  if (!document.getElementById('agreeTerms').checked) { errEl.textContent = 'Please agree to the Terms and Conditions.'; return; }
+
+  // Already signed in (e.g. confirmed email in a different browser) — just submit the
+  // application for this account, no need to create a new one.
+  if (_resumeMode) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Submitting…';
+    const { error } = await _sb.rpc('submit_affiliate_application', {
+      p_auth_user_id: _session.user.id, p_name: name, p_email: email, p_address: address
+    });
+    if (error) {
+      btn.disabled = false; btn.textContent = 'Sign me up →';
+      errEl.textContent = error.message;
+      return;
+    }
+    showStep('done');
+    return;
+  }
+
+  const password  = document.getElementById('afPassword').value;
+  const password2 = document.getElementById('afPassword2').value;
   if (password.length < 6)     { errEl.textContent = 'Password must be at least 6 characters.'; return; }
   if (password !== password2)  { errEl.textContent = 'Passwords do not match.'; return; }
-  if (!document.getElementById('agreeTerms').checked) { errEl.textContent = 'Please agree to the Terms and Conditions.'; return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Submitting…';
@@ -233,7 +258,19 @@ async function submitAffiliate() {
 
   // Already logged in with an existing affiliate application — send them to their dashboard
   const { data: aff } = await _sb.rpc('get_my_affiliate', { p_auth_user_id: session.user.id });
-  if (aff && aff.length) { location.href = 'affiliate-dashboard.html'; }
+  if (aff && aff.length) { location.href = 'affiliate-dashboard.html'; return; }
+
+  // Logged in (e.g. confirmed their email in a different browser/device) but never
+  // finished submitting their application — let them finish without creating a new account.
+  _resumeMode = true;
+  _session = session;
+  document.getElementById('formTitle').textContent = 'Finish your application';
+  document.getElementById('formSub').textContent = "You're signed in as " + session.user.email + ". Just fill in a few more details to finish your application.";
+  document.getElementById('afEmail').value = session.user.email;
+  document.getElementById('afEmail').readOnly = true;
+  document.getElementById('passwordFields').style.display = 'none';
+  document.getElementById('formBackLink').style.display = 'none';
+  showStep('form');
 })();
 </script>
 </body>
