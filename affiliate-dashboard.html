@@ -80,6 +80,9 @@ th{color:#8888aa;font-size:11px;text-transform:uppercase;font-weight:700}
           Commission rate: <strong id="commissionRate" style="color:#f0f0f8"></strong> of each referred store's monthly subscription.
           Estimated total: <strong id="totalCommission" style="color:#10b981"></strong> / month.
         </p>
+        <p class="sub" style="margin-top:6px;margin-bottom:0">
+          Link clicks: <strong id="linkClicks" style="color:#f0f0f8"></strong>
+        </p>
       </div>
     </div>
 
@@ -211,6 +214,7 @@ let _userId = null;
     document.getElementById('referralLinkBox').style.display = '';
     document.getElementById('referralLink').textContent = _agentLink(a.referral_code);
     document.getElementById('commissionRate').textContent = (a.commission_rate ?? 10) + '%';
+    document.getElementById('linkClicks').textContent = a.link_clicks ?? 0;
     document.getElementById('referralsCard').style.display = '';
     loadReferrals();
   }

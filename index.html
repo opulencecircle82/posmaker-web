@@ -6,6 +6,8 @@
 <title>POSMaker — Build Your Store's POS in 60 Seconds</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--accent:#00b4d8;--text:#f0f0f8;--muted:#8888aa;--dim:#44445a}
@@ -427,6 +429,17 @@ footer{border-top:1px solid var(--border);padding:28px 5vw;display:flex;justify-
     document.querySelectorAll('a[href="signup.html"]').forEach(a => {
       a.href = 'signup.html?ref=' + encodeURIComponent(code);
     });
+  }
+
+  // Count this as a click on the affiliate's referral link (once per session, only
+  // when arriving fresh via ?ref=, not on every page within the site).
+  if (ref) {
+    const trackedKey = 'pm_ref_click_tracked_' + ref;
+    if (!sessionStorage.getItem(trackedKey)) {
+      sessionStorage.setItem(trackedKey, '1');
+      const { createClient } = supabase;
+      createClient(SUPABASE_URL, SUPABASE_ANON).rpc('track_referral_click', { p_ref_code: ref }).then(() => {});
+    }
   }
 })();
 

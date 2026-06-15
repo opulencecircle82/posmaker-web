@@ -492,6 +492,16 @@ END; $$;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS auth_user_id UUID;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS agreed_terms BOOLEAN DEFAULT false;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS commission_rate NUMERIC DEFAULT 10;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS link_clicks INTEGER DEFAULT 0;
+
+-- Public: called by index.html the first time a visitor lands via ?ref=CODE in a given
+-- browser session. Lets affiliates see whether their link is getting any traffic at all.
+CREATE OR REPLACE FUNCTION track_referral_click(p_ref_code text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE agents SET link_clicks = link_clicks + 1
+    WHERE referral_code = p_ref_code AND status = 'approved';
+END; $$;
 
 -- Public (authenticated affiliate): submit/update their affiliate application after creating
 -- their Supabase Auth account in agent-apply.html. Idempotent on auth_user_id so returning
@@ -516,10 +526,10 @@ END; $$;
 DROP FUNCTION IF EXISTS get_my_affiliate(uuid);
 CREATE OR REPLACE FUNCTION get_my_affiliate(p_auth_user_id uuid)
 RETURNS TABLE(id uuid, name text, email text, status text, referral_code text,
-              default_free_months integer, commission_rate numeric, created_at timestamptz)
+              default_free_months integer, commission_rate numeric, link_clicks integer, created_at timestamptz)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  RETURN QUERY SELECT a.id, a.name, a.email, a.status, a.referral_code, a.default_free_months, a.commission_rate, a.created_at
+  RETURN QUERY SELECT a.id, a.name, a.email, a.status, a.referral_code, a.default_free_months, a.commission_rate, a.link_clicks, a.created_at
     FROM agents a WHERE a.auth_user_id = p_auth_user_id;
 END; $$;
 
