@@ -73,6 +73,21 @@ function _photoEntry(p) {
   return p;
 }
 
+// Fullscreen image preview. Used instead of window.open() because Chrome
+// blocks navigating a new tab/window to a data: URL.
+function _viewPhoto(src) {
+  let overlay = document.getElementById('_photoViewOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = '_photoViewOverlay';
+    overlay.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:2000;align-items:center;justify-content:center;padding:20px;cursor:zoom-out';
+    overlay.innerHTML = '<img id="_photoViewImg" style="max-width:100%;max-height:100%;border-radius:8px">';
+    overlay.onclick = () => overlay.remove();
+    document.body.appendChild(overlay);
+  }
+  document.getElementById('_photoViewImg').src = src;
+}
+
 async function loadOpsData() {
   if (_opsData) return _opsData;
   if (!_OPS_STORE_ID) return null;
@@ -165,7 +180,7 @@ function renderChecklist() {
         const removeBtn = readOnly ? '' : `<button type="button" onclick="removeChecklistItem('${kind}',${i})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 6px">&times;</button>`;
         let proof = '', hint = '';
         if (entry) {
-          const thumb = `<img src="${entry.img}" onclick="window.open('${entry.img}','_blank')" style="width:28px;height:28px;border-radius:4px;object-fit:cover;cursor:pointer;flex-shrink:0" title="View photo proof">`;
+          const thumb = `<img src="${entry.img}" onclick="_viewPhoto('${entry.img}')" style="width:28px;height:28px;border-radius:4px;object-fit:cover;cursor:pointer;flex-shrink:0" title="View photo proof">`;
           if (entry.status === 'pending' && !readOnly) {
             proof = thumb
               + `<button type="button" onclick="approveChecklistPhoto('${kind}',${i})" class="btn btn-ghost btn-sm" style="padding:3px 8px;font-size:11px;color:#10b981;border-color:#10b98155" title="Approve">&#10003;</button>`
