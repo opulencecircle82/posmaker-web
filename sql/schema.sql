@@ -578,3 +578,13 @@ BEGIN
   INSERT INTO subscriptions (store_id, subscriber_email, plan_name, amount, status, expires_at)
   VALUES (p_store_id, p_owner_email, 'Referral - Free Trial', 0, 'active', now() + (v_months || ' months')::interval);
 END; $$;
+
+-- RLS: store owners need to read their own subscriptions row so dashboard.html can
+-- determine IS_PRO (subscriptions has RLS enabled with no policies by default, which
+-- blocks all client-side reads).
+CREATE POLICY "Users can view their own subscriptions" ON subscriptions
+FOR SELECT
+USING (
+  subscriber_email = auth.jwt() ->> 'email'
+  OR store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid())
+);
