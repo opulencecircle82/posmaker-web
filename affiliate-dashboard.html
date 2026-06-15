@@ -40,6 +40,17 @@ th{color:#8888aa;font-size:11px;text-transform:uppercase;font-weight:700}
 .err-box a{color:#00b4d8;font-weight:600}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid #252540;color:#f0f0f8;padding:12px 20px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:999}
 .toast.show{opacity:1}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
+.stat-box{background:#09090f;border:1px solid #252540;border-radius:10px;padding:14px;text-align:center}
+.stat-num{font-size:22px;font-weight:800;color:#f0f0f8}
+.stat-box.accent .stat-num{color:#10b981}
+.stat-label{font-size:11px;color:#8888aa;text-transform:uppercase;font-weight:700;margin-top:4px}
+@media (max-width:560px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar-label{flex:0 0 130px;font-size:12px;color:#ccccdd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;background:#09090f;border-radius:6px;height:18px;overflow:hidden;border:1px solid #252540}
+.bar-fill{height:100%;background:linear-gradient(90deg,#00b4d8,#10b981);border-radius:6px}
+.bar-value{flex:0 0 70px;text-align:right;font-size:12px;font-weight:700;color:#10b981}
 </style>
 </head>
 <body>
@@ -69,6 +80,25 @@ th{color:#8888aa;font-size:11px;text-transform:uppercase;font-weight:700}
       <span class="badge" id="affBadge"></span>
       <div id="statusMsg" style="margin-top:14px;font-size:13px;color:#bbbbcc;line-height:1.6"></div>
 
+      <div class="stats-row" id="statsRow" style="display:none">
+        <div class="stat-box">
+          <div class="stat-num" id="statClicks">0</div>
+          <div class="stat-label">Link Clicks</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statReferrals">0</div>
+          <div class="stat-label">Referrals</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statCommissionRate">10%</div>
+          <div class="stat-label">Commission Rate</div>
+        </div>
+        <div class="stat-box accent">
+          <div class="stat-num" id="statTotalEarnings">₱0.00</div>
+          <div class="stat-label">Est. Monthly Earnings</div>
+        </div>
+      </div>
+
       <div id="referralLinkBox" style="display:none">
         <h2 style="margin-top:20px">Your Referral Link</h2>
         <p class="sub">Share this link with business owners. When they sign up through it, their store is created instantly and shows up below — with their free trial period already applied.</p>
@@ -76,14 +106,14 @@ th{color:#8888aa;font-size:11px;text-transform:uppercase;font-weight:700}
           <span id="referralLink"></span>
           <button class="btn" style="width:auto;padding:8px 14px" onclick="copyReferralLink()">Copy</button>
         </div>
-        <p class="sub" style="margin-top:14px;margin-bottom:0">
-          Commission rate: <strong id="commissionRate" style="color:#f0f0f8"></strong> of each referred store's monthly subscription.
-          Estimated total: <strong id="totalCommission" style="color:#10b981"></strong> / month.
-        </p>
-        <p class="sub" style="margin-top:6px;margin-bottom:0">
-          Link clicks: <strong id="linkClicks" style="color:#f0f0f8"></strong>
-        </p>
       </div>
+    </div>
+
+    <!-- Earnings breakdown (only shown if approved) -->
+    <div class="card" id="earningsCard" style="display:none">
+      <h2>Earnings Breakdown</h2>
+      <p class="sub">Your estimated monthly commission from each referred store.</p>
+      <div id="earningsChart"></div>
     </div>
 
     <!-- Referrals table (only shown if approved) -->
@@ -155,12 +185,33 @@ function _refStatusLabel(status) {
   return '<span class="badge badge-warn">Pending</span>';
 }
 
+function renderEarningsChart(data) {
+  const el = document.getElementById('earningsChart');
+  const earners = data.filter(r => parseFloat(r.monthly_commission || 0) > 0);
+  if (!earners.length) {
+    el.innerHTML = '<div class="empty-row">No earnings yet — once a referred store subscribes, it\'ll show up here.</div>';
+    return;
+  }
+  const max = Math.max(...earners.map(r => parseFloat(r.monthly_commission)));
+  el.innerHTML = earners.map(r => {
+    const val = parseFloat(r.monthly_commission);
+    const pct = max > 0 ? (val / max * 100) : 0;
+    return `<div class="bar-row">
+      <div class="bar-label">${esc(r.store_name)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="bar-value">&#8369;${val.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+}
+
 async function loadReferrals() {
   const { data } = await _sb.rpc('get_my_referrals', { p_auth_user_id: _userId });
   const tb = document.getElementById('referralsTbody');
   if (!data || !data.length) {
     tb.innerHTML = '<tr><td class="empty-row" colspan="5">No referrals yet.</td></tr>';
-    document.getElementById('totalCommission').innerHTML = '&#8369;0.00';
+    document.getElementById('statReferrals').textContent = '0';
+    document.getElementById('statTotalEarnings').innerHTML = '&#8369;0.00';
+    renderEarningsChart([]);
     return;
   }
   let total = 0;
@@ -173,7 +224,9 @@ async function loadReferrals() {
       : '<span style="color:#8888aa">—</span>';
     return `<tr><td>${esc(r.store_name)}</td><td>${esc(r.business_type)}</td><td>${_refStatusLabel(r.status)}</td><td>${dt}</td><td>${commissionCell}</td></tr>`;
   }).join('');
-  document.getElementById('totalCommission').innerHTML = `&#8369;${total.toFixed(2)}`;
+  document.getElementById('statReferrals').textContent = String(data.length);
+  document.getElementById('statTotalEarnings').innerHTML = `&#8369;${total.toFixed(2)}`;
+  renderEarningsChart(data);
 }
 
 let _userId = null;
@@ -213,8 +266,10 @@ let _userId = null;
     _referralCode = a.referral_code;
     document.getElementById('referralLinkBox').style.display = '';
     document.getElementById('referralLink').textContent = _agentLink(a.referral_code);
-    document.getElementById('commissionRate').textContent = (a.commission_rate ?? 10) + '%';
-    document.getElementById('linkClicks').textContent = a.link_clicks ?? 0;
+    document.getElementById('statsRow').style.display = '';
+    document.getElementById('statClicks').textContent = a.link_clicks ?? 0;
+    document.getElementById('statCommissionRate').textContent = (a.commission_rate ?? 10) + '%';
+    document.getElementById('earningsCard').style.display = '';
     document.getElementById('referralsCard').style.display = '';
     loadReferrals();
   }
