@@ -38,3 +38,225 @@ function genAutoSku(category, items) {
   }
   return prefix + '-' + String(max + 1).padStart(3, '0');
 }
+
+// ── Daily Opening/Closing Checklist & Recipe/SOP Notes ─────────────────────
+// Used by dashboard-*.html (owner, editable) and manager.html (staff, read-only
+// items + photo-required completion). Pages must set `_OPS_STORE_ID` (the
+// store's uuid) before calling loadChecklist(). Optional page globals:
+//   _OPS_READONLY_ITEMS  - hide "+ Add"/remove controls & edit SOP notes (manager.html)
+//   _OPS_REQUIRE_PHOTO   - require a photo before an item can be checked on
+//                          (manager.html must define window._onChecklistPhotoNeeded)
+let _opsData = null, _opsUseLocal = false, _sopSaveTimer = null;
+let _OPS_STORE_ID = null, _OPS_READONLY_ITEMS = false, _OPS_REQUIRE_PHOTO = false;
+
+function _opsKey() { return 'pm_ops_' + (_OPS_STORE_ID || ''); }
+function _todayKey() { return new Date().toLocaleDateString('en-CA'); }
+
+function _defaultOpsData() {
+  return {
+    checklistItems: {
+      opening: ['Turn on lights, equipment & POS','Check stock levels & display items','Wipe down counters & display areas','Count starting cash drawer','Check POS & receipt printer'],
+      closing: ['Count & reconcile cash drawer','Clean equipment & surfaces','Restock for tomorrow','Take out trash & lock up']
+    },
+    checklistLog: {},
+    checklistPhotos: {},
+    sopNotes: []
+  };
+}
+
+async function loadOpsData() {
+  if (_opsData) return _opsData;
+  if (!_OPS_STORE_ID) return null;
+  const { data, error } = await _sb.from('stores').select('ops_data').eq('id', _OPS_STORE_ID).single();
+  if (!error && data && data.ops_data) {
+    _opsData = typeof data.ops_data === 'string' ? JSON.parse(data.ops_data) : data.ops_data;
+    _opsUseLocal = false;
+  } else {
+    _opsUseLocal = !!error;
+    const saved = localStorage.getItem(_opsKey());
+    _opsData = saved ? JSON.parse(saved) : null;
+  }
+  if (!_opsData) _opsData = _defaultOpsData();
+  if (!_opsData.checklistItems) _opsData.checklistItems = _defaultOpsData().checklistItems;
+  if (!_opsData.checklistLog) _opsData.checklistLog = {};
+  if (!_opsData.checklistPhotos) _opsData.checklistPhotos = {};
+  if (!_opsData.sopNotes) _opsData.sopNotes = [];
+  if (_pruneOldChecklistPhotos()) await saveOpsData();
+  return _opsData;
+}
+
+async function saveOpsData() {
+  if (!_OPS_STORE_ID || !_opsData) return;
+  localStorage.setItem(_opsKey(), JSON.stringify(_opsData));
+  if (!_opsUseLocal) {
+    const { error } = await _sb.from('stores').update({ ops_data: _opsData }).eq('id', _OPS_STORE_ID);
+    if (error) _opsUseLocal = true;
+  }
+}
+
+// Deletes checklistPhotos for any date older than 5 days, keeping checklistLog
+// (done/not-done history) intact. Returns true if anything was pruned.
+function _pruneOldChecklistPhotos() {
+  if (!_opsData.checklistPhotos) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 5);
+  cutoff.setHours(0, 0, 0, 0);
+  let changed = false;
+  for (const dateKey of Object.keys(_opsData.checklistPhotos)) {
+    if (new Date(dateKey + 'T00:00:00') < cutoff) {
+      delete _opsData.checklistPhotos[dateKey];
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+async function loadChecklist() {
+  await loadOpsData();
+  renderChecklist();
+  renderSopNotes();
+}
+
+function renderChecklist() {
+  const today = _todayKey();
+  if (!_opsData.checklistLog[today]) _opsData.checklistLog[today] = { opening: [], closing: [] };
+  if (!_opsData.checklistPhotos[today]) _opsData.checklistPhotos[today] = { opening: {}, closing: {} };
+  const readOnly = typeof _OPS_READONLY_ITEMS !== 'undefined' && _OPS_READONLY_ITEMS;
+  ['opening','closing'].forEach(kind => {
+    const items  = _opsData.checklistItems[kind] || [];
+    const done   = _opsData.checklistLog[today][kind] || [];
+    const photos = _opsData.checklistPhotos[today][kind] || {};
+    const list   = document.getElementById(kind === 'opening' ? 'ckOpenList' : 'ckCloseList');
+    if (!items.length) {
+      list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No tasks yet &#8212; add one below.</div>';
+    } else {
+      list.innerHTML = items.map((text, i) => {
+        const photo = photos[i];
+        const thumb = photo ? `<img src="${photo}" onclick="window.open('${photo}','_blank')" style="width:28px;height:28px;border-radius:4px;object-fit:cover;cursor:pointer;flex-shrink:0" title="View photo proof">` : '';
+        const removeBtn = readOnly ? '' : `<button type="button" onclick="removeChecklistItem('${kind}',${i})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 6px">&times;</button>`;
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+          <label class="toggle" style="flex-shrink:0"><input type="checkbox" ${done.includes(i)?'checked':''} onchange="toggleChecklistItem('${kind}',${i},this.checked,this)"><span class="slider"></span></label>
+          <span style="flex:1;font-size:13px;${done.includes(i)?'color:var(--muted);text-decoration:line-through':''}">${text}</span>
+          ${thumb}
+          ${removeBtn}
+        </div>`;
+      }).join('');
+    }
+    const addRow = document.getElementById(kind === 'opening' ? 'ckOpenAddRow' : 'ckCloseAddRow');
+    if (addRow) addRow.style.display = readOnly ? 'none' : '';
+    const statusEl = document.getElementById(kind === 'opening' ? 'ckOpenStatus' : 'ckCloseStatus');
+    const pct = items.length ? Math.round((done.length / items.length) * 100) : 0;
+    statusEl.textContent = items.length ? `${done.length}/${items.length} done today (${pct}%)` : '';
+  });
+}
+
+function toggleChecklistItem(kind, idx, checked, checkboxEl) {
+  if (checked && typeof _OPS_REQUIRE_PHOTO !== 'undefined' && _OPS_REQUIRE_PHOTO) {
+    if (checkboxEl) checkboxEl.checked = false;
+    if (typeof window._onChecklistPhotoNeeded === 'function') window._onChecklistPhotoNeeded(kind, idx, checkboxEl);
+    return;
+  }
+  const today = _todayKey();
+  const log = _opsData.checklistLog[today][kind];
+  if (checked) {
+    if (!log.includes(idx)) log.push(idx);
+  } else {
+    _opsData.checklistLog[today][kind] = log.filter(i => i !== idx);
+    const photos = _opsData.checklistPhotos[today] && _opsData.checklistPhotos[today][kind];
+    if (photos) delete photos[idx];
+  }
+  saveOpsData();
+  renderChecklist();
+}
+
+// Called by manager.html once a photo has been attached for a checklist item.
+function completeChecklistItemWithPhoto(kind, idx, photoB64) {
+  const today = _todayKey();
+  if (!_opsData.checklistLog[today]) _opsData.checklistLog[today] = { opening: [], closing: [] };
+  if (!_opsData.checklistPhotos[today]) _opsData.checklistPhotos[today] = { opening: {}, closing: {} };
+  const log = _opsData.checklistLog[today][kind];
+  if (!log.includes(idx)) log.push(idx);
+  _opsData.checklistPhotos[today][kind][idx] = photoB64;
+  saveOpsData();
+  renderChecklist();
+}
+
+function addChecklistItem(kind) {
+  const input = document.getElementById(kind === 'opening' ? 'ckOpenNew' : 'ckCloseNew');
+  const text = input.value.trim();
+  if (!text) return;
+  _opsData.checklistItems[kind].push(text);
+  input.value = '';
+  saveOpsData();
+  renderChecklist();
+}
+
+function removeChecklistItem(kind, idx) {
+  _opsData.checklistItems[kind].splice(idx, 1);
+  Object.values(_opsData.checklistLog).forEach(day => {
+    if (day[kind]) day[kind] = day[kind].filter(i => i !== idx).map(i => i > idx ? i - 1 : i);
+  });
+  Object.values(_opsData.checklistPhotos || {}).forEach(day => {
+    if (!day || !day[kind]) return;
+    const remapped = {};
+    Object.entries(day[kind]).forEach(([k, v]) => {
+      const i = parseInt(k, 10);
+      if (i === idx) return;
+      remapped[i > idx ? i - 1 : i] = v;
+    });
+    day[kind] = remapped;
+  });
+  saveOpsData();
+  renderChecklist();
+}
+
+function renderSopNotes() {
+  const el = document.getElementById('sopNotesList');
+  const notes = _opsData.sopNotes || [];
+  const readOnly = typeof _OPS_READONLY_ITEMS !== 'undefined' && _OPS_READONLY_ITEMS;
+  const addBtn = document.getElementById('sopAddBtn');
+  if (addBtn) addBtn.style.display = readOnly ? 'none' : '';
+  if (!notes.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No recipe / SOP notes yet'
+      + (readOnly ? '.' : '. Click "+ New Note" to write the steps for a task (e.g. "Caramel Macchiato &#8212; 2 pumps syrup, steam milk to 65&deg;C, pour over espresso") so every staff member does it the same way.')
+      + '</div>';
+    return;
+  }
+  if (readOnly) {
+    el.innerHTML = notes.map(n => `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">${(n.title||'(untitled)').replace(/</g,'&lt;')}</div>
+        <div style="font-size:12px;color:var(--muted);white-space:pre-wrap">${(n.notes||'').replace(/</g,'&lt;')}</div>
+      </div>`).join('');
+    return;
+  }
+  el.innerHTML = notes.map(n => `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <input value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Title (e.g. Caramel Macchiato)" oninput="updateSopNote('${n.id}','title',this.value)" style="flex:1;padding:7px 10px;background:var(--s1);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-weight:700;font-family:Inter,sans-serif;outline:none">
+        <button type="button" onclick="removeSopNote('${n.id}')" style="background:#e53e3e;border:none;border-radius:6px;color:#fff;cursor:pointer;padding:0 12px;font-size:13px">&times;</button>
+      </div>
+      <textarea oninput="updateSopNote('${n.id}','notes',this.value)" placeholder="Steps / recipe / SOP details..." style="width:100%;min-height:70px;padding:8px 10px;background:var(--s1);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:Inter,sans-serif;outline:none;resize:vertical">${n.notes||''}</textarea>
+    </div>`).join('');
+}
+
+function addSopNote() {
+  _opsData.sopNotes.push({ id: 'sop_' + Date.now(), title: '', notes: '' });
+  saveOpsData();
+  renderSopNotes();
+}
+
+function removeSopNote(id) {
+  _opsData.sopNotes = _opsData.sopNotes.filter(n => n.id !== id);
+  saveOpsData();
+  renderSopNotes();
+}
+
+function updateSopNote(id, field, value) {
+  const n = _opsData.sopNotes.find(x => x.id === id);
+  if (!n) return;
+  n[field] = value;
+  clearTimeout(_sopSaveTimer);
+  _sopSaveTimer = setTimeout(saveOpsData, 600);
+}

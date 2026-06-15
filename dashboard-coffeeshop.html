@@ -487,7 +487,7 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div class="tbl-wrap">
           <div class="tbl-head"><h3>&#9728; Opening Checklist</h3><span id="ckOpenStatus" style="font-size:11px;color:var(--muted)"></span></div>
           <div style="padding:14px" id="ckOpenList"></div>
-          <div style="padding:0 14px 14px;display:flex;gap:6px">
+          <div id="ckOpenAddRow" style="padding:0 14px 14px;display:flex;gap:6px">
             <input id="ckOpenNew" placeholder="Add a task..." style="flex:1;padding:8px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:Inter,sans-serif;outline:none">
             <button class="btn btn-ghost btn-sm" onclick="addChecklistItem('opening')">+ Add</button>
           </div>
@@ -495,7 +495,7 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div class="tbl-wrap">
           <div class="tbl-head"><h3>&#127769; Closing Checklist</h3><span id="ckCloseStatus" style="font-size:11px;color:var(--muted)"></span></div>
           <div style="padding:14px" id="ckCloseList"></div>
-          <div style="padding:0 14px 14px;display:flex;gap:6px">
+          <div id="ckCloseAddRow" style="padding:0 14px 14px;display:flex;gap:6px">
             <input id="ckCloseNew" placeholder="Add a task..." style="flex:1;padding:8px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:Inter,sans-serif;outline:none">
             <button class="btn btn-ghost btn-sm" onclick="addChecklistItem('closing')">+ Add</button>
           </div>
@@ -504,7 +504,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div class="tbl-wrap">
         <div class="tbl-head" style="flex-wrap:wrap;gap:8px">
           <h3>&#128221; Recipe &amp; SOP Notes</h3>
-          <button class="btn btn-accent btn-sm" onclick="addSopNote()">+ New Note</button>
+          <button class="btn btn-accent btn-sm" id="sopAddBtn" onclick="addSopNote()">+ New Note</button>
         </div>
         <div id="sopNotesList" style="padding:14px"></div>
       </div>
@@ -1270,6 +1270,7 @@ function _sig(ms = 25000) {
     }
   }
   STORE = store; TAX = store.tax_rate || 12;
+  _OPS_STORE_ID = store.id;
   { const _t = document.createElement('textarea'); _t.innerHTML = store.currency || '₱'; CUR = _t.value || '₱'; }
   localStorage.setItem('pm_store_id', store.id);
   document.getElementById('sbStore').textContent = store.name;
@@ -2171,11 +2172,8 @@ function renderProfitMargin(items) {
 }
 
 // ── Daily Opening/Closing Checklist & Recipe/SOP Notes ─────────────────────
-let _opsData = null, _opsUseLocal = false, _sopSaveTimer = null;
-
-function _opsKey() { return 'pm_ops_' + (STORE?.id || ''); }
-function _todayKey() { return new Date().toLocaleDateString('en-CA'); }
-
+// Loader/render/save logic is shared via js/store-plan.js; this page just
+// overrides the default task list with coffeeshop-specific tasks.
 function _defaultOpsData() {
   return {
     checklistItems: {
@@ -2183,130 +2181,9 @@ function _defaultOpsData() {
       closing: ['Count & reconcile cash drawer','Clean espresso machine group heads & steam wands','Empty & clean grinder hopper','Wipe down all surfaces & equipment','Restock for tomorrow (milk, cups, syrups)','Take out trash & lock up']
     },
     checklistLog: {},
+    checklistPhotos: {},
     sopNotes: []
   };
-}
-
-async function loadOpsData() {
-  if (_opsData) return _opsData;
-  if (!STORE) return null;
-  const { data, error } = await _sb.from('stores').select('ops_data').eq('id', STORE.id).single();
-  if (!error && data && data.ops_data) {
-    _opsData = typeof data.ops_data === 'string' ? JSON.parse(data.ops_data) : data.ops_data;
-    _opsUseLocal = false;
-  } else {
-    _opsUseLocal = !!error;
-    const saved = localStorage.getItem(_opsKey());
-    _opsData = saved ? JSON.parse(saved) : null;
-  }
-  if (!_opsData) _opsData = _defaultOpsData();
-  if (!_opsData.checklistItems) _opsData.checklistItems = _defaultOpsData().checklistItems;
-  if (!_opsData.checklistLog) _opsData.checklistLog = {};
-  if (!_opsData.sopNotes) _opsData.sopNotes = [];
-  return _opsData;
-}
-
-async function saveOpsData() {
-  if (!STORE || !_opsData) return;
-  localStorage.setItem(_opsKey(), JSON.stringify(_opsData));
-  if (!_opsUseLocal) {
-    const { error } = await _sb.from('stores').update({ ops_data: _opsData }).eq('id', STORE.id);
-    if (error) _opsUseLocal = true;
-  }
-}
-
-async function loadChecklist() {
-  await loadOpsData();
-  renderChecklist();
-  renderSopNotes();
-}
-
-function renderChecklist() {
-  const today = _todayKey();
-  if (!_opsData.checklistLog[today]) _opsData.checklistLog[today] = { opening: [], closing: [] };
-  ['opening','closing'].forEach(kind => {
-    const items = _opsData.checklistItems[kind] || [];
-    const done  = _opsData.checklistLog[today][kind] || [];
-    const list  = document.getElementById(kind === 'opening' ? 'ckOpenList' : 'ckCloseList');
-    if (!items.length) {
-      list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No tasks yet &#8212; add one below.</div>';
-    } else {
-      list.innerHTML = items.map((text, i) => `
-        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)">
-          <label class="toggle" style="flex-shrink:0"><input type="checkbox" ${done.includes(i)?'checked':''} onchange="toggleChecklistItem('${kind}',${i},this.checked)"><span class="slider"></span></label>
-          <span style="flex:1;font-size:13px;${done.includes(i)?'color:var(--muted);text-decoration:line-through':''}">${text}</span>
-          <button type="button" onclick="removeChecklistItem('${kind}',${i})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 6px">&times;</button>
-        </div>`).join('');
-    }
-    const statusEl = document.getElementById(kind === 'opening' ? 'ckOpenStatus' : 'ckCloseStatus');
-    const pct = items.length ? Math.round((done.length / items.length) * 100) : 0;
-    statusEl.textContent = items.length ? `${done.length}/${items.length} done today (${pct}%)` : '';
-  });
-}
-
-function toggleChecklistItem(kind, idx, checked) {
-  const today = _todayKey();
-  const log = _opsData.checklistLog[today][kind];
-  if (checked) { if (!log.includes(idx)) log.push(idx); }
-  else { _opsData.checklistLog[today][kind] = log.filter(i => i !== idx); }
-  saveOpsData();
-  renderChecklist();
-}
-
-function addChecklistItem(kind) {
-  const input = document.getElementById(kind === 'opening' ? 'ckOpenNew' : 'ckCloseNew');
-  const text = input.value.trim();
-  if (!text) return;
-  _opsData.checklistItems[kind].push(text);
-  input.value = '';
-  saveOpsData();
-  renderChecklist();
-}
-
-function removeChecklistItem(kind, idx) {
-  _opsData.checklistItems[kind].splice(idx, 1);
-  Object.values(_opsData.checklistLog).forEach(day => {
-    if (day[kind]) day[kind] = day[kind].filter(i => i !== idx).map(i => i > idx ? i - 1 : i);
-  });
-  saveOpsData();
-  renderChecklist();
-}
-
-function renderSopNotes() {
-  const el = document.getElementById('sopNotesList');
-  const notes = _opsData.sopNotes || [];
-  if (!notes.length) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No recipe / SOP notes yet. Click "+ New Note" to write the steps for a drink or task (e.g. "Caramel Macchiato &#8212; 2 pumps syrup, steam milk to 65&deg;C, pour over espresso") so every barista makes it the same way.</div>';
-    return;
-  }
-  el.innerHTML = notes.map(n => `
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px">
-      <div style="display:flex;gap:8px;margin-bottom:6px">
-        <input value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Title (e.g. Caramel Macchiato)" oninput="updateSopNote('${n.id}','title',this.value)" style="flex:1;padding:7px 10px;background:var(--s1);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-weight:700;font-family:Inter,sans-serif;outline:none">
-        <button type="button" onclick="removeSopNote('${n.id}')" style="background:#e53e3e;border:none;border-radius:6px;color:#fff;cursor:pointer;padding:0 12px;font-size:13px">&times;</button>
-      </div>
-      <textarea oninput="updateSopNote('${n.id}','notes',this.value)" placeholder="Steps / recipe / SOP details..." style="width:100%;min-height:70px;padding:8px 10px;background:var(--s1);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:Inter,sans-serif;outline:none;resize:vertical">${n.notes||''}</textarea>
-    </div>`).join('');
-}
-
-function addSopNote() {
-  _opsData.sopNotes.push({ id: 'sop_' + Date.now(), title: '', notes: '' });
-  saveOpsData();
-  renderSopNotes();
-}
-
-function removeSopNote(id) {
-  _opsData.sopNotes = _opsData.sopNotes.filter(n => n.id !== id);
-  saveOpsData();
-  renderSopNotes();
-}
-
-function updateSopNote(id, field, value) {
-  const n = _opsData.sopNotes.find(x => x.id === id);
-  if (!n) return;
-  n[field] = value;
-  clearTimeout(_sopSaveTimer);
-  _sopSaveTimer = setTimeout(saveOpsData, 600);
 }
 
 // ── Products ────────────────────────────────────────────────────────────────────
