@@ -543,7 +543,7 @@ RETURNS TABLE(id uuid, store_name text, business_type text, status text, free_pe
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_agent_id uuid; v_rate numeric;
 BEGIN
-  SELECT id, commission_rate INTO v_agent_id, v_rate FROM agents WHERE auth_user_id = p_auth_user_id;
+  SELECT a.id, a.commission_rate INTO v_agent_id, v_rate FROM agents a WHERE a.auth_user_id = p_auth_user_id;
   IF v_agent_id IS NULL THEN RETURN; END IF;
   RETURN QUERY
     SELECT r.id, r.store_name, r.business_type, r.status, r.free_period, r.created_at,
@@ -551,9 +551,9 @@ BEGIN
            ROUND(COALESCE(s.amount, 0) * COALESCE(v_rate, 10) / 100, 2)
     FROM agent_referrals r
     LEFT JOIN LATERAL (
-      SELECT amount FROM subscriptions
-      WHERE store_id = r.store_id AND status = 'active' AND (expires_at IS NULL OR expires_at >= now())
-      ORDER BY expires_at DESC LIMIT 1
+      SELECT sub.amount FROM subscriptions sub
+      WHERE sub.store_id = r.store_id AND sub.status = 'active' AND (sub.expires_at IS NULL OR sub.expires_at >= now())
+      ORDER BY sub.expires_at DESC LIMIT 1
     ) s ON true
     WHERE r.agent_id = v_agent_id ORDER BY r.created_at DESC;
 END; $$;
