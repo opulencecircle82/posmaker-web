@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Affiliate Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#09090f;color:#f0f0f8;font-family:'Inter',sans-serif;min-height:100dvh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #252540}
+.logo{font-size:20px;font-weight:800}
+.logo span{color:#00b4d8}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.user-email{font-size:13px;color:#8888aa}
+.btn{padding:10px 18px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn-ghost{background:transparent;border:1.5px solid #252540;color:#ccccdd}
+.wrap{max-width:760px;margin:0 auto;padding:32px 24px}
+.card{background:#111120;border:1px solid #252540;border-radius:16px;padding:28px;margin-bottom:20px}
+h1{font-size:20px;font-weight:800;margin-bottom:4px}
+h2{font-size:16px;font-weight:700;margin-bottom:12px}
+.sub{font-size:13px;color:#8888aa;margin-bottom:18px}
+.badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700}
+.badge-warn{background:rgba(245,158,11,.15);color:#f59e0b}
+.badge-ok{background:rgba(16,185,129,.15);color:#10b981}
+.badge-danger{background:rgba(239,68,68,.15);color:#ef4444}
+.link-box{display:flex;gap:10px;align-items:center;background:#09090f;border:1.5px solid #252540;border-radius:8px;padding:12px 14px;margin-top:12px}
+.link-box span{flex:1;font-size:13px;color:#00b4d8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th,td{text-align:left;padding:10px 8px;font-size:13px;border-bottom:1px solid #252540}
+th{color:#8888aa;font-size:11px;text-transform:uppercase;font-weight:700}
+.empty-row{color:#8888aa;font-size:13px;text-align:center;padding:20px}
+.loading{display:flex;align-items:center;justify-content:center;min-height:60vh;color:#8888aa;font-size:14px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#00b4d8;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.err-box{text-align:center}
+.err-box a{color:#00b4d8;font-weight:600}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid #252540;color:#f0f0f8;padding:12px 20px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:999}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="loadingPage" class="loading"><span class="spinner"></span>Loading…</div>
+
+<div id="appWrap" style="display:none">
+  <div class="topbar">
+    <div class="logo">POS<span>Maker</span> <span style="color:#8888aa;font-size:13px;font-weight:600">Affiliate</span></div>
+    <div class="topbar-right">
+      <span class="user-email" id="userEmail"></span>
+      <button class="btn btn-ghost" onclick="doLogout()">Log Out</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- No affiliate record found -->
+    <div class="card err-box" id="noAffCard" style="display:none">
+      <h1>No affiliate application found</h1>
+      <p class="sub">It looks like this account hasn't applied to the Affiliate Program yet.</p>
+      <a href="agent-apply.html" class="btn" style="display:inline-block;text-decoration:none">Apply Now</a>
+    </div>
+
+    <!-- Status card -->
+    <div class="card" id="statusCard" style="display:none">
+      <h1 id="affName">—</h1>
+      <p class="sub" id="affEmail">—</p>
+      <span class="badge" id="affBadge"></span>
+      <div id="statusMsg" style="margin-top:14px;font-size:13px;color:#bbbbcc;line-height:1.6"></div>
+
+      <div id="referralLinkBox" style="display:none">
+        <h2 style="margin-top:20px">Your Referral Link</h2>
+        <p class="sub">Share this link with business owners. When they sign up through it, their request appears for review.</p>
+        <div class="link-box">
+          <span id="referralLink"></span>
+          <button class="btn" style="width:auto;padding:8px 14px" onclick="copyReferralLink()">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Referrals table (only shown if approved) -->
+    <div class="card" id="referralsCard" style="display:none">
+      <h2>Your Referrals</h2>
+      <table>
+        <thead>
+          <tr><th>Store Name</th><th>Business Type</th><th>Status</th><th>Date</th></tr>
+        </thead>
+        <tbody id="referralsTbody">
+          <tr><td class="empty-row" colspan="4">No referrals yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+let _referralCode = '';
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function _agentLink(code) {
+  return `${location.origin}${location.pathname.replace('affiliate-dashboard.html','agent-signup.html')}?ref=${code}`;
+}
+
+function copyReferralLink() {
+  navigator.clipboard.writeText(_agentLink(_referralCode)).then(() => showToast('Referral link copied!'));
+}
+
+async function doLogout() {
+  await _sb.auth.signOut();
+  location.href = 'affiliate-login.html';
+}
+
+function _statusBadge(status) {
+  const map = {
+    pending:  ['badge-warn', 'Pending Review'],
+    approved: ['badge-ok', 'Approved'],
+    rejected: ['badge-danger', 'Rejected']
+  };
+  const [cls, label] = map[status] || ['badge-warn', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function _statusMessage(status) {
+  if (status === 'pending')  return "Your application is under review. We'll email you once it's approved.";
+  if (status === 'approved') return "You're an approved POSMaker affiliate! Share your referral link below.";
+  if (status === 'rejected') return "Your application was not approved. Contact POSMaker support if you have questions.";
+  return '';
+}
+
+async function loadReferrals() {
+  const { data } = await _sb.rpc('get_my_referrals', { p_auth_user_id: _userId });
+  const tb = document.getElementById('referralsTbody');
+  if (!data || !data.length) { tb.innerHTML = '<tr><td class="empty-row" colspan="4">No referrals yet.</td></tr>'; return; }
+  tb.innerHTML = data.map(r => {
+    const dt = new Date(r.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `<tr><td>${esc(r.store_name)}</td><td>${esc(r.business_type)}</td><td>${esc(r.status)}</td><td>${dt}</td></tr>`;
+  }).join('');
+}
+
+let _userId = null;
+
+(async () => {
+  const _tout = (ms, label) => new Promise((_, rej) => setTimeout(() => rej(new Error(label)), ms));
+  let session;
+  try {
+    const res = await Promise.race([_sb.auth.getSession(), _tout(15000, 'Connection timed out. Check your internet.')]);
+    session = res.data.session;
+  } catch(e) {
+    document.getElementById('loadingPage').innerHTML = `<div style="text-align:center"><div style="color:#ef4444;margin-bottom:12px">&#9888; ${e.message}</div><button onclick="location.reload()" class="btn">Retry</button></div>`;
+    return;
+  }
+  if (!session) { location.href = 'affiliate-login.html'; return; }
+  _userId = session.user.id;
+
+  const { data: aff, error } = await _sb.rpc('get_my_affiliate', { p_auth_user_id: _userId });
+
+  document.getElementById('loadingPage').style.display = 'none';
+  document.getElementById('appWrap').style.display = '';
+  document.getElementById('userEmail').textContent = session.user.email;
+
+  if (error || !aff || !aff.length) {
+    document.getElementById('noAffCard').style.display = '';
+    return;
+  }
+
+  const a = aff[0];
+  document.getElementById('statusCard').style.display = '';
+  document.getElementById('affName').textContent = a.name || a.email;
+  document.getElementById('affEmail').textContent = a.email;
+  document.getElementById('affBadge').outerHTML = _statusBadge(a.status);
+  document.getElementById('statusMsg').textContent = _statusMessage(a.status);
+
+  if (a.status === 'approved' && a.referral_code) {
+    _referralCode = a.referral_code;
+    document.getElementById('referralLinkBox').style.display = '';
+    document.getElementById('referralLink').textContent = _agentLink(a.referral_code);
+    document.getElementById('referralsCard').style.display = '';
+    loadReferrals();
+  }
+})();
+</script>
+</body>
+</html>

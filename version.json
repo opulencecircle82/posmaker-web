@@ -1,7 +1,8 @@
 {
-  "version": "1.2.3",
+  "version": "1.2.4",
   "date": "2026-06-15",
   "changes": [
+    "🤝 New Affiliate Program signup flow — apply, create your account, and track your application status from a new Affiliate Dashboard; admins get notified by email when approved",
     "💡 Hover tooltips added across the dashboard (all business types) — point your cursor over sidebar items and buttons (Add Staff, Add POS, Reset Device, etc.) for a quick explanation of what they do",
     "☕ Coffee Shop: Hover tooltips added — point your cursor over sidebar items and buttons (e.g. Add Staff, Inventory) for a quick explanation of what they do",
     "☕ Coffee Shop: Raw Materials category — fixed item-name examples (e.g. Powder → Milk Powder, Cinnamon Powder)",

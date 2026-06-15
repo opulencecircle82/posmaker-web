@@ -10,7 +10,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#09090f;color:#f0f0f8;font-family:'Inter',sans-serif;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
-.wrap{width:min(460px,100%)}
+.wrap{width:min(480px,100%)}
 .logo{text-align:center;font-size:22px;font-weight:800;margin-bottom:8px}
 .logo span{color:#00b4d8}
 .sub{text-align:center;font-size:13px;color:#8888aa;margin-bottom:28px}
@@ -31,28 +31,104 @@ input::placeholder,textarea::placeholder{color:#44445a}
 .done .ico{font-size:48px;margin-bottom:16px}
 .done h2{font-size:18px;font-weight:700;margin-bottom:8px}
 .done p{font-size:13px;color:#8888aa;line-height:1.6}
+.info-box{background:#09090f;border:1px solid #252540;border-radius:10px;padding:16px;font-size:13px;color:#bbbbcc;line-height:1.7;margin-bottom:20px}
+.info-box ul{margin:8px 0 0 18px}
+.tnc-box{background:#09090f;border:1px solid #252540;border-radius:10px;padding:14px;font-size:12px;color:#9999b3;line-height:1.7;max-height:160px;overflow-y:auto;margin-bottom:14px}
+.tnc-box h3{font-size:12px;color:#ddddee;margin-bottom:6px}
+.tnc-box p{margin-bottom:8px}
+.check-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;cursor:pointer}
+.check-row input[type=checkbox]{width:18px;height:18px;flex-shrink:0;margin-top:1px;accent-color:#00b4d8;cursor:pointer}
+.check-row span{font-size:13px;color:#ccccdd;line-height:1.5}
+.login-link{text-align:center;font-size:13px;color:#8888aa;margin-top:18px}
+.login-link a{color:#00b4d8;font-weight:600}
+.back-link{display:inline-block;font-size:13px;color:#8888aa;margin-bottom:14px;cursor:pointer;text-decoration:none}
+.back-link:hover{color:#f0f0f8}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="logo">POS<span>Maker</span></div>
-  <div class="sub">Partner Agent Program</div>
+  <div class="sub">Partner Affiliate Program</div>
 
-  <div class="card" id="formCard">
-    <h1>&#127919; Become an Agent</h1>
-    <p style="font-size:13px;color:#8888aa;margin-bottom:24px">Apply to become a POSMaker referral agent. Just leave your email — once we review and approve your application, we'll reach out with your personal referral link that you can share with prospective clients.</p>
-    <div class="field">
-      <label>Email Address</label>
-      <input id="agEmail" type="email" placeholder="e.g. you@email.com" oninput="agCheck()">
+  <!-- STEP 1: Intro / understand the program -->
+  <div class="card" id="stepIntro">
+    <h1>&#127919; Welcome to the Affiliate Program</h1>
+    <div class="info-box">
+      As a POSMaker affiliate, you get your own personal referral link to share with business owners.
+      <ul>
+        <li>When someone signs up using your link, their application appears in our admin dashboard for review.</li>
+        <li>Once approved, your referral link becomes active and you can start sharing it.</li>
+        <li>Free months can be granted to the stores you refer as part of their onboarding.</li>
+        <li>Your application is reviewed by our team — this usually takes a few days.</li>
+      </ul>
     </div>
-    <div class="err" id="agErr"></div>
-    <button class="btn" id="agBtn" onclick="submitApplication()" disabled>Apply →</button>
+    <label class="check-row">
+      <input type="checkbox" id="understandCheck" onchange="document.getElementById('btnIntro').disabled = !this.checked">
+      <span>I understand how the Affiliate Program works.</span>
+    </label>
+    <div class="err" id="errIntro"></div>
+    <button class="btn" id="btnIntro" onclick="showStep('form')" disabled>Sign Up for the Affiliate Program &rarr;</button>
+    <div class="login-link">Already applied? <a href="affiliate-login.html">Log in to check your status</a></div>
   </div>
 
-  <div class="card done" id="doneCard" style="display:none">
+  <!-- STEP 2: Sign-up form -->
+  <div class="card" id="stepForm" style="display:none">
+    <a class="back-link" onclick="showStep('intro')">&#8592; Back</a>
+    <h1>Create your affiliate account</h1>
+    <p style="font-size:13px;color:#8888aa;margin-bottom:20px">Fill in your details below to apply.</p>
+
+    <div class="field">
+      <label>Full Name</label>
+      <input id="afName" type="text" placeholder="e.g. Juan dela Cruz" autocomplete="name">
+    </div>
+    <div class="field">
+      <label>Address</label>
+      <input id="afAddress" type="text" placeholder="e.g. Quezon City, Philippines" autocomplete="address-line1">
+    </div>
+    <div class="field">
+      <label>Email Address</label>
+      <input id="afEmail" type="email" placeholder="e.g. you@email.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="afPassword" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <input id="afPassword2" type="password" placeholder="Re-enter your password" autocomplete="new-password">
+    </div>
+
+    <div class="tnc-box">
+      <h3>Terms &amp; Conditions</h3>
+      <p>By applying to the POSMaker Affiliate Program, you agree to the following:</p>
+      <p>1. You will represent POSMaker honestly and accurately when referring business owners.</p>
+      <p>2. Your application will be reviewed by the POSMaker team, and acceptance is at our sole discretion.</p>
+      <p>3. Your referral link is personal to you and may not be shared in a misleading or spam-like manner.</p>
+      <p>4. Free-month promotions granted through your referral link apply to the stores you refer, not to your own account.</p>
+      <p>5. POSMaker may suspend or revoke your affiliate status at any time for violation of these terms.</p>
+      <p>6. Any incentives or commissions, if applicable, will be communicated to you separately by the POSMaker team.</p>
+    </div>
+    <label class="check-row">
+      <input type="checkbox" id="agreeTerms" onchange="afCheck()">
+      <span>I have read and agree to the Terms and Conditions.</span>
+    </label>
+
+    <div class="err" id="errForm"></div>
+    <button class="btn" id="btnForm" onclick="submitAffiliate()" disabled>Sign me up &rarr;</button>
+  </div>
+
+  <!-- Fallback: email confirmation required -->
+  <div class="card done" id="stepConfirm" style="display:none">
+    <div class="ico">&#128231;</div>
+    <h2>Check your email</h2>
+    <p>We sent a confirmation link to <strong id="confirmEmail" style="color:#f0f0f8"></strong>. Please check your inbox (and spam folder), then click the link to finish your affiliate application.</p>
+  </div>
+
+  <!-- STEP 3: Done -->
+  <div class="card done" id="stepDone" style="display:none">
     <div class="ico">&#9989;</div>
-    <h2>Application Received</h2>
-    <p>Thanks! Please wait while we review and approve your application for affiliate. We'll reach out to your email once it's approved — along with your personal referral link.</p>
+    <h2>Thank you for applying!</h2>
+    <p>Your application is under review. We'll email you once it's approved — along with a link to log in to your affiliate dashboard.</p>
   </div>
 </div>
 
@@ -60,30 +136,102 @@ input::placeholder,textarea::placeholder{color:#44445a}
 const {createClient} = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-function agCheck() {
-  const email = document.getElementById('agEmail').value.trim();
-  document.getElementById('agBtn').disabled = !email.includes('@');
+function showStep(step) {
+  document.getElementById('stepIntro').style.display   = step === 'intro'   ? '' : 'none';
+  document.getElementById('stepForm').style.display    = step === 'form'    ? '' : 'none';
+  document.getElementById('stepConfirm').style.display = step === 'confirm' ? '' : 'none';
+  document.getElementById('stepDone').style.display    = step === 'done'    ? '' : 'none';
 }
 
-async function submitApplication() {
-  const email = document.getElementById('agEmail').value.trim();
-  const errEl = document.getElementById('agErr');
-  const btn = document.getElementById('agBtn');
+function afCheck() {
+  document.getElementById('btnForm').disabled = !document.getElementById('agreeTerms').checked;
+}
+
+// Pending application details, kept while we wait on session/email confirmation
+let _pendingAffiliate = null;
+
+async function _finishAffiliateApplication(session) {
+  localStorage.removeItem('pm_pending_affiliate');
+  const { name, address, email } = _pendingAffiliate;
+  const { error } = await _sb.rpc('submit_affiliate_application', {
+    p_auth_user_id: session.user.id, p_name: name, p_email: email, p_address: address
+  });
+  if (error) return { error };
+  showStep('done');
+}
+
+async function submitAffiliate() {
+  const name      = document.getElementById('afName').value.trim();
+  const address   = document.getElementById('afAddress').value.trim();
+  const email     = document.getElementById('afEmail').value.trim();
+  const password  = document.getElementById('afPassword').value;
+  const password2 = document.getElementById('afPassword2').value;
+  const errEl     = document.getElementById('errForm');
+  const btn       = document.getElementById('btnForm');
+
   errEl.textContent = '';
-  if (!email.includes('@')) { errEl.textContent = 'Please enter a valid email address.'; return; }
+  if (!name)                   { errEl.textContent = 'Full name is required.'; return; }
+  if (!address)                { errEl.textContent = 'Address is required.'; return; }
+  if (!email.includes('@'))    { errEl.textContent = 'Please enter a valid email address.'; return; }
+  if (password.length < 6)     { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if (password !== password2)  { errEl.textContent = 'Passwords do not match.'; return; }
+  if (!document.getElementById('agreeTerms').checked) { errEl.textContent = 'Please agree to the Terms and Conditions.'; return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Submitting…';
-  try {
-    const { error } = await _sb.rpc('submit_agent_application', { p_email: email });
-    if (error) throw error;
-    document.getElementById('formCard').style.display = 'none';
-    document.getElementById('doneCard').style.display = '';
-  } catch(e) {
-    errEl.textContent = e.message || 'Something went wrong. Please try again.';
-    btn.disabled = false; btn.textContent = 'Apply →';
+
+  _pendingAffiliate = { name, address, email };
+  localStorage.setItem('pm_pending_affiliate', JSON.stringify(_pendingAffiliate));
+
+  const { data: signUpData, error: authErr } = await _sb.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: location.origin + location.pathname,
+      data: { full_name: name }
+    }
+  });
+
+  if (authErr) {
+    btn.disabled = false; btn.textContent = 'Sign me up →';
+    errEl.textContent = authErr.message;
+    return;
   }
+
+  // If "Confirm email" is disabled in Supabase, signUp() returns an active session right away
+  if (signUpData && signUpData.session) {
+    const result = await _finishAffiliateApplication(signUpData.session);
+    if (result && result.error) {
+      btn.disabled = false; btn.textContent = 'Sign me up →';
+      errEl.textContent = result.error.message;
+    }
+    return;
+  }
+
+  // Otherwise, Supabase requires email confirmation — wait for it, then finish on return
+  btn.disabled = false; btn.textContent = 'Sign me up →';
+  document.getElementById('confirmEmail').textContent = email;
+  showStep('confirm');
 }
+
+// If returning from a confirmation email link, finish the pending application
+(async () => {
+  const { data: { session } } = await _sb.auth.getSession();
+  if (!session) return;
+
+  const saved = localStorage.getItem('pm_pending_affiliate');
+  if (saved) {
+    _pendingAffiliate = JSON.parse(saved);
+    localStorage.removeItem('pm_pending_affiliate');
+    const result = await _finishAffiliateApplication(session);
+    if (result && result.error) showStep('intro');
+    return;
+  }
+
+  // Already logged in with an existing affiliate application — send them to their dashboard
+  const { data: aff } = await _sb.rpc('get_my_affiliate', { p_auth_user_id: session.user.id });
+  if (aff && aff.length) { location.href = 'affiliate-dashboard.html'; }
+})();
 </script>
 </body>
 </html>

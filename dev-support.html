@@ -1373,6 +1373,19 @@ async function doApproveAgent() {
   closeModal('approveAgentModal');
   renderAgents();
   showToast('Agent approved — their referral link is now active.');
+
+  // Send the approval email — failure here doesn't undo the approval above
+  if (a && a.email) {
+    try {
+      const { error: mailErr } = await _sb.functions.invoke('send-affiliate-approval-email', {
+        body: { to: a.email, name: a.name, referralLink: _agentLink(data) }
+      });
+      if (mailErr) throw mailErr;
+      showToast('Approval email sent to ' + a.email);
+    } catch (e) {
+      showToast('Agent approved, but the email could not be sent: ' + (e.message || e), true);
+    }
+  }
 }
 
 async function rejectAgent(id) {

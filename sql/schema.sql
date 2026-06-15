@@ -482,3 +482,51 @@ BEGIN
     WHERE id = p_referral_id;
   RETURN true;
 END; $$;
+
+-- ============================================================
+--  Affiliate self-signup (agent-apply.html + affiliate-dashboard.html)
+-- ============================================================
+
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS auth_user_id UUID;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS agreed_terms BOOLEAN DEFAULT false;
+
+-- Public (authenticated affiliate): submit/update their affiliate application after creating
+-- their Supabase Auth account in agent-apply.html. Idempotent on auth_user_id so returning
+-- from an email-confirmation link doesn't create a duplicate row.
+CREATE OR REPLACE FUNCTION submit_affiliate_application(p_auth_user_id uuid, p_name text, p_email text, p_address text)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_id uuid;
+BEGIN
+  SELECT id INTO v_id FROM agents WHERE auth_user_id = p_auth_user_id;
+  IF v_id IS NULL THEN
+    INSERT INTO agents (auth_user_id, name, email, address, status, agreed_terms)
+    VALUES (p_auth_user_id, p_name, p_email, p_address, 'pending', true)
+    RETURNING id INTO v_id;
+  ELSE
+    UPDATE agents SET name = p_name, email = p_email, address = p_address, agreed_terms = true
+      WHERE id = v_id;
+  END IF;
+  RETURN v_id;
+END; $$;
+
+-- Public (authenticated affiliate): fetch their own application/status for affiliate-dashboard.html
+CREATE OR REPLACE FUNCTION get_my_affiliate(p_auth_user_id uuid)
+RETURNS TABLE(id uuid, name text, email text, status text, referral_code text,
+              default_free_months integer, created_at timestamptz)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY SELECT a.id, a.name, a.email, a.status, a.referral_code, a.default_free_months, a.created_at
+    FROM agents a WHERE a.auth_user_id = p_auth_user_id;
+END; $$;
+
+-- Public (authenticated affiliate): list their own referrals for affiliate-dashboard.html
+CREATE OR REPLACE FUNCTION get_my_referrals(p_auth_user_id uuid)
+RETURNS TABLE(id uuid, store_name text, business_type text, status text, free_period text, created_at timestamptz)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_agent_id uuid;
+BEGIN
+  SELECT id INTO v_agent_id FROM agents WHERE auth_user_id = p_auth_user_id;
+  IF v_agent_id IS NULL THEN RETURN; END IF;
+  RETURN QUERY SELECT r.id, r.store_name, r.business_type, r.status, r.free_period, r.created_at
+    FROM agent_referrals r WHERE r.agent_id = v_agent_id ORDER BY r.created_at DESC;
+END; $$;
