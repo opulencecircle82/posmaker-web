@@ -582,9 +582,28 @@ END; $$;
 -- RLS: store owners need to read their own subscriptions row so dashboard.html can
 -- determine IS_PRO (subscriptions has RLS enabled with no policies by default, which
 -- blocks all client-side reads).
+GRANT SELECT ON subscriptions TO authenticated;
 CREATE POLICY "Users can view their own subscriptions" ON subscriptions
 FOR SELECT
 USING (
   subscriber_email = auth.jwt() ->> 'email'
   OR store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid())
 );
+
+-- Cashier pages run as `anon` (custom store_users login, not Supabase Auth),
+-- so the RLS policy above (auth.jwt()/auth.uid()) doesn't help there.
+-- This SECURITY DEFINER RPC lets the cashier check the store's Pro status
+-- without exposing raw subscription rows to anon.
+CREATE OR REPLACE FUNCTION get_store_pro_status(p_store_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_free_until timestamptz; v_active boolean;
+BEGIN
+  SELECT free_until INTO v_free_until FROM stores WHERE id = p_store_id;
+  IF v_free_until IS NOT NULL AND v_free_until > now() THEN RETURN true; END IF;
+  SELECT true INTO v_active FROM subscriptions
+    WHERE store_id = p_store_id AND status = 'active' AND (expires_at IS NULL OR expires_at >= now())
+    LIMIT 1;
+  RETURN COALESCE(v_active, false);
+END; $$;
+
+GRANT EXECUTE ON FUNCTION get_store_pro_status(uuid) TO anon, authenticated;

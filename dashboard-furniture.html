@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/config.js"></script>
+<script src="js/store-plan.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--accent:#00b4d8;--text:#f0f0f8;--muted:#8888aa;--dim:#44445a}
@@ -1133,6 +1134,7 @@ document.addEventListener('click', e => {
 
 let STORE = null, CUR = '₱', TAX = 12;
 let allProds = [], allStaff = [];
+let frozenProdIds = new Set(), frozenInvIds = new Set(), frozenStaffIds = new Set(), frozenStoreIds = new Set();
 let pendingLogob64 = null;
 let pendingProdImg = null;
 let _prodPendingImgs = [];
@@ -1930,6 +1932,7 @@ async function loadProducts() {
     .select('*').eq('store_id', STORE.id).order('category').order('name').abortSignal(_sig());
   if (error) { console.error('loadProducts error:', error); }
   allProds = data || [];
+  frozenProdIds = computeFrozenIds(allProds, FREE_PROD_LIMIT, IS_PRO);
   renderProds(allProds);
   updateAddBtnLabels();
 }
@@ -1947,12 +1950,12 @@ function renderProds(prods) {
   if (!prods.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No products. Click + Add to create one.</td></tr>'; return; }
   tbody.innerHTML = prods.map(p => `<tr>
     <td style="width:44px">${p.image_b64?`<img src="${_imgSrc(p.image_b64)}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;display:block">`:`<div style="width:36px;height:36px;border-radius:6px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:18px">&#128722;</div>`}</td>
-    <td style="font-weight:600">${p.name}</td>
+    <td style="font-weight:600">${p.name}${frozenProdIds.has(p.id)?frozenBadgeHtml():''}</td>
     <td style="color:var(--muted)">${p.category}</td>
     <td><div style="color:var(--accent);font-weight:700">${CUR}${parseFloat(p.price).toFixed(2)}</div>${p.cost_price?`<div style="color:var(--dim);font-size:11px">Cost: ${CUR}${parseFloat(p.cost_price).toFixed(2)}</div>`:''}</td>
     <td><label class="toggle"><input type="checkbox" ${p.available?'checked':''} onchange="toggleProd('${p.id}',this.checked)"><span class="slider"></span></label></td>
     <td style="white-space:nowrap">
-      <button class="btn btn-ghost btn-sm" onclick="openProdModal('${p.id}')">Edit</button>
+      ${frozenProdIds.has(p.id)?`<button class="btn btn-ghost btn-sm" onclick="showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT)">Edit</button>`:`<button class="btn btn-ghost btn-sm" onclick="openProdModal('${p.id}')">Edit</button>`}
       <button class="btn btn-danger btn-sm" onclick="deleteProd('${p.id}')">Del</button>
     </td>
   </tr>`).join('');
@@ -1985,8 +1988,8 @@ function openCatFromProd() {
   setTimeout(()=>document.getElementById('catName').focus(),50);
 }
 function showUpgradeModal(type, count, limit) {
-  const labels  = { product:'products', inventory:'inventory items', staff:'staff accounts' };
-  const singles = { product:'product',  inventory:'item',            staff:'staff account'  };
+  const labels  = { product:'products', inventory:'inventory items', staff:'staff accounts', pos:'POS terminals' };
+  const singles = { product:'product',  inventory:'item',            staff:'staff account',  pos:'POS terminal'  };
   const label  = labels[type]  || type;
   const single = singles[type] || type;
   document.getElementById('upgradeMsg').innerHTML =
@@ -2037,6 +2040,7 @@ async function loadPOSTerminals() {
     allStores = storesRes.data || [];
   }
   posDevices = devicesRes.data || [];
+  frozenStoreIds = computeFrozenIds(allStores, FREE_POS_LIMIT, IS_PRO);
   // Auto-generate store codes for stores that don't have one
   for (const s of allStores) {
     if (!s.store_code) {
@@ -2065,6 +2069,22 @@ function renderPOSTerminals() {
   list.innerHTML = allStores.map((s, i) => {
     const url  = cashierUrlFor(s);
     const code = s.store_code || '—';
+    if (frozenStoreIds.has(s.id)) {
+      return `<div class="info-card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div>
+          <div style="font-size:15px;font-weight:700">&#128187; POS #${i+1} &mdash; ${s.name}</div>
+          ${s.business_type?`<div style="font-size:11px;color:var(--accent);margin-top:3px">${s.business_type}</div>`:''}
+        </div>
+        ${frozenBadgeHtml()}
+      </div>
+      <div style="background:#2a1a00;border:1px solid #f59e0b;border-radius:8px;padding:14px 16px">
+        <div style="font-size:12px;color:#f59e0b;font-weight:600;margin-bottom:6px">&#128274; This POS terminal is over your free plan limit</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Its Store Code is hidden and it can't be managed until you upgrade to Pro.</div>
+        <button class="btn btn-accent btn-sm" onclick="showUpgradeModal('pos', allStores.length, FREE_POS_LIMIT)">Upgrade to Pro</button>
+      </div>
+    </div>`;
+    }
     const dev  = posDevices.find(d => d.store_id === s.id);
     const devIcon = dev ? ({'android':'&#128241;','ios':'&#128241;','windows':'&#128187;','web':'&#127760;'}[dev.platform]||'&#128187;') : '';
     const devBlock = dev
@@ -2279,6 +2299,7 @@ function _bizPlaceholder(field) {
 function openProdModal(p) {
   if(typeof p === 'string') p = allProds.find(x => x.id === p) || null;
   if (!IS_PRO && !p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
+  if (p && frozenProdIds.has(p.id)) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
   const isServiceBiz = TRUE_SERVICE_BIZ.has(STORE?.business_type || '');
   document.getElementById('prodModalTitle').textContent = p ? (isServiceBiz?'Edit Service':'Edit Product') : (isServiceBiz?'Add Service':'Add Product');
   document.getElementById('pNameLbl').textContent = isServiceBiz ? 'Service Name' : 'Product Name';
@@ -2482,9 +2503,10 @@ async function loadStaff() {
   }, 8000);
   try {
     const { data, error } = await _sb.from('store_users')
-      .select('id,username,full_name,role,active,last_seen,last_login_at').eq('store_id', STORE.id).order('role').order('username').abortSignal(_sig());
+      .select('id,username,full_name,role,active,last_seen,last_login_at,created_at').eq('store_id', STORE.id).order('role').order('username').abortSignal(_sig());
     if (error) throw error;
     allStaff = data || [];
+    frozenStaffIds = computeFrozenIds(allStaff, FREE_STAFF_LIMIT, IS_PRO);
     if (allStaff.length) {
       const ids = allStaff.map(s => s.id);
       const { data: logs } = await _sb.from('staff_logs')
@@ -2515,14 +2537,14 @@ function renderStaff(staff) {
         ? new Date(_ll).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})
         : '<span style="color:var(--dim)">Never</span>';
     return `<tr>
-      <td style="font-weight:600;font-family:monospace">${s.username}</td>
+      <td style="font-weight:600;font-family:monospace">${s.username}${frozenStaffIds.has(s.id)?frozenBadgeHtml():''}</td>
       <td>${s.full_name || '&#8212;'}</td>
       <td><span class="badge bg-cash" style="${s.role==='manager'?'background:#1a1a3a;color:#818cf8':''}">${s.role}</span></td>
       <td><label class="toggle"><input type="checkbox" ${s.active?'checked':''} onchange="toggleStaff('${s.id}',this.checked)"><span class="slider"></span></label></td>
       <td style="font-size:12px;color:var(--muted)">${lastLogin}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-sm" onclick="viewStaffLogs('${s.id}','${s.username}')">Logs</button>
-        <button class="btn btn-ghost btn-sm" onclick="openStaffModal(${JSON.stringify(s).replace(/"/g,'&quot;')})">Edit</button>
+        ${frozenStaffIds.has(s.id)?`<button class="btn btn-ghost btn-sm" onclick="showUpgradeModal('staff', allStaff.length, FREE_STAFF_LIMIT)">Edit</button>`:`<button class="btn btn-ghost btn-sm" onclick="openStaffModal(${JSON.stringify(s).replace(/"/g,'&quot;')})">Edit</button>`}
         ${s.role==='manager'?`<button class="btn btn-sm" style="background:rgba(0,180,216,.15);color:#00b4d8;border:1px solid rgba(0,180,216,.3)" onclick="copyStaffLink()">&#128279; Link</button>`:''}
         <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">Del</button>
       </td>
@@ -2550,6 +2572,7 @@ async function viewStaffLogs(staffId, username) {
 }
 function openStaffModal(s) {
   if (!IS_PRO && !s && allStaff.length >= FREE_STAFF_LIMIT) { showUpgradeModal('staff', allStaff.length, FREE_STAFF_LIMIT); return; }
+  if (s && frozenStaffIds.has(s.id)) { showUpgradeModal('staff', allStaff.length, FREE_STAFF_LIMIT); return; }
   document.getElementById('staffModalTitle').textContent = s ? 'Edit Staff' : 'Add Staff';
   document.getElementById('staffId').value   = s ? s.id : '';
   document.getElementById('sfUser').value    = s ? s.username : '';
@@ -3142,6 +3165,7 @@ async function loadInventory() {
   if(!STORE) return;
   const {data}=await _sb.from('inventory_items').select('*').eq('store_id',STORE.id).order('category').order('name').abortSignal(_sig());
   invItems=data||[];
+  frozenInvIds = computeFrozenIds(invItems, FREE_INV_LIMIT, IS_PRO);
   const cats=[...new Set(invItems.map(i=>i.category).filter(Boolean))].sort();
   const sel=document.getElementById('invCatFilter');
   sel.innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option value="${c}">${c}</option>`).join('');
@@ -3170,7 +3194,7 @@ function renderInv(items) {
     const rs=out?'background:rgba(239,68,68,.04)':low?'background:rgba(245,158,11,.04)':'';
     return `<tr style="${rs}">
       <td style="font-family:monospace;font-size:12px;color:var(--muted)">${i.sku||'&#8212;'}</td>
-      <td style="font-weight:600">${i.name}</td>
+      <td style="font-weight:600">${i.name}${frozenInvIds.has(i.id)?frozenBadgeHtml():''}</td>
       <td style="color:var(--muted)">${i.category||'&#8212;'}</td>
       <td style="color:var(--muted)">${i.unit||'pc'}</td>
       <td style="color:var(--muted)">${CUR}${parseFloat(i.cost_price||0).toFixed(2)}</td>
@@ -3183,7 +3207,7 @@ function renderInv(items) {
       <td>${badge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-accent btn-sm" onclick="openAddStock('${i.id}')">+Add</button>
-        <button class="btn btn-ghost btn-sm" onclick="openInvModal(invItems.find(x=>x.id==='${i.id}'))">Edit</button>
+        ${frozenInvIds.has(i.id)?`<button class="btn btn-ghost btn-sm" onclick="showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT)">Edit</button>`:`<button class="btn btn-ghost btn-sm" onclick="openInvModal(invItems.find(x=>x.id==='${i.id}'))">Edit</button>`}
         <button class="btn btn-danger btn-sm" onclick="deleteInvItem('${i.id}')">Del</button>
       </td></tr>`;
   }).join('');
@@ -3200,6 +3224,8 @@ function openInvFromProd(){
 }
 async function openInvModal(item){
   if (!IS_PRO && !item && invItems.length >= FREE_INV_LIMIT) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
+  if (item && frozenInvIds.has(item.id)) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
+  if (item && frozenInvIds.has(item.id)) { showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT); return; }
   _invPendingImgs=[];
   if(item){
     // Primary: load directly from inventory_items.image_b64

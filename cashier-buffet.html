@@ -13,6 +13,7 @@
 <title>POSMaker Cashier</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/config.js"></script>
+<script src="js/store-plan.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--radius:8px}
@@ -507,6 +508,8 @@ function bizCashierFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `
 function bizDashboardFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `dashboard-${s}.html` : 'dashboard.html'; }
 
 let STORE = null, CUR = '₱', TAX = 0, CASHIER = null, CASHIER_NAME = '';
+const FREE_PROD_LIMIT = 3, FREE_STAFF_LIMIT = 1;
+let IS_PRO = false;
 let prods = [], cart = {}, payMeth = 'Cash';
 let storeInvItems = [], invById = {}, invByName = {};
 let orderType = 'Dine In', tableNo = '', isKOT = false;
@@ -633,6 +636,7 @@ async function checkWebDevice(storeId, register = false) {
     }
   }
   STORE = store; CUR = store.currency || '₱'; TAX = parseFloat(store.tax_rate) || 0;
+  IS_PRO = await getStorePro(_sb, STORE.id);
   setStoreUI();
 })();
 
@@ -820,6 +824,15 @@ async function doLogin() {
     if (found.password_hash !== hash) {
       errEl.textContent = 'Wrong password. Try again or ask your manager to reset it.';
       return;
+    }
+
+    if (!IS_PRO) {
+      const { data: allStaff } = await _sb.from('store_users').select('id,created_at').eq('store_id', STORE_ID);
+      const frozenStaffIds = computeFrozenIds(allStaff || [], FREE_STAFF_LIMIT, IS_PRO);
+      if (frozenStaffIds.has(found.id)) {
+        errEl.textContent = "This staff account is over the store's free plan limit. Ask your manager to upgrade to Pro.";
+        return;
+      }
     }
 
     CASHIER = found;
@@ -1056,6 +1069,13 @@ async function loadProds() {
   }
 
   prods = data || [];
+
+  // Hide products beyond the Free Plan limit (oldest-first stay active)
+  if (!IS_PRO) {
+    const { data: allIds } = await _sb.from('products').select('id,created_at').eq('store_id', STORE_ID);
+    const frozenProdIds = computeFrozenIds(allIds || [], FREE_PROD_LIMIT, IS_PRO);
+    prods = prods.filter(p => !frozenProdIds.has(p.id));
+  }
 
   // Load inventory items and merge stock into products
   // For products with inv_links: compute effective stock from linked inventory items
