@@ -575,6 +575,6 @@ BEGIN
   INSERT INTO agent_referrals (agent_id, store_name, business_type, owner_email, status, free_period, store_id)
   VALUES (v_agent_id, p_store_name, p_business_type, p_owner_email, 'granted', v_months::text, p_store_id);
 
-  INSERT INTO subscriptions (store_id, subscriber_email, plan_name, amount, status, started_at, expires_at)
-  VALUES (p_store_id, p_owner_email, 'Referral - Free Trial', 0, 'active', now(), now() + (v_months || ' months')::interval);
+  INSERT INTO subscriptions (store_id, subscriber_email, plan_name, amount, status, expires_at)
+  VALUES (p_store_id, p_owner_email, 'Referral - Free Trial', 0, 'active', now() + (v_months || ' months')::interval);
 END; $$;
