@@ -478,8 +478,8 @@ BEGIN
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   SELECT owner_email INTO v_email FROM agent_referrals WHERE id = p_referral_id;
   v_expires := now() + (p_months || ' months')::interval;
-  INSERT INTO subscriptions (store_id, subscriber_email, plan_name, amount, status, started_at, expires_at)
-  VALUES (p_store_id, v_email, 'Agent Referral - Free', 0, 'active', now(), v_expires);
+  INSERT INTO subscriptions (store_id, subscriber_email, plan_name, amount, status, expires_at)
+  VALUES (p_store_id, v_email, 'Agent Referral - Free', 0, 'active', v_expires);
   UPDATE agent_referrals SET status = 'granted', free_period = p_months::text, store_id = p_store_id
     WHERE id = p_referral_id;
   RETURN true;
@@ -553,7 +553,7 @@ BEGIN
     LEFT JOIN LATERAL (
       SELECT amount FROM subscriptions
       WHERE store_id = r.store_id AND status = 'active' AND (expires_at IS NULL OR expires_at >= now())
-      ORDER BY started_at DESC LIMIT 1
+      ORDER BY expires_at DESC LIMIT 1
     ) s ON true
     WHERE r.agent_id = v_agent_id ORDER BY r.created_at DESC;
 END; $$;
