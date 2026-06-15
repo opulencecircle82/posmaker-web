@@ -892,13 +892,14 @@ async function loadLog(){
 }
 
 async function logAction(action, targetName, details){
-  await _sb.from('activity_logs').insert({
+  const { error } = await _sb.from('activity_logs').insert({
     store_id: MGR.store_id,
     actor_name: MGR.name,
     actor_role: MGR.role||'manager',
     action, target_name: targetName,
     details: details ? JSON.stringify(details) : null
   });
+  if (error) { console.error('logAction error:', error); showToast('Log error: ' + error.message, true); }
 }
 
 let _salesPeriod = 'day', _salesData = [], _salesAllData = [];
