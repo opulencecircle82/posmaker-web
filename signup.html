@@ -131,7 +131,11 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
     <div id="stepConfirm" style="display:none;text-align:center;padding:8px 0">
       <div style="font-size:44px;margin-bottom:14px">📧</div>
       <h1 style="margin-bottom:8px">Check your email</h1>
-      <p class="sub" style="margin-bottom:0">We sent a confirmation link to <strong id="confirmEmail" style="color:#f0f0f8"></strong>. Please check your inbox (and spam folder), then click the link to finish creating your store.</p>
+      <p class="sub">We sent a confirmation link to <strong id="confirmEmail" style="color:#f0f0f8"></strong>. Please check your inbox (and spam folder), then click the link to finish creating your store.</p>
+      <div style="margin-top:18px">
+        <button id="btnResend" class="btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:13px;padding:8px 18px;width:auto" onclick="resendConfirmation()">Didn't receive it? Resend email</button>
+        <div id="resendMsg" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -144,6 +148,38 @@ const REF = new URLSearchParams(location.search).get('ref') || localStorage.getI
 function showStep(step) {
   document.getElementById('stepAll').style.display     = step === 'all'     ? '' : 'none';
   document.getElementById('stepConfirm').style.display = step === 'confirm' ? '' : 'none';
+}
+
+let _resendCooldown = false;
+async function resendConfirmation() {
+  if (_resendCooldown) return;
+  const email = document.getElementById('confirmEmail').textContent;
+  if (!email) return;
+  const btn = document.getElementById('btnResend');
+  const msg = document.getElementById('resendMsg');
+  btn.disabled = true;
+  msg.textContent = 'Sending…';
+  const { error } = await _sb.auth.resend({ type: 'signup', email });
+  if (error) {
+    msg.textContent = 'Error: ' + error.message;
+    btn.disabled = false;
+  } else {
+    msg.textContent = 'Email sent! Check your inbox (and spam folder).';
+    _resendCooldown = true;
+    let secs = 60;
+    btn.textContent = `Resend again in ${secs}s`;
+    const t = setInterval(() => {
+      secs--;
+      if (secs <= 0) {
+        clearInterval(t);
+        btn.textContent = 'Didn\'t receive it? Resend email';
+        btn.disabled = false;
+        _resendCooldown = false;
+      } else {
+        btn.textContent = `Resend again in ${secs}s`;
+      }
+    }, 1000);
+  }
 }
 
 // Pending store details, kept while we wait on session/email confirmation
