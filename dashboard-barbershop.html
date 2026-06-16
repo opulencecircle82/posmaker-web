@@ -2027,7 +2027,7 @@ function renderReport(orders, from, to) {
           <th style=”text-align:center;padding:6px 10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px”>Method</th>
         </tr></thead>
         <tbody>
-          ${rows.map(o => {
+          ${rows.map((o,ri) => {
             const barber = o.barber_name || _orderBarberMap[o.id] || '&#8212;';
             const chair  = o.table_no  || '&#8212;';
             return `<tr style=”border-top:1px solid rgba(255,255,255,.04)”>

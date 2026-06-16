@@ -1906,20 +1906,20 @@ function renderReport(orders, from, to) {
           <th style=”text-align:center;padding:6px 10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px”>Method</th>
         </tr></thead>
         <tbody>
-          ${rows.map(o => {
+          ${rows.map((o,ri) => {
             const otype = o.order_type || 'Dine In';
             const otBg  = otype==='Dine In'?'#0a2a1a':otype==='Take Out'?'#1a1a00':'#1a0a2a';
             const otColor = otype==='Dine In'?'#10b981':otype==='Take Out'?'#f59e0b':'#a78bfa';
-            return `<tr style=”border-top:1px solid rgba(255,255,255,.04)”>
-            <td style=”padding:6px 10px;color:var(--dim)”>#${o.id}</td>
-            <td style=”padding:6px 10px;white-space:nowrap”>${fmtTime(o.timestamp)}</td>
-            <td style=”padding:6px 10px;font-weight:500”>${o.cashier_name||'&#8212;'}</td>
-            <td style=”padding:6px 10px;color:var(--muted);font-size:11px;max-width:200px”>${(o._items||[]).join(', ')||'&#8212;'}</td>
-            <td style=”padding:6px 10px;text-align:right;color:var(--muted)”>${CUR}${parseFloat(o.subtotal||0).toFixed(2)}</td>
-            <td style=”padding:6px 10px;text-align:right;color:var(--muted)”>${CUR}${parseFloat(o.tax||0).toFixed(2)}</td>
-            <td style=”padding:6px 10px;text-align:right;font-weight:700;color:var(--accent)”>${CUR}${parseFloat(o.total||0).toFixed(2)}</td>
-            <td style=”padding:6px 10px;text-align:center”><span style=”background:${otBg};color:${otColor};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600”>${otype}</span></td>
-            <td style=”padding:6px 10px;text-align:center”><span style=”background:${payBg(o.payment_method)};color:#fff;padding:2px 8px;border-radius:4px;font-size:10px”>${o.payment_method||'Cash'}</span></td>
+            return `<tr style="border-top:1px solid rgba(255,255,255,.04);${ri%2?'background:rgba(255,255,255,.025)':''}">
+            <td style="padding:5px 10px;color:var(--dim);font-size:11px">#${o.id}</td>
+            <td style="padding:5px 10px;white-space:nowrap;font-size:12px">${fmtTime(o.timestamp)}</td>
+            <td style="padding:5px 10px;font-weight:500;font-size:12px">${o.cashier_name||'—'}</td>
+            <td style="padding:5px 10px;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)" title="${(o._items||[]).join(', ')}">${(o._items||[]).slice(0,3).join(', ')||'—'}${o._items&&o._items.length>3?' <span style=\'color:#818cf8;font-size:10px;font-weight:700\'>+${o._items.length-3}</span>':''}</td>
+            <td style="padding:5px 10px;text-align:right;color:var(--muted);font-size:12px">${CUR}${parseFloat(o.subtotal||0).toFixed(2)}</td>
+            <td style="padding:5px 10px;text-align:right;color:var(--muted);font-size:12px">${CUR}${parseFloat(o.tax||0).toFixed(2)}</td>
+            <td style="padding:5px 10px;text-align:right;font-weight:700;color:var(--accent)">${CUR}${parseFloat(o.total||0).toFixed(2)}</td>
+            <td style="padding:5px 10px;text-align:center"><span style="background:${otBg};color:${otColor};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">${otype}</span></td>
+            <td style="padding:5px 10px;text-align:center"><span style="background:${payBg(o.payment_method)};color:#fff;padding:2px 7px;border-radius:4px;font-size:10px">${o.payment_method||'Cash'}</span></td>
           </tr>`;}).join('')}
         </tbody>
         <tfoot>
@@ -2178,7 +2178,7 @@ function renderProfitMargin(items) {
     <tbody>
       ${rows.map(r => {
         const q = quadrant(r);
-        return `<tr style="border-top:1px solid rgba(255,255,255,.04)">
+        return `<tr style="border-top:1px solid rgba(255,255,255,.04);${ri%2?'background:rgba(255,255,255,.025)':''}">
           <td style="padding:8px 10px;font-weight:600">${r.name}</td>
           <td style="padding:8px 10px;text-align:right">${r.units}</td>
           <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--accent)">${CUR}${r.revenue.toFixed(2)}</td>
