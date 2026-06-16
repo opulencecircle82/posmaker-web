@@ -385,7 +385,8 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
       <div style="font-size:11px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Password</div>
       <div style="font-size:18px;font-weight:800;color:var(--success);letter-spacing:.5px" id="vpPass"></div>
     </div>
-    <button class="btn btn-ghost btn-full" onclick="navigator.clipboard.writeText(document.getElementById('vpPass').textContent).then(()=>showToast('Password copied!'))" style="margin-bottom:10px">&#128203; Copy Password</button>
+    <button class="btn btn-ghost btn-full" onclick="navigator.clipboard.writeText(document.getElementById('vpPass').textContent).then(()=>showToast('Password copied!'))" style="margin-bottom:8px">&#128203; Copy Password</button>
+    <button class="btn btn-ghost btn-full" id="vpResetBtn" onclick="closeModal('viewPwModal');openOwnerResetModal(document.getElementById('vpResetBtn').dataset.sid,document.getElementById('vpStore').textContent,document.getElementById('vpEmail').textContent)" style="margin-bottom:10px">&#128274; Change Password</button>
     <div class="m-actions" style="margin-top:0"><button class="btn btn-accent btn-full" onclick="closeModal('viewPwModal')">Close</button></div>
   </div>
 </div>
@@ -1233,12 +1234,14 @@ async function saveAccountManage() {
 async function viewPassword(storeId, storeName, email) {
   const { data, error } = await _sb.rpc('dev_get_store_password', { p_token: _devToken, p_store_id: storeId });
   if (error || !data) {
-    showToast('No saved password — reset it first using Reset PW in the Partners tab.', true);
+    // No saved password — open reset modal directly instead of showing error
+    openOwnerResetModal(storeId, storeName, email);
     return;
   }
   document.getElementById('vpStore').textContent = storeName;
   document.getElementById('vpEmail').textContent  = email;
   document.getElementById('vpPass').textContent   = data;
+  document.getElementById('vpResetBtn').dataset.sid = storeId;
   document.getElementById('viewPwModal').classList.add('show');
 }
 
