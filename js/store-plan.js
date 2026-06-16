@@ -300,6 +300,8 @@ function addChecklistItem(kind) {
 }
 
 function removeChecklistItem(kind, idx) {
+  const item = (_opsData.checklistItems[kind] || [])[idx] || 'this item';
+  if (!confirm(`Are you sure you want to delete "${item}" from the checklist?`)) return;
   _opsData.checklistItems[kind].splice(idx, 1);
   Object.values(_opsData.checklistLog).forEach(day => {
     if (day[kind]) day[kind] = day[kind].filter(i => i !== idx).map(i => i > idx ? i - 1 : i);
