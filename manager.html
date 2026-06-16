@@ -1401,12 +1401,20 @@ async function loadCashSummary() {
   const confirmedTotal = confirmedRows.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
   const pendingTotal   = pendingRows.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
   const cashierCount = cashierRows.length;
+  // adjRows: purchases are stored as negative cash_on_hand, deposits as positive
+  const adjTotal     = adjRows.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
+  const netTotal     = confirmedTotal + adjTotal;
+  const purchaseTotal = adjRows.filter(r=>r.status==='purchase').reduce((s,r)=>s+Math.abs(parseFloat(r.cash_on_hand||0)),0);
+  const depositTotal  = adjRows.filter(r=>r.status==='deposit').reduce((s,r)=>s+parseFloat(r.cash_on_hand||0),0);
 
   el.innerHTML = `
     <div style="background:var(--s2);border-radius:8px;padding:10px 12px;text-align:center;margin-bottom:10px">
-      <div style="font-size:10px;color:var(--muted);letter-spacing:.5px;margin-bottom:2px">TOTAL CASH WITH MANAGER</div>
-      <div style="font-size:26px;font-weight:800;color:#10b981">&#8369;${confirmedTotal.toFixed(2)}</div>
-      ${pendingTotal>0?`<div style="font-size:11px;color:#f59e0b;margin-top:2px">+&#8369;${pendingTotal.toFixed(2)} pending confirmation</div>`:`<div style="font-size:11px;color:var(--muted);margin-top:2px">${cashierCount} cashier${cashierCount!==1?'s':''}</div>`}
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.5px;margin-bottom:2px">NET CASH WITH MANAGER</div>
+      <div style="font-size:26px;font-weight:800;color:#10b981">&#8369;${netTotal.toFixed(2)}</div>
+      ${adjTotal<0?`<div style="font-size:11px;color:#ef4444;margin-top:1px">&#8369;${confirmedTotal.toFixed(2)} received &minus; &#8369;${purchaseTotal.toFixed(2)} purchases${depositTotal>0?' + &#8369;'+depositTotal.toFixed(2)+' deposit':''}</div>`
+      :adjTotal>0?`<div style="font-size:11px;color:#10b981;margin-top:1px">&#8369;${confirmedTotal.toFixed(2)} received + &#8369;${depositTotal.toFixed(2)} deposit</div>`
+      :pendingTotal>0?`<div style="font-size:11px;color:#f59e0b;margin-top:2px">+&#8369;${pendingTotal.toFixed(2)} pending confirmation</div>`
+      :`<div style="font-size:11px;color:var(--muted);margin-top:2px">${cashierCount} cashier${cashierCount!==1?'s':''}</div>`}
     </div>
     ${cashierRows.map(r => {
       const isConfirmed = confirmedStatuses.includes(r.status);
