@@ -264,7 +264,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <div class="login-box">
     <div class="login-title" style="margin-bottom:6px">&#128273; Enter Store Code</div>
     <div class="login-sub">Enter the store code from your owner's dashboard to connect this POS terminal.</div>
-    <input class="inp" id="actInput" type="text" placeholder="e.g. LECHON1234" autocomplete="off" style="margin-top:4px;text-transform:uppercase;letter-spacing:3px;font-weight:800;font-size:18px;text-align:center">
+    <input class="inp" id="actInput" type="text" placeholder="e.g. STORE1234" autocomplete="off" style="margin-top:4px;text-transform:uppercase;letter-spacing:3px;font-weight:800;font-size:18px;text-align:center">
     <div id="actErr" style="color:#ef4444;font-size:12px;min-height:16px;margin-bottom:6px;text-align:center"></div>
     <button class="btn-login" id="actBtn" onclick="doActivateStore()">&#10003; Connect</button>
     <p class="act-note">Find your code in the owner dashboard<br>under <strong style="color:#f0f0f8">My POS Terminals</strong></p>
@@ -2596,6 +2596,8 @@ async function doActivateStore() {
   err.textContent = '';
   if (!raw || raw.length < 4) { err.textContent = 'Please enter your store code.'; return; }
 
+  if (!navigator.onLine) { try { const _cm=JSON.parse(localStorage.getItem('pm_store_code_map')||'{}'); const _sid=_cm[raw]; if(_sid&&localStorage.getItem('pm_cached_store_'+_sid)){localStorage.setItem('pm_store_id',_sid);location.replace(location.pathname+'?store='+_sid);return;} } catch(_){} err.textContent='Offline — connect to internet first to set up this device.'; return; }
+
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Connecting...';
 
@@ -2613,6 +2615,7 @@ async function doActivateStore() {
     btn.disabled = false; btn.innerHTML = '&#10003; Connect';
     return;
   }
+  try { const _cm=JSON.parse(localStorage.getItem('pm_store_code_map')||'{}'); _cm[raw]=store.id; localStorage.setItem('pm_store_code_map',JSON.stringify(_cm)); } catch(_) {}
   localStorage.setItem('pm_store_id', store.id);
   location.replace(location.pathname + '?store=' + store.id);
 }
