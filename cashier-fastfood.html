@@ -1984,7 +1984,19 @@ async function doActivateStore() {
     return;
   }
   try { const _cm=JSON.parse(localStorage.getItem('pm_store_code_map')||'{}'); _cm[raw]=store.id; localStorage.setItem('pm_store_code_map',JSON.stringify(_cm)); } catch(_) {}
-  _sb.from('stores').select('*').eq('id',store.id).single().then(({data:_fs})=>{ if(_fs) try{localStorage.setItem('pm_cached_store_'+store.id,JSON.stringify(_fs));}catch(_){} });
+  // Pre-cache everything so POS works immediately offline after first Connect
+  btn.innerHTML='<span class="spinner"></span> Setting up offline…';
+  try {
+    const [_sfull,_sp,_su]=await Promise.all([
+      _sb.from('stores').select('*').eq('id',store.id).single(),
+      _sb.from('products').select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings').eq('store_id',store.id).eq('available',true).order('category').order('name'),
+      _sb.from('store_users').select('id,username,full_name,role,password_hash,active').eq('store_id',store.id)
+    ]);
+    if(_sfull.data) localStorage.setItem('pm_cached_store_'+store.id,JSON.stringify(_sfull.data));
+    if(_sp.data) localStorage.setItem('pm_cached_prods_'+store.id,JSON.stringify(_sp.data.map(p=>({id:p.id,name:p.name,price:p.price,category:p.category,image_b64:p.image_b64||'',sku:p.sku||'',unit:p.unit||'pc',stock:p.stock||0,inv_links:p.inv_links||null,embeddings:p.embeddings||null}))));
+    if(_su.data) localStorage.setItem('pm_cached_users_'+store.id,JSON.stringify(_su.data));
+    const _pro=await _sb.rpc('get_store_pro_status',{p_store_id:store.id}); localStorage.setItem('pm_cached_pro_'+store.id,JSON.stringify(!!_pro.data));
+  } catch(_) {}
   localStorage.setItem('pm_store_id', store.id);
   location.replace(location.pathname + '?store=' + store.id);
 }

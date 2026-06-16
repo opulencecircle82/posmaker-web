@@ -1,4 +1,4 @@
-// Shared helpers for Free/Pro plan limits and "frozen" (over-limit) items.
+﻿// Shared helpers for Free/Pro plan limits and "frozen" (over-limit) items.
 // Used by dashboard-*.html and cashier-*.html.
 
 // Returns the Set of ids that are "frozen" (everything past the first `limit`
@@ -15,7 +15,7 @@ function computeFrozenIds(rows, limit, isPro) {
 
 // Small inline badge for frozen rows in dashboard tables.
 function frozenBadgeHtml() {
-  return ' <span class="badge" style="background:#2a1a00;color:#f59e0b" title="Over your free plan limit — upgrade to unlock">&#128274; Frozen</span>';
+  return ' <span class="badge" style="background:#2a1a00;color:#f59e0b" title="Over your free plan limit â€” upgrade to unlock">&#128274; Frozen</span>';
 }
 
 // Cashier-side (anon) Pro check via SECURITY DEFINER RPC.
@@ -39,7 +39,7 @@ function genAutoSku(category, items) {
   return prefix + '-' + String(max + 1).padStart(3, '0');
 }
 
-// ── Daily Opening/Closing Checklist & Recipe/SOP Notes ─────────────────────
+// â”€â”€ Daily Opening/Closing Checklist & Recipe/SOP Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Used by dashboard-*.html (owner, editable) and manager.html (staff, read-only
 // items + photo-required completion). Pages must set `_OPS_STORE_ID` (the
 // store's uuid) before calling loadChecklist(). Optional page globals:
@@ -66,7 +66,7 @@ function _defaultOpsData() {
 }
 
 // Normalizes a checklistPhotos[date][kind][idx] entry to {img, status, capturedAt, capturedBy}.
-// Older entries were stored as a plain base64 data-URI string — treat those as approved.
+// Older entries were stored as a plain base64 data-URI string â€” treat those as approved.
 function _photoEntry(p) {
   if (!p) return null;
   if (typeof p === 'string') return { img: p, status: 'approved' };
@@ -165,7 +165,7 @@ function _pruneOldChecklistPhotos() {
   return changed;
 }
 
-// ── Phone image upload sessions ───────────────────────────────────────────────
+// â”€â”€ Phone image upload sessions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function createImgUploadToken(type, maxImages) {
   if (!_opsData) await loadOpsData();
   if (!_opsData.imgUploadSessions) _opsData.imgUploadSessions = {};
@@ -287,7 +287,7 @@ function approveChecklistPhoto(kind, idx) {
   renderChecklist();
 }
 
-// Owner declines a pending checklist photo — un-checks the item so staff can retake it.
+// Owner declines a pending checklist photo â€” un-checks the item so staff can retake it.
 function declineChecklistPhoto(kind, idx) {
   const today = _todayKey();
   const photos = _opsData.checklistPhotos[today] && _opsData.checklistPhotos[today][kind];
@@ -396,3 +396,121 @@ function updateSopNote(id, field, value) {
   clearTimeout(_sopSaveTimer);
   _sopSaveTimer = setTimeout(saveOpsData, 600);
 }
+
+
+// ── Offline-first bootstrap ─────────────────────────────────────────────────
+// Runs in every cashier-*.html (store-plan.js is always included).
+// When ONLINE:  DOMContentLoaded eagerly saves store/products/users to localStorage.
+// When OFFLINE: wraps createClient so _sb returns cached data — HTML works unchanged.
+(function _offlineBoot() {
+
+  // ── ONLINE: eager cache refresh on every page visit ──────────────────────
+  document.addEventListener('DOMContentLoaded', async function () {
+    if (!navigator.onLine) return;
+    try {
+      var _sid = new URLSearchParams(location.search).get('store') || localStorage.getItem('pm_store_id');
+      if (!_sid || typeof createClient !== 'function') return;
+      var _c = createClient(SUPABASE_URL, SUPABASE_ANON);
+      var _r = await Promise.all([
+        _c.from('stores').select('*').eq('id', _sid).single(),
+        _c.from('products').select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings').eq('store_id', _sid).eq('available', true).order('category').order('name'),
+        _c.from('store_users').select('id,username,full_name,role,password_hash,active').eq('store_id', _sid)
+      ]);
+      if (_r[0].data) {
+        try { localStorage.setItem('pm_cached_store_' + _sid, JSON.stringify(_r[0].data)); } catch(_e) {}
+        // Keep code map current so offline recovery always works
+        if (_r[0].data.store_code) {
+          try {
+            var _cm = JSON.parse(localStorage.getItem('pm_store_code_map') || '{}');
+            _cm[_r[0].data.store_code] = _sid;
+            localStorage.setItem('pm_store_code_map', JSON.stringify(_cm));
+          } catch(_e) {}
+        }
+      }
+      if (_r[1].data) try { localStorage.setItem('pm_cached_prods_' + _sid, JSON.stringify(_r[1].data)); } catch(_e) {}
+      if (_r[2].data) try { localStorage.setItem('pm_cached_users_' + _sid, JSON.stringify(_r[2].data)); } catch(_e) {}
+      localStorage.setItem('pm_store_id', _sid);
+      var _pro = await _c.rpc('get_store_pro_status', { p_store_id: _sid });
+      try { localStorage.setItem('pm_cached_pro_' + _sid, JSON.stringify(!!_pro.data)); } catch(_e) {}
+    } catch(_e) {}
+  });
+
+  // ── OFFLINE: skip server entirely, serve from cache ──────────────────────
+  if (navigator.onLine) return;
+
+  // Recover pm_store_id from the code map if it was cleared
+  if (!localStorage.getItem('pm_store_id')) {
+    try {
+      var _cm2 = JSON.parse(localStorage.getItem('pm_store_code_map') || '{}');
+      for (var _k in _cm2) {
+        if (localStorage.getItem('pm_cached_store_' + _cm2[_k])) {
+          localStorage.setItem('pm_store_id', _cm2[_k]);
+          break;
+        }
+      }
+    } catch(_e) {}
+  }
+
+  if (typeof createClient !== 'function') return;
+
+  // Wrap createClient so every _sb returned is offline-patched
+  var _origCC = createClient;
+  window.createClient = function (url, key) {
+    var _client = _origCC(url, key);
+    _patchOfflineClient(_client);
+    return _client;
+  };
+
+  function _getJson(key) { try { return JSON.parse(localStorage.getItem(key)); } catch(_e) { return null; } }
+
+  function _fakeQuery(rows) {
+    var _d = Array.isArray(rows) ? rows.slice() : (rows != null ? [rows] : []);
+    var _q = {
+      select:      function () { return _q; },
+      eq:          function (c, v) { _d = _d.filter(function(r){ return r != null && String(r[c]) === String(v); }); return _q; },
+      neq:         function (c, v) { _d = _d.filter(function(r){ return r != null && String(r[c]) !== String(v); }); return _q; },
+      'in':        function (c, v) { _d = _d.filter(function(r){ return r != null && v.indexOf(r[c]) >= 0; }); return _q; },
+      order:       function () { return _q; },
+      limit:       function (n)   { _d = _d.slice(0, n); return _q; },
+      gte: function(){return _q;}, lte: function(){return _q;},
+      gt:  function(){return _q;}, lt:  function(){return _q;},
+      ilike: function(){return _q;}, is: function(){return _q;},
+      not:   function(){return _q;}, contains: function(){return _q;},
+      range:       function () { return _q; },
+      insert:      function () { return _fakeQuery(null); },
+      update:      function () { return _fakeQuery(null); },
+      delete:      function () { return _fakeQuery(null); },
+      upsert:      function () { return _fakeQuery(null); },
+      single:      function () { return Promise.resolve({ data: _d[0] || null, error: null }); },
+      maybeSingle: function () { return Promise.resolve({ data: _d[0] || null, error: null }); },
+      then:        function (fn) { return Promise.resolve({ data: _d, error: null }).then(fn); }
+    };
+    return _q;
+  }
+
+  function _patchOfflineClient(client) {
+    client.from = function (table) {
+      var _sid2 = new URLSearchParams(location.search).get('store') || localStorage.getItem('pm_store_id');
+      if (table === 'stores')          return _fakeQuery(_getJson('pm_cached_store_' + _sid2));
+      if (table === 'products')        return _fakeQuery(_getJson('pm_cached_prods_'  + _sid2) || []);
+      if (table === 'store_users')     return _fakeQuery(_getJson('pm_cached_users_'  + _sid2) || []);
+      if (table === 'pos_devices')     return _fakeQuery([]);
+      if (table === 'inventory_items') return _fakeQuery([]);
+      // All other tables (orders, activity_logs, etc.) — silent no-op when offline
+      return _fakeQuery(null);
+    };
+    client.rpc = function (fn, args) {
+      var _sid2 = new URLSearchParams(location.search).get('store') || localStorage.getItem('pm_store_id') || (args && args.p_store_id);
+      if (fn === 'get_store_pro_status') {
+        var _p = _getJson('pm_cached_pro_' + _sid2);
+        return Promise.resolve({ data: _p !== null ? _p : false, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    };
+    client.channel = function () {
+      var _ch = { on: function(){return _ch;}, subscribe: function(){return _ch;}, unsubscribe: function(){} };
+      return _ch;
+    };
+  }
+
+})();
