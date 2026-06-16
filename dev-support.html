@@ -1390,7 +1390,8 @@ async function doResetPassword() {
   // Update saved password — for owner resets, `id` is already the store_id
   if (ownerEmail) {
     const { error: pwErr } = await _sb.rpc('dev_save_store_password', { p_token: _devToken, p_store_id: id, p_owner_email: ownerEmail, p_password: pw });
-    if (pwErr) showToast('Warning: could not save password — ' + pwErr.message, true);
+    if (pwErr) showToast('Warning: password not saved — ' + pwErr.message, true);
+    else showToast('Password reset & saved successfully!');
   }
   closeModal('resetModal');
   const partner = _allPartners.find(p => p.store_id === id);
