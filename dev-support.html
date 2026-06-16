@@ -1219,8 +1219,9 @@ async function saveAccountManage() {
   errEl.textContent = '';
   const btn = document.querySelector('#manageAccountModal .btn-accent');
   btn.disabled = true; btn.textContent = 'Saving…';
+  const ownerEmail = document.getElementById('maEmail').textContent || null;
   const { error } = await _sb.rpc('dev_set_account_subscription', {
-    p_token: _devToken, p_store_id: storeId, p_plan: plan, p_months: months, p_amount: amount, p_agent_id: agentId
+    p_token: _devToken, p_store_id: storeId, p_plan: plan, p_months: months, p_amount: amount, p_agent_id: agentId, p_owner_email: ownerEmail
   });
   btn.disabled = false; btn.textContent = 'Save';
   if (error) { errEl.textContent = 'Error: ' + error.message; return; }
