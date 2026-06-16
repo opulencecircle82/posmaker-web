@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -543,6 +543,12 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
         <div class="field"><label>Receipt Footer</label><textarea id="sFooter" rows="2"></textarea></div>
         <button class="btn btn-accent" onclick="saveSettings()">Save Settings</button>
+      </div>
+      <div class="info-card">
+        <h3>&#128272; Change Password</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">We'll send a password reset link to your email.</p>
+        <div class="field"><label>Your Email</label><input id="resetEmail" type="email" placeholder="your@email.com"></div>
+        <button class="btn btn-ghost" onclick="sendResetEmail()" style="max-width:220px">Send Reset Link</button>
       </div>
       <div class="info-card">
         <h3>&#128226; Telegram Low Stock Alerts</h3>
@@ -1282,6 +1288,8 @@ function _sig(ms = 25000) {
   const _closedDays = (store.closed_days || '').split(',').filter(Boolean);
   for (let d = 0; d < 7; d++) document.getElementById('sClosedDay'+d).checked = _closedDays.includes(String(d));
   document.getElementById('sFooter').value   = store.receipt_footer || '';
+  const { data: { user: _u } } = await _sb.auth.getUser();
+  if (_u) document.getElementById('resetEmail').value = _u.email || '';
   document.getElementById('sTgToken').value  = store.telegram_bot_token || '';
   document.getElementById('sTgChatId').value = store.telegram_chat_id || '';
   if (store.logo_b64) {
@@ -2986,6 +2994,15 @@ async function removeLogo() {
   pendingLogob64 = null;
   showToast('Logo removed.');
 }
+async function sendResetEmail() {
+  const email = document.getElementById('resetEmail').value.trim();
+  if (!email) { showToast('Enter your email.', true); return; }
+  const { error } = await _sb.auth.resetPasswordForEmail(email, {
+    redirectTo: location.origin + '/reset-password.html'
+  });
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  showToast('Reset link sent! Check your email.');
+}
 async function saveSettings() {
   const payload = {
     name:           document.getElementById('sName').value.trim(),
@@ -3977,3 +3994,4 @@ if('serviceWorker' in navigator){
 </div>
 </body>
 </html>
+
