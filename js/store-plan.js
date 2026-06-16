@@ -167,6 +167,7 @@ function _pruneOldChecklistPhotos() {
 
 // ── Phone image upload sessions ───────────────────────────────────────────────
 async function createImgUploadToken(type, maxImages) {
+  if (!_opsData) await loadOpsData();
   if (!_opsData.imgUploadSessions) _opsData.imgUploadSessions = {};
   const token = crypto.randomUUID();
   _opsData.imgUploadSessions[token] = { type, maxImages, images: [], created: Date.now() };
