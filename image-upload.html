@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Upload Photo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/store-plan.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--muted:#8888aa;--dim:#44445a}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100dvh}
+.logo{font-size:18px;font-weight:800}.logo span{color:var(--accent)}
+.wrap{max-width:480px;margin:0 auto;padding:16px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.btn{padding:10px 18px;border-radius:8px;border:none;font-weight:600;cursor:pointer;font-size:14px;font-family:'Inter',sans-serif;transition:.15s;width:100%;margin-bottom:8px}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{opacity:.88}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--s2)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;pointer-events:none;opacity:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="logo" style="margin-bottom:6px">POS<span>Maker</span></div>
+    <div id="pageTitle" style="font-weight:800;font-size:16px">Upload Photo</div>
+    <div id="pageSub" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
+  </div>
+  <div id="mainContent"></div>
+</div>
+<div id="toast"></div>
+
+<script>
+const {createClient} = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const _params = new URLSearchParams(location.search);
+const SID   = _params.get('sid');
+const TOKEN = _params.get('token');
+const MAX   = parseInt(_params.get('max') || '1', 10);
+
+let _pendingImgs = [];
+let _uploading = false;
+
+function showError(msg) {
+  document.getElementById('mainContent').innerHTML =
+    `<div class="card" style="text-align:center;color:#ef4444;font-size:13px">${msg}</div>`;
+}
+
+async function init() {
+  if (!SID || !TOKEN) { showError('Invalid link.'); return; }
+  _OPS_STORE_ID = SID;
+  await loadOpsData();
+  const session = _opsData.imgUploadSessions && _opsData.imgUploadSessions[TOKEN];
+  if (!session || Date.now() - session.created > 30 * 60 * 1000) {
+    showError('Expired or invalid link — ask your store manager to generate a new QR code.');
+    return;
+  }
+  document.getElementById('pageSub').textContent = MAX === 1 ? 'Take 1 photo' : 'Take up to ' + MAX + ' photos';
+  renderUploadUI();
+}
+
+function renderUploadUI() {
+  const remaining = MAX - _pendingImgs.length;
+  const thumbs = _pendingImgs.map((b, i) => `
+    <div style="position:relative;display:inline-block;margin:4px">
+      <img src="data:image/jpeg;base64,${b}" style="height:80px;width:100px;border-radius:8px;object-fit:cover;border:1px solid var(--border)">
+      <button onclick="removeImg(${i})" style="position:absolute;top:-6px;right:-6px;background:#ef4444;border:none;color:#fff;border-radius:50%;width:20px;height:20px;font-size:13px;cursor:pointer;line-height:20px;padding:0;text-align:center">×</button>
+    </div>`).join('');
+
+  document.getElementById('mainContent').innerHTML = `
+    <div class="card">
+      ${thumbs ? `<div style="margin-bottom:12px;display:flex;flex-wrap:wrap">${thumbs}</div>` : ''}
+      ${remaining > 0 ? `
+        <label class="btn btn-accent" for="imgFile" style="display:block;text-align:center;cursor:pointer">
+          📷 ${_pendingImgs.length === 0 ? 'Take Photo' : 'Add Another Photo'} (${_pendingImgs.length}/${MAX})
+        </label>
+        <input type="file" id="imgFile" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this)">
+      ` : ''}
+      ${_pendingImgs.length > 0 ? `
+        <button class="btn btn-accent" id="uploadBtn" onclick="uploadAll()" style="margin-top:4px">
+          ✓ Done — Send ${_pendingImgs.length} Photo${_pendingImgs.length > 1 ? 's' : ''} to POS
+        </button>
+      ` : ''}
+    </div>`;
+}
+
+function removeImg(idx) {
+  _pendingImgs.splice(idx, 1);
+  renderUploadUI();
+}
+
+function handleFile(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX_PX = 800, cv = document.createElement('canvas');
+      const scale = Math.min(1, MAX_PX / Math.max(img.width, img.height));
+      cv.width = img.width * scale; cv.height = img.height * scale;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const b64 = cv.toDataURL('image/jpeg', 0.65).split(',')[1];
+      _pendingImgs.push(b64);
+      renderUploadUI();
+      if (_pendingImgs.length >= MAX) uploadAll();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+async function uploadAll() {
+  if (_uploading || _pendingImgs.length === 0) return;
+  _uploading = true;
+  const btn = document.getElementById('uploadBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  await loadOpsData();
+  const session = _opsData.imgUploadSessions && _opsData.imgUploadSessions[TOKEN];
+  if (!session) { showError('Session expired. Ask for a new QR code.'); return; }
+  _opsData.imgUploadSessions[TOKEN].images = _pendingImgs.slice(0, MAX);
+  await saveOpsData();
+  document.getElementById('mainContent').innerHTML = `
+    <div class="card" style="text-align:center;color:#10b981;font-size:15px;font-weight:700;padding:24px">
+      ✅ Photo${_pendingImgs.length > 1 ? 's' : ''} sent! You can close this page.
+    </div>`;
+}
+
+let _toastT;
+function showToast(msg, isErr) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.color = isErr ? '#ef4444' : 'var(--text)';
+  el.style.opacity = '1';
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => el.style.opacity = '0', 2800);
+}
+
+init();
+</script>
+</body>
+</html>

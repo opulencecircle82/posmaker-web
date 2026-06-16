@@ -152,7 +152,33 @@ function _pruneOldChecklistPhotos() {
       }
     }
   }
+  if (_opsData.imgUploadSessions) {
+    const now = Date.now();
+    for (const token of Object.keys(_opsData.imgUploadSessions)) {
+      const s = _opsData.imgUploadSessions[token];
+      if (!s || now - s.created > 30 * 60 * 1000) {
+        delete _opsData.imgUploadSessions[token];
+        changed = true;
+      }
+    }
+  }
   return changed;
+}
+
+// ── Phone image upload sessions ───────────────────────────────────────────────
+async function createImgUploadToken(type, maxImages) {
+  if (!_opsData.imgUploadSessions) _opsData.imgUploadSessions = {};
+  const token = crypto.randomUUID();
+  _opsData.imgUploadSessions[token] = { type, maxImages, images: [], created: Date.now() };
+  await saveOpsData();
+  return token;
+}
+
+async function clearImgUploadSession(token) {
+  if (_opsData && _opsData.imgUploadSessions && _opsData.imgUploadSessions[token]) {
+    delete _opsData.imgUploadSessions[token];
+    await saveOpsData();
+  }
 }
 
 async function loadChecklist() {

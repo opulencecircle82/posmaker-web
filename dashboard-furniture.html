@@ -726,11 +726,11 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="field" style="margin-bottom:14px">
       <label>Product Image <span style="color:var(--dim);font-weight:400">(optional)</span></label>
       <div style="display:flex;gap:6px;margin-bottom:6px">
-        <button type="button" id="prodCamBtn" class="btn btn-accent btn-sm" style="flex:1;font-size:12px" onclick="openDashCam('prodPhoto')">&#128247; Camera</button>
+        <button type="button" id="prodCamBtn" class="btn btn-accent btn-sm" style="flex:1;font-size:12px" onclick="openImgUploadQR('product',1)">&#128248; Scan QR to Upload</button>
         <button type="button" class="btn btn-ghost btn-sm" style="flex:1;font-size:12px" onclick="document.getElementById('prodImgInput').click()">&#128193; Upload</button>
       </div>
       <div id="prodImgThumbs" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
-      <div id="prodImgHint" style="color:var(--dim);font-size:12px;padding:4px 0">Up to 4 photos from different angles — better visual detection.</div>
+      <div id="prodImgHint" style="color:var(--dim);font-size:12px;padding:4px 0">1 product photo. Tap × to remove and scan again.</div>
       <input type="file" id="prodImgInput" accept="image/*" style="display:none" onchange="handleProdImg(this)">
     </div>
     <div class="field"><label id="pNameLbl">Product Name</label><input id="pName" type="text" placeholder="e.g. Burger"></div>
@@ -800,7 +800,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <!-- Camera capture row -->
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:10px">
-        <button type="button" class="btn btn-accent btn-sm" style="flex:0 0 auto" id="btnInvCam" onclick="openDashCam('inventory','invSku')">&#128247; Camera</button>
+        <button type="button" class="btn btn-accent btn-sm" style="flex:0 0 auto" id="btnInvCam" onclick="openImgUploadQR('inventory',4)">&#128248; Scan QR to Upload</button>
         <button type="button" class="btn btn-ghost btn-sm" style="flex:0 0 auto;display:none" id="btnInvUpload" onclick="document.getElementById('invImgInput').click()">&#128193; Upload Service Image</button>
         <span id="invCamHint" style="font-size:11px;color:var(--dim);flex:1">Take up to 4 photos from different angles. Barcode auto-detected.</span>
       </div>
@@ -2392,12 +2392,12 @@ function renderProdThumbs(){
   if(_prodPendingImgs.length===0){
     el.innerHTML='';
     if(hint) hint.style.display='';
-    if(btn) btn.innerHTML='&#128247; Camera';
+    if(btn){btn.style.display='';btn.innerHTML='&#128248; Scan QR to Upload';}
     return;
   }
   if(hint) hint.style.display='none';
   el.innerHTML=_prodPendingImgs.map((b,i)=>`<div style="position:relative"><img src="data:image/jpeg;base64,${b}" style="height:54px;width:70px;border-radius:6px;object-fit:cover;border:1px solid var(--border)"><button onclick="removeProdImgAt(${i})" style="position:absolute;top:-5px;right:-5px;background:#ef4444;border:none;color:#fff;border-radius:50%;width:17px;height:17px;font-size:11px;cursor:pointer;line-height:17px;padding:0;text-align:center">&#215;</button></div>`).join('');
-  if(btn) btn.innerHTML=`&#128247; Camera (${_prodPendingImgs.length}/4)`;
+  if(btn) btn.style.display='none';
 }
 function removeProdImgAt(idx){
   _prodPendingImgs.splice(idx,1);
@@ -2405,7 +2405,7 @@ function removeProdImgAt(idx){
 }
 function handleProdImg(input){
   const file=input.files[0];if(!file)return;
-  if(_prodPendingImgs.length>=4){showToast('Max 4 photos.',true);return;}
+  if(_prodPendingImgs.length>=1){showToast('Remove existing photo first.',true);return;}
   const reader=new FileReader();
   reader.onload=async ev=>{
     const b64=ev.target.result.split(',')[1];
@@ -3770,13 +3770,13 @@ function renderInvThumbs(){
   const hint=document.getElementById('invCamHint');
   if(_invPendingImgs.length===0){
     el.innerHTML='';
-    if(hint) hint.textContent='Take up to 4 photos from different angles. Barcode auto-detected.';
+    if(hint) hint.textContent='Take up to 4 photos from your phone. Tap × to remove.';
     const capBtn=document.getElementById('dashCamCapture');
     if(capBtn) capBtn.innerHTML='&#128247; Capture';
     return;
   }
   el.innerHTML=_invPendingImgs.map((b,i)=>`<div style="position:relative"><img src="data:image/jpeg;base64,${b}" style="height:44px;width:58px;border-radius:5px;object-fit:cover;border:1px solid var(--border)"><button onclick="removeInvImg(${i})" style="position:absolute;top:-5px;right:-5px;background:#ef4444;border:none;color:#fff;border-radius:50%;width:17px;height:17px;font-size:11px;cursor:pointer;line-height:17px;padding:0;text-align:center">×</button></div>`).join('');
-  if(hint) hint.textContent=_invPendingImgs.length+'/4 photos. Tap × to remove, Camera to add more.';
+  if(hint) hint.textContent=_invPendingImgs.length+'/4 photos. Tap × to remove, Scan QR to add more.';
 }
 function removeInvImg(idx){
   _invPendingImgs.splice(idx,1);
@@ -3789,6 +3789,40 @@ function useBarcodeOnly(){
   if(el) el.value = _dashBarcode;
   showToast('Barcode ' + _dashBarcode + ' saved as SKU.');
   closeDashCam();
+}
+
+// ── Phone image upload QR ─────────────────────────────────────────────────
+let _imgQRPoll=null,_imgQRToken=null,_imgQRType=null,_imgQRMax=1;
+async function openImgUploadQR(type,maxImages){
+  _imgQRType=type; _imgQRMax=maxImages;
+  _imgQRToken=await createImgUploadToken(type,maxImages);
+  const url='https://posmaker.ggff.net/image-upload.html?sid='+STORE.id+'&token='+_imgQRToken+'&max='+maxImages;
+  document.getElementById('imgQRCode').src='https://api.qrserver.com/v1/create-qr-code/?size=190x190&data='+encodeURIComponent(url);
+  document.getElementById('imgQRSub').textContent=maxImages===1?'Scan with your phone and take 1 photo — it will appear here automatically.':'Scan with your phone and take up to '+maxImages+' photos — they will appear here automatically.';
+  document.getElementById('imgQRStatus').textContent='Waiting for photo…';
+  document.getElementById('imgUploadQRModal').classList.add('show');
+  if(_imgQRPoll) clearInterval(_imgQRPoll);
+  _imgQRPoll=setInterval(async()=>{
+    await refreshOpsData();
+    const s=(_opsData&&_opsData.imgUploadSessions&&_opsData.imgUploadSessions[_imgQRToken])||null;
+    if(!s||!s.images||s.images.length===0) return;
+    const imgs=s.images;
+    if(_imgQRType==='inventory'){
+      imgs.forEach(b=>{if(_invPendingImgs.length<4)_invPendingImgs.push(b);});
+      renderInvThumbs();
+    } else {
+      if(_prodPendingImgs.length===0) _prodPendingImgs.push(imgs[0]);
+      renderProdThumbs();
+    }
+    document.getElementById('imgQRStatus').textContent='✅ '+(imgs.length)+' photo'+(imgs.length>1?'s':'')+' received!';
+    await clearImgUploadSession(_imgQRToken); _imgQRToken=null;
+    setTimeout(()=>closeImgUploadQR(),1200);
+  },2500);
+}
+function closeImgUploadQR(){
+  if(_imgQRPoll){clearInterval(_imgQRPoll);_imgQRPoll=null;}
+  if(_imgQRToken){clearImgUploadSession(_imgQRToken);_imgQRToken=null;}
+  document.getElementById('imgUploadQRModal').classList.remove('show');
 }
 
 // ── Visual Brain — image compression + MobileNet embeddings ──────────────
@@ -3930,5 +3964,16 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
 }
 </script>
+
+<!-- IMG UPLOAD QR MODAL -->
+<div class="modal" id="imgUploadQRModal">
+  <div class="mbox" style="text-align:center;max-width:300px">
+    <h3 style="margin-bottom:8px">&#128248; Scan QR to Upload</h3>
+    <p id="imgQRSub" style="font-size:12px;color:var(--muted);margin-bottom:12px"></p>
+    <img id="imgQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:0 auto 10px;display:block">
+    <div id="imgQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
+    <button class="btn btn-ghost" onclick="closeImgUploadQR()">Close</button>
+  </div>
+</div>
 </body>
 </html>
