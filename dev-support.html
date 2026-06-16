@@ -1125,7 +1125,7 @@ function renderAccounts(items) {
       <td style="color:var(--muted);font-size:12px">${dt}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="viewPassword('${p.store_id}','${esc(p.store_name)}','${esc(p.owner_email||'')}')">&#128272; See Password</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteAccount('${p.store_id}','${esc(p.store_name)}')">&#128465; Delete</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAccount('${p.store_id}','${esc(p.store_name)}','${esc(p.owner_email||'')}')">&#128465; Delete</button>
       </td>
     </tr>`;
   }).join('');
@@ -1150,11 +1150,11 @@ async function viewPassword(storeId, storeName, email) {
   document.getElementById('viewPwModal').classList.add('show');
 }
 
-async function deleteAccount(storeId, storeName) {
+async function deleteAccount(storeId, storeName, ownerEmail) {
   if (!confirm(`DELETE "${storeName}"?\n\nThis will permanently erase:\n• All orders & sales history\n• All products & inventory\n• All staff accounts\n• The store owner login\n\nThis CANNOT be undone.`)) return;
   const typed = prompt(`Type the store name exactly to confirm:\n"${storeName}"`);
   if (typed !== storeName) { showToast('Cancelled — name did not match.'); return; }
-  const { error } = await _sb.rpc('dev_delete_store', { p_token: _devToken, p_store_id: storeId });
+  const { error } = await _sb.rpc('dev_delete_store', { p_token: _devToken, p_store_id: storeId, p_owner_email: ownerEmail || null });
   if (error) { showToast('Error: ' + error.message, true); return; }
   showToast(`"${storeName}" deleted permanently.`);
   await Promise.all([loadStaff(), loadStores()]);
