@@ -3052,7 +3052,7 @@ function renderActivityLog() {
       <td style="color:var(--muted);white-space:nowrap">${dt}</td>
       <td style="font-weight:600">${l.actor_name || '—'}</td>
       <td><span class="badge" style="${roleColor}">${l.actor_role || '—'}</span></td>
-      <td><span class="badge" style="${actionColor[l.action]||'background:#0a1a2a;color:#8888aa'}">${actionLabel[l.action] || l.action}</span></td>
+      <td><span class="badge" style="${l.action==='REMITTANCE'?((l.details||'').includes('Short')?'background:#2e0d0d;color:#ef4444':(l.details||'').includes('Over')?'background:#0d2e1f;color:#10b981':'background:#0d1a2e;color:#00b4d8'):actionColor[l.action]||'background:#0a1a2a;color:#8888aa'}">${actionLabel[l.action] || l.action}</span></td>
       <td>${l.target_name || '—'}</td>
       <td style="color:var(--muted);font-size:12px">${details}</td>
       <td>${receiptCell}</td>
