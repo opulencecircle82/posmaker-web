@@ -407,6 +407,7 @@ function updateSopNote(id, field, value) {
   // ── ONLINE: eager cache refresh on every page visit ──────────────────────
   document.addEventListener('DOMContentLoaded', async function () {
     if (!navigator.onLine) return;
+    if (!location.pathname.match(/cashier/)) return;
     try {
       var _sid = new URLSearchParams(location.search).get('store') || localStorage.getItem('pm_store_id');
       if (!_sid || typeof createClient !== 'function') return;

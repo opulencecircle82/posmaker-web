@@ -1,4 +1,4 @@
-const CACHE = 'posmaker-v11';
+const CACHE = 'posmaker-v12';
 const STATIC = [
   'js/config.js',
   'js/store-plan.js',
@@ -103,15 +103,26 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Static assets — network-first so JS/CSS updates are always picked up when online
+  // store-plan.js — network-first so offline bootstrap updates are always fresh
+  if (url.includes('/js/store-plan.js')) {
+    e.respondWith(
+      fetch(e.request, {cache: 'no-cache'})
+        .then(resp => {
+          if (resp && resp.status === 200) caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
+          return resp;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // All other static assets — cache-first for speed
   e.respondWith(
-    fetch(e.request, {cache: 'no-cache'})
-      .then(resp => {
-        if (resp && resp.status === 200 && e.request.method === 'GET') {
-          caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
-        }
-        return resp;
-      })
-      .catch(() => caches.match(e.request))
+    caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
+      if (resp && resp.status === 200 && e.request.method === 'GET') {
+        caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
+      }
+      return resp;
+    }))
   );
 });
