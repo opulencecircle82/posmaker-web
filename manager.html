@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/config.js"></script>
-<script src="js/store-plan.js"></script>
+<script src="js/store-plan.js?v=2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--muted:#8888aa;--dim:#44445a}
@@ -360,7 +360,10 @@ button{cursor:pointer}
     </div>
     <div class="field">
       <label>Receipt (optional)</label>
-      <input id="asReceipt" type="file" accept="image/*" onchange="previewAsReceipt()" style="font-size:12px;padding:8px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="asReceipt" type="file" accept="image/*" onchange="previewAsReceipt()" style="font-size:12px;padding:8px;flex:1;min-width:0">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openAsReceiptQR()" style="white-space:nowrap;font-size:12px">&#128247; Scan QR</button>
+      </div>
       <div id="asReceiptPreview" style="display:none;margin-top:8px;text-align:center">
         <img id="asReceiptImg" style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid var(--border)">
         <div style="font-size:11px;color:#10b981;margin-top:4px">&#10003; Receipt attached</div>
@@ -1601,6 +1604,44 @@ document.addEventListener('click', e=>{ if(e.target.classList.contains('modal'))
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show')); });
 
 init();
+
+// ── Receipt QR Upload ───────────────────────────────────────────────────────
+let _asQRPoll = null, _asQRToken = null;
+async function openAsReceiptQR() {
+  if (!_opsData) await loadOpsData();
+  _asQRToken = await createImgUploadToken('as_receipt', 1);
+  const url = 'https://posmaker.ggff.net/image-upload.html?sid=' + MGR.store_id + '&token=' + _asQRToken + '&max=1';
+  document.getElementById('asQRCode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=' + encodeURIComponent(url);
+  document.getElementById('asQRStatus').textContent = 'Waiting for photo…';
+  document.getElementById('asReceiptQRModal').classList.add('show');
+  if (_asQRPoll) clearInterval(_asQRPoll);
+  _asQRPoll = setInterval(async () => {
+    await refreshOpsData();
+    const s = (_opsData && _opsData.imgUploadSessions && _opsData.imgUploadSessions[_asQRToken]) || null;
+    if (!s || !s.images || s.images.length === 0) return;
+    const b64 = s.images[0];
+    document.getElementById('asReceiptImg').src = 'data:image/jpeg;base64,' + b64;
+    document.getElementById('asReceiptPreview').style.display = '';
+    document.getElementById('asQRStatus').textContent = '✅ Photo received!';
+    await clearImgUploadSession(_asQRToken); _asQRToken = null;
+    setTimeout(() => closeAsReceiptQR(), 1200);
+  }, 2500);
+}
+function closeAsReceiptQR() {
+  if (_asQRPoll) { clearInterval(_asQRPoll); _asQRPoll = null; }
+  if (_asQRToken) { clearImgUploadSession(_asQRToken); _asQRToken = null; }
+  document.getElementById('asReceiptQRModal').classList.remove('show');
+}
 </script>
+
+<div class="modal" id="asReceiptQRModal">
+  <div class="mbox" style="text-align:center;max-width:300px">
+    <h3 style="margin-bottom:8px">&#128247; Scan QR to Upload Receipt</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">I-scan gamit ang camera ng phone — awtomatikong lalabas ang photo dito.</p>
+    <img id="asQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:0 auto 10px;display:block">
+    <div id="asQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
+    <button class="btn btn-ghost" onclick="closeAsReceiptQR()">Close</button>
+  </div>
+</div>
 </body>
 </html>
