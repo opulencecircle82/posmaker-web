@@ -1382,7 +1382,7 @@ async function loadCashSummary() {
     .select('cashier_name,cash_on_hand,pos_sales,difference,status')
     .eq('store_id', MGR.store_id)
     .eq('shift_date', today)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
 
   const rows = data || [];
   const adjStatuses = ['purchase','deposit'];
