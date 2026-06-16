@@ -44,7 +44,7 @@ self.addEventListener('fetch', e => {
         .catch(() => caches.match(e.request).then(cached =>
           cached || new Response(
             '<!DOCTYPE html><html><head><title>Offline</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#09090f;color:#f0f0f8;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;text-align:center;padding:20px}h2{color:#00b4d8}p{color:#8888aa;font-size:14px}</style></head><body><h2>⚠ Offline</h2><p>Open the POS at least once while online to enable offline access.</p></body></html>',
-            {headers:{'Content-Type':'text/html'}}
+            {headers:{'Content-Type':'text/html;charset=utf-8'}}
           )
         ))
     );
