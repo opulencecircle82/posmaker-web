@@ -48,8 +48,9 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS sku        TEXT    DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS unit       TEXT    DEFAULT 'pc';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS image_b64  TEXT    DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC DEFAULT 0;
-ALTER TABLE products ADD COLUMN IF NOT EXISTS inv_links  TEXT    DEFAULT '[]';
-ALTER TABLE products ADD COLUMN IF NOT EXISTS barber_name TEXT   DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS inv_links   TEXT    DEFAULT '[]';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS barber_name TEXT    DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS embeddings  TEXT    DEFAULT NULL;
 
 -- Barbershop: saved chair layout (positions + assigned barber per chair), stored as JSON text
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS chair_layout TEXT DEFAULT '';
