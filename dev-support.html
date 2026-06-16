@@ -958,7 +958,8 @@ BEGIN
   DELETE FROM products      WHERE store_id = p_store_id;
   DELETE FROM inventory_items WHERE store_id = p_store_id;
   DELETE FROM categories    WHERE store_id = p_store_id;
-  DELETE FROM subscriptions WHERE store_id = p_store_id;
+  DELETE FROM subscriptions   WHERE store_id = p_store_id;
+  DELETE FROM pos_devices     WHERE store_id = p_store_id;
   DELETE FROM dev_store_passwords WHERE store_id = p_store_id;
   DELETE FROM stores        WHERE id = p_store_id;
   IF v_user_id IS NOT NULL THEN
