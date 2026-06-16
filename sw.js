@@ -1,4 +1,4 @@
-const CACHE = 'posmaker-v12';
+const CACHE = 'posmaker-v13';
 const STATIC = [
   'js/config.js',
   'js/store-plan.js',
@@ -67,6 +67,9 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = e.request.url;
+
+  // Only intercept same-origin requests — let the browser handle CDN/external resources
+  if (!url.startsWith(self.location.origin)) return;
 
   // Never intercept Supabase API calls
   if (url.includes('supabase.co')) return;
