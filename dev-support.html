@@ -1173,7 +1173,8 @@ function renderAccounts(items) {
       <td><span class="badge badge-muted">${esc(p.business_type || '—')}</span></td>
       <td style="color:var(--muted);font-size:12px">${dt}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="viewPassword('${p.store_id}','${esc(p.store_name)}','${esc(p.owner_email||'')}')">&#128272; See Password</button>
+        <button class="btn btn-ghost btn-sm" onclick="viewPassword('${p.store_id}','${esc(p.store_name)}','${esc(p.owner_email||'')}')">&#128272; See PW</button>
+        <button class="btn btn-ghost btn-sm" onclick="openOwnerResetModal('${p.store_id}','${esc(p.store_name)}','${esc(p.owner_email||'')}')">&#128274; Reset PW</button>
         <button class="btn btn-accent btn-sm" onclick="openManageAccount('${p.store_id}','${esc(p.store_name)}','${esc(p.owner_email||'')}')">&#9881; Manage</button>
         <button class="btn btn-danger btn-sm" onclick="deleteAccount('${p.store_id}','${esc(p.store_name)}','${esc(p.owner_email||'')}')">&#128465; Delete</button>
       </td>
@@ -1234,8 +1235,7 @@ async function saveAccountManage() {
 async function viewPassword(storeId, storeName, email) {
   const { data, error } = await _sb.rpc('dev_get_store_password', { p_token: _devToken, p_store_id: storeId });
   if (error || !data) {
-    // No saved password — open reset modal directly instead of showing error
-    openOwnerResetModal(storeId, storeName, email);
+    showToast('No saved password for this account. Use Reset PW to set one.', true);
     return;
   }
   document.getElementById('vpStore').textContent = storeName;
