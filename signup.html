@@ -85,7 +85,14 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
       <div class="row2">
         <div class="field">
           <label>Currency Symbol</label>
-          <input id="currency" type="text" value="₱" maxlength="4">
+          <select id="currency">
+            <option value="₱">₱ — Philippine Peso</option>
+            <option value="$">$ — US Dollar</option>
+            <option value="RM">RM — Malaysian Ringgit</option>
+            <option value="S$">S$ — Singapore Dollar</option>
+            <option value="£">£ — British Pound</option>
+            <option value="€">€ — Euro</option>
+          </select>
         </div>
         <div class="field">
           <label>Tax Rate (%)</label>
