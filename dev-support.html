@@ -1387,10 +1387,10 @@ async function doResetPassword() {
   btn.disabled = false; btn.textContent = 'Reset Password';
   document.getElementById('rstStaffId').dataset.ownerEmail = '';
   if (error) { showToast('Error: ' + error.message, true); return; }
-  // Update saved password
+  // Update saved password — for owner resets, `id` is already the store_id
   if (ownerEmail) {
-    const rp = _allPartners.find(p => (p.owner_email||'').toLowerCase() === ownerEmail.toLowerCase());
-    if (rp) await _sb.rpc('dev_save_store_password', { p_token: _devToken, p_store_id: rp.store_id, p_owner_email: ownerEmail, p_password: pw }).then(r=>r);
+    const { error: pwErr } = await _sb.rpc('dev_save_store_password', { p_token: _devToken, p_store_id: id, p_owner_email: ownerEmail, p_password: pw });
+    if (pwErr) showToast('Warning: could not save password — ' + pwErr.message, true);
   }
   closeModal('resetModal');
   const partner = _allPartners.find(p => p.store_id === id);
