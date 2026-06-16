@@ -47,11 +47,14 @@ input.err{border-color:var(--danger)}
 .stat-val{font-size:26px;font-weight:800;color:var(--accent)}
 .stat-lbl{font-size:11px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
 /* ── Layout ── */
-.content{padding:20px;max-width:1300px;margin:0 auto}
-/* ── Tabs ── */
-.tabs{display:flex;gap:4px;margin-bottom:18px;background:var(--s2);border-radius:10px;padding:4px;width:fit-content}
-.tab-btn{padding:7px 18px;border-radius:7px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;font-family:'Inter',sans-serif}
-.tab-btn.active{background:var(--accent);color:#fff}
+.content{padding:16px 20px 0;max-width:none}
+.stats-wrap{max-width:1300px;margin:0 auto 16px}
+.app-layout{display:flex;min-height:calc(100vh - 110px)}
+.sidebar{width:182px;flex-shrink:0;border-right:1px solid var(--border);padding:12px 8px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;background:var(--s1)}
+.snav{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border-radius:8px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;transition:.15s;margin-bottom:2px}
+.snav.active{background:rgba(0,180,216,.15);color:var(--accent)}
+.snav:hover:not(.active){background:var(--s2);color:var(--text)}
+.main-panel{flex:1;padding:20px;overflow:auto;min-width:0}
 /* ── Cards / tables ── */
 .card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px}
 .card-title{font-weight:700;margin-bottom:14px;font-size:15px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
@@ -152,6 +155,7 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
   </div>
 
   <div class="content">
+    <div class="stats-wrap">
     <!-- Stats -->
     <div class="stats-row">
       <div class="stat-card"><div class="stat-val" id="stStores">—</div><div class="stat-lbl">Stores</div></div>
@@ -160,17 +164,23 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
       <div class="stat-card"><div class="stat-val" id="stRevToday" style="font-size:18px">—</div><div class="stat-lbl">Revenue Today</div></div>
       <div class="stat-card" onclick="showTab('support')" style="cursor:pointer"><div class="stat-val" id="stTickets" style="color:var(--danger)">—</div><div class="stat-lbl">Open Tickets</div></div>
     </div>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <button class="tab-btn active" id="tabStores"   onclick="showTab('stores')">&#127978; Stores</button>
-      <button class="tab-btn" id="tabStaff"    onclick="showTab('staff')">&#129309; Partners</button>
-      <button class="tab-btn" id="tabOrders"   onclick="showTab('orders')">&#128200; Orders</button>
-      <button class="tab-btn" id="tabSubs"     onclick="showTab('subs')">&#128178; Subscriptions</button>
-      <button class="tab-btn" id="tabAgents"   onclick="showTab('agents')">&#127919; Agents</button>
-      <button class="tab-btn" id="tabReferrals" onclick="showTab('referrals')">&#128279; Referrals</button>
-      <button class="tab-btn" id="tabSupport"  onclick="showTab('support')">&#128139; Support</button>
     </div>
+
+    <div class="app-layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.5px;padding:3px 10px 8px">MENU</div>
+      <button class="snav active" id="tabStores"   onclick="showTab('stores')">&#127978; Stores</button>
+      <button class="snav" id="tabStaff"    onclick="showTab('staff')">&#129309; Partners</button>
+      <button class="snav" id="tabAccounts" onclick="showTab('accounts')">&#128100; Accounts</button>
+      <button class="snav" id="tabOrders"   onclick="showTab('orders')">&#128200; Orders</button>
+      <button class="snav" id="tabSubs"     onclick="showTab('subs')">&#128178; Subscriptions</button>
+      <button class="snav" id="tabAgents"   onclick="showTab('agents')">&#127919; Agents</button>
+      <button class="snav" id="tabReferrals" onclick="showTab('referrals')">&#128279; Referrals</button>
+      <button class="snav" id="tabSupport"  onclick="showTab('support')">&#128139; Support</button>
+    </div>
+    <!-- Main Panel -->
+    <div class="main-panel">
 
     <!-- STORES -->
     <div id="secStores">
@@ -211,6 +221,23 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
           <table>
             <thead><tr><th>#</th><th>Store Name</th><th>Owner Email</th><th>Business Type</th><th>Staff</th><th>Registered</th><th></th></tr></thead>
             <tbody id="partnersTbody"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCOUNTS -->
+    <div id="secAccounts" style="display:none">
+      <div class="card">
+        <div class="card-title">
+          Store Owner Accounts
+          <input class="search-inp" id="accountSearch" placeholder="Search store or email…" oninput="filterAccounts()">
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">View saved passwords and permanently delete store accounts with all their data.</p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Store Name</th><th>Owner Email</th><th>Business Type</th><th>Registered</th><th>Actions</th></tr></thead>
+            <tbody id="accountsTbody"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -340,6 +367,26 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
         </div>
       </div>
     </div>
+
+    </div><!-- /.main-panel -->
+    </div><!-- /.app-layout -->
+  </div><!-- /.content -->
+</div><!-- /#pgDash -->
+
+<!-- ── VIEW PASSWORD MODAL ── -->
+<div class="modal" id="viewPwModal">
+  <div class="mbox" style="max-width:400px">
+    <h3>&#128272; Saved Password</h3>
+    <div style="background:var(--s2);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Store</div>
+      <div style="font-weight:600;margin-bottom:10px" id="vpStore"></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Email</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px" id="vpEmail"></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Password</div>
+      <div style="font-size:18px;font-weight:800;color:var(--success);letter-spacing:.5px" id="vpPass"></div>
+    </div>
+    <button class="btn btn-ghost btn-full" onclick="navigator.clipboard.writeText(document.getElementById('vpPass').textContent).then(()=>showToast('Password copied!'))" style="margin-bottom:10px">&#128203; Copy Password</button>
+    <div class="m-actions" style="margin-top:0"><button class="btn btn-accent btn-full" onclick="closeModal('viewPwModal')">Close</button></div>
   </div>
 </div>
 
@@ -861,6 +908,57 @@ BEGIN
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   UPDATE store_users SET password_hash = p_new_hash WHERE id = p_staff_id;
   RETURN FOUND;
+END; $$;
+
+-- ── Accounts Management (run separately if already set up) ──────────────────
+CREATE TABLE IF NOT EXISTS public.dev_store_passwords (
+  store_id uuid PRIMARY KEY,
+  owner_email text,
+  password text,
+  updated_at timestamptz DEFAULT now()
+);
+ALTER TABLE dev_store_passwords ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "dev_pw_all" ON dev_store_passwords FOR ALL TO anon USING (true) WITH CHECK (true);
+
+CREATE OR REPLACE FUNCTION dev_save_store_password(p_token text, p_store_id uuid, p_owner_email text, p_password text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  INSERT INTO dev_store_passwords(store_id, owner_email, password, updated_at)
+    VALUES (p_store_id, p_owner_email, p_password, now())
+    ON CONFLICT (store_id) DO UPDATE SET password = p_password, owner_email = p_owner_email, updated_at = now();
+END; $$;
+
+CREATE OR REPLACE FUNCTION dev_get_store_password(p_token text, p_store_id uuid)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_pw text;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT password INTO v_pw FROM dev_store_passwords WHERE store_id = p_store_id;
+  RETURN v_pw;
+END; $$;
+
+CREATE OR REPLACE FUNCTION dev_delete_store(p_token text, p_store_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_user_id uuid;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  SELECT user_id INTO v_user_id FROM stores WHERE id = p_store_id;
+  DELETE FROM orders       WHERE store_id = p_store_id;
+  DELETE FROM activity_logs WHERE store_id = p_store_id;
+  DELETE FROM store_users   WHERE store_id = p_store_id;
+  DELETE FROM products      WHERE store_id = p_store_id;
+  DELETE FROM inventory_items WHERE store_id = p_store_id;
+  DELETE FROM categories    WHERE store_id = p_store_id;
+  DELETE FROM subscriptions WHERE store_id = p_store_id;
+  DELETE FROM dev_store_passwords WHERE store_id = p_store_id;
+  DELETE FROM stores        WHERE id = p_store_id;
+  IF v_user_id IS NOT NULL THEN
+    DELETE FROM auth.users WHERE id = v_user_id;
+  END IF;
 END; $$;`;
 
 function showSqlSetup() {
@@ -912,6 +1010,7 @@ async function loadStaff() {
   _allStaff = data || []; // keep for store detail view
   document.getElementById('stStaff').textContent = _allPartners.length;
   renderPartners();
+  renderAccounts();
 }
 
 async function loadOrders() {
@@ -1002,6 +1101,57 @@ function viewStore(sid) {
     </tr>`).join('')}</tbody></table>` : '<div style="color:var(--muted);font-size:13px">No staff accounts.</div>'}
   `;
   document.getElementById('storeDetailModal').classList.add('show');
+}
+
+// ── Render Accounts ───────────────────────────────────────────────────────────
+function renderAccounts(items) {
+  const list = items ?? _allPartners;
+  const tb = document.getElementById('accountsTbody');
+  if (!tb) return;
+  if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="6">No accounts yet.</td></tr>'; return; }
+  tb.innerHTML = list.map((p, i) => {
+    const dt = new Date(p.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
+      <td><strong>${esc(p.store_name)}</strong></td>
+      <td style="color:var(--muted);font-size:12px">${esc(p.owner_email || '—')}</td>
+      <td><span class="badge badge-muted">${esc(p.business_type || '—')}</span></td>
+      <td style="color:var(--muted);font-size:12px">${dt}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="viewPassword('${p.store_id}','${esc(p.store_name)}','${esc(p.owner_email||'')}')">&#128272; See Password</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAccount('${p.store_id}','${esc(p.store_name)}')">&#128465; Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterAccounts() {
+  const q = document.getElementById('accountSearch').value.toLowerCase();
+  renderAccounts(_allPartners.filter(p =>
+    !q || p.store_name.toLowerCase().includes(q) || (p.owner_email||'').toLowerCase().includes(q)
+  ));
+}
+
+async function viewPassword(storeId, storeName, email) {
+  const { data, error } = await _sb.rpc('dev_get_store_password', { p_token: _devToken, p_store_id: storeId });
+  if (error || !data) {
+    showToast('No saved password — reset it first using Reset PW in the Partners tab.', true);
+    return;
+  }
+  document.getElementById('vpStore').textContent = storeName;
+  document.getElementById('vpEmail').textContent  = email;
+  document.getElementById('vpPass').textContent   = data;
+  document.getElementById('viewPwModal').classList.add('show');
+}
+
+async function deleteAccount(storeId, storeName) {
+  if (!confirm(`DELETE "${storeName}"?\n\nThis will permanently erase:\n• All orders & sales history\n• All products & inventory\n• All staff accounts\n• The store owner login\n\nThis CANNOT be undone.`)) return;
+  const typed = prompt(`Type the store name exactly to confirm:\n"${storeName}"`);
+  if (typed !== storeName) { showToast('Cancelled — name did not match.'); return; }
+  const { error } = await _sb.rpc('dev_delete_store', { p_token: _devToken, p_store_id: storeId });
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  showToast(`"${storeName}" deleted permanently.`);
+  await Promise.all([loadStaff(), loadStores()]);
 }
 
 // ── Render Partners ───────────────────────────────────────────────────────────
@@ -1113,6 +1263,9 @@ async function doCreatePartner() {
   document.getElementById('credsModal').classList.add('show');
   await loadStaff();
   await loadStores();
+  // Save plaintext password for Accounts tab
+  const newP = _allPartners.find(p => (p.owner_email||'').toLowerCase() === email.toLowerCase());
+  if (newP) await _sb.rpc('dev_save_store_password', { p_token: _devToken, p_store_id: newP.store_id, p_owner_email: email, p_password: pw }).then(r=>r);
   document.getElementById('stStores').textContent = _allStores.length;
 }
 
@@ -1234,6 +1387,11 @@ async function doResetPassword() {
   btn.disabled = false; btn.textContent = 'Reset Password';
   document.getElementById('rstStaffId').dataset.ownerEmail = '';
   if (error) { showToast('Error: ' + error.message, true); return; }
+  // Update saved password
+  if (ownerEmail) {
+    const rp = _allPartners.find(p => (p.owner_email||'').toLowerCase() === ownerEmail.toLowerCase());
+    if (rp) await _sb.rpc('dev_save_store_password', { p_token: _devToken, p_store_id: rp.store_id, p_owner_email: ownerEmail, p_password: pw }).then(r=>r);
+  }
   closeModal('resetModal');
   const partner = _allPartners.find(p => p.store_id === id);
   document.getElementById('cdStore').textContent = partner?.store_name || document.getElementById('rstName').textContent;
@@ -1555,16 +1713,16 @@ async function doGrantReferral() {
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function showTab(tab) {
-  const secMap = {stores:'Stores',staff:'Staff',orders:'Orders',subs:'Subs',agents:'Agents',referrals:'Referrals',support:'Support'};
-  const tabMap = {stores:'Stores',staff:'Staff',orders:'Orders',subs:'Subs',agents:'Agents',referrals:'Referrals',support:'Support'};
-  Object.keys(secMap).forEach(t => {
-    document.getElementById('sec' + secMap[t]).style.display = t === tab ? '' : 'none';
-    document.getElementById('tab' + tabMap[t]).classList.toggle('active', t === tab);
+  const map = {stores:'Stores',staff:'Staff',accounts:'Accounts',orders:'Orders',subs:'Subs',agents:'Agents',referrals:'Referrals',support:'Support'};
+  Object.keys(map).forEach(t => {
+    document.getElementById('sec' + map[t]).style.display = t === tab ? '' : 'none';
+    document.getElementById('tab' + map[t]).classList.toggle('active', t === tab);
   });
   if (tab === 'subs' && !_allSubs.length) loadSubs();
   if (tab === 'agents' && !_allAgents.length) loadAgents();
   if (tab === 'referrals' && !_allReferrals.length) loadReferrals();
   if (tab === 'support') { if (_allTickets.length) renderTickets(); else loadTickets(); }
+  if (tab === 'accounts') renderAccounts();
 }
 
 // ── Support Tickets ────────────────────────────────────────────────────────────
