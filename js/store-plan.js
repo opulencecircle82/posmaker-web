@@ -437,7 +437,8 @@ function updateSopNote(id, field, value) {
   });
 
   // ── OFFLINE: skip server entirely, serve from cache ──────────────────────
-  if (navigator.onLine) return;
+  // Only intercept cashier pages ? never break manager/dashboard/login
+  if (navigator.onLine || !location.pathname.match(/cashier/)) return;
 
   // Recover pm_store_id from the code map if it was cleared
   if (!localStorage.getItem('pm_store_id')) {
