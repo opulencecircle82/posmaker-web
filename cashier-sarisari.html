@@ -1,4 +1,4 @@
-﻿!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -11,7 +11,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>POSMaker Cashier</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabase.js"></script>
 <script src="js/config.js"></script>
 <script src="js/store-plan.js"></script>
 <style>
@@ -19,7 +19,7 @@
 :root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--radius:8px}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
 
-/* ── LOGIN ─────────────────────────────────────────────── */
+/* -- LOGIN ----------------------------------------------- */
 #loginWrap{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column}
 .login-box{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:32px;width:min(360px,92vw)}
 .login-logo-img{display:block;max-height:70px;max-width:160px;margin:0 auto 10px;border-radius:6px;object-fit:contain}
@@ -31,33 +31,33 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .btn-login{width:100%;padding:13px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin-top:4px}
 #loginErr{color:#ef4444;font-size:12px;min-height:16px;margin-bottom:6px;text-align:center}
 
-/* ── HEADER ────────────────────────────────────────────── */
+/* -- HEADER ---------------------------------------------- */
 .hdr{background:var(--accent);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .hdr-logo{height:28px;width:auto;border-radius:4px;object-fit:contain;display:none}
 .hdr-title{font-size:15px;font-weight:700;flex:1}
 .hdr-cashier{font-size:11px;opacity:.85;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btn-logout{background:rgba(255,255,255,.2);border:none;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;flex-shrink:0}
 
-/* ── ORDER TYPE TABS ────────────────────────────────────── */
+/* -- ORDER TYPE TABS -------------------------------------- */
 .ot-bar{background:var(--s1);display:flex;border-bottom:2px solid var(--border);flex-shrink:0}
 .ot-btn{flex:1;padding:9px 6px;border:none;background:transparent;color:#666;font-size:12px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;letter-spacing:.4px;text-transform:uppercase}
 .ot-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(0,180,216,.07)}
 
-/* ── CATEGORIES ─────────────────────────────────────────── */
+/* -- CATEGORIES ------------------------------------------- */
 .cat-bar{background:var(--s1);display:flex;overflow-x:auto;padding:5px 8px;gap:5px;flex-shrink:0;border-bottom:1px solid var(--border);scrollbar-width:none}
 .cat-bar::-webkit-scrollbar{display:none}
 .cat-btn{background:var(--s2);border:1px solid var(--border);color:#888;padding:7px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;font-size:11px;font-weight:700;flex-shrink:0;text-transform:uppercase;letter-spacing:.6px;transition:all .15s}
 .cat-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 
-/* ── MAIN LAYOUT ────────────────────────────────────────── */
+/* -- MAIN LAYOUT ------------------------------------------ */
 .main{display:flex;flex:1;overflow:hidden}
 
-/* ── SEARCH BAR (retail mode) ────────────────────────────── */
+/* -- SEARCH BAR (retail mode) ------------------------------ */
 .search-bar{display:none}
 .search-inp{width:100%;padding:8px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;outline:none;font-family:inherit}
 .search-inp:focus{border-color:var(--accent)}
 .search-inp::placeholder{color:#44445a}
-/* ── RETAIL LEFT PANEL ─────────────────────────────────── */
+/* -- RETAIL LEFT PANEL ----------------------------------- */
 .retail-left{width:200px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);display:none;flex-direction:column;align-items:stretch;padding:8px 8px 0;gap:6px;overflow:hidden}
 /* Embedded camera box */
 .rl-cam-box{border-radius:9px;overflow:hidden;background:#000;border:1.5px solid var(--border);position:relative;flex-shrink:0;cursor:pointer}
@@ -93,19 +93,19 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .r-card-stock.ok{color:#10b981;background:rgba(16,185,129,.13)}
 .r-card-stock.low{color:#f59e0b;background:rgba(245,158,11,.13)}
 .r-card-stock.zero{color:#ef4444;background:rgba(239,68,68,.13)}
-/* ── RETAIL MID PANEL — cart items (center column) ─────── */
+/* -- RETAIL MID PANEL � cart items (center column) ------- */
 .retail-mid{flex:1;display:none;flex-direction:column;overflow:hidden;background:var(--bg)}
 .r-card.flash{background:rgba(0,180,216,.22)!important;border-color:var(--accent)!important;transition:none!important}
-/* ── RETAIL RIGHT — totals-only panel ─────────────────── */
+/* -- RETAIL RIGHT � totals-only panel ------------------- */
 .retail-pay{width:220px!important}
 .retail-pay .totals{padding:20px 12px 8px}
 .retail-pay .t-row{font-size:12px;padding:3px 0}
 .retail-pay .t-row.big{font-size:26px;font-weight:900;color:var(--accent);padding:12px 0 4px;border-top:1px solid var(--border);margin-top:4px}
 
-/* ── PRODUCT GRID ───────────────────────────────────────── */
+/* -- PRODUCT GRID ----------------------------------------- */
 .products{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;align-content:start}
 
-/* Restaurant card — large image */
+/* Restaurant card � large image */
 .p-btn{background:var(--s2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;text-align:left;user-select:none;transition:transform .1s,border-color .1s;overflow:hidden;display:flex;flex-direction:column}
 .p-btn:active{border-color:var(--accent);transform:scale(.96)}
 .p-btn.out-of-stock{opacity:.45;cursor:not-allowed}
@@ -118,7 +118,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .p-stock.ok{color:#10b981}.p-stock.low{color:#f59e0b}.p-stock.zero{color:#ef4444}
 
 
-/* ── CART ───────────────────────────────────────────────── */
+/* -- CART ------------------------------------------------- */
 .cart{width:300px;background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
 @media(max-width:620px){.cart{width:215px}}
 
@@ -166,7 +166,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .btn-checkout{margin:6px 7px 7px;background:var(--accent);color:#fff;border:none;padding:11px;border-radius:var(--radius);font-size:14px;font-weight:700;cursor:pointer;width:calc(100% - 14px)}
 .btn-checkout:disabled{background:#1e1e30;color:#444;cursor:not-allowed}
 
-/* ── MODALS ─────────────────────────────────────────────── */
+/* -- MODALS ----------------------------------------------- */
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:500;align-items:center;justify-content:center;padding:12px}
 .modal.show{display:flex}
 .mbox{background:var(--s1);border-radius:14px;padding:20px;width:min(420px,96vw);border:1px solid var(--border);max-height:90dvh;overflow-y:auto}
@@ -197,13 +197,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── STORE ACTIVATION ───────────────────────────────────── */
+/* -- STORE ACTIVATION ------------------------------------- */
 #activateWrap{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:1000;flex-direction:column}
 #activateWrap.show{display:flex}
 .act-note{font-size:11px;color:#555;text-align:center;margin-top:14px;line-height:1.7}
 .act-note a{color:var(--accent);text-decoration:none}
 
-/* ── CAMERA SCANNER ─────────────────────────────────────── */
+/* -- CAMERA SCANNER --------------------------------------- */
 #camOverlay{position:fixed;bottom:60px;left:10px;z-index:9100;background:#111120;border:2px solid var(--accent);border-radius:10px;width:220px;box-shadow:0 6px 24px rgba(0,0,0,.75);overflow:hidden;visibility:hidden;pointer-events:none}
 #camOverlay.retail-docked{position:fixed;top:96px;left:0;bottom:auto;width:200px;border-radius:0 0 10px 0;border-left:none;border-top:none;box-shadow:2px 4px 16px rgba(0,0,0,.6)}
 #camOverlay.retail-docked .cam-hdr{display:none}
@@ -224,7 +224,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 </head>
 <body>
 
-<!-- ── PWA INSTALL BANNER ── -->
+<!-- -- PWA INSTALL BANNER -- -->
 <div id="installBar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#111120;border-top:1px solid #00b4d8;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
   <div style="display:flex;align-items:center;gap:10px">
     <img src="icon-192.png" style="width:36px;height:36px;border-radius:8px">
@@ -239,7 +239,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
-<!-- ── STORE ACTIVATION (first launch from APK / no URL param) ── -->
+<!-- -- STORE ACTIVATION (first launch from APK / no URL param) -- -->
 <div id="activateWrap">
   <div class="login-box">
     <div class="login-title" style="margin-bottom:6px">&#128273; Enter Store Code</div>
@@ -251,7 +251,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
-<!-- ── LOGIN ── -->
+<!-- -- LOGIN -- -->
 <div id="loginWrap">
   <div class="login-box">
     <img class="login-logo-img" id="loginLogo" alt="">
@@ -261,15 +261,15 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div style="position:relative">
       <input class="inp" id="lp" type="password" placeholder="Password" autocomplete="current-password" style="padding-right:48px">
       <button type="button" onclick="togglePw()" id="showPwBtn"
-        style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;line-height:1;color:#888;padding:4px">👁</button>
+        style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;line-height:1;color:#888;padding:4px">??</button>
     </div>
     <div id="loginErr"></div>
     <button class="btn-login" onclick="doLogin()">Login</button>
   </div>
 </div>
 
-<!-- ── APP ── -->
-<div id="demoBanner" class="demo-banner" style="display:none">Demo mode — changes are not saved</div>
+<!-- -- APP -- -->
+<div id="demoBanner" class="demo-banner" style="display:none">Demo mode � changes are not saved</div>
 
 <div class="hdr">
   <img class="hdr-logo" id="hdrLogo" alt="">
@@ -360,7 +360,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
-<!-- ── QTY INPUT MODAL (retail) ── -->
+<!-- -- QTY INPUT MODAL (retail) -- -->
 <div class="modal" id="mQty">
   <div class="mbox" style="width:min(300px,96vw)">
     <div class="mtitle" id="mQtyTitle">Enter Quantity</div>
@@ -373,7 +373,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
-<!-- ── RECEIPT MODAL ── -->
+<!-- -- RECEIPT MODAL -- -->
 <div class="modal" id="mConfirm">
   <div class="mbox">
     <div class="mtitle">&#10004; Order Confirmed</div>
@@ -387,7 +387,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
-<!-- ── TABLE MODAL ── -->
+<!-- -- TABLE MODAL -- -->
 <div class="modal" id="mTable">
   <div class="mbox">
     <div class="mtitle">&#127963; Select Table</div>
@@ -398,7 +398,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
-<!-- ── CASH REMITTANCE ON LOGOUT ── -->
+<!-- -- CASH REMITTANCE ON LOGOUT -- -->
 <div class="modal" id="mRemitLogout">
   <div class="mbox" style="width:min(380px,96vw)">
 
@@ -409,17 +409,17 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <div style="background:var(--s2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px">
           <span style="color:#888">Cashier</span>
-          <strong id="remitLogCashier">—</strong>
+          <strong id="remitLogCashier">�</strong>
         </div>
         <div style="display:flex;justify-content:space-between">
           <span style="color:#888">Date</span>
-          <span id="remitLogDate">—</span>
+          <span id="remitLogDate">�</span>
         </div>
-        <span id="remitLogPOS" style="display:none">—</span>
+        <span id="remitLogPOS" style="display:none">�</span>
       </div>
       <label style="font-size:12px;font-weight:600;color:#aaa;display:block;margin-bottom:6px">Cash on Hand (ilan ang pera sa kahon?)</label>
       <input class="inp" id="remitLogCOH" type="number" min="0" step="0.01" placeholder="0.00" oninput="calcRemitLogDiff()" style="font-size:22px;text-align:center;padding:12px;font-weight:700">
-      <span id="remitLogDiff" style="display:none">—</span>
+      <span id="remitLogDiff" style="display:none">�</span>
       <div class="m-actions" style="margin-top:14px">
         <button class="btn-cancel" onclick="cancelRemitLogout()">Cancel</button>
         <button class="btn-confirm" id="remitLogCheckBtn" onclick="remitLogStep2()" disabled style="opacity:.4">I-submit &#10003;</button>
@@ -431,14 +431,14 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <div class="mtitle" style="color:#f59e0b">&#9888; I-confirm</div>
       <div style="font-size:13px;color:#888;margin-bottom:14px">Tama ba ang halaga? I-confirm bago mag-logout.</div>
       <div style="background:var(--s2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:14px;display:flex;flex-direction:column;gap:8px">
-        <div style="display:flex;justify-content:space-between"><span style="color:#888">Cashier</span><strong id="remitCk1">—</strong></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:#888">Date</span><span id="remitCk2">—</span></div>
-        <span id="remitCk3" style="display:none">—</span>
+        <div style="display:flex;justify-content:space-between"><span style="color:#888">Cashier</span><strong id="remitCk1">�</strong></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#888">Date</span><span id="remitCk2">�</span></div>
+        <span id="remitCk3" style="display:none">�</span>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
           <span style="color:#888">Cash on Hand</span>
-          <strong id="remitCk4" style="font-size:20px;color:var(--accent)">—</strong>
+          <strong id="remitCk4" style="font-size:20px;color:var(--accent)">�</strong>
         </div>
-        <span id="remitCk5" style="display:none">—</span>
+        <span id="remitCk5" style="display:none">�</span>
       </div>
       <div class="m-actions">
         <button class="btn-cancel" onclick="remitLogBack()">&#8592; Back</button>
@@ -449,7 +449,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
-<!-- ── CASHIER INBOX MODAL ── -->
+<!-- -- CASHIER INBOX MODAL -- -->
 <div class="modal" id="mCashierInbox">
   <div class="mbox" style="width:min(480px,96vw)">
     <div class="mtitle">&#128172; Messages</div>
@@ -462,7 +462,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
-<!-- ── DRAFT MODAL ── -->
+<!-- -- DRAFT MODAL -- -->
 <div class="modal" id="mDraft">
   <div class="mbox">
     <div class="mtitle">&#128203; Draft Orders</div>
@@ -484,7 +484,7 @@ const params   = new URLSearchParams(location.search);
 let   STORE_ID = params.get('store') || localStorage.getItem('pm_store_id') || null;
 const IS_DEMO  = params.get('demo') === '1';
 
-// Hide login immediately if demo — must run synchronously before any async code
+// Hide login immediately if demo � must run synchronously before any async code
 if (IS_DEMO) document.getElementById('loginWrap').style.display = 'none';
 
 // Maps each business type to its dedicated cashier/dashboard page slug (cashier-<slug>.html / dashboard-<slug>.html)
@@ -501,7 +501,7 @@ const BIZ_FILE_MAP = {
 function bizCashierFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `cashier-${s}.html` : 'cashier.html'; }
 function bizDashboardFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `dashboard-${s}.html` : 'dashboard.html'; }
 
-let STORE = null, CUR = '₱', TAX = 0, CASHIER = null, CASHIER_NAME = '';
+let STORE = null, CUR = '?', TAX = 0, CASHIER = null, CASHIER_NAME = '';
 const FREE_PROD_LIMIT = 3, FREE_STAFF_LIMIT = 1;
 let IS_PRO = false;
 let prods = [], cart = {}, payMeth = 'Cash';
@@ -509,7 +509,7 @@ let storeInvItems = [], invById = {}, invByName = {};
 let orderType = 'Dine In', tableNo = '', isKOT = false;
 let discPct = 0, discAmt = 0;
 
-// ── Web device lock ───────────────────────────────────────────────────────
+// -- Web device lock -------------------------------------------------------
 function getBrowserDevId() {
   let id = localStorage.getItem('pm_dev_id');
   if (!id) {
@@ -561,12 +561,12 @@ async function checkWebDevice(storeId, register = false) {
   } catch { return 'ok'; }
 }
 
-// ── Page init ────────────────────────────────────────────────────────────
+// -- Page init ------------------------------------------------------------
 (async () => {
   if (IS_DEMO) {
     document.getElementById('demoBanner').style.display = '';
     const dname = params.get('dname') || 'Demo Store';
-    const dcur  = params.get('dcur')  || '₱';
+    const dcur  = params.get('dcur')  || '?';
     const dtax  = parseFloat(params.get('dtax') || '12');
     STORE = { id: null, name: dname, currency: dcur, tax_rate: dtax, receipt_footer: 'Thank you!', logo_b64: '',
               pos_font:'', pos_accent:'', pos_bg:'', pos_card:'', pos_text:'', pos_radius:10,
@@ -632,7 +632,7 @@ async function checkWebDevice(storeId, register = false) {
       return;
     }
   }
-  STORE = store; CUR = store.currency || '₱'; TAX = parseFloat(store.tax_rate) || 0;
+  STORE = store; CUR = store.currency || '?'; TAX = parseFloat(store.tax_rate) || 0;
   try { localStorage.setItem('pm_cached_store_'+STORE_ID, JSON.stringify(store)); } catch(_) {}
   IS_PRO = await getStorePro(_sb, STORE.id);
   if (navigator.onLine) { try { localStorage.setItem('pm_cached_pro_'+STORE_ID, JSON.stringify(IS_PRO)); } catch(_) {} } else { try { IS_PRO = JSON.parse(localStorage.getItem('pm_cached_pro_'+STORE_ID)||'false'); } catch(_) {} }
@@ -646,7 +646,7 @@ const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery
 // Business types that track customers by chair instead of table, and skip the camera scanner
 const CHAIR_TYPES = new Set(['Salon / Barbershop']);
 
-// Business types that sell barcoded/packaged items — only these get the camera/product scanner
+// Business types that sell barcoded/packaged items � only these get the camera/product scanner
 const SCANNER_TYPES = new Set(['Sari-Sari Store','Drug Store']);
 
 // Service businesses where a linked supply showing 0 stock means "unlimited" (labor-based, not stock-limited)
@@ -710,7 +710,7 @@ function adaptCashierMode(bizType) {
   const showScanner = SCANNER_TYPES.has(bizType);
   SHOW_SCANNER = showScanner;
   if (!showScanner) {
-    // Only grocery/convenience and drug stores sell scannable packaged items — drop the camera for everyone else
+    // Only grocery/convenience and drug stores sell scannable packaged items � drop the camera for everyone else
     if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('retail-docked'); }
     if (btnCam)  btnCam.style.display = 'none';
   } else {
@@ -786,7 +786,7 @@ function applyPosTheme(s) {
   styleEl.textContent = btnRules[bs] || '';
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────
+// -- Auth -----------------------------------------------------------------
 document.getElementById('lp').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 function togglePw(){ const f=document.getElementById('lp'); f.type=f.type==='password'?'text':'password'; }
 document.getElementById('mQtyVal').addEventListener('keydown', e => { if (e.key === 'Enter') confirmQty(); });
@@ -800,7 +800,7 @@ async function doLogin() {
   if (!username || !pw) { errEl.textContent = 'Enter username and password.'; return; }
 
   btn.disabled = true;
-  btn.textContent = 'Logging in…';
+  btn.textContent = 'Logging in�';
   try {
     const { data: found, error: qErr } = await _sb.from('store_users')
       .select('id,username,full_name,role,password_hash,active')
@@ -808,7 +808,7 @@ async function doLogin() {
       .eq('username', username)
       .single();
 
-    if (qErr && !navigator.onLine) { try { const _cu=JSON.parse(localStorage.getItem('pm_cached_users_'+STORE_ID)||'[]'); const _cf=_cu.find(u=>u.username===username); if(_cf&&_cf.active){const _h=await sha256(pw);if(_cf.password_hash===_h){CASHIER=_cf;if(prods.length===0){const _cpd=localStorage.getItem('pm_cached_prods_'+STORE_ID);try{if(_cpd){prods=JSON.parse(_cpd);buildCats();renderProds('All');}}catch(_){}}showPOS(_cf.full_name||_cf.username);return;}else{errEl.textContent='Wrong password.';return;}} } catch(_){} errEl.textContent='Offline — log in once while online to enable offline access.'; return; }
+    if (qErr && !navigator.onLine) { try { const _cu=JSON.parse(localStorage.getItem('pm_cached_users_'+STORE_ID)||'[]'); const _cf=_cu.find(u=>u.username===username); if(_cf&&_cf.active){const _h=await sha256(pw);if(_cf.password_hash===_h){CASHIER=_cf;if(prods.length===0){const _cpd=localStorage.getItem('pm_cached_prods_'+STORE_ID);try{if(_cpd){prods=JSON.parse(_cpd);buildCats();renderProds('All');}}catch(_){}}showPOS(_cf.full_name||_cf.username);return;}else{errEl.textContent='Wrong password.';return;}} } catch(_){} errEl.textContent='Offline � log in once while online to enable offline access.'; return; }
     if (qErr && qErr.code !== 'PGRST116') throw new Error(qErr.message);
 
     if (!found) {
@@ -839,9 +839,9 @@ async function doLogin() {
     try { const _cu=JSON.parse(localStorage.getItem('pm_cached_users_'+STORE_ID)||'[]'); const _xi=_cu.findIndex(u=>u.id===found.id); if(_xi>=0)_cu[_xi]=found;else _cu.push(found); localStorage.setItem('pm_cached_users_'+STORE_ID,JSON.stringify(_cu)); } catch(_) {}
     _sb.rpc('log_staff_login', { p_store_id: STORE_ID, p_staff_id: found.id, p_username: found.username }).then(() => {});
     if (prods.length === 0) {
-      await loadProds(); // first login — must load before showing POS
+      await loadProds(); // first login � must load before showing POS
     } else {
-      loadProds().catch(() => {}); // re-login — show POS instantly, refresh products in background
+      loadProds().catch(() => {}); // re-login � show POS instantly, refresh products in background
     }
     showPOS(found.full_name || found.username);
   } catch(e) {
@@ -867,14 +867,14 @@ function showPOS(name) {
   CASHIER_NAME = name;
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('hdrCashier').textContent = '\u{1F464} ' + name;
-  // Auto-reload products every 10 min — only register once
+  // Auto-reload products every 10 min � only register once
   if (!window._prodReloadTimer)
     window._prodReloadTimer = setInterval(() => loadProds().catch(() => {}), 10 * 60 * 1000);
   redrawCart();
   updateNetStatus();
   syncOfflineQueue();
   startPing();
-  // Auto-open scanner (retail: docked in left panel; restaurant: floating) — only for grocery/convenience/drug stores
+  // Auto-open scanner (retail: docked in left panel; restaurant: floating) � only for grocery/convenience/drug stores
   if (SHOW_SCANNER) {
     const _tryAutoScan = () => { _openScanTimer = setTimeout(openScanner, 500); };
     if (navigator.permissions) {
@@ -888,7 +888,7 @@ async function doLogout() {
   openRemitOnLogout();
 }
 
-// ── Cashier Inbox ────────────────────────────────────────────────────────────
+// -- Cashier Inbox ------------------------------------------------------------
 async function openCashierInbox() {
   const list = document.getElementById('cashierInboxList');
   list.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px">Loading...</div>';
@@ -934,12 +934,12 @@ async function checkCashierInbox() {
 }
 
 async function openRemitOnLogout() {
-  const name = CASHIER?.full_name || CASHIER?.username || CASHIER_NAME || '—';
+  const name = CASHIER?.full_name || CASHIER?.username || CASHIER_NAME || '�';
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('remitLogCashier').textContent = name;
   document.getElementById('remitLogDate').textContent = new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
   document.getElementById('remitLogCOH').value = '';
-  document.getElementById('remitLogDiff').textContent = '—';
+  document.getElementById('remitLogDiff').textContent = '�';
   document.getElementById('remitLogDiff').style.color = 'var(--muted)';
   document.getElementById('remitLogCheckBtn').disabled = true;
   document.getElementById('remitLogCheckBtn').style.opacity = '.4';
@@ -947,7 +947,7 @@ async function openRemitOnLogout() {
   document.getElementById('remitStep2').style.display = 'none';
   document.getElementById('mRemitLogout').classList.add('show');
   // Fetch POS sales since last remittance (not whole day, to reset each session)
-  document.getElementById('remitLogPOS').textContent = 'Loading…';
+  document.getElementById('remitLogPOS').textContent = 'Loading�';
   try {
     const to = today + 'T23:59:59';
     const { data: lastRemit } = await _sb.from('cash_remittances')
@@ -958,9 +958,9 @@ async function openRemitOnLogout() {
       .eq('store_id', STORE_ID).eq('cashier_name', name)
       .gte('timestamp', from).lte('timestamp', to);
     const total = (data||[]).reduce((s,o)=>s+(parseFloat(o.total)||0), 0);
-    document.getElementById('remitLogPOS').textContent = (CUR||'₱') + total.toFixed(2);
+    document.getElementById('remitLogPOS').textContent = (CUR||'?') + total.toFixed(2);
   } catch(_) {
-    document.getElementById('remitLogPOS').textContent = '—';
+    document.getElementById('remitLogPOS').textContent = '�';
   }
 }
 
@@ -970,9 +970,9 @@ function calcRemitLogDiff() {
   const cash = parseFloat(document.getElementById('remitLogCOH').value);
   const btn  = document.getElementById('remitLogCheckBtn');
   const el   = document.getElementById('remitLogDiff');
-  if (isNaN(cash)) { el.textContent='—'; el.style.color='var(--muted)'; btn.disabled=true; btn.style.opacity='.4'; return; }
+  if (isNaN(cash)) { el.textContent='�'; el.style.color='var(--muted)'; btn.disabled=true; btn.style.opacity='.4'; return; }
   const diff = cash - pos;
-  el.textContent = (diff>=0?'+':'') + (CUR||'₱') + Math.abs(diff).toFixed(2);
+  el.textContent = (diff>=0?'+':'') + (CUR||'?') + Math.abs(diff).toFixed(2);
   el.style.color = diff>0 ? '#10b981' : diff<0 ? '#ef4444' : '#888';
   btn.disabled = false; btn.style.opacity = '1';
 }
@@ -985,10 +985,10 @@ function remitLogStep2() {
   const name = document.getElementById('remitLogCashier').textContent;
   document.getElementById('remitCk1').textContent = name;
   document.getElementById('remitCk2').textContent = document.getElementById('remitLogDate').textContent;
-  document.getElementById('remitCk3').textContent = (CUR||'₱') + pos.toFixed(2);
-  document.getElementById('remitCk4').textContent = (CUR||'₱') + cash.toFixed(2);
+  document.getElementById('remitCk3').textContent = (CUR||'?') + pos.toFixed(2);
+  document.getElementById('remitCk4').textContent = (CUR||'?') + cash.toFixed(2);
   const diffEl = document.getElementById('remitCk5');
-  diffEl.textContent = (diff>=0?'+':'') + (CUR||'₱') + Math.abs(diff).toFixed(2);
+  diffEl.textContent = (diff>=0?'+':'') + (CUR||'?') + Math.abs(diff).toFixed(2);
   diffEl.style.color = diff>0 ? '#10b981' : diff<0 ? '#ef4444' : '#888';
   document.getElementById('remitStep1').style.display = 'none';
   document.getElementById('remitStep2').style.display = '';
@@ -1001,7 +1001,7 @@ function remitLogBack() {
 
 async function confirmRemitLogout() {
   const btn = document.getElementById('remitLogConfirmBtn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving�';
   try {
     const name   = document.getElementById('remitLogCashier').textContent;
     const today  = new Date().toISOString().slice(0,10);
@@ -1012,11 +1012,11 @@ async function confirmRemitLogout() {
       store_id: STORE_ID, cashier_name: name, shift_date: today,
       pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending'
     }).then(()=>{});
-    const diffLabel = diff<0 ? `Short -${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : diff>0 ? `Over +${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : 'Balanced';
+    const diffLabel = diff<0 ? `Short -${CUR||'?'}${Math.abs(diff).toFixed(2)}` : diff>0 ? `Over +${CUR||'?'}${Math.abs(diff).toFixed(2)}` : 'Balanced';
     _sb.from('activity_logs').insert({
       store_id: STORE_ID, actor_name: name, actor_role: CASHIER?.role||'cashier',
       action: 'REMITTANCE', target_name: name,
-      details: `POS: ${CUR||'₱'}${pos.toFixed(2)} | Cash: ${CUR||'₱'}${cash.toFixed(2)} | ${diffLabel}`
+      details: `POS: ${CUR||'?'}${pos.toFixed(2)} | Cash: ${CUR||'?'}${cash.toFixed(2)} | ${diffLabel}`
     }).then(()=>{});
   } catch(_) {}
   document.getElementById('mRemitLogout').classList.remove('show');
@@ -1042,7 +1042,7 @@ function _actualLogout() {
   document.getElementById('loginWrap').style.display = 'flex';
 }
 
-// ── Products ─────────────────────────────────────────────────────────────
+// -- Products -------------------------------------------------------------
 async function syncProds() {
   const btn = document.getElementById('btnSync');
   if(btn){ btn.style.animation='spin .6s linear infinite'; btn.disabled=true; }
@@ -1127,7 +1127,7 @@ async function loadProds() {
     const hidden = all ? all.filter(p => !p.available).length : 0;
     if (total > 0 && hidden > 0) {
       document.getElementById('grid').innerHTML =
-        `<div style="color:#f59e0b;padding:20px;font-size:13px">${total} product(s) found but ${hidden} are set to <strong>Unavailable</strong>. Go to Dashboard → Menu Items and enable them.</div>`;
+        `<div style="color:#f59e0b;padding:20px;font-size:13px">${total} product(s) found but ${hidden} are set to <strong>Unavailable</strong>. Go to Dashboard ? Menu Items and enable them.</div>`;
       return;
     }
     if (e2) {
@@ -1173,7 +1173,7 @@ function buildCats() {
   if (sel) sel.innerHTML = cats.map(c => {
     const list = c === 'All' ? prods : prods.filter(p => p.category === c);
     const tot = list.reduce((s, p) => s + parseFloat(p.stock ?? 0), 0);
-    return `<option value="${c}">${c} — ${Math.round(tot)} stk</option>`;
+    return `<option value="${c}">${c} � ${Math.round(tot)} stk</option>`;
   }).join('');
   _updateRlCount(prods.length);
 }
@@ -1284,7 +1284,7 @@ function renderRetailList(list) {
     : `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
 }
 
-// ── Retail: tap product → add 1 to cart with flash ────────────────────────
+// -- Retail: tap product ? add 1 to cart with flash ------------------------
 function addProductDirect(id) {
   addItem(id);
   const card = document.getElementById('rcard_' + id);
@@ -1294,7 +1294,7 @@ function addProductDirect(id) {
   }
 }
 
-// ── Python Vision Server config ───────────────────────────────────────────
+// -- Python Vision Server config -------------------------------------------
 // URL set in js/config.js as VISION_SERVER_URL; localStorage override for testing
 const VISION_URL = ((typeof VISION_SERVER_URL !== 'undefined' ? VISION_SERVER_URL : '') ||
                     localStorage.getItem('pm_vision_url') || '').replace(/\/$/, '');
@@ -1340,7 +1340,7 @@ function _startSqPyLoop(video, sess) {
         if (p) { setCooldown(p.id); addItem(p.id); showSqHit(p); }
         const stat = document.getElementById('sqStatus');
         if (stat) {
-          stat.textContent = '🐍 ' + (p?.name || res.name);
+          stat.textContent = '?? ' + (p?.name || res.name);
           setTimeout(() => { sqStatusUpdate(); }, 1500);
         }
       }
@@ -1361,7 +1361,7 @@ function _startPyLoop(video, sess) {
       if (res?.id && !isOnCooldown(res.id)) {
         const p = prods.find(x => x.id == res.id);
         if (p) { setCooldown(p.id); addItem(p.id); }
-        camStat('🐍 ' + (p?.name || res.name));
+        camStat('?? ' + (p?.name || res.name));
         setTimeout(() => { if (scannerOpen) camStat(_scanModes()); }, 1500);
       }
     }
@@ -1420,7 +1420,7 @@ function askQty(id) {
   if (WHOLE_UNITS.has(unit)) { addItem(id); return; }
   _qtyPid = id;
   document.getElementById('mQtyTitle').textContent = p.name;
-  document.getElementById('mQtyUnit').textContent  = `${CUR}${parseFloat(p.price).toFixed(2)} / ${p.unit||'pc'}  ·  Stock: ${p.stock??0} ${p.unit||'pc'}`;
+  document.getElementById('mQtyUnit').textContent  = `${CUR}${parseFloat(p.price).toFixed(2)} / ${p.unit||'pc'}  �  Stock: ${p.stock??0} ${p.unit||'pc'}`;
   document.getElementById('mQtyVal').value = '';
   document.getElementById('mQty').classList.add('show');
   setTimeout(() => document.getElementById('mQtyVal').focus(), 80);
@@ -1442,7 +1442,7 @@ function addItemWithQty(id, qty) {
   redrawCart();
 }
 
-// ── Order type ────────────────────────────────────────────────────────────
+// -- Order type ------------------------------------------------------------
 function setOrderType(btn) {
   orderType = btn.dataset.type;
   document.querySelectorAll('.ot-btn').forEach(b => b.classList.remove('active'));
@@ -1451,7 +1451,7 @@ function setOrderType(btn) {
   if (orderType !== 'Dine In' && tableNo) { tableNo = ''; updateTableBtn(); }
 }
 
-// ── Table / Chair management ──────────────────────────────────────────────
+// -- Table / Chair management ----------------------------------------------
 function showTableModal() {
   const grid  = document.getElementById('tblGrid');
   const count = USES_CHAIRS ? 12 : 20;
@@ -1477,21 +1477,21 @@ function updateTableBtn() {
   const btn = document.getElementById('btnTable');
   if (!btn) return;
   if (USES_CHAIRS) {
-    btn.textContent = tableNo ? `\u{1FA91} ${tableNo}` : '\u{1FA91} Chair: —';
+    btn.textContent = tableNo ? `\u{1FA91} ${tableNo}` : '\u{1FA91} Chair: �';
   } else {
-    btn.textContent = tableNo ? `\u{1F3DA} ${tableNo}` : '\u{1F3DA} Table: —';
+    btn.textContent = tableNo ? `\u{1F3DA} ${tableNo}` : '\u{1F3DA} Table: �';
   }
 }
 
-// ── KOT toggle ────────────────────────────────────────────────────────────
+// -- KOT toggle ------------------------------------------------------------
 function toggleKOT() {
   isKOT = !isKOT;
   const btn = document.getElementById('btnKOT');
   btn.classList.toggle('on', isKOT);
-  btn.textContent = isKOT ? '\u{1F468}‍\u{1F373} KOT ✓' : '\u{1F468}‍\u{1F373} KOT';
+  btn.textContent = isKOT ? '\u{1F468}?\u{1F373} KOT ?' : '\u{1F468}?\u{1F373} KOT';
 }
 
-// ── Cart ──────────────────────────────────────────────────────────────────
+// -- Cart ------------------------------------------------------------------
 function _maxStock(id) {
   const p = prods.find(x => x.id == id);
   if (!p) return Infinity;
@@ -1556,7 +1556,7 @@ function redrawCart() {
   const discRow = document.getElementById('tDiscRow');
   if (disc > 0) {
     discRow.style.display = '';
-    document.getElementById('tDisc').textContent = '−' + CUR + disc.toFixed(2);
+    document.getElementById('tDisc').textContent = '-' + CUR + disc.toFixed(2);
   } else {
     discRow.style.display = 'none';
   }
@@ -1576,7 +1576,7 @@ function redrawCart() {
   }
 }
 
-// ── Discount ──────────────────────────────────────────────────────────────
+// -- Discount --------------------------------------------------------------
 function onDiscPct() {
   discPct = parseFloat(document.getElementById('discPct').value) || 0;
   discAmt = 0; document.getElementById('discAmt').value = '';
@@ -1588,7 +1588,7 @@ function onDiscAmt() {
   redrawCart();
 }
 
-// ── Payment ───────────────────────────────────────────────────────────────
+// -- Payment ---------------------------------------------------------------
 function setCash(a) { document.getElementById('tendered').value = a; calcChange(); }
 
 function setMethod(m, btn) {
@@ -1609,7 +1609,7 @@ function calcChange() {
   } else { el.textContent = ''; }
 }
 
-// ── Offline Queue ─────────────────────────────────────────────────────────
+// -- Offline Queue ---------------------------------------------------------
 function offlineKey(){ return `pm_offq_${STORE_ID}`; }
 function getOfflineQueue(){ try{ return JSON.parse(localStorage.getItem(offlineKey())||'[]'); }catch{ return []; } }
 function setOfflineQueue(q){ localStorage.setItem(offlineKey(), JSON.stringify(q)); }
@@ -1620,10 +1620,10 @@ function updateNetStatus(){
   if(!el)return;
   const q=getOfflineQueue();
   if(navigator.onLine){
-    el.textContent=q.length?`● Online · ${q.length} pending`:'● Online';
+    el.textContent=q.length?`? Online � ${q.length} pending`:'? Online';
     el.style.color=q.length?'#f59e0b':'#4ade80';
   }else{
-    el.textContent=`⚠ Offline${q.length?' · '+q.length+' queued':''}`;
+    el.textContent=`? Offline${q.length?' � '+q.length+' queued':''}`;
     el.style.color='#ef4444';
   }
 }
@@ -1633,7 +1633,7 @@ async function syncOfflineQueue(){
   if(!q.length||!navigator.onLine)return;
   const bar=document.getElementById('syncBar');
   bar.style.display='block';
-  bar.textContent=`⏫ Syncing ${q.length} offline order(s)…`;
+  bar.textContent=`? Syncing ${q.length} offline order(s)�`;
   const failed=[];
   for(const entry of q){
     try{
@@ -1672,18 +1672,18 @@ async function syncOfflineQueue(){
   setOfflineQueue(failed);
   updateNetStatus();
   if(!failed.length){
-    bar.textContent=`✓ ${q.length} order(s) uploaded successfully`;
+    bar.textContent=`? ${q.length} order(s) uploaded successfully`;
     setTimeout(()=>{bar.style.display='none';},3000);
   }else{
     bar.style.color='#ef4444';
-    bar.textContent=`⚠ ${q.length-failed.length} uploaded, ${failed.length} still pending (will retry)`;
+    bar.textContent=`? ${q.length-failed.length} uploaded, ${failed.length} still pending (will retry)`;
   }
 }
 
 window.addEventListener('online', ()=>{ updateNetStatus(); syncOfflineQueue(); });
 window.addEventListener('offline', ()=>{ updateNetStatus(); });
 
-// ── Confirm Order ─────────────────────────────────────────────────────────
+// -- Confirm Order ---------------------------------------------------------
 async function confirmOrder() {
   const { items, raw, disc, total, tax, sub } = getCartTotals();
   const tender = payMeth === 'Cash' ? parseFloat(document.getElementById('tendered').value) || 0 : total;
@@ -1696,7 +1696,7 @@ async function confirmOrder() {
 
   if (IS_DEMO) { showReceipt(receiptData); return; }
 
-  // ── Offline path ──────────────────────────────────────────────────────
+  // -- Offline path ------------------------------------------------------
   if (!navigator.onLine) {
     const offlineId = 'OFF-' + Date.now().toString(36).toUpperCase();
     queueOfflineOrder({
@@ -1737,7 +1737,7 @@ async function confirmOrder() {
 
   let { data: ord, error: oErr } = await _sb.from('orders').insert(fullRow).select('id').single();
 
-  // Fallback: new columns not in DB yet — retry with base columns only
+  // Fallback: new columns not in DB yet � retry with base columns only
   if (oErr && oErr.message && oErr.message.toLowerCase().includes('column')) {
     ({ data: ord, error: oErr } = await _sb.from('orders').insert(baseRow).select('id').single());
   }
@@ -1794,7 +1794,7 @@ async function confirmOrder() {
 }
 
 function buildReceiptText(d) {
-  const ln = '─'.repeat(32);
+  const ln = '-'.repeat(32);
   const store = STORE?.name || 'POSMaker';
   let s = store + '\n';
   if (d.isKOT) s += '*** KITCHEN ORDER TICKET ***\n';
@@ -1836,14 +1836,14 @@ function newOrder() {
   document.querySelectorAll('.m-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
   isKOT = false;
   document.getElementById('btnKOT').classList.remove('on');
-  document.getElementById('btnKOT').textContent = '\u{1F468}‍\u{1F373} KOT';
+  document.getElementById('btnKOT').textContent = '\u{1F468}?\u{1F373} KOT';
   redrawCart();
   closeM('mConfirm');
 }
 
 function closeM(id) { document.getElementById(id).classList.remove('show'); }
 
-// ── Draft Orders ──────────────────────────────────────────────────────────
+// -- Draft Orders ----------------------------------------------------------
 async function showDrafts() {
   document.getElementById('mDraft').classList.add('show');
   await loadDraftList();
@@ -1933,7 +1933,7 @@ async function deleteDraft(id) {
   await loadDraftList();
 }
 
-// ── Utils ─────────────────────────────────────────────────────────────────
+// -- Utils -----------------------------------------------------------------
 async function sha256(msg) {
   if (window.isSecureContext && crypto.subtle) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
@@ -1956,7 +1956,7 @@ async function sha256(msg) {
   return h.map(v=>(v>>>0).toString(16).padStart(8,'0')).join('');
 }
 
-// ── Store Activation (APK / no URL param) ────────────────────────────────
+// -- Store Activation (APK / no URL param) --------------------------------
 async function doActivateStore() {
   const raw = (document.getElementById('actInput').value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   const btn = document.getElementById('actBtn');
@@ -1964,7 +1964,7 @@ async function doActivateStore() {
   err.textContent = '';
   if (!raw || raw.length < 4) { err.textContent = 'Please enter your store code.'; return; }
 
-  if (!navigator.onLine) { try { const _cm=JSON.parse(localStorage.getItem('pm_store_code_map')||'{}'); const _sid=_cm[raw]; if(_sid&&localStorage.getItem('pm_cached_store_'+_sid)){localStorage.setItem('pm_store_id',_sid);location.replace(location.pathname+'?store='+_sid);return;} } catch(_){} err.textContent='Offline — connect to internet first to set up this device.'; return; }
+  if (!navigator.onLine) { try { const _cm=JSON.parse(localStorage.getItem('pm_store_code_map')||'{}'); const _sid=_cm[raw]; if(_sid&&localStorage.getItem('pm_cached_store_'+_sid)){localStorage.setItem('pm_store_id',_sid);location.replace(location.pathname+'?store='+_sid);return;} } catch(_){} err.textContent='Offline � connect to internet first to set up this device.'; return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Connecting...';
@@ -1985,7 +1985,7 @@ async function doActivateStore() {
   }
   try { const _cm=JSON.parse(localStorage.getItem('pm_store_code_map')||'{}'); _cm[raw]=store.id; localStorage.setItem('pm_store_code_map',JSON.stringify(_cm)); } catch(_) {}
   // Pre-cache everything so POS works immediately offline after first Connect
-  btn.innerHTML='<span class="spinner"></span> Setting up offline…';
+  btn.innerHTML='<span class="spinner"></span> Setting up offline�';
   try {
     const [_sfull,_sp,_su]=await Promise.all([
       _sb.from('stores').select('*').eq('id',store.id).single(),
@@ -2005,7 +2005,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('activateWrap').classList.contains('show')) doActivateStore();
 });
 
-// ── PWA Install ───────────────────────────────────────────────────────────
+// -- PWA Install -----------------------------------------------------------
 let _pwaPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
@@ -2025,7 +2025,7 @@ async function installPWA() {
   if (outcome === 'accepted') _pwaPrompt = null;
 }
 
-// ── Camera pre-warm: start stream silently on page load ──────────────────
+// -- Camera pre-warm: start stream silently on page load ------------------
 // This ensures v.play() is already done before the user taps the camera button.
 // visibility:hidden keeps the video element "alive" so Chrome never auto-pauses it.
 async function _prewarmCamera() {
@@ -2041,7 +2041,7 @@ async function _prewarmCamera() {
 }
 setTimeout(_prewarmCamera, 2500);
 
-// ── Service Worker — auto-update, no button needed ───────────────────────
+// -- Service Worker � auto-update, no button needed -----------------------
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(reg => {
     function _applyUpdate(w){ w.postMessage({type:'SKIP_WAITING'}); }
@@ -2059,7 +2059,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => setTimeout(()=>location.reload(), 400));
 }
 
-// ── Square Scanner ─────────────────────────────────────────────────────────
+// -- Square Scanner ---------------------------------------------------------
 let _sqStream = null, _sqOpen = false, _sqBcId = null, _sqSess = 0, _sqNativeBd = null;
 let _sqTxtLoopId = null, _sqTextDet = null;
 const _sqBc = document.createElement('canvas'); _sqBc.width = 480; _sqBc.height = 480;
@@ -2086,7 +2086,7 @@ async function startSquareScanner() {
     sv.srcObject = _sqStream;
     await sv.play().catch(() => {});
     _sqOpen = true;
-    if (toggleBtn) toggleBtn.textContent = '■';
+    if (toggleBtn) toggleBtn.textContent = '�';
     if (scanLine) scanLine.classList.add('active');
     _sqSess++;
     const sess = _sqSess;
@@ -2105,7 +2105,7 @@ async function startSquareScanner() {
             const p = prods.find(x => x.sku === code || x.name?.toLowerCase() === code.toLowerCase());
             if (p && !isOnCooldown(p.id)) {
               setCooldown(p.id); addItem(p.id); showSqHit(p);
-              stat.textContent = '✅ ' + p.name;
+              stat.textContent = '? ' + p.name;
               setTimeout(() => { sqStatusUpdate(); }, 1500);
             }
           }
@@ -2118,7 +2118,7 @@ async function startSquareScanner() {
     _startSqVisualLoop(sv, sess);
     _startSqPyLoop(sv, sess);
   } catch(e) {
-    stat.textContent = e.message === 'timeout' ? '⚠️ Camera timed out' : '⚠️ Camera blocked — allow in browser settings';
+    stat.textContent = e.message === 'timeout' ? '?? Camera timed out' : '?? Camera blocked � allow in browser settings';
   }
 }
 
@@ -2148,7 +2148,7 @@ function _startSqVisualLoop(video, sess) {
           const p = prods.find(x => x.id == best.id);
           if (p) showSqHit(p);
           if (stat) {
-            stat.textContent = '🖼 ' + (p?.name || best.id);
+            stat.textContent = '?? ' + (p?.name || best.id);
             setTimeout(() => { sqStatusUpdate(); }, 1500);
           }
         }
@@ -2180,7 +2180,7 @@ function _startSqTextLoop(video, sess) {
           const m = matchTextToProduct(allText);
           if (m && !isOnCooldown(m.id)) {
             setCooldown(m.id); addItem(m.id); showSqHit(m);
-            stat.textContent = '✅ ' + m.name + ' (ML Kit)';
+            stat.textContent = '? ' + m.name + ' (ML Kit)';
             setTimeout(() => { sqStatusUpdate(); }, 1500);
           }
         }
@@ -2199,12 +2199,12 @@ function stopSquareScanner() {
   if (_sqPyLoopId) { clearTimeout(_sqPyLoopId);  _sqPyLoopId = null; }
   if (_sqStream) { _sqStream.getTracks().forEach(t => t.stop()); _sqStream = null; }
   const sv = document.getElementById('sqVideo'); if (sv) sv.srcObject = null;
-  const toggleBtn = document.getElementById('rlCamToggle'); if (toggleBtn) toggleBtn.textContent = '▶';
+  const toggleBtn = document.getElementById('rlCamToggle'); if (toggleBtn) toggleBtn.textContent = '?';
   const scanLine = document.getElementById('sqScanLine'); if (scanLine) scanLine.classList.remove('active');
-  const stat = document.getElementById('sqStatus'); if (stat && !_sqOpen) stat.textContent = '📷 Tap to start scanner';
+  const stat = document.getElementById('sqStatus'); if (stat && !_sqOpen) stat.textContent = '?? Tap to start scanner';
 }
 
-// ── Camera Scanner (barcode + ML Kit text + visual photo matching) ───────
+// -- Camera Scanner (barcode + ML Kit text + visual photo matching) -------
 let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null, _cameraOpening = false, _nativeBd = null;
 let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 0;
 let _visLoopId = null, _prodHashes = [], _visConf = {};
@@ -2244,7 +2244,7 @@ async function openScanner(){
         if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
         return;
       }
-      // Stream alive but video frozen — soft reconnect (avoids immediate stop+request which hangs Android)
+      // Stream alive but video frozen � soft reconnect (avoids immediate stop+request which hangs Android)
       camStat('Reconnecting camera...');
       v.srcObject = null;
       await new Promise(r=>setTimeout(r,300));
@@ -2257,11 +2257,11 @@ async function openScanner(){
         if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
         return;
       }
-      // Soft reconnect failed — full hardware restart
+      // Soft reconnect failed � full hardware restart
       _camStream.getTracks().forEach(t=>t.stop()); _camStream=null;
       v.srcObject = null;
     }
-    // First open or stream died — request fresh camera
+    // First open or stream died � request fresh camera
     if(_camStream){ _camStream.getTracks().forEach(t=>t.stop()); _camStream=null; }
     v.srcObject = null;
     await new Promise(r=>setTimeout(r,700)); // give hardware time to fully release
@@ -2283,8 +2283,8 @@ async function openScanner(){
     camStat(_scanModes());
   } catch(e){
     camStat(e.message==='timeout'
-      ? 'Camera timed out — tap Allow when browser asks for camera permission'
-      : 'Camera blocked — allow camera access in browser settings');
+      ? 'Camera timed out � tap Allow when browser asks for camera permission'
+      : 'Camera blocked � allow camera access in browser settings');
   } finally {
     _cameraOpening = false;
   }
@@ -2302,7 +2302,7 @@ function closeScanner(){
   if(_aiLoopId){ clearTimeout(_aiLoopId); _aiLoopId=null; }
   _visConf = {}; _mnConf = {};
   _cameraOpening = false;
-  // Do NOT pause — calling v.play() to resume on Android can block the renderer thread
+  // Do NOT pause � calling v.play() to resume on Android can block the renderer thread
 }
 
 function stopCamera(){
@@ -2315,15 +2315,15 @@ function stopCamera(){
 
 function camStat(msg){ const el=document.getElementById('camStatus'); if(el) el.innerHTML=msg; }
 
-// ─ ZXing barcode loop ────────────────────────────────────────────────────
+// - ZXing barcode loop ----------------------------------------------------
 function startBcLoop(video){
   if(typeof ZXingBrowser==='undefined'){
     loadScript('https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.4/umd/index.min.js')
       .then(()=>startBcLoop(video)); return;
   }
   if(!_zxingReader) _zxingReader = new ZXingBrowser.BrowserMultiFormatReader();
-  // Small fixed canvas — ZXing WASM decode is synchronous; full-res camera frames
-  // (1920×1080 on phones) block the main thread for 300-800ms per attempt
+  // Small fixed canvas � ZXing WASM decode is synchronous; full-res camera frames
+  // (1920�1080 on phones) block the main thread for 300-800ms per attempt
   // Init native BarcodeDetector (hardware-accelerated on Chrome/Android)
   if ('BarcodeDetector' in window && !_nativeBd) {
     try { _nativeBd = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e','itf','data_matrix'] }); } catch(_) {}
@@ -2336,7 +2336,7 @@ function startBcLoop(video){
     if(video.readyState>=2 && video.videoWidth>0){
       try{
         let code = null;
-        // Native BarcodeDetector is faster — try it first
+        // Native BarcodeDetector is faster � try it first
         if(_nativeBd){
           const hits = await _nativeBd.detect(video);
           if(hits.length) code = hits[0].rawValue;
@@ -2359,14 +2359,14 @@ function startBcLoop(video){
 function handleBarcode(code){
   if(!code) return;
   const p = prods.find(x=>x.sku && x.sku===code);
-  if(!p){ camStat('Barcode <strong>'+code+'</strong> — no match'); return; }
+  if(!p){ camStat('Barcode <strong>'+code+'</strong> � no match'); return; }
   if(isOnCooldown(p.id)) return;
   setCooldown(p.id); addItem(p.id);
   if(navigator.vibrate) navigator.vibrate(50);
   flashMatch(p.name,'&#127380; barcode');
 }
 
-// ── Text detection (Google ML Kit via Chrome Shape Detection API) ────────
+// -- Text detection (Google ML Kit via Chrome Shape Detection API) --------
 function _scanModes(){
   const hasML = 'TextDetector' in window;
   const hasVis = _prodHashes.length > 0;
@@ -2375,7 +2375,7 @@ function _scanModes(){
   const parts = ['&#127380; barcode'];
   if(hasML) parts.push('&#128220; ML Kit');
   else if(_tessWorker) parts.push('&#128269; OCR');
-  else if(_tessLoading) parts.push('&#128269; OCR…');
+  else if(_tessLoading) parts.push('&#128269; OCR�');
   if(hasVis) parts.push('&#128247; visual('+_prodHashes.length+')');
   if(hasAI) parts.push('&#129302; AI('+_prodEmbeds.length+')');
   if(hasPy) parts.push('&#128013; Python');
@@ -2396,7 +2396,7 @@ async function _loadTesseract(){
   if(_tessWorker) return _tessWorker;
   if(_tessLoading) return null;
   _tessLoading = true;
-  camStat('&#128269; Loading OCR engine…');
+  camStat('&#128269; Loading OCR engine�');
   try{
     await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js');
     _tessWorker = await Tesseract.createWorker('eng',1,{logger:()=>{}});
@@ -2479,7 +2479,7 @@ function matchTextToProduct(ocrText){
   return best;
 }
 
-// ── Visual product matching: shape (Sobel edges) + color (HSV) + structure ─
+// -- Visual product matching: shape (Sobel edges) + color (HSV) + structure -
 // Features per photo: aHash (structure) + edgeHash (shape) + colorHist (HSV hue+value)
 // Frame tested at 3 scales (close / mid / far) for distance-independent matching.
 
@@ -2518,7 +2518,7 @@ function _computeFeatures(src) {
 }
 
 function _featuresFromCanvas(source, sw, sh) {
-  // ── 1. aHash: 32×32 grayscale intensity structure (1024 bits) ──
+  // -- 1. aHash: 32�32 grayscale intensity structure (1024 bits) --
   const c32=document.createElement('canvas'); c32.width=c32.height=32;
   c32.getContext('2d').drawImage(source,0,0,sw,sh,0,0,32,32);
   const px32=c32.getContext('2d').getImageData(0,0,32,32).data;
@@ -2526,7 +2526,7 @@ function _featuresFromCanvas(source, sw, sh) {
   const gAvg=gray.reduce((a,b)=>a+b)/1024;
   const aHash=gray.map(v=>v>gAvg?1:0);
 
-  // ── 2. Edge hash: Sobel filter → hash edges (shape / contours) ──
+  // -- 2. Edge hash: Sobel filter ? hash edges (shape / contours) --
   const edges=new Array(1024);
   for(let y=1;y<31;y++) for(let x=1;x<31;x++){
     const idx=(y*32+x);
@@ -2539,7 +2539,7 @@ function _featuresFromCanvas(source, sw, sh) {
   const eAvg=edges.reduce((a,b)=>a+(b||0),0)/1024;
   const edgeHash=edges.map(v=>(v||0)>eAvg?1:0);
 
-  // ── 3. Color histogram: HSV hue (16 bins) + value (8 bins) = 24 values ──
+  // -- 3. Color histogram: HSV hue (16 bins) + value (8 bins) = 24 values --
   // Hue bins ignore near-grey pixels (S<0.12); value bins capture light/dark
   const hBins=new Array(16).fill(0), vBins=new Array(8).fill(0);
   let colorPx=0, totalPx=px32.length/4;
@@ -2577,7 +2577,7 @@ function _featureScore(f1, f2) {
   const aDist=f1.aHash.reduce((n,b,i)=>n+(b!==f2.aHash[i]?1:0),0)/1024;
   // Shape (edgeHash): Hamming distance on edge map, normalized 0-1
   const eDist=f1.edgeHash.reduce((n,b,i)=>n+(b!==f2.edgeHash[i]?1:0),0)/1024;
-  // Color (HSV histogram): L1 distance — hue part max 2, value part max 2 → total max 4 → /4
+  // Color (HSV histogram): L1 distance � hue part max 2, value part max 2 ? total max 4 ? /4
   const hDist=f1.colorHist.reduce((s,v,i)=>s+Math.abs(v-f2.colorHist[i]),0)/4;
   // Weights: 20% structure + 30% shape/edges + 50% color
   return 0.2*aDist + 0.3*eDist + 0.5*hDist;
@@ -2603,7 +2603,7 @@ function startVisualLoop(video) {
         if(best&&bestScore<=0.22&&(secScore-bestScore)>=0.04){
           _visConf[best.id]=(_visConf[best.id]||0)+1;
           const prod=prods.find(p=>p.id===best.id);
-          if(prod) camStat('&#128247; <strong>'+prod.name+'</strong> '+pct+'% — hold still…');
+          if(prod) camStat('&#128247; <strong>'+prod.name+'</strong> '+pct+'% � hold still�');
           if(_visConf[best.id]>=2&&!isOnCooldown(best.id)){
             _visConf={};
             setCooldown(best.id); addItem(best.id);
@@ -2623,7 +2623,7 @@ function startVisualLoop(video) {
   setTimeout(loop,1200);
 }
 
-// ── TensorFlow.js MobileNet — photo embedding matching ───────────────────
+// -- TensorFlow.js MobileNet � photo embedding matching -------------------
 async function _loadMnModel(){
   if(_mnModel) return true;
   try{
@@ -2643,7 +2643,7 @@ function _cosSim(a,b){
 async function buildAiEmbeds(){
   if(!_mnModel) return;
   _prodEmbeds=[];
-  camStat('&#129302; AI: building product index…');
+  camStat('&#129302; AI: building product index�');
   const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
   const ctx=cv.getContext('2d');
   for(const p of prods){
@@ -2658,18 +2658,18 @@ async function buildAiEmbeds(){
           _prodEmbeds.push({id:p.id,name:p.name,price:p.price,vecs,colorHist});
           continue; // skip recompute
         }
-        // Wrong dimension (old model) — fall through to recompute from image
+        // Wrong dimension (old model) � fall through to recompute from image
       }catch(_){}
     }
     if(!p.image_b64) continue;
     let srcs=[];
     try{const j=JSON.parse(p.image_b64);srcs=Array.isArray(j)?j:[p.image_b64];}catch{srcs=[p.image_b64];}
     const vecs=[];
-    camStat('&#129302; indexing '+p.name+'…');
+    camStat('&#129302; indexing '+p.name+'�');
     for(const b of srcs.slice(0,3)){
       if(!b) continue;
       try{
-        // Try loading image — no crossOrigin for data URLs
+        // Try loading image � no crossOrigin for data URLs
         const src=b.startsWith('data:')?b:'data:image/jpeg;base64,'+b;
         const img=await new Promise((res,rej)=>{
           const im=new Image();
@@ -2687,7 +2687,7 @@ async function buildAiEmbeds(){
       const colorFeats=_featuresFromCanvas(cv,224,224);
       _prodEmbeds.push({id:p.id,name:p.name,price:p.price,vecs,colorHist:colorFeats.colorHist});
     } else {
-      console.warn('No embedding built for',p.name,'— image may have failed to load');
+      console.warn('No embedding built for',p.name,'� image may have failed to load');
     }
   }
   // Show which products are indexed by name
@@ -2704,12 +2704,12 @@ function startAiLoop(video){
   const ctx2=cv2.getContext('2d');
   const sess=_scanSession;
   const _miss={};
-  camStat('&#129302; AI: '+_prodEmbeds.length+' products — point camera at product');
+  camStat('&#129302; AI: '+_prodEmbeds.length+' products � point camera at product');
   async function loop(){
     if(!scannerOpen||_scanSession!==sess){ _aiLoopId=null; return; }
     if(video.readyState>=2&&video.videoWidth>0){
       try{
-        // Center 60% crop only — faster and more focused on product
+        // Center 60% crop only � faster and more focused on product
         const vw=video.videoWidth,vh=video.videoHeight;
         ctx2.drawImage(video,vw*0.2,vh*0.2,vw*0.6,vh*0.6,0,0,224,224);
         const fv=await tf.tidy(()=>_mnModel.infer(
@@ -2722,7 +2722,7 @@ function startAiLoop(video){
         let best=null, second=null, bestSim=0, secondSim=0;
         for(const pe of _prodEmbeds){
           const mnSim=Math.max(...pe.vecs.map(v=>_cosSim(fv,v)));
-          // Color L1 distance → similarity (0-1)
+          // Color L1 distance ? similarity (0-1)
           const colorDist=pe.colorHist?pe.colorHist.reduce((s,v,i)=>s+Math.abs(v-(frameColor[i]||0)),0):1;
           const colorSim=Math.max(0,1-colorDist/2);
           // Hybrid: 65% neural + 35% color
@@ -2749,7 +2749,7 @@ function startAiLoop(video){
         } else if(best){
           _miss[best.id]=(_miss[best.id]||0)+1;
           if(_miss[best.id]>=3) _mnConf[best.id]=0;
-        } else { _mnConf={}; camStat('&#129302; AI scanning…'); }
+        } else { _mnConf={}; camStat('&#129302; AI scanning�'); }
       }catch(e){ camStat('&#129302; AI err: '+e.message); }
     }
     _aiLoopId=setTimeout(loop,800);
@@ -2799,7 +2799,7 @@ function loadScript(src){
 }
 </script>
 
-<!-- ── Camera Scanner Overlay ── -->
+<!-- -- Camera Scanner Overlay -- -->
 <div id="camOverlay">
   <div class="cam-hdr">
     <span class="cam-hdr-ttl">&#128247; Product Scanner</span>
