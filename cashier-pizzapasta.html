@@ -953,7 +953,12 @@ async function openRemitOnLogout() {
     const { data: lastRemit } = await _sb.from('cash_remittances')
       .select('created_at').eq('store_id', STORE_ID).eq('cashier_name', name)
       .eq('shift_date', today).order('created_at', { ascending: false }).limit(1);
-    const from = lastRemit?.[0]?.created_at || (today + 'T00:00:00');
+    const _lsRemitKey = 'pm_last_remit_' + STORE_ID + '_' + name;
+    const _lsRemitTime = localStorage.getItem(_lsRemitKey);
+    const _dbRemitTime = lastRemit?.[0]?.created_at;
+    const from = (_lsRemitTime && _dbRemitTime)
+      ? (_lsRemitTime > _dbRemitTime ? _lsRemitTime : _dbRemitTime)
+      : (_lsRemitTime || _dbRemitTime || (today + 'T00:00:00'));
     const { data } = await _sb.from('orders').select('total')
       .eq('store_id', STORE_ID).eq('cashier_name', name)
       .gte('timestamp', from).lte('timestamp', to);
@@ -1008,6 +1013,7 @@ async function confirmRemitLogout() {
     const pos    = parseFloat(document.getElementById('remitCk3').textContent.replace(/[^0-9.]/g,'')) || 0;
     const cash   = parseFloat(document.getElementById('remitCk4').textContent.replace(/[^0-9.]/g,'')) || 0;
     const diff   = cash - pos;
+    try { localStorage.setItem('pm_last_remit_' + STORE_ID + '_' + name, new Date().toISOString()); } catch(_e) {}
     await _sb.from('cash_remittances').insert({
       store_id: STORE_ID, cashier_name: name, shift_date: today,
       pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending'
