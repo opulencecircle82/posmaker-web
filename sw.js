@@ -9,6 +9,14 @@ const STATIC = [
 
 self.addEventListener('message', e => {
   if(e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if(e.data?.type === 'CACHE_PAGE') {
+    const url = e.data.url;
+    e.waitUntil(
+      caches.open(CACHE).then(c =>
+        fetch(url, {cache:'no-cache'}).then(r => { if(r && r.ok) c.put(url, r); }).catch(()=>{})
+      )
+    );
+  }
 });
 
 self.addEventListener('install', e => {

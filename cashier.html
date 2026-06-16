@@ -1,4 +1,4 @@
-!DOCTYPE html>
+﻿!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2033,6 +2033,8 @@ if ('serviceWorker' in navigator) {
       });
     });
     reg.update().catch(()=>{}); // force check on every open
+    // Self-cache this page so it opens offline
+    if (navigator.onLine) { navigator.serviceWorker.ready.then(r=>{ if(r.active) r.active.postMessage({type:'CACHE_PAGE',url:location.href}); }).catch(()=>{}); }
   }).catch(()=>{});
   navigator.serviceWorker.addEventListener('controllerchange', () => setTimeout(()=>location.reload(), 400));
 }
