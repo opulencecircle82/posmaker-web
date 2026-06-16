@@ -1,6 +1,7 @@
-const CACHE = 'posmaker-v7';
+const CACHE = 'posmaker-v8';
 const STATIC = [
   'js/config.js',
+  'js/store-plan.js',
   'manifest.json',
   'icon-192.png',
   'icon-512.png'
@@ -30,9 +31,23 @@ self.addEventListener('fetch', e => {
   // Never intercept Supabase — let browser handle directly
   if (url.includes('supabase.co')) return;
 
-  // Never cache HTML pages — always fetch fresh, bypassing browser + CDN cache
+  // HTML pages — network-first, fall back to cached version when offline
   if (e.request.mode === 'navigate' || e.request.headers.get('accept')?.includes('text/html') || url.endsWith('.html')) {
-    e.respondWith(fetch(e.request, {cache:'no-cache'}).catch(() => new Response('Offline — check your connection', {status:503, headers:{'Content-Type':'text/plain'}})));
+    e.respondWith(
+      fetch(e.request, {cache:'no-cache'})
+        .then(resp => {
+          if (resp && resp.status === 200) {
+            caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
+          }
+          return resp;
+        })
+        .catch(() => caches.match(e.request).then(cached =>
+          cached || new Response(
+            '<!DOCTYPE html><html><head><title>Offline</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#09090f;color:#f0f0f8;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;text-align:center;padding:20px}h2{color:#00b4d8}p{color:#8888aa;font-size:14px}</style></head><body><h2>⚠ Offline</h2><p>Open the POS at least once while online to enable offline access.</p></body></html>',
+            {headers:{'Content-Type':'text/html'}}
+          )
+        ))
+    );
     return;
   }
 

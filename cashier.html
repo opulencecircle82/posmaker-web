@@ -599,7 +599,9 @@ async function checkWebDevice(storeId, register = false) {
     return;
   }
 
-  const { data: store } = await _sb.from('stores').select('*').eq('id', STORE_ID).single();
+  const { data: _rawStore } = await _sb.from('stores').select('*').eq('id', STORE_ID).single();
+  let store = _rawStore;
+  if (!store && !navigator.onLine) { try { const _cs=localStorage.getItem('pm_cached_store_'+STORE_ID); if(_cs) store=JSON.parse(_cs); } catch(_){} }
   if (!store) {
     localStorage.removeItem('pm_store_id');
     STORE_ID = null;
@@ -630,7 +632,9 @@ async function checkWebDevice(storeId, register = false) {
     }
   }
   STORE = store; CUR = store.currency || '₱'; TAX = parseFloat(store.tax_rate) || 0;
+  try { localStorage.setItem('pm_cached_store_'+STORE_ID, JSON.stringify(store)); } catch(_) {}
   IS_PRO = await getStorePro(_sb, STORE.id);
+  if (navigator.onLine) { try { localStorage.setItem('pm_cached_pro_'+STORE_ID, JSON.stringify(IS_PRO)); } catch(_) {} } else { try { IS_PRO = JSON.parse(localStorage.getItem('pm_cached_pro_'+STORE_ID)||'false'); } catch(_) {} }
   setStoreUI();
 })();
 
@@ -803,6 +807,7 @@ async function doLogin() {
       .eq('username', username)
       .single();
 
+    if (qErr && !navigator.onLine) { try { const _cu=JSON.parse(localStorage.getItem('pm_cached_users_'+STORE_ID)||'[]'); const _cf=_cu.find(u=>u.username===username); if(_cf&&_cf.active){const _h=await sha256(pw);if(_cf.password_hash===_h){CASHIER=_cf;if(prods.length===0){const _cpd=localStorage.getItem('pm_cached_prods_'+STORE_ID);try{if(_cpd){prods=JSON.parse(_cpd);buildCats();renderProds('All');}}catch(_){}}showPOS(_cf.full_name||_cf.username);return;}else{errEl.textContent='Wrong password.';return;}} } catch(_){} errEl.textContent='Offline — log in once while online to enable offline access.'; return; }
     if (qErr && qErr.code !== 'PGRST116') throw new Error(qErr.message);
 
     if (!found) {
@@ -830,6 +835,7 @@ async function doLogin() {
     }
 
     CASHIER = found;
+    try { const _cu=JSON.parse(localStorage.getItem('pm_cached_users_'+STORE_ID)||'[]'); const _xi=_cu.findIndex(u=>u.id===found.id); if(_xi>=0)_cu[_xi]=found;else _cu.push(found); localStorage.setItem('pm_cached_users_'+STORE_ID,JSON.stringify(_cu)); } catch(_) {}
     _sb.rpc('log_staff_login', { p_store_id: STORE_ID, p_staff_id: found.id, p_username: found.username }).then(() => {});
     if (prods.length === 0) {
       await loadProds(); // first login — must load before showing POS
@@ -1037,6 +1043,7 @@ async function syncProds() {
   if(btn){ btn.style.animation=''; btn.disabled=false; }
 }
 async function loadProds() {
+  if (!navigator.onLine) { try { const _cp=localStorage.getItem('pm_cached_prods_'+STORE_ID); if(_cp){prods=JSON.parse(_cp);buildCats();renderProds('All');return;} } catch(_){} }
   const { data, error } = await _sb.from('products')
     .select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings')
     .eq('store_id', STORE_ID)
@@ -1135,6 +1142,7 @@ async function loadProds() {
       if(scannerOpen&&v&&!_aiLoopId){ startAiLoop(v); camStat(_scanModes()); }
     });
   }
+  try { localStorage.setItem('pm_cached_prods_'+STORE_ID, JSON.stringify(prods.map(p=>({id:p.id,name:p.name,price:p.price,category:p.category,image_b64:p.image_b64||'',sku:p.sku||'',unit:p.unit||'pc',stock:p.stock||0,inv_links:p.inv_links||null,embeddings:p.embeddings||null})))); } catch(_) {}
   // Load MobileNet whenever products have images (no pre-computed embeddings needed)
   if(!_mnModel && prods.some(p => p.image_b64)){
     _loadMnModel().then(ok => {
