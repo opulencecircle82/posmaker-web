@@ -641,3 +641,10 @@ GRANT EXECUTE ON FUNCTION save_ops_data(uuid, jsonb) TO anon, authenticated;
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS open_time   TEXT DEFAULT '08:00';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS close_time  TEXT DEFAULT '20:00';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS closed_days TEXT DEFAULT '';
+
+-- ============================================================
+--  Cash Remittances — description column + MobileNet embeddings
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+ALTER TABLE cash_remittances ADD COLUMN IF NOT EXISTS description TEXT DEFAULT NULL;
+ALTER TABLE products         ADD COLUMN IF NOT EXISTS embeddings  TEXT DEFAULT NULL;

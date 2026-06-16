@@ -802,10 +802,21 @@ async function saveAddStock(){
     const cashAdj = payType==='deduct' ? -total : total;
     const status  = payType==='deduct' ? 'purchase' : 'deposit';
     const desc = (payType==='deduct'?'Stock purchase':'Owner deposit')+': '+item.name+' x'+qty;
-    await _sb.from('cash_remittances').insert({
+    const {error:adjErr} = await _sb.from('cash_remittances').insert({
       store_id:MGR.store_id, cashier_name:MGR.name, shift_date:today,
       pos_sales:0, cash_on_hand:cashAdj, difference:cashAdj, status, description:desc
-    }).then(()=>{});
+    });
+    if(adjErr){
+      // Retry without description if column doesn't exist yet
+      if(adjErr.message&&adjErr.message.includes('description')){
+        await _sb.from('cash_remittances').insert({
+          store_id:MGR.store_id, cashier_name:MGR.name, shift_date:today,
+          pos_sales:0, cash_on_hand:cashAdj, difference:cashAdj, status
+        });
+      } else {
+        showToast('COH adjustment error: '+adjErr.message, true);
+      }
+    }
     loadCashSummary();
   }
   closeModal('addStockModal');
