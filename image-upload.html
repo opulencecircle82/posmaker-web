@@ -75,10 +75,14 @@ function renderUploadUI() {
     <div class="card">
       ${thumbs ? `<div style="margin-bottom:12px;display:flex;flex-wrap:wrap">${thumbs}</div>` : ''}
       ${remaining > 0 ? `
-        <label class="btn btn-accent" for="imgFile" style="display:block;text-align:center;cursor:pointer">
+        <label class="btn btn-accent" for="imgFile" style="display:block;text-align:center;cursor:pointer;margin-bottom:8px">
           📷 ${_pendingImgs.length === 0 ? 'Take Photo' : 'Add Another Photo'} (${_pendingImgs.length}/${MAX})
         </label>
         <input type="file" id="imgFile" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this)">
+        <label class="btn btn-ghost" for="imgFileGallery" style="display:block;text-align:center;cursor:pointer">
+          🖼️ Upload from Files / Gallery
+        </label>
+        <input type="file" id="imgFileGallery" accept="image/*" style="display:none" onchange="handleFile(this)">
       ` : ''}
       ${_pendingImgs.length > 0 ? `
         <button class="btn btn-accent" id="uploadBtn" onclick="uploadAll()" style="margin-top:4px">

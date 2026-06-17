@@ -2608,7 +2608,7 @@ function renderStaff(staff) {
         <button class="btn btn-ghost btn-sm" onclick="viewStaffLogs('${s.id}','${s.username}')">Logs</button>
         ${frozenStaffIds.has(s.id)?`<button class="btn btn-ghost btn-sm" onclick="showUpgradeModal('staff', allStaff.length, FREE_STAFF_LIMIT)">Edit</button>`:`<button class="btn btn-ghost btn-sm" onclick="openStaffModal(${JSON.stringify(s).replace(/"/g,'&quot;')})">Edit</button>`}
         ${s.role==='manager'?`<button class="btn btn-sm" style="background:rgba(0,180,216,.15);color:#00b4d8;border:1px solid rgba(0,180,216,.3)" onclick="copyStaffLink()">&#128279; Link</button>`:''}
-        <button class="btn btn-sm" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)" onclick="openSendPayModal('${s.id}')">&#128176; Send</button>
+        ${s.role==='manager'?`<button class="btn btn-sm" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)" onclick="openSendPayModal('${s.id}')">&#128176; Send</button>` : ''}
         <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">Del</button>
       </td>
     </tr>`;
@@ -4085,12 +4085,7 @@ async function saveSendPay(){
     action:'OWNER_SEND',target_name:(s.full_name||s.username),
     details:JSON.stringify(Object.assign({amount:amt},note?{note}:{},rcpt?{receipt_b64:rcpt}:{}))
   }).then(()=>{});
-  const mbody='PAYMENT_REF:'+crId+'
-₱'+amt.toFixed(2)+' mula sa may-ari'+(note?' — '+note:'')+(rcpt?'
-
-May kasamang resibo ng transfer.':'')+'
-
-I-tap ang Confirm kapag natanggap mo na.';
+  var _nl=String.fromCharCode(10);const mbody='PAYMENT_REF:'+crId+_nl+'\u20b1'+amt.toFixed(2)+' mula sa may-ari'+(note?' \u2014 '+note:'')+_nl+(rcpt?_nl+'May kasamang resibo ng transfer.'+_nl:'')+_nl+'I-tap ang Confirm kapag natanggap mo na.';
   await _sb.from('store_messages').insert({
     store_id:STORE.id,from_name:(STORE.name||'Owner'),from_role:'owner',
     to_username:s.username,to_name:(s.full_name||s.username),
