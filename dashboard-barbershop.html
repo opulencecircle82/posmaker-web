@@ -281,6 +281,17 @@ input:checked + .slider:before{transform:translateX(18px)}
           </div>
         </div>
       </div>
+
+      <!-- STAFF PERFORMANCE CARD -->
+      <div class="tbl-wrap" style="margin-top:16px" id="perfCard">
+        <div class="tbl-head">
+          <h3>&#128200; Staff Performance <span style="font-size:11px;font-weight:400;color:var(--muted)">(Last 30 days)</span></h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadPerformance()">&#8635; Refresh</button>
+        </div>
+        <div id="perfContent" style="padding:16px 20px">
+          <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
+        </div>
+      </div>
     </div>
 
     <!-- ORDERS -->
@@ -1418,6 +1429,7 @@ function _sig(ms = 25000) {
   }
 
   loadDashboard();
+  loadPerformance();
   await Promise.race([loadDbCategories(), new Promise(r => setTimeout(r, 8000))]);
   loadProducts();
   loadInventory();
@@ -1504,7 +1516,7 @@ function nav(id) {
   });
   document.getElementById('topbarTitle').textContent = SECTION_TITLES[id] || id;
   closeSidebar();
-  if (id === 'dashboard')  loadDashboard();
+  if (id === 'dashboard') { loadDashboard(); loadPerformance(); }
   if (id === 'orders')     loadOrders();
   if (id === 'salesreport') loadReport('daily');
   if (id === 'inventory')  loadInventory();
@@ -1910,6 +1922,116 @@ async function loadDashboard() {
     </td></tr>`;
     ['tdOrders','tdRev','moOrders','moRev'].forEach(id => document.getElementById(id).textContent = '—');
   }
+}
+
+// ── Staff Performance ────────────────────────────────────────────────────────
+async function loadPerformance() {
+  if (!STORE) return;
+  const perfEl = document.getElementById('perfContent');
+  if (!perfEl) return;
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  // 1. Cashier remittance accuracy
+  const { data: remits } = await _sb.from('cash_remittances')
+    .select('cashier_name,status')
+    .eq('store_id', STORE.id)
+    .gte('shift_date', cutoffStr)
+    .in('status', ['balanced','over','short']);
+
+  const cashierMap = {};
+  for (const r of (remits || [])) {
+    const n = r.cashier_name || 'Unknown';
+    if (!cashierMap[n]) cashierMap[n] = { total: 0, balanced: 0, over: 0, short: 0 };
+    cashierMap[n].total++;
+    if (r.status === 'balanced') cashierMap[n].balanced++;
+    else if (r.status === 'over') cashierMap[n].over++;
+    else if (r.status === 'short') cashierMap[n].short++;
+  }
+
+  // 2. Manager checklist compliance from ops_data
+  await loadOpsData();
+  const _log = _opsData && _opsData.checklistLog ? _opsData.checklistLog : {};
+  const _items = _opsData && _opsData.checklistItems ? _opsData.checklistItems : {};
+  const _openTotal = (_items.opening || []).length;
+  const _closeTotal = (_items.closing || []).length;
+  let _ckDays = 0, _ckOpenOk = 0, _ckCloseOk = 0;
+  const _now = new Date();
+  for (let i = 0; i < 30; i++) {
+    const _d = new Date(_now); _d.setDate(_now.getDate() - i);
+    const _key = _d.toLocaleDateString('en-CA');
+    const _dl = _log[_key];
+    if (!_dl) continue;
+    _ckDays++;
+    if (_openTotal > 0 && (_dl.opening || []).length >= _openTotal) _ckOpenOk++;
+    if (_closeTotal > 0 && (_dl.closing || []).length >= _closeTotal) _ckCloseOk++;
+  }
+
+  // Rating helpers
+  function _cr(rate) {
+    if (rate === 0)  return { label: 'Perfect', color: '#10b981', bg: '#0a1f14' };
+    if (rate <= 5)   return { label: 'Excellent', color: '#10b981', bg: '#0a1f14' };
+    if (rate <= 15)  return { label: 'Good', color: '#f59e0b', bg: '#1a1200' };
+    if (rate <= 30)  return { label: 'Needs Improvement', color: '#f97316', bg: '#1a0f00' };
+    return { label: 'Poor', color: '#ef4444', bg: '#1f0a0a' };
+  }
+  function _ckr(rate) {
+    if (rate >= 95) return { label: 'Excellent', color: '#10b981', bg: '#0a1f14' };
+    if (rate >= 80) return { label: 'Good', color: '#f59e0b', bg: '#1a1200' };
+    if (rate >= 60) return { label: 'Needs Improvement', color: '#f97316', bg: '#1a0f00' };
+    return { label: 'Poor', color: '#ef4444', bg: '#1f0a0a' };
+  }
+
+  // Cashier section HTML
+  const _entries = Object.entries(cashierMap).sort((a, b) => {
+    return ((b[1].over + b[1].short) / b[1].total) - ((a[1].over + a[1].short) / a[1].total);
+  });
+  const _cashierHtml = _entries.length === 0
+    ? '<div style="color:var(--muted);font-size:12px;padding:8px 0">No confirmed remittances in the last 30 days.</div>'
+    : _entries.map(([name, s]) => {
+        const errRate = s.total > 0 ? Math.round((s.over + s.short) / s.total * 100) : 0;
+        const r = _cr(errRate);
+        const barW = Math.min(100, errRate * 2);
+        return '<div style="background:' + r.bg + ';border:1px solid ' + r.color + '33;border-radius:8px;padding:10px 14px;margin-bottom:8px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+          '<span style="font-weight:700;font-size:13px">' + name + '</span>' +
+          '<span style="font-size:11px;font-weight:700;color:' + r.color + ';background:' + r.color + '22;padding:2px 8px;border-radius:20px">' + r.label + '</span>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">' + s.total + ' remittances &mdash; ' +
+          '<span style="color:#10b981">' + s.balanced + ' balanced</span> &bull; ' +
+          '<span style="color:#ef4444">' + s.over + ' over</span> &bull; ' +
+          '<span style="color:#f97316">' + s.short + ' short</span></div>' +
+          '<div style="display:flex;align-items:center;gap:8px">' +
+          '<div style="flex:1;height:6px;background:#ffffff15;border-radius:3px;overflow:hidden">' +
+          '<div style="height:100%;width:' + barW + '%;background:' + r.color + ';border-radius:3px"></div></div>' +
+          '<span style="font-size:12px;font-weight:700;color:' + r.color + ';min-width:42px">' + errRate + '% err</span></div></div>';
+      }).join('');
+
+  // Checklist section HTML
+  function _ckRow(label, rate, icon) {
+    if (rate === null) return '';
+    const r = _ckr(rate);
+    return '<div style="background:' + r.bg + ';border:1px solid ' + r.color + '33;border-radius:8px;padding:10px 14px;margin-bottom:8px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+      '<span style="font-weight:700;font-size:13px">' + icon + ' ' + label + '</span>' +
+      '<span style="font-size:11px;font-weight:700;color:' + r.color + ';background:' + r.color + '22;padding:2px 8px;border-radius:20px">' + r.label + '</span>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Completed ' + Math.round(rate * _ckDays / 100) + ' of ' + _ckDays + ' days tracked</div>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+      '<div style="flex:1;height:6px;background:#ffffff15;border-radius:3px;overflow:hidden">' +
+      '<div style="height:100%;width:' + rate + '%;background:' + r.color + ';border-radius:3px"></div></div>' +
+      '<span style="font-size:12px;font-weight:700;color:' + r.color + ';min-width:36px">' + rate + '%</span></div></div>';
+  }
+  const _ckHtml = _ckDays === 0
+    ? '<div style="color:var(--muted);font-size:12px;padding:8px 0">No checklist data for the last 30 days.</div>'
+    : _ckRow('Opening Checklist', _openTotal > 0 ? Math.round(_ckOpenOk / _ckDays * 100) : null, '&#9728;&#65039;') +
+      _ckRow('Closing Checklist', _closeTotal > 0 ? Math.round(_ckCloseOk / _ckDays * 100) : null, '&#127769;');
+
+  perfEl.innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px">' +
+    '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">&#129532; Cashier Remittance Accuracy</div>' + _cashierHtml + '</div>' +
+    '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">&#9989; Manager Checklist Compliance</div>' + _ckHtml + '</div>' +
+    '</div>';
 }
 
 // ── Sales Report ────────────────────────────────────────────────────────────────
