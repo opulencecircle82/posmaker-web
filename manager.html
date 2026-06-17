@@ -1716,14 +1716,13 @@ function showDisbProof(logId) {
 }
 
 let _disbType='',_disbCrId='',_disbQRPoll=null,_disbQRToken=null;
-function openAddDisburse(type, crId) {
+async function openAddDisburse(type, crId) {
   _disbType = type; _disbCrId = crId;
   const isSal = type === 'salary';
   document.getElementById('disbTitle').textContent = isSal ? '👤 Add Staff Salary' : '📋 Add Expense';
   document.getElementById('disbNameRow').style.display = isSal ? '' : 'none';
   document.getElementById('disbDescRow').style.display = isSal ? 'none' : '';
   document.getElementById('disbCatRow').style.display = isSal ? 'none' : '';
-  document.getElementById('disbName').value = '';
   document.getElementById('disbDesc').value = '';
   document.getElementById('disbCat').value = 'Bills';
   document.getElementById('disbAmt').value = '';
@@ -1732,6 +1731,14 @@ function openAddDisburse(type, crId) {
   const btn = document.getElementById('disbBtn');
   btn.disabled = false; btn.textContent = 'Save';
   document.getElementById('disburseModal').classList.add('show');
+  if (isSal) {
+    const sel = document.getElementById('disbName');
+    sel.innerHTML = '<option value="">Loading cashiers...</option>';
+    const { data } = await _sb.from('store_users').select('full_name,username').eq('store_id', MGR.store_id).eq('role', 'cashier').order('full_name');
+    sel.innerHTML = '<option value="">Select cashier...</option>';
+    (data || []).forEach(u => { const n = u.full_name || u.username; sel.appendChild(new Option(n, n)); });
+    sel.value = '';
+  }
 }
 function handleDisburseFile(input) {
   const file = input.files[0]; if (!file) return;
@@ -1792,7 +1799,7 @@ async function saveDisburse() {
   const name = isSal ? document.getElementById('disbName').value.trim() : '';
   const desc = !isSal ? document.getElementById('disbDesc').value.trim() : '';
   const cat  = !isSal ? document.getElementById('disbCat').value : '';
-  if (isSal && !name) { showToast('Enter staff name.',true); return; }
+  if (isSal && !name) { showToast('Select a cashier.',true); return; }
   if (!isSal && !desc) { showToast('Enter description.',true); return; }
   const proofImg = document.getElementById('disbProofImg');
   const rcpt = proofImg.src&&proofImg.src.startsWith('data:') ? proofImg.src : null;
@@ -2211,8 +2218,8 @@ function closeRuReceiptQR() {
   <div class="mbox">
     <h3 id="disbTitle">Add Record</h3>
     <div id="disbNameRow" class="field">
-      <label>Staff Name</label>
-      <input id="disbName" type="text" placeholder="e.g. Jessa Koreno">
+      <label>Cashier</label>
+      <select id="disbName" style="width:100%;padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:13px"><option value="">Loading...</option></select>
     </div>
     <div id="disbDescRow" class="field" style="display:none">
       <label>Description</label>
