@@ -1640,65 +1640,75 @@ async function loadPayments() {
     } catch(_) {}
   });
 
-  el.innerHTML = payments.map(p => {
+  // Combine all payments into one pool
+  const allSals = Object.values(salaryMap).flat();
+  const allExps = Object.values(expenseMap).flat();
+  const totalReceived = payments.reduce((s,p)=>s+parseFloat(p.cash_on_hand||0),0);
+  const totalSal = allSals.reduce((s,x)=>s+parseFloat(x.amount||0),0);
+  const totalExp = allExps.reduce((s,x)=>s+parseFloat(x.amount||0),0);
+  const totalLeft = totalReceived - totalSal - totalExp;
+  // Use the newest payment's id for new disbursements
+  const latestCrId = payments[0].id;
+
+  const receiptsHtml = payments.map(p => {
     const amt = parseFloat(p.cash_on_hand||0);
     const confirmed = p.status === 'payment_confirmed';
     const note = (p.description||'').replace(/^Owner sent:?\s*/i,'');
     const dt = new Date(p.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const hasRcpt = !!window._fundsReceiptMap[p.id];
-    const sals = salaryMap[p.id]||[];
-    const exps = expenseMap[p.id]||[];
-    const totalSal = sals.reduce((s,x)=>s+parseFloat(x.amount||0),0);
-    const totalExp = exps.reduce((s,x)=>s+parseFloat(x.amount||0),0);
-    const left = amt - totalSal - totalExp;
-
-    return `<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px">
-      <div style="background:var(--s2);padding:14px 16px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-          <div>
-            <div style="font-size:22px;font-weight:800;color:${left>=0?'#10b981':'#ef4444'}">&#8369;${left.toFixed(2)}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:1px">Remaining &bull; ${note||'Payment from owner'} &bull; ${dt}</div>
-          </div>
-          <span style="font-size:11px;font-weight:700;color:${confirmed?'#10b981':'#f59e0b'};background:${confirmed?'rgba(16,185,129,.12)':'rgba(245,158,11,.12)'};padding:3px 8px;border-radius:6px">${confirmed?'&#10003; Confirmed':'&#9679; Pending'}</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          ${hasRcpt ? `<button class="btn btn-ghost btn-sm" style="font-size:11px;padding:4px 10px" onclick="openReceiptViewer('${p.id}')">&#128247; View Receipt</button>` : '<span style="font-size:11px;color:var(--dim);padding:4px 0">No receipt</span>'}
-        </div>
-        <div style="display:flex;gap:16px;margin-top:10px;font-size:12px">
-          <span>Received: <strong style="color:#10b981">&#8369;${amt.toFixed(2)}</strong></span>
-          <span>Spent: <strong style="color:#ef4444">&#8369;${(totalSal+totalExp).toFixed(2)}</strong></span>
-        </div>
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;gap:8px">
+      <div>
+        <strong style="color:#10b981">&#8369;${amt.toFixed(2)}</strong>
+        <span style="color:var(--muted);margin-left:6px">${note||'Payment'} &bull; ${dt}</span>
       </div>
-      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px">&#128100; STAFF SALARY</span>
-          <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 8px" onclick="openAddDisburse('salary','${p.id}')">+ Add</button>
-        </div>
-        ${sals.length ? sals.map(s=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
-            <span style="color:var(--text)">${s.name||'Staff'}</span>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-weight:700;color:#10b981">&#8369;${parseFloat(s.amount||0).toFixed(2)}</span>
-              ${window._fundsDisbProofMap[s._id] ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="showDisbProof('${s._id}')">&#128247;</button>` : ''}
-            </div>
-          </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">No salary records yet.</div>'}
-      </div>
-      <div style="padding:12px 16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px">&#128203; OTHER EXPENSES</span>
-          <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 8px" onclick="openAddDisburse('expense','${p.id}')">+ Add</button>
-        </div>
-        ${exps.length ? exps.map(e=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
-            <div><span style="color:var(--text)">${e.desc||e.name||'Expense'}</span>${e.category?`<span style="font-size:10px;color:var(--muted);margin-left:6px">${e.category}</span>`:''}</div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-weight:700;color:#ef4444">&#8369;${parseFloat(e.amount||0).toFixed(2)}</span>
-              ${window._fundsDisbProofMap[e._id] ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="showDisbProof('${e._id}')">&#128247;</button>` : ''}
-            </div>
-          </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">No expense records yet.</div>'}
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="font-size:10px;font-weight:700;color:${confirmed?'#10b981':'#f59e0b'}">${confirmed?'&#10003; Confirmed':'&#9679; Pending'}</span>
+        ${hasRcpt ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px" onclick="openReceiptViewer('${p.id}')">&#128247;</button>` : ''}
       </div>
     </div>`;
   }).join('');
+
+  el.innerHTML = `<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+    <div style="background:var(--s2);padding:14px 16px">
+      <div style="font-size:26px;font-weight:800;color:${totalLeft>=0?'#10b981':'#ef4444'}">&#8369;${totalLeft.toFixed(2)}</div>
+      <div style="display:flex;gap:16px;margin-top:6px;font-size:12px">
+        <span>Received: <strong style="color:#10b981">&#8369;${totalReceived.toFixed(2)}</strong></span>
+        <span>Spent: <strong style="color:#ef4444">&#8369;${(totalSal+totalExp).toFixed(2)}</strong></span>
+      </div>
+    </div>
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-bottom:6px">&#128176; FUNDS RECEIVED</div>
+      ${receiptsHtml}
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px">&#128100; STAFF SALARY</span>
+        <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 8px" onclick="openAddDisburse('salary','${latestCrId}')">+ Add</button>
+      </div>
+      ${allSals.length ? allSals.map(s=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span style="color:var(--text)">${s.name||'Staff'}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:700;color:#10b981">&#8369;${parseFloat(s.amount||0).toFixed(2)}</span>
+            ${window._fundsDisbProofMap[s._id] ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="showDisbProof('${s._id}')">&#128247;</button>` : ''}
+          </div>
+        </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">No salary records yet.</div>'}
+    </div>
+    <div style="padding:12px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px">&#128203; OTHER EXPENSES</span>
+        <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 8px" onclick="openAddDisburse('expense','${latestCrId}')">+ Add</button>
+      </div>
+      ${allExps.length ? allExps.map(e=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <div><span style="color:var(--text)">${e.desc||e.name||'Expense'}</span>${e.category?`<span style="font-size:10px;color:var(--muted);margin-left:6px">${e.category}</span>`:''}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:700;color:#ef4444">&#8369;${parseFloat(e.amount||0).toFixed(2)}</span>
+            ${window._fundsDisbProofMap[e._id] ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="showDisbProof('${e._id}')">&#128247;</button>` : ''}
+          </div>
+        </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">No expense records yet.</div>'}
+    </div>
+  </div>`;
 }
 
 function openReceiptViewer(crId) {
