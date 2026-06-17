@@ -218,7 +218,7 @@ function renderChecklist() {
             proof = thumb + ' <span class="badge" style="background:#0d2e1f;color:#10b981">Approved</span>';
           } else if (entry.status === 'declined') {
             proof = thumb + ' <span class="badge" style="background:#2e0d0d;color:#ef4444">Declined</span>';
-            if (readOnly) hint = '<div style="font-size:11px;color:#ef4444;margin-top:2px">&#9888; Na-decline ng owner ang larawang ito &#8212; i-toggle ulit ang gawain para kumuha ng bago.</div>';
+            if (readOnly) hint = '<div style="font-size:11px;color:#ef4444;margin-top:2px">&#9888; The owner declined this photo &#8212; toggle the task again to take a new one.</div>';
           }
         }
         return `

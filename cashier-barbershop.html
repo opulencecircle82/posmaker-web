@@ -510,7 +510,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <!-- STEP 1: Enter Cash -->
     <div id="remitStep1">
       <div class="mtitle">&#128181; Cash Remittance</div>
-      <div style="font-size:12px;color:#888;margin-bottom:16px">Bilangin ang pera sa kahon bago mag-logout.</div>
+      <div style="font-size:12px;color:#888;margin-bottom:16px">Count the cash in the drawer before logging out.</div>
       <div style="background:var(--s2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px">
           <span style="color:#888">Cashier</span>
@@ -522,7 +522,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
         </div>
         <span id="remitLogPOS" style="display:none">—</span>
       </div>
-      <label style="font-size:12px;font-weight:600;color:#aaa;display:block;margin-bottom:6px">Cash on Hand (ilan ang pera sa kahon?)</label>
+      <label style="font-size:12px;font-weight:600;color:#aaa;display:block;margin-bottom:6px">Cash on Hand (how much is in the drawer?)</label>
       <input class="inp" id="remitLogCOH" type="number" min="0" step="0.01" placeholder="0.00" oninput="calcRemitLogDiff()" style="font-size:22px;text-align:center;padding:12px;font-weight:700">
       <span id="remitLogDiff" style="display:none">—</span>
       <div class="m-actions" style="margin-top:14px">
@@ -534,7 +534,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <!-- STEP 2: Confirm (Double Check) -->
     <div id="remitStep2" style="display:none">
       <div class="mtitle" style="color:#f59e0b">&#9888; I-confirm</div>
-      <div style="font-size:13px;color:#888;margin-bottom:14px">Tama ba ang halaga? I-confirm bago mag-logout.</div>
+      <div style="font-size:13px;color:#888;margin-bottom:14px">Is the amount correct? Confirm before logging out.</div>
       <div style="background:var(--s2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:14px;display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;justify-content:space-between"><span style="color:#888">Cashier</span><strong id="remitCk1">—</strong></div>
         <div style="display:flex;justify-content:space-between"><span style="color:#888">Date</span><span id="remitCk2">—</span></div>

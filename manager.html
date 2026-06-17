@@ -376,7 +376,7 @@ button{cursor:pointer}
     </div>
     <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-bottom:8px">PAYMENT / COH ADJUSTMENT</div>
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-      <label data-tip="Owner nagbayad direkta sa supplier — hindi dumaan sa pera ng manager. Walang bawas o dagdag sa COH." style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:13px">
+      <label data-tip="Owner paid the supplier directly — did not go through the manager's cash. No deduction or addition to COH." style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:13px">
         <input type="radio" name="asPayType" value="none" checked onchange="updateAsPayUI()">
         <span>No COH adjustment</span>
       </label>
@@ -384,7 +384,7 @@ button{cursor:pointer}
         <input type="radio" name="asPayType" value="deduct" onchange="updateAsPayUI()">
         <span>Deduct from COH</span><span id="asDeductAmt" style="margin-left:auto;font-weight:700;color:#ef4444"></span>
       </label>
-      <label data-tip="Owner nagpadala/nagbigay ng pera sa manager para pambayad ng stocks. Idadagdag ang halaga sa COH ng manager." style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:13px">
+      <label data-tip="Owner sent/gave cash to the manager to pay for stocks. The amount will be added to the manager's COH." style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:13px">
         <input type="radio" name="asPayType" value="deposit" onchange="updateAsPayUI()">
         <span>Owner Deposited Cash</span><span id="asDepositAmt" style="margin-left:auto;font-weight:700;color:#10b981"></span>
       </label>
@@ -657,8 +657,8 @@ function renderInv(items){
       <td style="color:var(--muted)">${i.unit||'—'}</td>
       <td><span class="badge ${sCls}">${sTxt}</span></td>
       <td style="white-space:nowrap;display:flex;gap:4px;padding:8px">
-        <button class="btn btn-accent btn-sm" data-tip="Magdagdag ng stocks para sa item na ito." onclick="openAddStock('${i.id}')">+Add</button>
-        <button class="btn btn-ghost btn-sm" data-tip="I-edit ang pangalan, category, unit, o low-stock threshold ng item na ito." onclick="openEditItem('${i.id}')">Edit</button>
+        <button class="btn btn-accent btn-sm" data-tip="Add stock for this item." onclick="openAddStock('${i.id}')">+Add</button>
+        <button class="btn btn-ghost btn-sm" data-tip="Edit the name, category, unit, or low-stock threshold for this item." onclick="openEditItem('${i.id}')">Edit</button>
       </td>
     </tr>`;
   }).join('');
@@ -1351,7 +1351,7 @@ function renderRemit() {
     const created = new Date(r.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     const invalidLog = !isPending ? findInvalidReceiptForRemit(r) : null;
     const descCell = isPending
-      ? `<button onclick="openConfirmRemit('${r.id}')" class="btn btn-sm" data-tip="I-confirm at tanggapin ang remittance ng cashier na ito." style="background:#f59e0b;color:#09090f;font-weight:700">&#10003; Receive</button>`
+      ? `<button onclick="openConfirmRemit('${r.id}')" class="btn btn-sm" data-tip="Confirm and accept this cashier's remittance." style="background:#f59e0b;color:#09090f;font-weight:700">&#10003; Receive</button>`
       : invalidLog
       ? `<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
           <span style="color:var(--muted);font-size:12px">${r.description||'—'}</span>
