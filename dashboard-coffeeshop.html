@@ -398,10 +398,10 @@ input:checked + .slider:before{transform:translateX(18px)}
             <select id="logActionFilter" class="search" style="width:140px" onchange="renderActivityLog()">
               <option value="">All Actions</option>
               <option value="ADD_STOCK">Add Stock</option>
-              <option value="EDIT_ITEM">Edit Item</option>
               <option value="ADD_ITEM">Add New Item</option>
               <option value="SALE">Sale</option>
               <option value="REMITTANCE">Remittance</option>
+              <option value="MGR_REMIT">Deposit</option>
             </select>
             <button class="btn btn-ghost btn-sm" onclick="loadActivityLog()">&#8635; Refresh</button>
           </div>
@@ -3022,13 +3022,14 @@ function renderActivityLog() {
   if (actorF)  rows = rows.filter(l => (l.actor_name || '').trim() === actorF.trim());
   if (actionF) rows = rows.filter(l => l.action === actionF);
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No activity found.</td></tr>'; return; }
-  const actionLabel = { ADD_STOCK: '+ Add Stock', EDIT_ITEM: 'Edit Item', ADD_ITEM: '+ New Item', SALE: '💰 Sale', REMITTANCE: '🪙 Remittance' };
+  const actionLabel = { ADD_STOCK: '+ Add Stock', EDIT_ITEM: 'Edit Item', ADD_ITEM: '+ New Item', SALE: '💰 Sale', REMITTANCE: '🪙 Remittance', MGR_REMIT: '⬆ Deposit' };
   const actionColor = {
     ADD_STOCK:   'background:#0d2e1f;color:#10b981',
     EDIT_ITEM:   'background:#0d1a2e;color:#00b4d8',
     ADD_ITEM:    'background:#1a0d2e;color:#818cf8',
     SALE:        'background:#0d2e2a;color:#14b8a6',
     REMITTANCE:  'background:#2e1a0d;color:#f59e0b',
+    MGR_REMIT:   'background:#1a0a2e;color:#c084fc',
   };
   tbody.innerHTML = rows.map(l => {
     const dt = new Date(l.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
