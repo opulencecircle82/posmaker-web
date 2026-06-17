@@ -301,6 +301,17 @@ button{cursor:pointer}
     </div>
   </div>
 
+  <!-- PAYMENTS PANEL -->
+  <div class="card" style="padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-weight:700;font-size:14px">&#128176; Payments to Staff</div>
+      <button onclick="loadPayments()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1">&#8635;</button>
+    </div>
+    <div id="paymentsList">
+      <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">Loading...</div>
+    </div>
+  </div>
+
   <!-- MONITOR PANEL -->
   <div class="card" style="padding:16px">
     <div style="font-weight:700;font-size:14px;margin-bottom:12px">&#128202; Stock Monitor</div>
@@ -573,6 +584,7 @@ async function init(){
   show('mainContent');
   await loadInv();
   loadCashSummary();
+  loadPayments();
   loadMonitor();
   checkPendingRemits();
   checkMgrInbox();
@@ -1423,7 +1435,8 @@ async function loadCashSummary() {
   const rows = data || [];
   const adjStatuses = ['purchase','deposit'];
   const mgrRemitStatuses = ['mgr_remit'];
-  const cashierRows  = rows.filter(r => !adjStatuses.includes(r.status) && !mgrRemitStatuses.includes(r.status));
+  const paymentStatuses = ['owner_payment','payment_confirmed'];
+  const cashierRows  = rows.filter(r => !adjStatuses.includes(r.status) && !mgrRemitStatuses.includes(r.status) && !paymentStatuses.includes(r.status));
   const adjRows      = rows.filter(r => adjStatuses.includes(r.status));
   const mgrRemitRows = rows.filter(r => mgrRemitStatuses.includes(r.status));
 
@@ -1528,6 +1541,146 @@ async function loadCashSummary() {
       }).join('')}
     </div>` : ''}
   `;
+}
+
+// ── Payments Panel ──────────────────────────────────────────────────────────
+async function loadPayments() {
+  const el = document.getElementById('paymentsList');
+  if (!el) return;
+  const { data } = await _sb.from('cash_remittances')
+    .select('id,cashier_name,cash_on_hand,description,status,shift_date,created_at')
+    .eq('store_id', MGR.store_id)
+    .in('status', ['owner_payment','payment_confirmed'])
+    .order('created_at', { ascending: false })
+    .limit(30);
+  const rows = data || [];
+  if (!rows.length) {
+    el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px">No payments recorded yet.</div>';
+    return;
+  }
+  // Also load proof logs for these records
+  const ids = rows.map(r => r.id);
+  const { data: proofLogs } = await _sb.from('activity_logs')
+    .select('details').eq('store_id', MGR.store_id).eq('action','PAYMENT_PROOF')
+    .in('target_name', ids.map(String));
+  const proofSet = new Set((proofLogs||[]).map(l => { try { return JSON.parse(l.details||'{}').cr_id; } catch(_){return null;} }).filter(Boolean));
+
+  el.innerHTML = rows.map(r => {
+    const amt = parseFloat(r.cash_on_hand||0);
+    const confirmed = r.status === 'payment_confirmed';
+    const hasProof = proofSet.has(r.id);
+    const note = (r.description||'').replace(/^Owner sent:?\s*/i,'');
+    const dt = new Date(r.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    return `<div style="border:1px solid ${confirmed?'rgba(16,185,129,.25)':'rgba(245,158,11,.25)'};border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#10b981">&#8369;${amt.toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--muted)">${r.cashier_name}${note?' &bull; '+note:''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:${confirmed?'#10b981':'#f59e0b'};font-weight:700">${confirmed?'&#10003; Confirmed':'&#9679; Pending'}</div>
+          <div style="font-size:10px;color:var(--dim)">${dt}</div>
+        </div>
+      </div>
+      ${confirmed ? `<div style="text-align:right;margin-top:4px">
+        ${hasProof
+          ? `<span style="font-size:11px;color:#10b981;font-weight:700">&#10003; Proof uploaded</span>`
+          : `<button class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.3)" onclick="openPayProofModal('${r.id}','${r.cashier_name}')">&#128247; Add Proof</button>`}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+let _ppCrId='',_ppQRPoll=null,_ppQRToken=null;
+function openPayProofModal(crId, recipient) {
+  _ppCrId = crId;
+  document.getElementById('ppRecipient').textContent = recipient;
+  document.getElementById('ppFile').value = '';
+  document.getElementById('ppPreview').style.display = 'none';
+  const btn = document.getElementById('ppBtn');
+  btn.disabled = false; btn.textContent = 'Save Proof';
+  document.getElementById('payProofModal').classList.add('show');
+}
+function addTimestampWatermark(canvas) {
+  const ctx = canvas.getContext('2d');
+  const now = new Date();
+  const ts = now.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})
+    + '  ' + now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const fs = Math.max(12, Math.round(canvas.width * 0.028));
+  ctx.font = 'bold ' + fs + 'px monospace';
+  const pad = 8, tw = ctx.measureText(ts).width + pad*2, th = fs + pad*2;
+  const x = pad, y = canvas.height - th - pad;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(x, y, tw, th);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(ts, x + pad, y + pad + fs * 0.85);
+}
+function handlePayProofFile(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200, cv = document.createElement('canvas');
+      const sc = Math.min(1, MAX / Math.max(img.width, img.height));
+      cv.width = img.width * sc; cv.height = img.height * sc;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      addTimestampWatermark(cv);
+      document.getElementById('ppReceiptImg').src = cv.toDataURL('image/jpeg', 0.65);
+      document.getElementById('ppPreview').style.display = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+async function openPayProofQR() {
+  if (!_opsData) await loadOpsData();
+  _ppQRToken = await createImgUploadToken('pay_proof', 1);
+  const url = 'https://posmaker.ggff.net/image-upload.html?sid=' + _OPS_STORE_ID + '&token=' + _ppQRToken + '&max=1';
+  document.getElementById('ppQRCode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=' + encodeURIComponent(url);
+  document.getElementById('ppQRStatus').textContent = 'Waiting for photo…';
+  document.getElementById('ppQRModal').classList.add('show');
+  if (_ppQRPoll) clearInterval(_ppQRPoll);
+  _ppQRPoll = setInterval(async () => {
+    await refreshOpsData();
+    const sess = (_opsData && _opsData.imgUploadSessions && _opsData.imgUploadSessions[_ppQRToken]) || null;
+    if (!sess || !sess.images || sess.images.length === 0) return;
+    // Apply timestamp watermark to received image
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200, cv = document.createElement('canvas');
+      const sc = Math.min(1, MAX / Math.max(img.width, img.height));
+      cv.width = img.width * sc; cv.height = img.height * sc;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      addTimestampWatermark(cv);
+      document.getElementById('ppReceiptImg').src = cv.toDataURL('image/jpeg', 0.65);
+      document.getElementById('ppPreview').style.display = '';
+    };
+    img.src = 'data:image/jpeg;base64,' + sess.images[0];
+    document.getElementById('ppQRStatus').textContent = '✅ Photo received!';
+    await clearImgUploadSession(_ppQRToken); _ppQRToken = null;
+    setTimeout(() => closePayProofQR(), 1200);
+  }, 2500);
+}
+function closePayProofQR() {
+  if (_ppQRPoll) { clearInterval(_ppQRPoll); _ppQRPoll = null; }
+  if (_ppQRToken) { clearImgUploadSession(_ppQRToken); _ppQRToken = null; }
+  document.getElementById('ppQRModal').classList.remove('show');
+}
+async function savePayProof() {
+  const rImg = document.getElementById('ppReceiptImg');
+  if (!rImg.src || !rImg.src.startsWith('data:')) { showToast('Please attach a photo first.', true); return; }
+  const btn = document.getElementById('ppBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  await _sb.from('activity_logs').insert({
+    store_id: MGR.store_id, actor_name: MGR.name, actor_role: 'manager',
+    action: 'PAYMENT_PROOF', target_name: _ppCrId,
+    details: JSON.stringify({ cr_id: _ppCrId, receipt_b64: rImg.src })
+  }).then(() => {});
+  document.getElementById('payProofModal').classList.remove('show');
+  showToast('Proof saved.');
+  loadPayments();
 }
 
 // ── Monitor Panel ──────────────────────────────────────────────────────────
@@ -1907,6 +2060,42 @@ function closeRuReceiptQR() {
     <img id="asQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:0 auto 10px;display:block">
     <div id="asQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
     <button class="btn btn-ghost" onclick="closeAsReceiptQR()">Close</button>
+  </div>
+</div>
+<!-- PAYMENT PROOF MODAL -->
+<div class="modal" id="payProofModal">
+  <div class="mbox">
+    <h3>&#128247; Add Proof of Payment</h3>
+    <div style="background:var(--s2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px">
+      <span style="color:var(--muted)">Para kay: </span>
+      <strong id="ppRecipient" style="color:#10b981">—</strong>
+    </div>
+    <div class="field">
+      <label>Photo Proof <span style="color:var(--muted);font-size:11px">(date &amp; time auto-stamped)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <label class="btn btn-ghost" for="ppFile" style="flex:1;text-align:center;cursor:pointer;font-size:12px;margin-bottom:0">&#128247; Take / Choose Photo</label>
+        <input id="ppFile" type="file" accept="image/*" style="display:none" onchange="handlePayProofFile(this)">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openPayProofQR()" style="white-space:nowrap;font-size:12px">&#128248; Scan QR</button>
+      </div>
+      <div id="ppPreview" style="display:none;margin-top:10px;text-align:center">
+        <img id="ppReceiptImg" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:#10b981;margin-top:4px">&#10003; Timestamp added</div>
+      </div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="document.getElementById('payProofModal').classList.remove('show')">Cancel</button>
+      <button class="btn btn-accent" id="ppBtn" onclick="savePayProof()">Save Proof</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="ppQRModal">
+  <div class="mbox" style="text-align:center;max-width:300px">
+    <h3 style="margin-bottom:8px">&#128247; Upload from Phone</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">I-scan ang QR. Sa phone: kumuha ng larawan o pumili mula sa gallery.</p>
+    <img id="ppQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:8px auto;display:block">
+    <div id="ppQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
+    <button class="btn btn-ghost" onclick="closePayProofQR()">Close</button>
   </div>
 </div>
 </body>
