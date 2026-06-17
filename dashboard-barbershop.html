@@ -323,9 +323,10 @@ input:checked + .slider:before{transform:translateX(18px)}
             <button class="btn btn-accent btn-sm" id="btnAddInv" onclick="openInvModal()" title="Add a new raw material or stock item and set its quantity and cost.">+ Add Item</button>
           </div>
         </div>
-        <table>
-          <thead><tr><th>SKU</th><th>Item Name</th><th>Category</th><th>Unit</th><th>Cost</th><th>Stock</th><th>Status</th><th></th></tr></thead>
-          <tbody id="invTbody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
+        <div id="invExpiryBanner" style="display:none;background:#1a0505;border:1px solid #7f1d1d;border-radius:8px;padding:10px 16px;margin:0 0 10px;font-size:13px;color:var(--text);line-height:1.6"></div>
+          <table>
+          <thead><tr><th>SKU</th><th>Item Name</th><th>Category</th><th>Unit</th><th>Cost</th><th>Stock</th><th>Status</th><th>Expiry</th><th></th></tr></thead>
+          <tbody id="invTbody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -930,6 +931,22 @@ input:checked + .slider:before{transform:translateX(18px)}
     </div>
 
     <div class="field" id="invLowStockField"><label>Low Stock Alert (qty)</label><input id="invLowStock" type="number" min="0" step="1" placeholder="e.g. 5" value="5"></div>
+    <div class="row2" id="invExpiryRow">
+      <div class="field">
+        <label>Expiry Date <span style="color:var(--dim);font-weight:400">(optional)</span></label>
+        <input id="invExpiry" type="date" style="width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none" oninput="checkInvExpiryPromo()">
+      </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="invOnPromo" onchange="toggleInvPromo()" style="width:auto;margin:0"> Mark as On Sale / Promo
+        </label>
+        <div id="invPromoFields" style="display:none;margin-top:8px">
+          <input id="invSalePrice" type="number" min="0" step="0.01" placeholder="Sale price (e.g. 29.00)" style="width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid #f59e0b;border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none">
+          <div id="invPromoHint" style="font-size:11px;color:#f59e0b;margin-top:5px"></div>
+        </div>
+      </div>
+    </div>
+    <div id="invExpiryAlert" style="display:none;background:#2a0a0a;border:1px solid #ef4444;border-radius:8px;padding:10px 14px;font-size:12px;color:#ef4444;margin-bottom:12px"></div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('invModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveInvItem()">Save</button>
@@ -3519,6 +3536,22 @@ async function loadInventory() {
   const _isTrueServiceBiz=TRUE_SERVICE_BIZ.has(STORE?.business_type||'');
   const _lsCount=invItems.filter(i=>!(_isTrueServiceBiz&&parseFloat(i.stock??0)===0)&&parseFloat(i.stock??0)<=parseFloat(i.low_stock_threshold??5)).length;
   _updateLowStockBadge(_lsCount);
+  // Expiry notification
+  const _today=new Date(); _today.setHours(0,0,0,0);
+  const _exp3mo=new Date(_today); _exp3mo.setMonth(_exp3mo.getMonth()+3);
+  const _expiringItems=invItems.filter(i=>i.expiry_date&&new Date(i.expiry_date+'T00:00:00')<=_exp3mo);
+  const _expiryBanner=document.getElementById('invExpiryBanner');
+  if(_expiryBanner){
+    if(_expiringItems.length){
+      const _expiredCount=_expiringItems.filter(i=>new Date(i.expiry_date+'T00:00:00')<_today).length;
+      const _soonCount=_expiringItems.length-_expiredCount;
+      const _parts=[];
+      if(_expiredCount) _parts.push('<span style="color:#ef4444;font-weight:700">'+_expiredCount+' item'+(_expiredCount>1?'s':'')+' EXPIRED</span>');
+      if(_soonCount) _parts.push('<span style="color:#f59e0b;font-weight:700">'+_soonCount+' expiring within 3 months</span>');
+      _expiryBanner.innerHTML='<span style="font-size:16px">&#9888;&#65039;</span> '+_parts.join(' &bull; ')+' &mdash; consider marking them on <b>Sale</b>.';
+      _expiryBanner.style.display='';
+    } else { _expiryBanner.style.display='none'; }
+  }
 }
 function filterInv() {
   const q=document.getElementById('invSearch').value.toLowerCase();
@@ -3527,7 +3560,7 @@ function filterInv() {
 }
 function renderInv(items) {
   const tbody=document.getElementById('invTbody');
-  if(!items.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No items. Click + Add Item.</td></tr>';return;}
+  if(!items.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No items. Click + Add Item.</td></tr>';return;}
   const isServiceBiz = TRUE_SERVICE_BIZ.has(STORE?.business_type || '');
   tbody.innerHTML=items.map(i=>{
     const stock=parseFloat(i.stock??0);
@@ -3536,10 +3569,26 @@ function renderInv(items) {
     const out=!unlimited&&stock===0;
     const low=!out&&!unlimited&&stock<=thresh;
     const badge=unlimited?'<span class="badge bg-cash">Unlimited</span>':out?'<span class="badge" style="background:#2a0a0a;color:#ef4444">Out of Stock</span>':low?`<span class="badge" style="background:#2a1a0a;color:#f59e0b">Low</span>`:'<span class="badge bg-cash">In Stock</span>';
-    const rs=out?'background:rgba(239,68,68,.04)':low?'background:rgba(245,158,11,.04)':'';
+    const _expDate = i.expiry_date ? new Date(i.expiry_date + 'T00:00:00') : null;
+    const _now = new Date(); _now.setHours(0,0,0,0);
+    const _daysLeft = _expDate ? Math.round((_expDate - _now) / 86400000) : null;
+    const _expired = _daysLeft !== null && _daysLeft < 0;
+    const _expCrit = _daysLeft !== null && _daysLeft >= 0 && _daysLeft <= 90;
+    const _expWarn = _daysLeft !== null && _daysLeft > 90 && _daysLeft <= 180;
+    const expiryCell = _expDate
+      ? (_expired
+          ? '<span style="background:#2a0505;color:#ef4444;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700">EXPIRED</span>'
+          : _expCrit
+            ? '<span style="color:#ef4444;font-size:11px;font-weight:600">' + i.expiry_date + '<br><span style="font-size:10px">⚠ ' + _daysLeft + 'd left</span></span>'
+            : _expWarn
+              ? '<span style="color:#f59e0b;font-size:11px">' + i.expiry_date + '<br><span style="font-size:10px;color:var(--muted)">' + _daysLeft + 'd left</span></span>'
+              : '<span style="color:var(--muted);font-size:11px">' + i.expiry_date + '</span>')
+      : '<span style="color:var(--dim);font-size:11px">&#8212;</span>';
+    const promoTag = i.is_on_promo ? ' <span style="background:#1a0f00;color:#f59e0b;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:700;vertical-align:middle">SALE</span>' : '';
+    const rs = (_expired||_expCrit) ? 'background:rgba(239,68,68,.05)' : _expWarn ? 'background:rgba(245,158,11,.03)' : out ? 'background:rgba(239,68,68,.04)' : low ? 'background:rgba(245,158,11,.04)' : '';
     return `<tr style="${rs}">
       <td style="font-family:monospace;font-size:12px;color:var(--muted)">${i.sku||'&#8212;'}</td>
-      <td style="font-weight:600">${i.name}${frozenInvIds.has(i.id)?frozenBadgeHtml():''}</td>
+      <td style="font-weight:600">${i.name}${promoTag}${frozenInvIds.has(i.id)?frozenBadgeHtml():''}</td>
       <td style="color:var(--muted)">${i.category||'&#8212;'}</td>
       <td style="color:var(--muted)">${i.unit||'pc'}</td>
       <td style="color:var(--muted)">${CUR}${parseFloat(i.cost_price||0).toFixed(2)}</td>
@@ -3550,6 +3599,7 @@ function renderInv(items) {
         <button class="btn btn-ghost btn-sm" style="padding:3px 8px" onclick="adjInvStock('${i.id}',1)">+</button>`}
       </div></td>
       <td>${badge}</td>
+      <td>${expiryCell}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-accent btn-sm" onclick="openAddStock('${i.id}')">+Add</button>
         ${frozenInvIds.has(i.id)?`<button class="btn btn-ghost btn-sm" onclick="showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT)">Edit</button>`:`<button class="btn btn-ghost btn-sm" onclick="openInvModal(invItems.find(x=>x.id==='${i.id}'))">Edit</button>`}
@@ -3632,8 +3682,42 @@ async function openInvModal(item){
   document.getElementById('invQcUnit').value=u;
   if(costPer>0) calcUsageCost();
   populateInvCatSelect(document.getElementById('invCat'),item?item.category:'');
+  document.getElementById('invExpiry').value = item ? (item.expiry_date || '') : '';
+  document.getElementById('invSalePrice').value = item ? (item.sale_price || '') : '';
+  document.getElementById('invOnPromo').checked = !!(item && item.is_on_promo);
+  document.getElementById('invPromoFields').style.display = (item && item.is_on_promo) ? '' : 'none';
+  document.getElementById('invExpiryAlert').style.display = 'none';
+  checkInvExpiryPromo();
   document.getElementById('invModal').classList.add('show');
   setTimeout(()=>document.getElementById('invName').focus(),50);
+}
+function toggleInvPromo(){
+  const on=document.getElementById('invOnPromo').checked;
+  document.getElementById('invPromoFields').style.display=on?'':'none';
+  if(on) setTimeout(()=>document.getElementById('invSalePrice').focus(),50);
+}
+function checkInvExpiryPromo(){
+  const val=document.getElementById('invExpiry').value;
+  const alert=document.getElementById('invExpiryAlert');
+  if(!val){alert.style.display='none';return;}
+  const d=new Date(val+'T00:00:00');
+  const now=new Date(); now.setHours(0,0,0,0);
+  const days=Math.round((d-now)/86400000);
+  if(days<0){
+    alert.innerHTML='&#9888; This item is <strong>already expired</strong> ('+Math.abs(days)+' days ago). Consider removing it or marking as sold.';
+    alert.style.display='';
+  } else if(days<=90){
+    alert.innerHTML='&#9888; Expires in <strong>'+days+' days</strong>. Consider marking it <b>On Sale</b> to move stock quickly.';
+    alert.style.display='';
+    document.getElementById('invOnPromo').checked=true;
+    document.getElementById('invPromoFields').style.display='';
+  } else if(days<=180){
+    alert.innerHTML='&#128276; Expires in <strong>'+days+' days</strong> (~'+(Math.ceil(days/30))+' months).';
+    alert.style.background='#1a1200'; alert.style.borderColor='#f59e0b'; alert.style.color='#f59e0b';
+    alert.style.display='';
+  } else {
+    alert.style.display='none';
+  }
 }
 async function openInvCatQuick(){
   const name=prompt('New inventory category name:');
@@ -3699,7 +3783,10 @@ async function saveInvItem(){
   if(!cat){showToast('Please select a category.',true);return;}
   if(!sku) sku=genAutoSku(cat, invItems);
   const imgData=_invPendingImgs.length>0?JSON.stringify(_invPendingImgs):null;
-  const payload={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock,default_usage_qty:usageQty,...(imgData?{image_b64:imgData}:{})};
+  const _expiry = document.getElementById('invExpiry').value || null;
+  const _onPromo = document.getElementById('invOnPromo').checked;
+  const _salePrice = _onPromo ? (parseFloat(document.getElementById('invSalePrice').value) || null) : null;
+  const payload={name,sku,category:cat,unit,stock,cost_price:cost,low_stock_threshold:lowStock,default_usage_qty:usageQty,...(imgData?{image_b64:imgData}:{}),expiry_date:_expiry,is_on_promo:_onPromo,sale_price:_salePrice};
   let err;
   if(id){({error:err}=await _sb.from('inventory_items').update(payload).eq('id',id));}
   else{({error:err}=await _sb.from('inventory_items').insert({store_id:STORE.id,...payload}));}
