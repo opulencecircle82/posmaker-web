@@ -1371,11 +1371,13 @@ async function saveConfirmRemit() {
   const r = _remitData.find(x => x.id === id);
   const diff = r ? parseFloat(r.difference)||0 : 0;
   const status = diff > 0 ? 'over' : diff < 0 ? 'short' : 'balanced';
-  await _sb.from('cash_remittances').update({ status, description: desc||null }).eq('id', id).then(()=>{});
+  const { error: crErr } = await _sb.from('cash_remittances').update({ status, description: desc||null }).eq('id', id);
+  if (crErr) { showToast('Error: ' + crErr.message, true); btn.disabled=false; btn.textContent='✓ Confirm Receipt'; return; }
   const diffLabel = status==='short' ? `Short -₱${Math.abs(diff).toFixed(2)}` : status==='over' ? `Over +₱${Math.abs(diff).toFixed(2)}` : 'Balanced';
   await logAction('REMITTANCE', r?.cashier_name || '', { result: diffLabel, received: true, ...(desc ? { note: desc } : {}) });
   closeModal('confirmRemitModal');
   await loadRemit();
+  loadCashSummary();
   checkPendingRemits();
   showToast('Remittance confirmed.');
 }

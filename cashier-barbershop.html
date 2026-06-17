@@ -2997,11 +2997,12 @@ function startBcLoop(video){
 
 function handleBarcode(code){
   if(!code) return;
-  const p = prods.find(x=>x.sku && x.sku===code);
-  if(!p){ camStat('Barcode <strong>'+code+'</strong> — no match'); return; }
+  const norm = code.trim().toLowerCase();
+  const p = prods.find(x=>x.sku && (x.sku===code || x.sku.trim().toLowerCase()===norm));
+  if(!p){ camStat('&#127380; <strong>'+code+'</strong> — no product found'); return; }
   if(isOnCooldown(p.id)) return;
   setCooldown(p.id); addItem(p.id);
-  if(navigator.vibrate) navigator.vibrate(50);
+  if(navigator.vibrate) navigator.vibrate([30,20,30]);
   flashMatch(p.name,'&#127380; barcode');
 }
 

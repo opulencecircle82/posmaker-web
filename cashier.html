@@ -707,7 +707,7 @@ function adaptCashierMode(bizType) {
   // Dock floating scanner into left panel for retail, restore float for restaurant
   const overlay = document.getElementById('camOverlay');
   const btnCam  = document.getElementById('btnCam');
-  const showScanner = SCANNER_TYPES.has(bizType);
+  const showScanner = IS_RETAIL; // all retail stores: barcode first, visual AI fallback
   SHOW_SCANNER = showScanner;
   if (!showScanner) {
     // Only grocery/convenience and drug stores sell scannable packaged items — drop the camera for everyone else
@@ -2358,11 +2358,12 @@ function startBcLoop(video){
 
 function handleBarcode(code){
   if(!code) return;
-  const p = prods.find(x=>x.sku && x.sku===code);
-  if(!p){ camStat('Barcode <strong>'+code+'</strong> — no match'); return; }
+  const norm = code.trim().toLowerCase();
+  const p = prods.find(x=>x.sku && (x.sku===code || x.sku.trim().toLowerCase()===norm));
+  if(!p){ camStat('&#127380; <strong>'+code+'</strong> — no product found'); return; }
   if(isOnCooldown(p.id)) return;
   setCooldown(p.id); addItem(p.id);
-  if(navigator.vibrate) navigator.vibrate(50);
+  if(navigator.vibrate) navigator.vibrate([30,20,30]);
   flashMatch(p.name,'&#127380; barcode');
 }
 
