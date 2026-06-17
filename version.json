@@ -1,7 +1,9 @@
 {
-  "version": "1.2.5",
+  "version": "1.2.6",
   "date": "2026-06-17",
   "changes": [
+    "💼 Manager: Remit to Owner — manager can now record cash deposits to the owner with receipt upload or QR scan; amount is automatically deducted from COH panel",
+    "🔧 Fixed: Cash Remit POS Sales stuck at same amount when remitting twice quickly (race condition fix)",
     "Offline mode fixed — POS now opens without internet as long as it was connected once online",
     "🤝 New Affiliate Program signup flow — apply, create your account, and track your application status from a new Affiliate Dashboard; admins get notified by email when approved",
     "💡 Hover tooltips added across the dashboard (all business types) — point your cursor over sidebar items and buttons (Add Staff, Add POS, Reset Device, etc.) for a quick explanation of what they do",

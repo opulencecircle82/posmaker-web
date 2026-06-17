@@ -288,7 +288,10 @@ button{cursor:pointer}
   <div class="card" style="padding:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
       <div style="font-weight:700;font-size:14px">&#128181; Cash on Hand</div>
-      <button data-tip="I-refresh ang Cash on Hand summary." onclick="loadCashSummary()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1">&#8635;</button>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="openMgrDepositModal()" class="btn btn-sm" style="padding:3px 9px;font-size:11px;background:#1a0a2e;border:1px solid #7c3aed;color:#c084fc" data-tip="I-record ang pera na na-remit/na-deposit mo sa may-ari.">&#11014; Remit to Owner</button>
+        <button data-tip="I-refresh ang Cash on Hand summary." onclick="loadCashSummary()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1">&#8635;</button>
+      </div>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="cashSummaryDate"></div>
     <div id="cashSummary">
@@ -1386,8 +1389,10 @@ async function loadCashSummary() {
 
   const rows = data || [];
   const adjStatuses = ['purchase','deposit'];
-  const cashierRows = rows.filter(r => !adjStatuses.includes(r.status));
-  const adjRows     = rows.filter(r => adjStatuses.includes(r.status));
+  const mgrRemitStatuses = ['mgr_remit'];
+  const cashierRows  = rows.filter(r => !adjStatuses.includes(r.status) && !mgrRemitStatuses.includes(r.status));
+  const adjRows      = rows.filter(r => adjStatuses.includes(r.status));
+  const mgrRemitRows = rows.filter(r => mgrRemitStatuses.includes(r.status));
 
   if (!rows.length) {
     el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--muted);font-size:12px">No remittances recorded today.</div>';
@@ -1403,7 +1408,8 @@ async function loadCashSummary() {
   const cashierCount = cashierRows.length;
   // adjRows: purchases are stored as negative cash_on_hand, deposits as positive
   const adjTotal     = adjRows.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
-  const netTotal     = confirmedTotal + adjTotal;
+  const mgrRemitTotal = mgrRemitRows.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
+  const netTotal      = confirmedTotal + adjTotal + mgrRemitTotal;
   const purchaseTotal = adjRows.filter(r=>r.status==='purchase').reduce((s,r)=>s+Math.abs(parseFloat(r.cash_on_hand||0)),0);
   const depositTotal  = adjRows.filter(r=>r.status==='deposit').reduce((s,r)=>s+parseFloat(r.cash_on_hand||0),0);
 
@@ -1447,6 +1453,16 @@ async function loadCashSummary() {
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
           <span style="color:var(--muted)">${isPurchase?'&#128230; Stock purchase':'&#128176; Owner deposit'}: ${r.description?.replace(/^(Stock purchase|Owner deposit): /,'')?.slice(0,20)||''}</span>
           <span style="font-weight:700;color:${isPurchase?'#ef4444':'#10b981'}">${amt>=0?'+':''}&#8369;${Math.abs(amt).toFixed(2)}</span>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+    ${mgrRemitRows.length ? `<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
+      ${mgrRemitRows.map(r => {
+        const amt = Math.abs(parseFloat(r.cash_on_hand||0));
+        const d = (r.description||'').replace(/^Remit to owner:?\s*/i,'').slice(0,28);
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
+          <span style="color:var(--muted)">&#128179; Remitted to owner${d?' &mdash; '+d:''}</span>
+          <span style="font-weight:700;color:#a855f7">-&#8369;${amt.toFixed(2)}</span>
         </div>`;
       }).join('')}
     </div>` : ''}
@@ -1627,6 +1643,88 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySel
 
 init();
 
+// ── Manager Remit to Owner ──────────────────────────────────────────────────
+let _mgrDepQRPoll = null, _mgrDepQRToken = null;
+function openMgrDepositModal() {
+  document.getElementById('mgrDepAmt').value = '';
+  document.getElementById('mgrDepNote').value = '';
+  document.getElementById('mgrDepReceipt').value = '';
+  document.getElementById('mgrDepReceiptPreview').style.display = 'none';
+  const btn = document.getElementById('mgrDepSaveBtn');
+  btn.disabled = false; btn.innerHTML = '&#11014; Remit';
+  document.getElementById('mgrDepositModal').classList.add('show');
+}
+function previewMgrDepReceipt() {
+  const file = document.getElementById('mgrDepReceipt').files[0];
+  if (!file) { document.getElementById('mgrDepReceiptPreview').style.display = 'none'; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200, cv = document.createElement('canvas');
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      cv.width = img.width * scale; cv.height = img.height * scale;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      document.getElementById('mgrDepReceiptImg').src = cv.toDataURL('image/jpeg', 0.6);
+      document.getElementById('mgrDepReceiptPreview').style.display = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function openMgrDepQR() {
+  if (!_opsData) await loadOpsData();
+  _mgrDepQRToken = await createImgUploadToken('mgr_dep_receipt', 1);
+  const url = 'https://posmaker.ggff.net/image-upload.html?sid=' + MGR.store_id + '&token=' + _mgrDepQRToken + '&max=1';
+  document.getElementById('mgrDepQRCode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=' + encodeURIComponent(url);
+  document.getElementById('mgrDepQRStatus').textContent = 'Waiting for photo…';
+  document.getElementById('mgrDepQRModal').classList.add('show');
+  if (_mgrDepQRPoll) clearInterval(_mgrDepQRPoll);
+  _mgrDepQRPoll = setInterval(async () => {
+    await refreshOpsData();
+    const s = (_opsData && _opsData.imgUploadSessions && _opsData.imgUploadSessions[_mgrDepQRToken]) || null;
+    if (!s || !s.images || s.images.length === 0) return;
+    const b64 = s.images[0];
+    document.getElementById('mgrDepReceiptImg').src = 'data:image/jpeg;base64,' + b64;
+    document.getElementById('mgrDepReceiptPreview').style.display = '';
+    document.getElementById('mgrDepQRStatus').textContent = '✅ Photo received!';
+    await clearImgUploadSession(_mgrDepQRToken); _mgrDepQRToken = null;
+    setTimeout(() => closeMgrDepQR(), 1200);
+  }, 2500);
+}
+function closeMgrDepQR() {
+  if (_mgrDepQRPoll) { clearInterval(_mgrDepQRPoll); _mgrDepQRPoll = null; }
+  if (_mgrDepQRToken) { clearImgUploadSession(_mgrDepQRToken); _mgrDepQRToken = null; }
+  document.getElementById('mgrDepQRModal').classList.remove('show');
+}
+async function saveMgrDeposit() {
+  const amt = parseFloat(document.getElementById('mgrDepAmt').value);
+  if (!amt || amt <= 0) { showToast('Enter a valid amount.', true); return; }
+  const note = document.getElementById('mgrDepNote').value.trim();
+  const receiptImg = document.getElementById('mgrDepReceiptImg');
+  const receiptB64 = receiptImg.src && receiptImg.src.startsWith('data:') ? receiptImg.src : null;
+  const btn = document.getElementById('mgrDepSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…';
+  const today = new Date().toISOString().slice(0, 10);
+  const desc = 'Remit to owner' + (note ? ': ' + note : '');
+  const { error } = await _sb.from('cash_remittances').insert({
+    store_id: MGR.store_id, cashier_name: MGR.name, shift_date: today,
+    pos_sales: 0, cash_on_hand: -amt, difference: -amt,
+    status: 'mgr_remit', description: desc
+  });
+  if (error) {
+    showToast('Error: ' + error.message, true);
+    btn.disabled = false; btn.innerHTML = '&#11014; Remit';
+    return;
+  }
+  await logAction('MGR_REMIT', MGR.name, {
+    amount: amt, ...(note ? { note } : {}), ...(receiptB64 ? { receipt_b64: receiptB64 } : {})
+  });
+  closeModal('mgrDepositModal');
+  loadCashSummary();
+  showToast('Remittance to owner recorded.');
+}
+
 // ── Receipt QR Upload ───────────────────────────────────────────────────────
 let _asQRPoll = null, _asQRToken = null, _ruQRPoll = null, _ruQRToken = null;
 async function openAsReceiptQR() {
@@ -1681,6 +1779,47 @@ function closeRuReceiptQR() {
   document.getElementById('ruReceiptQRModal').classList.remove('show');
 }
 </script>
+
+<!-- MANAGER REMIT TO OWNER MODAL -->
+<div class="modal" id="mgrDepositModal">
+  <div class="mbox">
+    <h3>&#128179; Remit to Owner</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">I-record ang pera na na-deposit / na-remit mo sa may-ari (bank transfer, GCash, cash, atbp.).</p>
+    <div class="field">
+      <label>Amount Remitted (&#8369;)</label>
+      <input id="mgrDepAmt" type="number" min="0.01" step="0.01" placeholder="0.00" style="font-weight:700;color:#c084fc">
+    </div>
+    <div class="field">
+      <label>Receipt (optional)</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="mgrDepReceipt" type="file" accept="image/*" onchange="previewMgrDepReceipt()" style="font-size:12px;padding:8px;flex:1;min-width:0">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openMgrDepQR()" style="white-space:nowrap;font-size:12px">&#128247; Scan QR</button>
+      </div>
+      <div id="mgrDepReceiptPreview" style="display:none;margin-top:8px;text-align:center">
+        <img id="mgrDepReceiptImg" style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:#10b981;margin-top:4px">&#10003; Receipt attached</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Note (optional)</label>
+      <input id="mgrDepNote" type="text" placeholder="e.g. BDO transfer, GCash, cash">
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('mgrDepositModal')">Cancel</button>
+      <button class="btn btn-accent" id="mgrDepSaveBtn" onclick="saveMgrDeposit()" style="background:#7c3aed">&#11014; Remit</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mgrDepQRModal">
+  <div class="mbox" style="text-align:center;max-width:300px">
+    <h3 style="margin-bottom:8px">&#128247; Scan QR to Upload Receipt</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">I-scan gamit ang camera ng phone — awtomatikong lalabas ang photo dito.</p>
+    <img id="mgrDepQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:0 auto 10px;display:block">
+    <div id="mgrDepQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
+    <button class="btn btn-ghost" onclick="closeMgrDepQR()">Close</button>
+  </div>
+</div>
 
 <div class="modal" id="ruReceiptQRModal">
   <div class="mbox" style="text-align:center;max-width:300px">
