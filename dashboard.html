@@ -1060,12 +1060,23 @@ input:checked + .slider:before{transform:translateX(18px)}
         <select id="sfRole">
           <option value="cashier">Cashier</option>
           <option value="manager">Manager</option>
+          <option value="others">Others</option>
         </select>
       </div>
     </div>
     <div class="field" style="display:flex;align-items:center;gap:10px">
       <label style="margin:0">Active</label>
       <label class="toggle"><input type="checkbox" id="sfActive" checked><span class="slider"></span></label>
+    </div>
+    <div class="row2" style="margin-top:4px">
+      <div class="field">
+        <label>Job Title <span style="color:var(--dim);font-weight:400;font-size:11px">(optional)</span></label>
+        <input id="sfJobTitle" type="text" placeholder="e.g. Head Cashier, Stock Keeper">
+      </div>
+      <div class="field">
+        <label>Job Description <span style="color:var(--dim);font-weight:400;font-size:11px">(optional)</span></label>
+        <input id="sfJobDesc" type="text" placeholder="e.g. Handles daily cash and sales">
+      </div>
     </div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('staffModal')">Cancel</button>
@@ -2739,8 +2750,8 @@ function renderStaff(staff) {
         : '<span style="color:var(--dim)">Never</span>';
     return `<tr>
       <td style="font-weight:600;font-family:monospace">${s.username}${frozenStaffIds.has(s.id)?frozenBadgeHtml():''}</td>
-      <td>${s.full_name || '&#8212;'}</td>
-      <td><span class="badge bg-cash" style="${s.role==='manager'?'background:#1a1a3a;color:#818cf8':''}">${s.role}</span></td>
+      <td>${s.full_name || '&#8212;'}${s.job_title ? `<br><span style="font-size:11px;color:var(--muted);font-weight:400">${s.job_title}</span>` : ''}</td>
+      <td><span class="badge bg-cash" style="${s.role==='manager'?'background:#1a1a3a;color:#818cf8':s.role==='others'?'background:#0f1f1a;color:#6ee7b7':''}">${s.role}</span></td>
       <td><label class="toggle"><input type="checkbox" ${s.active?'checked':''} onchange="toggleStaff('${s.id}',this.checked)"><span class="slider"></span></label></td>
       <td style="font-size:12px;color:var(--muted)">${lastLogin}</td>
       <td style="white-space:nowrap">
@@ -2782,6 +2793,8 @@ function openStaffModal(s) {
   document.getElementById('sfPw').value      = '';
   document.getElementById('sfRole').value    = s ? s.role : 'cashier';
   document.getElementById('sfActive').checked= s ? s.active : true;
+  document.getElementById('sfJobTitle').value = s ? (s.job_title || '') : '';
+  document.getElementById('sfJobDesc').value  = s ? (s.job_description || '') : '';
   document.getElementById('sfUser').disabled = !!s;
   document.getElementById('staffModal').classList.add('show');
   setTimeout(() => document.getElementById(s ? 'sfName' : 'sfUser').focus(), 50);
@@ -2795,7 +2808,9 @@ async function saveStaff() {
   const active = document.getElementById('sfActive').checked;
   if (!id && !user) { showToast('Username is required.', true); return; }
   if (!id && !pw)   { showToast('Password is required for new staff.', true); return; }
-  let payload = { full_name: name, role, active };
+  const jobTitle = document.getElementById('sfJobTitle').value.trim();
+  const jobDesc  = document.getElementById('sfJobDesc').value.trim();
+  let payload = { full_name: name, role, active, job_title: jobTitle || null, job_description: jobDesc || null };
   if (pw) payload.password_hash = await sha256(pw);
   if (id) {
     await _sb.from('store_users').update(payload).eq('id', id);
