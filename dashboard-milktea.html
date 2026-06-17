@@ -383,7 +383,7 @@ input:checked + .slider:before{transform:translateX(18px)}
             <select id="logActionFilter" class="search" style="width:140px" onchange="renderActivityLog()">
               <option value="">All Actions</option>
               <option value="ADD_STOCK">Add Stock</option>
-              <option value="ADD_ITEM">Add New Item</option>
+              <option value="__others__">Others</option>
               <option value="SALE">Sale</option>
               <option value="REMITTANCE">Remittance</option>
               <option value="MGR_REMIT">Deposit</option>
@@ -2749,16 +2749,19 @@ function renderActivityLog() {
   const actionF = document.getElementById('logActionFilter')?.value || '';
   let rows = _activityLogs;
   if (actorF)  rows = rows.filter(l => (l.actor_name || '').trim() === actorF.trim());
-  if (actionF) rows = rows.filter(l => l.action === actionF);
+  if (actionF) rows = rows.filter(l => actionF === '__others__' ? ['OWNER_SEND','SALARY_GIVEN','EXPENSE_PAID'].includes(l.action) : l.action === actionF);
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No activity found.</td></tr>'; return; }
-  const actionLabel = { ADD_STOCK: '+ Add Stock', EDIT_ITEM: 'Edit Item', ADD_ITEM: '+ New Item', SALE: '💰 Sale', REMITTANCE: '🪙 Remittance', MGR_REMIT: '⬆ Deposit' };
+  const actionLabel = { ADD_STOCK: '+ Add Stock', EDIT_ITEM: 'Edit Item', ADD_ITEM: '+ New Item', SALE: '💰 Sale', REMITTANCE: '🪙 Remittance', MGR_REMIT: '⬆ Deposit', OWNER_SEND: '💸 Send', SALARY_GIVEN: '👤 Salary', EXPENSE_PAID: '📋 Expense' };
   const actionColor = {
     ADD_STOCK:   'background:#0d2e1f;color:#10b981',
     EDIT_ITEM:   'background:#0d1a2e;color:#00b4d8',
     ADD_ITEM:    'background:#1a0d2e;color:#818cf8',
     SALE:        'background:#0d2e2a;color:#14b8a6',
     REMITTANCE:  'background:#2e1a0d;color:#f59e0b',
-    MGR_REMIT:   'background:#1a0a2e;color:#c084fc',
+    MGR_REMIT:    'background:#1a0a2e;color:#c084fc',
+    OWNER_SEND:   'background:#0a2a10;color:#39ff14',
+    SALARY_GIVEN: 'background:#0a2a10;color:#39ff14',
+    EXPENSE_PAID: 'background:#2a1a0a;color:#f59e0b',
   };
   tbody.innerHTML = rows.map(l => {
     const dt = new Date(l.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -2773,6 +2776,14 @@ function renderActivityLog() {
           details = filtered.map(([k,v]) => {
             if (k === 'amount') return 'amount: <span style="color:#39ff14;font-weight:700">₱' + parseFloat(v).toFixed(2) + '</span>';
             if (k === 'note')   return '<span style="color:#00e5ff;font-weight:700">' + v + '</span>';
+            return k + ': ' + v;
+          }).join(' &bull; ');
+        } else if (l.action === 'OWNER_SEND' || l.action === 'SALARY_GIVEN' || l.action === 'EXPENSE_PAID') {
+          details = filtered.filter(([k]) => !['cr_id'].includes(k)).map(([k,v]) => {
+            if (k === 'amount') return '<span style="color:#39ff14;font-weight:700">₱' + parseFloat(v).toFixed(2) + '</span>';
+            if (k === 'note' || k === 'desc') return '<span style="color:#00e5ff">' + v + '</span>';
+            if (k === 'name') return v;
+            if (k === 'category') return '<span style="color:var(--muted);font-size:11px">' + v + '</span>';
             return k + ': ' + v;
           }).join(' &bull; ');
         } else {

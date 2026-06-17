@@ -1733,7 +1733,7 @@ async function openAddDisburse(type, crId) {
   if (isSal) {
     const sel = document.getElementById('disbName');
     sel.innerHTML = '<option value="">Loading cashiers...</option>';
-    const { data } = await _sb.from('store_users').select('full_name,username').eq('store_id', MGR.store_id).eq('role', 'cashier').order('full_name');
+    const { data } = await _sb.from('store_users').select('full_name,username').eq('store_id', MGR.store_id).order('full_name');
     sel.innerHTML = '<option value="">Select cashier...</option>';
     (data || []).forEach(u => { const n = u.full_name || u.username; sel.appendChild(new Option(n, n)); });
     sel.value = '';
@@ -2218,7 +2218,7 @@ function closeRuReceiptQR() {
   <div class="mbox">
     <h3 id="disbTitle">Add Record</h3>
     <div id="disbNameRow" class="field">
-      <label>Cashier</label>
+      <label>Staff</label>
       <select id="disbName" style="width:100%;padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:13px"><option value="">Loading...</option></select>
     </div>
     <div id="disbDescRow" class="field" style="display:none">
@@ -2230,7 +2230,6 @@ function closeRuReceiptQR() {
       <select id="disbCat" style="width:100%;padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:13px">
         <option value="Bills">Bills (Electric, Water, etc.)</option>
         <option value="Food">Food / Meals</option>
-        <option value="Supplies">Supplies</option>
         <option value="Transport">Transport</option>
         <option value="Others">Others</option>
       </select>
