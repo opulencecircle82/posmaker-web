@@ -120,6 +120,7 @@ button{cursor:pointer}
     <div class="sb-item" onclick="nav('sales')" title="Tingnan ang mga benta ng store — daily, weekly, o monthly."><span class="ico">&#128200;</span> Sales</div>
     <div class="sb-item" onclick="nav('remit')" title="Makita ang cash remittances ng mga cashier. Pula = may naghihintay na kumpirmasyon."><span class="ico">&#128176;</span> Cash Remit <span id="remitBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:auto"></span></div>
     <div class="sb-item" onclick="nav('checklist')" title="Mga gawain bago magbukas at magsara ng tindahan — may larawan bilang patunay."><span class="ico">&#9989;</span> Daily Checklist</div>
+    <div class="sb-item" onclick="nav('funds')" title="Mga pera na pinadala ng may-ari sa staff — salary, advance, allowance."><span class="ico">&#128176;</span> Staff Funds</div>
   </div>
   <div class="sb-bottom">
     <div class="sb-user" id="sbUser"></div>
@@ -281,6 +282,15 @@ button{cursor:pointer}
       <div id="sopNotesList" style="padding:14px"></div>
     </div>
   </div>
+  <!-- STAFF FUNDS SECTION -->
+  <div class="section" id="sec-funds" style="display:none">
+    <div style="max-width:560px">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Mga pera na pinadala ng may-ari sa staff — salary, advance, allowance. I-upload ang proof kapag natanggap na.</p>
+      <div id="paymentsList2" style="display:flex;flex-direction:column;gap:10px">
+        <div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">Loading...</div>
+      </div>
+    </div>
+  </div>
   </div><!-- end left col -->
 
   <!-- RIGHT COLUMN -->
@@ -297,17 +307,6 @@ button{cursor:pointer}
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="cashSummaryDate"></div>
     <div id="cashSummary">
-      <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">Loading...</div>
-    </div>
-  </div>
-
-  <!-- PAYMENTS PANEL -->
-  <div class="card" style="padding:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div style="font-weight:700;font-size:14px">&#128176; Payments to Staff</div>
-      <button onclick="loadPayments()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1">&#8635;</button>
-    </div>
-    <div id="paymentsList">
       <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">Loading...</div>
     </div>
   </div>
@@ -584,7 +583,6 @@ async function init(){
   show('mainContent');
   await loadInv();
   loadCashSummary();
-  loadPayments();
   loadMonitor();
   checkPendingRemits();
   checkMgrInbox();
@@ -1039,7 +1037,7 @@ function downloadSalesCSV(){
 }
 
 // ── UI Helpers ─────────────────────────────────────────────────────────────
-const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', checklist:'Daily Checklist'};
+const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', checklist:'Daily Checklist', funds:'Staff Funds'};
 function nav(id){
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
@@ -1053,6 +1051,7 @@ function nav(id){
   if(id==='sales')     loadSales();
   if(id==='remit')     { loadRemit(); checkPendingRemits(); }
   if(id==='checklist') loadChecklist();
+  if(id==='funds')     loadPayments();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbOverlay').classList.add('show'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbOverlay').classList.remove('show'); }
@@ -1545,7 +1544,7 @@ async function loadCashSummary() {
 
 // ── Payments Panel ──────────────────────────────────────────────────────────
 async function loadPayments() {
-  const el = document.getElementById('paymentsList');
+  const el = document.getElementById('paymentsList2');
   if (!el) return;
   const { data } = await _sb.from('cash_remittances')
     .select('id,cashier_name,cash_on_hand,description,status,shift_date,created_at')
