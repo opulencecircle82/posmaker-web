@@ -1817,7 +1817,7 @@ async function saveDisburse() {
   const { error: disbErr } = await _sb.from('activity_logs').insert({
     store_id:MGR.store_id, actor_name:MGR.name, actor_role:'manager',
     action: isSal ? 'SALARY_GIVEN' : 'EXPENSE_PAID',
-    target_name: _disbCrId,
+    target_name: isSal ? name : desc,
     details: JSON.stringify(Object.assign(
       { cr_id:_disbCrId, amount:amt },
       isSal ? { name } : { desc, category:cat },
