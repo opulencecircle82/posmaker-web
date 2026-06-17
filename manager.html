@@ -1835,7 +1835,7 @@ function addTimestampWatermark(canvas) {
   const now = new Date();
   const ts = now.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})
     + '  ' + now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const fs = Math.max(12, Math.round(canvas.width * 0.028));
+  const fs = Math.max(20, Math.round(canvas.width * 0.055));
   ctx.font = 'bold ' + fs + 'px monospace';
   const pad = 8, tw = ctx.measureText(ts).width + pad*2, th = fs + pad*2;
   const x = pad, y = canvas.height - th - pad;
