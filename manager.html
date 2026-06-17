@@ -102,6 +102,8 @@ input:focus{border-color:var(--accent)}
 .act-add{background:#0d2e1f;color:#10b981}
 .act-edit{background:#0d1a2e;color:#00b4d8}
 .act-remit{background:#2e1a0d;color:#f59e0b}
+.act-deposit{background:#1a0a2e;color:#c084fc}
+.act-send{background:#0d2e20;color:#10b981;border:1px solid rgba(16,185,129,.3)}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s1);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;transition:opacity .3s;pointer-events:none}
 button{cursor:pointer}
 #_tip{position:fixed;background:#1e1e35;color:#f0f0f8;border:1px solid #3a3a5a;border-radius:8px;padding:8px 12px;font-size:12px;line-height:1.5;max-width:220px;z-index:9999;pointer-events:none;display:none;box-shadow:0 4px 16px rgba(0,0,0,.5)}
@@ -894,17 +896,21 @@ async function loadLog(){
   tb.innerHTML = data.map(l=>{
     const dt = new Date(l.created_at);
     const ds = dt.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})+' '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    const cls = l.action==='ADD_STOCK'?'act-add':l.action==='EDIT_ITEM'?'act-edit':l.action==='REMITTANCE'?'act-remit':'';
+    const cls = l.action==='ADD_STOCK'?'act-add':l.action==='EDIT_ITEM'?'act-edit':l.action==='REMITTANCE'?'act-remit':l.action==='MGR_REMIT'?'act-deposit':l.action==='OWNER_SEND'?'act-send':'';
+    const actionLabel = {ADD_STOCK:'+ Add Stock',EDIT_ITEM:'Edit Item',REMITTANCE:'🪙 Remittance',MGR_REMIT:'⬆ Deposit',OWNER_SEND:'💸 Sent'};
+    const actionChip = actionLabel[l.action] || l.action.replace('_',' ');
     let det='';
     try{
       const d=JSON.parse(l.details||'{}');
       if(l.action==='ADD_STOCK') det=`+${d.added} (${d.before}→${d.after})${d.note?' · '+d.note:''}`;
       else if(l.action==='EDIT_ITEM') det=`Unit: ${d.unit}, Low alert: ${d.low_stock_threshold}`;
       else if(l.action==='REMITTANCE') det=d.result+(d.note?' · '+d.note:'');
+      else if(l.action==='MGR_REMIT') det=`amount: <span style="color:#39ff14;font-weight:700">&#8369;${parseFloat(d.amount||0).toFixed(2)}</span>${d.note?' &bull; <span style="color:#00e5ff;font-weight:700">'+d.note+'</span>':''}`;
+      else if(l.action==='OWNER_SEND') det=`<span style="color:#39ff14;font-weight:700">&#8369;${parseFloat(d.amount||0).toFixed(2)}</span>${d.note?' &bull; <span style="color:#00e5ff;font-weight:700">'+d.note+'</span>':''}`;
     }catch{ det=l.details||''; }
     return `<tr>
       <td style="color:var(--muted);font-size:12px;white-space:nowrap">${ds}</td>
-      <td><span class="act-chip ${cls}">${l.action.replace('_',' ')}</span></td>
+      <td><span class="act-chip ${cls}">${actionChip}</span></td>
       <td><strong>${l.target_name||'—'}</strong></td>
       <td style="color:var(--muted);font-size:12px">${det}</td>
     </tr>`;
@@ -1071,19 +1077,46 @@ async function openMsgInbox() {
       list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">No messages.</div>';
       return;
     }
+    // Collect PAYMENT_REF ids to check confirmation status in one batch query
+    const payRefIds = data
+      .map(m => { const ma = (m.body||'').match(/^PAYMENT_REF:([^\n]+)/); return ma ? ma[1].trim() : null; })
+      .filter(Boolean);
+    const confirmedSet = new Set();
+    if (payRefIds.length) {
+      const { data: crRows } = await _sb.from('cash_remittances')
+        .select('id,status').in('id', payRefIds);
+      (crRows || []).filter(r => r.status === 'payment_confirmed').forEach(r => confirmedSet.add(r.id));
+    }
     list.innerHTML = data.map(m => {
       const dt = new Date(m.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      return `<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px">
+      const payRef = (m.body||'').match(/^PAYMENT_REF:([^\n]+)/);
+      const crId = payRef ? payRef[1].trim() : null;
+      const displayBody = crId
+        ? (m.body||'').replace(/^PAYMENT_REF:[^\n]+\n?/, '').replace(/\n/g, '<br>')
+        : (m.body||'').replace(/\n/g, '<br>');
+      const confirmed = crId && confirmedSet.has(crId);
+      return `<div style="background:var(--s2);border:1px solid ${crId?'rgba(16,185,129,.3)':'var(--border)'};border-radius:10px;padding:14px">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:12px;font-weight:700;color:var(--accent)">${m.from_name || 'Owner'}</span>
+          <span style="font-size:12px;font-weight:700;color:${crId?'#10b981':'var(--accent)'}">${m.from_name || 'Owner'}${crId?' &#128176;':''}</span>
           <span style="font-size:11px;color:var(--muted)">${dt}</span>
         </div>
-        <div style="font-size:14px;color:var(--text)">${m.body}</div>
+        <div style="font-size:14px;color:var(--text);margin-bottom:${crId?'12px':'0'}">${displayBody}</div>
+        ${crId ? `<div style="text-align:right">${confirmed
+          ? '<span style="font-size:12px;color:#10b981;font-weight:700">&#10003; Confirmed</span>'
+          : `<button class="btn btn-sm" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)" onclick="confirmSendPay('${crId}',this)">&#10003; Confirm Received</button>`
+        }</div>` : ''}
       </div>`;
     }).join('');
   } catch(e) {
     list.innerHTML = `<div style="text-align:center;color:#ef4444;padding:20px">${e.message}</div>`;
   }
+}
+async function confirmSendPay(crId, btn) {
+  btn.disabled = true; btn.textContent = 'Confirming…';
+  const { error } = await _sb.from('cash_remittances').update({ status: 'payment_confirmed' }).eq('id', crId);
+  if (error) { showToast('Error: ' + error.message, true); btn.disabled = false; btn.textContent = '✓ Confirm Received'; return; }
+  btn.outerHTML = '<span style="font-size:12px;color:#10b981;font-weight:700">&#10003; Confirmed</span>';
+  showToast('Payment confirmed.');
 }
 async function checkMgrInbox() {
   if (!SID || !MGR?.username) return;

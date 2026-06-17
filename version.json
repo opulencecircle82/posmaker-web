@@ -1,7 +1,8 @@
 {
-  "version": "1.2.6",
+  "version": "1.2.7",
   "date": "2026-06-17",
   "changes": [
+    "💸 Send Payment to Staff — owner can send salary/advance to manager or staff with bank receipt (file upload or QR scan from phone); manager confirms receipt from inbox",
     "💼 Manager: Remit to Owner — manager can now record cash deposits to the owner with receipt upload or QR scan; amount is automatically deducted from COH panel",
     "🔧 Fixed: Cash Remit POS Sales stuck at same amount when remitting twice quickly (race condition fix)",
     "Offline mode fixed — POS now opens without internet as long as it was connected once online",
