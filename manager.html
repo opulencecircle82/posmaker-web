@@ -1656,18 +1656,17 @@ async function loadPayments() {
       <div style="background:var(--s2);padding:14px 16px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>
-            <div style="font-size:22px;font-weight:800;color:#10b981">&#8369;${amt.toFixed(2)}</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:2px">${note||'Payment from owner'} &bull; ${dt}</div>
+            <div style="font-size:22px;font-weight:800;color:${left>=0?'#10b981':'#ef4444'}">&#8369;${left.toFixed(2)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:1px">Remaining &bull; ${note||'Payment from owner'} &bull; ${dt}</div>
           </div>
           <span style="font-size:11px;font-weight:700;color:${confirmed?'#10b981':'#f59e0b'};background:${confirmed?'rgba(16,185,129,.12)':'rgba(245,158,11,.12)'};padding:3px 8px;border-radius:6px">${confirmed?'&#10003; Confirmed':'&#9679; Pending'}</span>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           ${hasRcpt ? `<button class="btn btn-ghost btn-sm" style="font-size:11px;padding:4px 10px" onclick="openReceiptViewer('${p.id}')">&#128247; View Receipt</button>` : '<span style="font-size:11px;color:var(--dim);padding:4px 0">No receipt</span>'}
         </div>
         <div style="display:flex;gap:16px;margin-top:10px;font-size:12px">
           <span>Received: <strong style="color:#10b981">&#8369;${amt.toFixed(2)}</strong></span>
           <span>Spent: <strong style="color:#ef4444">&#8369;${(totalSal+totalExp).toFixed(2)}</strong></span>
-          <span>Remaining: <strong style="color:${left>=0?'#10b981':'#ef4444'}">&#8369;${left.toFixed(2)}</strong></span>
         </div>
       </div>
       <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
