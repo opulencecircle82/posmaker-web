@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -281,17 +281,6 @@ input:checked + .slider:before{transform:translateX(18px)}
           </div>
         </div>
       </div>
-
-      <!-- STAFF PERFORMANCE CARD -->
-      <div class="tbl-wrap" style="margin-top:16px" id="perfCard">
-        <div class="tbl-head">
-          <h3>&#128200; Staff Performance <span style="font-size:11px;font-weight:400;color:var(--muted)">(Last 30 days)</span></h3>
-          <button class="btn btn-ghost btn-sm" onclick="loadPerformance()">&#8635; Refresh</button>
-        </div>
-        <div id="perfContent" style="padding:16px 20px">
-          <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
-        </div>
-      </div>
     </div>
 
     <!-- ORDERS -->
@@ -424,6 +413,17 @@ input:checked + .slider:before{transform:translateX(18px)}
         <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Share this link with your managers and staff. They use their username &amp; password to sign in.</p>
         <div class="link-box" id="mgrLoginLink" style="cursor:pointer" onclick="copyMgrLink()" title="Click to copy">Loading...</div>
         <button class="btn btn-ghost btn-sm" onclick="copyMgrLink()">&#128203; Copy Link</button>
+      </div>
+
+      <!-- STAFF PERFORMANCE CARD -->
+      <div class="tbl-wrap" style="margin-top:16px" id="perfCard">
+        <div class="tbl-head">
+          <h3>&#128200; Staff Performance <span style="font-size:11px;font-weight:400;color:var(--muted)">(Last 30 days)</span></h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadPerformance()">&#8635; Refresh</button>
+        </div>
+        <div id="perfContent" style="padding:16px 20px">
+          <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
+        </div>
       </div>
     </div>
 
@@ -1429,7 +1429,6 @@ function _sig(ms = 25000) {
   }
 
   loadDashboard();
-  loadPerformance();
   await Promise.race([loadDbCategories(), new Promise(r => setTimeout(r, 8000))]);
   loadProducts();
   loadInventory();
@@ -1516,11 +1515,11 @@ function nav(id) {
   });
   document.getElementById('topbarTitle').textContent = SECTION_TITLES[id] || id;
   closeSidebar();
-  if (id === 'dashboard') { loadDashboard(); loadPerformance(); }
+  if (id === 'dashboard') { loadDashboard(); }
   if (id === 'orders')     loadOrders();
   if (id === 'salesreport') loadReport('daily');
   if (id === 'inventory')  loadInventory();
-  if (id === 'staff')        { loadStaff(); updateMgrLink(); }
+  if (id === 'staff')        { loadStaff(); updateMgrLink(); loadPerformance(); }
   if (id === 'activitylog')  loadActivityLog();
   if (id === 'messages')     loadMessages();
   if (id === 'categories') { loadDbCategories().then(() => loadProducts().then(loadCategories)); switchCatTab(catTab); }
