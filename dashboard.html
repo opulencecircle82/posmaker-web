@@ -4083,7 +4083,7 @@ async function saveSendPay(){
   await _sb.from('activity_logs').insert({
     store_id:STORE.id,actor_name:(STORE.owner_name||'Owner'),actor_role:'owner',
     action:'OWNER_SEND',target_name:(s.full_name||s.username),
-    details:JSON.stringify(Object.assign({amount:amt},note?{note}:{},rcpt?{receipt_b64:rcpt}:{}))
+    details:JSON.stringify(Object.assign({amount:amt,cr_id:crId},note?{note}:{},rcpt?{receipt_b64:rcpt}:{}))
   }).then(()=>{});
   var _nl=String.fromCharCode(10);const mbody='PAYMENT_REF:'+crId+_nl+'\u20b1'+amt.toFixed(2)+' mula sa may-ari'+(note?' \u2014 '+note:'')+_nl+(rcpt?_nl+'May kasamang resibo ng transfer.'+_nl:'')+_nl+'I-tap ang Confirm kapag natanggap mo na.';
   await _sb.from('store_messages').insert({

@@ -283,7 +283,7 @@ button{cursor:pointer}
     </div>
   </div>
   <!-- STAFF FUNDS SECTION -->
-  <div class="section" id="sec-funds" style="display:none">
+  <div class="section" id="sec-funds">
     <div style="max-width:560px">
       <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Mga pera na pinadala ng may-ari sa staff — salary, advance, allowance. I-upload ang proof kapag natanggap na.</p>
       <div id="paymentsList2" style="display:flex;flex-direction:column;gap:10px">
@@ -1088,30 +1088,61 @@ async function openMsgInbox() {
       list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">No messages.</div>';
       return;
     }
-    // Collect PAYMENT_REF ids to check confirmation status in one batch query
+    // Collect PAYMENT_REF ids to check confirmation status + fetch receipts
     const payRefIds = data
       .map(m => { const ma = (m.body||'').match(/^PAYMENT_REF:([^\n]+)/); return ma ? ma[1].trim() : null; })
       .filter(Boolean);
     const confirmedSet = new Set();
+    // receipt map: crId → base64 data URL
+    const receiptMap = {};
     if (payRefIds.length) {
       const { data: crRows } = await _sb.from('cash_remittances')
-        .select('id,status').in('id', payRefIds);
-      (crRows || []).filter(r => r.status === 'payment_confirmed').forEach(r => confirmedSet.add(r.id));
+        .select('id,status,cashier_name').in('id', payRefIds);
+      (crRows || []).forEach(r => {
+        if (r.status === 'payment_confirmed') confirmedSet.add(r.id);
+      });
+      // Fetch OWNER_SEND activity logs to get receipt images
+      const { data: sendLogs } = await _sb.from('activity_logs')
+        .select('details,target_name,created_at')
+        .eq('store_id', SID).eq('action', 'OWNER_SEND')
+        .order('created_at', { ascending: false }).limit(100);
+      // Build receipt map: prefer cr_id match (new records), fallback to target_name
+      const nameMap = {};
+      (sendLogs || []).forEach(l => {
+        try {
+          const d = JSON.parse(l.details || '{}');
+          if (!d.receipt_b64) return;
+          const rcpt = d.receipt_b64.startsWith('data:') ? d.receipt_b64 : 'data:image/jpeg;base64,' + d.receipt_b64;
+          if (d.cr_id && payRefIds.includes(d.cr_id)) {
+            receiptMap[d.cr_id] = rcpt;
+          } else if (l.target_name && !nameMap[l.target_name]) {
+            nameMap[l.target_name] = { rcpt, logTime: l.created_at };
+          }
+        } catch(_) {}
+      });
+      // Fill missing cr_id receipts via name fallback
+      (crRows || []).forEach(r => {
+        if (!receiptMap[r.id] && nameMap[r.cashier_name]) {
+          receiptMap[r.id] = nameMap[r.cashier_name].rcpt;
+        }
+      });
     }
     list.innerHTML = data.map(m => {
       const dt = new Date(m.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
       const payRef = (m.body||'').match(/^PAYMENT_REF:([^\n]+)/);
       const crId = payRef ? payRef[1].trim() : null;
       const displayBody = crId
-        ? (m.body||'').replace(/^PAYMENT_REF:[^\n]+\n?/, '').replace(/\n/g, '<br>')
+        ? (m.body||'').replace(/^PAYMENT_REF:[^\n]+\n?/, '').replace(/\n/g, '<br>').replace(/May kasamang resibo ng transfer\.<br>/,'')
         : (m.body||'').replace(/\n/g, '<br>');
       const confirmed = crId && confirmedSet.has(crId);
+      const rcpt = crId && receiptMap[crId];
       return `<div style="background:var(--s2);border:1px solid ${crId?'rgba(16,185,129,.3)':'var(--border)'};border-radius:10px;padding:14px">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px">
           <span style="font-size:12px;font-weight:700;color:${crId?'#10b981':'var(--accent)'}">${m.from_name || 'Owner'}${crId?' &#128176;':''}</span>
           <span style="font-size:11px;color:var(--muted)">${dt}</span>
         </div>
-        <div style="font-size:14px;color:var(--text);margin-bottom:${crId?'12px':'0'}">${displayBody}</div>
+        <div style="font-size:14px;color:var(--text);margin-bottom:8px">${displayBody}</div>
+        ${rcpt ? `<div style="margin-bottom:10px"><img src="${rcpt}" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid var(--border);display:block"></div>` : ''}
         ${crId ? `<div style="text-align:right">${confirmed
           ? '<span style="font-size:12px;color:#10b981;font-weight:700">&#10003; Confirmed</span>'
           : `<button class="btn btn-sm" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)" onclick="confirmSendPay('${crId}',this)">&#10003; Confirm Received</button>`
