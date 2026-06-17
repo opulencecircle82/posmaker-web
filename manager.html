@@ -1805,7 +1805,7 @@ async function saveDisburse() {
   const rcpt = proofImg.src&&proofImg.src.startsWith('data:') ? proofImg.src : null;
   const btn = document.getElementById('disbBtn');
   btn.disabled=true; btn.textContent='Saving…';
-  await _sb.from('activity_logs').insert({
+  const { error: disbErr } = await _sb.from('activity_logs').insert({
     store_id:MGR.store_id, actor_name:MGR.name, actor_role:'manager',
     action: isSal ? 'SALARY_GIVEN' : 'EXPENSE_PAID',
     target_name: _disbCrId,
@@ -1814,10 +1814,11 @@ async function saveDisburse() {
       isSal ? { name } : { desc, category:cat },
       rcpt ? { receipt_b64:rcpt } : {}
     ))
-  }).then(()=>{});
+  });
+  if (disbErr) { showToast('Error saving: ' + disbErr.message, true); btn.disabled=false; btn.textContent='Save'; return; }
   document.getElementById('disburseModal').classList.remove('show');
   showToast('Record saved.');
-  loadPayments();
+  await loadPayments();
 }
 
 function addTimestampWatermark(canvas) {
