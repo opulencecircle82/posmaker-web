@@ -2970,8 +2970,9 @@ function renderActivityLog() {
             return k + ': ' + v;
           }).join(' &bull; ');
         } else if (l.action === 'OWNER_SEND' || l.action === 'SALARY_GIVEN' || l.action === 'EXPENSE_PAID') {
+          const _amtColor = l.action === 'OWNER_SEND' ? '#39ff14' : '#ff3131';
           details = filtered.filter(([k]) => !['cr_id'].includes(k)).map(([k,v]) => {
-            if (k === 'amount') return '<span style="color:#39ff14;font-weight:700">₱' + parseFloat(v).toFixed(2) + '</span>';
+            if (k === 'amount') return '<span style="color:' + _amtColor + ';font-weight:700">₱' + parseFloat(v).toFixed(2) + '</span>';
             if (k === 'note' || k === 'desc') return '<span style="color:#00e5ff">' + v + '</span>';
             if (k === 'name') return v;
             if (k === 'category') return '<span style="color:var(--muted);font-size:11px">' + v + '</span>';
