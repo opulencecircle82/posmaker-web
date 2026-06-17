@@ -1896,7 +1896,7 @@ function renderReport(orders, from, to) {
 
   // Order type breakdown
   const typeGroups = {};
-  orders.forEach(o => {
+  if (RESTAURANT_BIZ.has(STORE && STORE.business_type)) orders.forEach(o => {
     const t = o.order_type || 'Dine In';
     if (!typeGroups[t]) typeGroups[t] = { count: 0, total: 0 };
     typeGroups[t].count++;
