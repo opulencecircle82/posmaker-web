@@ -4358,7 +4358,7 @@ async function saveSendPay(){
     action:'OWNER_SEND',target_name:(s.full_name||s.username),
     details:JSON.stringify(Object.assign({amount:amt,cr_id:crId},note?{note}:{},rcpt?{receipt_b64:rcpt}:{}))
   }).then(()=>{});
-  var _nl=String.fromCharCode(10);const mbody='PAYMENT_REF:'+crId+_nl+'\u20b1'+amt.toFixed(2)+' mula sa may-ari'+(note?' \u2014 '+note:'')+_nl+(rcpt?_nl+'May kasamang resibo ng transfer.'+_nl:'')+_nl+'I-tap ang Confirm kapag natanggap mo na.';
+  var _nl=String.fromCharCode(10);const mbody='PAYMENT_REF:'+crId+_nl+'\u20b1'+amt.toFixed(2)+' from owner'+(note?' \u2014 '+note:'')+_nl+(rcpt?_nl+'Bank transfer receipt attached.'+_nl:'')+_nl+'Tap Confirm once received.';
   await _sb.from('store_messages').insert({
     store_id:STORE.id,from_name:(STORE.name||'Owner'),from_role:'owner',
     to_username:s.username,to_name:(s.full_name||s.username),

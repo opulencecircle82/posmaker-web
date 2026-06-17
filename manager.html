@@ -115,16 +115,16 @@ button{cursor:pointer}
   <div class="sb-logo">POS<span>Maker</span></div>
   <div class="sb-store" id="storeName">Loading...</div>
   <div class="sb-nav">
-    <div class="sb-item active" onclick="nav('inv')" title="Tingnan at pamahalaan ang lahat ng stocks at items."><span class="ico">&#128230;</span> Inventory</div>
-    <div class="sb-item" onclick="nav('log')" title="Makita ang lahat ng ginawa mo dati — add stock, edit item, atbp."><span class="ico">&#128203;</span> Activity Log</div>
-    <div class="sb-item" onclick="nav('sales')" title="Tingnan ang mga benta ng store — daily, weekly, o monthly."><span class="ico">&#128200;</span> Sales</div>
-    <div class="sb-item" onclick="nav('remit')" title="Makita ang cash remittances ng mga cashier. Pula = may naghihintay na kumpirmasyon."><span class="ico">&#128176;</span> Cash Remit <span id="remitBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:auto"></span></div>
-    <div class="sb-item" onclick="nav('checklist')" title="Mga gawain bago magbukas at magsara ng tindahan — may larawan bilang patunay."><span class="ico">&#9989;</span> Daily Checklist</div>
-    <div class="sb-item" onclick="nav('funds')" title="Mga pera na pinadala ng may-ari sa staff — salary, advance, allowance."><span class="ico">&#128176;</span> Staff Funds</div>
+    <div class="sb-item active" onclick="nav('inv')" title="View and manage all stocks and items."><span class="ico">&#128230;</span> Inventory</div>
+    <div class="sb-item" onclick="nav('log')" title="See all past actions — add stock, edit item, etc."><span class="ico">&#128203;</span> Activity Log</div>
+    <div class="sb-item" onclick="nav('sales')" title="View store sales — daily, weekly, or monthly."><span class="ico">&#128200;</span> Sales</div>
+    <div class="sb-item" onclick="nav('remit')" title="View cash remittances from cashiers. Red = awaiting confirmation."><span class="ico">&#128176;</span> Cash Remit <span id="remitBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:auto"></span></div>
+    <div class="sb-item" onclick="nav('checklist')" title="Tasks before opening and closing the store — with photo proof."><span class="ico">&#9989;</span> Daily Checklist</div>
+    <div class="sb-item" onclick="nav('funds')" title="Money sent by owner to staff — salary, advance, allowance."><span class="ico">&#128176;</span> Staff Funds</div>
   </div>
   <div class="sb-bottom">
     <div class="sb-user" id="sbUser"></div>
-    <div class="sb-logout" data-tip="I-logout ang iyong account." onclick="doLogout()">
+    <div class="sb-logout" data-tip="Log out of your account." onclick="doLogout()">
       <span class="ico">&#x1F6AA;</span> Logout
     </div>
   </div>
@@ -137,7 +137,7 @@ button{cursor:pointer}
     <button class="sb-toggle" onclick="openSidebar()">&#9776;</button>
     <span class="topbar-title" id="topbarTitle">Inventory</span>
   </div>
-  <button class="btn btn-ghost btn-sm" data-tip="Buksan ang inbox — tingnan ang mga mensahe mula sa owner." onclick="openMsgInbox()" style="position:relative;padding:6px 10px">
+  <button class="btn btn-ghost btn-sm" data-tip="Open inbox — view messages from owner." onclick="openMsgInbox()" style="position:relative;padding:6px 10px">
     &#128172;
     <span id="mgrInboxBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:9px;border-radius:8px;padding:1px 5px;font-weight:700;min-width:16px;text-align:center"></span>
   </button>
@@ -230,7 +230,7 @@ button{cursor:pointer}
     <div class="card">
       <div class="card-title">
         Cash Remittances
-        <button class="btn btn-accent btn-sm" data-tip="Mag-record ng bagong cash remittance nang mano-mano." onclick="openRemitModal()">&#43; Record</button>
+        <button class="btn btn-accent btn-sm" data-tip="Manually record a new cash remittance." onclick="openRemitModal()">&#43; Record</button>
       </div>
       <!-- Filters -->
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
@@ -255,7 +255,7 @@ button{cursor:pointer}
 
   <!-- DAILY CHECKLIST + RECIPE/SOP NOTES -->
   <div class="section" id="sec-checklist">
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Kumpletuhin ang mga gawain sa pagbukas at pagsara ng tindahan. Kunan ng larawan bilang patunay bago mag-check ang isang gawain.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Complete tasks for opening and closing the store. Take a photo as proof before marking a task done.</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:16px">
       <div class="tbl-wrap">
         <div class="tbl-head"><h3>&#9728; Opening Checklist</h3><div style="display:flex;align-items:center;gap:8px"><button class="btn btn-ghost btn-sm" onclick="openChecklistQR('opening')" style="padding:4px 10px;font-size:11px">&#128241; Scan QR</button><span id="ckOpenStatus" style="font-size:11px;color:var(--muted)"></span></div></div>
@@ -285,7 +285,7 @@ button{cursor:pointer}
   <!-- STAFF FUNDS SECTION -->
   <div class="section" id="sec-funds">
     <div style="max-width:560px">
-      <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Mga pera na pinadala ng may-ari sa staff — salary, advance, allowance. I-upload ang proof kapag natanggap na.</p>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Money sent by owner to staff — salary, advance, allowance. Upload proof of disbursement when received.</p>
       <div id="paymentsList2" style="display:flex;flex-direction:column;gap:10px">
         <div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">Loading...</div>
       </div>
@@ -301,8 +301,8 @@ button{cursor:pointer}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
       <div style="font-weight:700;font-size:14px">&#128181; Cash on Hand</div>
       <div style="display:flex;align-items:center;gap:6px">
-        <button onclick="openMgrDepositModal()" class="btn btn-sm" style="padding:3px 9px;font-size:11px;background:#1a0a2e;border:1px solid #7c3aed;color:#c084fc" data-tip="I-record ang pera na na-deposit mo sa may-ari.">&#11014; Deposit</button>
-        <button data-tip="I-refresh ang Cash on Hand summary." onclick="loadCashSummary()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1">&#8635;</button>
+        <button onclick="openMgrDepositModal()" class="btn btn-sm" style="padding:3px 9px;font-size:11px;background:#1a0a2e;border:1px solid #7c3aed;color:#c084fc" data-tip="Record a deposit sent to the owner.">&#11014; Deposit</button>
+        <button data-tip="Refresh Cash on Hand summary." onclick="loadCashSummary()" style="background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1">&#8635;</button>
       </div>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="cashSummaryDate"></div>
@@ -364,7 +364,7 @@ button{cursor:pointer}
         <input type="radio" name="asPayType" value="none" checked onchange="updateAsPayUI()">
         <span>No COH adjustment</span>
       </label>
-      <label data-tip="Manager gagastos mula sa sarili niyang hawak na pera (COH). Ibabawas ang total cost sa COH niya." style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:13px">
+      <label data-tip="Manager pays from their own COH. Total cost is deducted from their cash on hand." style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;font-size:13px">
         <input type="radio" name="asPayType" value="deduct" onchange="updateAsPayUI()">
         <span>Deduct from COH</span><span id="asDeductAmt" style="margin-left:auto;font-weight:700;color:#ef4444"></span>
       </label>
@@ -396,7 +396,7 @@ button{cursor:pointer}
   <div class="mbox" style="width:min(440px,100%)">
     <h3>&#128247; Upload Receipt Again</h3>
     <input type="hidden" id="ruLogId">
-    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Sinabi ng owner na invalid ang resibo na in-upload mo para sa <strong id="ruItemName" style="color:var(--text)"></strong>. Mag-upload ng bagong malinaw na larawan ng resibo.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">The owner marked your uploaded receipt as invalid for <strong id="ruItemName" style="color:var(--text)"></strong>. Upload a new clear photo of the receipt.</p>
     <div class="field">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <input id="ruReceipt" type="file" accept="image/*" onchange="previewReuploadReceipt()" style="font-size:12px;padding:8px;flex:1;min-width:0">
@@ -524,7 +524,7 @@ button{cursor:pointer}
 <div class="modal" id="checklistPhotoModal">
   <div class="mbox" style="width:min(420px,100%)">
     <h3>&#128247; Photo Proof</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Kunan ng larawan o mag-upload ng patunay para sa gawaing ito bago ito markahan na tapos.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Take a photo or upload proof for this task before marking it as done.</p>
     <div class="field">
       <input id="ckPhotoInput" type="file" accept="image/*" capture="environment" onchange="previewChecklistPhoto()" style="font-size:12px;padding:8px">
     </div>
@@ -541,8 +541,8 @@ button{cursor:pointer}
 <!-- CHECKLIST QR SCAN -->
 <div class="modal" id="checklistQRModal">
   <div class="mbox" style="width:min(360px,100%);text-align:center">
-    <h3 id="ckQRTitle">&#128241; I-scan gamit ang Phone</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">I-scan ang QR code na ito gamit ang camera ng phone para buksan ang checklist sa phone. Awto-uupdate ang status dito kapag may na-upload na.</p>
+    <h3 id="ckQRTitle">&#128241; Scan with Phone</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Scan this QR code with your phone camera to open the checklist on your phone. Status updates automatically when a photo is uploaded.</p>
     <img id="ckQRImg" style="width:220px;height:220px;border-radius:8px;background:#fff;padding:8px;margin:0 auto 12px;display:block">
     <div style="font-size:11px;color:var(--muted);word-break:break-all;margin-bottom:14px"><a id="ckQRLink" href="#" target="_blank" style="color:var(--accent)"></a></div>
     <div class="m-actions" style="justify-content:center">
@@ -1132,7 +1132,7 @@ async function openMsgInbox() {
       const payRef = (m.body||'').match(/^PAYMENT_REF:([^\n]+)/);
       const crId = payRef ? payRef[1].trim() : null;
       const displayBody = crId
-        ? (m.body||'').replace(/^PAYMENT_REF:[^\n]+\n?/, '').replace(/\n/g, '<br>').replace(/May kasamang resibo ng transfer\.<br>/,'')
+        ? (m.body||'').replace(/^PAYMENT_REF:[^\n]+\n?/, '').replace(/\n/g, '<br>').replace(/May kasamang resibo ng transfer\.<br>/,'').replace(/Bank transfer receipt attached\.<br>/,'')
         : (m.body||'').replace(/\n/g, '<br>');
       const confirmed = crId && confirmedSet.has(crId);
       const rcpt = crId && receiptMap[crId];
@@ -1266,7 +1266,7 @@ function renderRemit() {
       : invalidLog
       ? `<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
           <span style="color:var(--muted);font-size:12px">${r.description||'—'}</span>
-          <button class="btn btn-sm" data-tip="Sinabi ng owner na invalid ang resibo na in-upload mo. Mag-upload ulit ng malinaw na larawan." onclick="openReuploadReceipt('${invalidLog.id}')" style="background:#ef4444;color:#fff;font-weight:600;font-size:11px;padding:5px 10px">&#8635; Upload Receipt Again</button>
+          <button class="btn btn-sm" data-tip="Owner marked your uploaded receipt as invalid. Upload a new clear photo." onclick="openReuploadReceipt('${invalidLog.id}')" style="background:#ef4444;color:#fff;font-weight:600;font-size:11px;padding:5px 10px">&#8635; Upload Receipt Again</button>
         </div>`
       : `<span style="color:var(--muted);font-size:12px">${r.description||'—'}</span>`;
     return `<tr style="${isPending ? 'background:#1a1200;' : ''}">
@@ -1321,7 +1321,7 @@ async function submitReuploadReceipt() {
   if (!log) return;
   const img = document.getElementById('ruReceiptImg');
   const b64 = img.src && img.src.startsWith('data:') ? img.src : null;
-  if (!b64) { showToast('Pumili muna ng larawan ng resibo.', true); return; }
+  if (!b64) { showToast('Please select a receipt image first.', true); return; }
   const btn = document.getElementById('ruSaveBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Uploading...';
   let d = {};
@@ -1332,7 +1332,7 @@ async function submitReuploadReceipt() {
   btn.disabled = false; btn.textContent = 'Upload';
   if (error) { showToast(error.message, true); return; }
   closeModal('reuploadReceiptModal');
-  showToast('Naipadala ang bagong resibo sa owner.');
+  showToast('New receipt sent to owner.');
   await loadInvalidReceipts();
   renderRemit();
 }
@@ -1607,7 +1607,20 @@ async function loadPayments() {
       if (l.target_name && !nameRcptMap[l.target_name]) nameRcptMap[l.target_name] = src;
     } catch(_) {}
   });
-  payments.forEach(p => { if (!window._fundsReceiptMap[p.id] && nameRcptMap[p.cashier_name]) window._fundsReceiptMap[p.id] = nameRcptMap[p.cashier_name]; });
+  // Try name match (exact), then partial match, then fallback to any unmatched receipt
+  const allRcptSrcs = Object.values(nameRcptMap);
+  payments.forEach(p => {
+    if (window._fundsReceiptMap[p.id]) return;
+    // Exact match by cashier_name (username)
+    if (nameRcptMap[p.cashier_name]) { window._fundsReceiptMap[p.id] = nameRcptMap[p.cashier_name]; return; }
+    // Partial match: any nameRcptMap key contains cashier_name or vice versa
+    const match = Object.keys(nameRcptMap).find(k => k.toLowerCase().includes(p.cashier_name.toLowerCase()) || p.cashier_name.toLowerCase().includes(k.toLowerCase().split(' ')[0]));
+    if (match) { window._fundsReceiptMap[p.id] = nameRcptMap[match]; return; }
+  });
+  // Last resort: single receipt — assign to all unmatched payments
+  if (allRcptSrcs.length === 1) {
+    payments.forEach(p => { if (!window._fundsReceiptMap[p.id]) window._fundsReceiptMap[p.id] = allRcptSrcs[0]; });
+  }
 
   // Fetch sub-items: salary + expenses
   const { data: subLogs } = await _sb.from('activity_logs')
@@ -1669,7 +1682,7 @@ async function loadPayments() {
               <span style="font-weight:700;color:#10b981">&#8369;${parseFloat(s.amount||0).toFixed(2)}</span>
               ${window._fundsDisbProofMap[s._id] ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="showDisbProof('${s._id}')">&#128247;</button>` : ''}
             </div>
-          </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">Wala pang salary record.</div>'}
+          </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">No salary records yet.</div>'}
       </div>
       <div style="padding:12px 16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -1683,7 +1696,7 @@ async function loadPayments() {
               <span style="font-weight:700;color:#ef4444">&#8369;${parseFloat(e.amount||0).toFixed(2)}</span>
               ${window._fundsDisbProofMap[e._id] ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="showDisbProof('${e._id}')">&#128247;</button>` : ''}
             </div>
-          </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">Wala pang expense record.</div>'}
+          </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">No expense records yet.</div>'}
       </div>
     </div>`;
   }).join('');
@@ -2167,7 +2180,7 @@ function closeRuReceiptQR() {
 <div class="modal" id="mgrDepQRModal">
   <div class="mbox" style="text-align:center;max-width:300px">
     <h3 style="margin-bottom:8px">&#128247; Scan QR to Upload Receipt</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">I-scan gamit ang camera ng phone — awtomatikong lalabas ang photo dito.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Scan with your phone camera — photo will appear here automatically.</p>
     <img id="mgrDepQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:0 auto 10px;display:block">
     <div id="mgrDepQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
     <button class="btn btn-ghost" onclick="closeMgrDepQR()">Close</button>
@@ -2177,7 +2190,7 @@ function closeRuReceiptQR() {
 <div class="modal" id="ruReceiptQRModal">
   <div class="mbox" style="text-align:center;max-width:300px">
     <h3 style="margin-bottom:8px">&#128247; Scan QR to Upload Receipt</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">I-scan gamit ang camera ng phone — awtomatikong lalabas ang photo dito.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Scan with your phone camera — photo will appear here automatically.</p>
     <img id="ruQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:0 auto 10px;display:block">
     <div id="ruQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
     <button class="btn btn-ghost" onclick="closeRuReceiptQR()">Close</button>
@@ -2187,7 +2200,7 @@ function closeRuReceiptQR() {
 <div class="modal" id="asReceiptQRModal">
   <div class="mbox" style="text-align:center;max-width:300px">
     <h3 style="margin-bottom:8px">&#128247; Scan QR to Upload Receipt</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">I-scan gamit ang camera ng phone — awtomatikong lalabas ang photo dito.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Scan with your phone camera — photo will appear here automatically.</p>
     <img id="asQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:0 auto 10px;display:block">
     <div id="asQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
     <button class="btn btn-ghost" onclick="closeAsReceiptQR()">Close</button>
@@ -2241,7 +2254,7 @@ function closeRuReceiptQR() {
 <div class="modal" id="disbQRModal">
   <div class="mbox" style="text-align:center;max-width:300px">
     <h3 style="margin-bottom:8px">&#128247; Upload from Phone</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">I-scan ang QR. Pumili ng larawan o kumuha ng photo.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Scan the QR code — choose a photo from gallery or take a new one.</p>
     <img id="disbQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:8px auto;display:block">
     <div id="disbQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
     <button class="btn btn-ghost" onclick="closeDisburseQR()">Close</button>
