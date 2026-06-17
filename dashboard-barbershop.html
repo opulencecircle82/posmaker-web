@@ -425,6 +425,17 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
         </div>
       </div>
+
+      <!-- HELPERS CARD -->
+      <div class="tbl-wrap" style="margin-top:16px" id="helpersCard">
+        <div class="tbl-head">
+          <h3>&#128119; Non-Account Staff / Helpers</h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadHelperStaff()">&#8635; Refresh</button>
+        </div>
+        <div id="helpersContent" style="padding:16px 20px">
+          <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
+        </div>
+      </div>
     </div>
 
     <!-- ACTIVITY LOG -->
@@ -1108,8 +1119,7 @@ input:checked + .slider:before{transform:translateX(18px)}
         <label>Role</label>
         <select id="sfRole">
           <option value="cashier">Cashier</option>
-          <option value="manager">Manager</option>
-          <option value="others">Others</option>
+          <option value="manager">Manager</option>
         </select>
       </div>
     </div>
@@ -1530,7 +1540,7 @@ function nav(id) {
   if (id === 'orders')     loadOrders();
   if (id === 'salesreport') loadReport('daily');
   if (id === 'inventory')  loadInventory();
-  if (id === 'staff')        { loadStaff(); updateMgrLink(); loadPerformance(); }
+  if (id === 'staff')        { loadStaff(); updateMgrLink(); loadPerformance(); loadHelperStaff(); }
   if (id === 'activitylog')  loadActivityLog();
   if (id === 'messages')     loadMessages();
   if (id === 'categories') { loadDbCategories().then(() => loadProducts().then(loadCategories)); switchCatTab(catTab); }
@@ -1932,6 +1942,74 @@ async function loadDashboard() {
     </td></tr>`;
     ['tdOrders','tdRev','moOrders','moRev'].forEach(id => document.getElementById(id).textContent = '—');
   }
+}
+
+// ── Helpers (Non-Account Staff) ────────────────────────────────────────────
+async function loadHelperStaff() {
+  const el = document.getElementById('helpersContent');
+  if (!el) return;
+  await loadOpsData();
+  const todayKey = new Date().toLocaleDateString('en-CA');
+  const helpers = (_opsData && _opsData.helperStaff || []).filter(h => h.active !== false);
+  const duty  = ((_opsData && _opsData.helperDuty)  || {})[todayKey] || {};
+  const tasks = ((_opsData && _opsData.helperTasks) || {})[todayKey] || {};
+
+  if (!helpers.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No helpers added yet. The manager can add non-account staff from the Manager App.</div>';
+    return;
+  }
+
+  el.innerHTML = helpers.map(h => {
+    const d = duty[h.id] || {};
+    const dutyStr = d.in
+      ? (d.out ? `${d.in} &rarr; ${d.out}` : `${d.in} &rarr; <span style="color:#f59e0b">still on duty</span>`)
+      : '<span style="color:var(--dim)">&#8212; not clocked in</span>';
+    const hTasks = tasks[h.id] || [];
+    const doneCnt = hTasks.filter(t => t.done).length;
+    const rate = hTasks.length ? Math.round(doneCnt / hTasks.length * 100) : null;
+    const rateColor = rate === null ? 'var(--muted)' : rate >= 80 ? '#10b981' : rate >= 50 ? '#f59e0b' : '#ef4444';
+    const taskRows = hTasks.map(t =>
+      `<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">`+
+      `<span style="${t.done ? 'color:#10b981' : 'color:var(--muted)'}">${t.done ? '&#10003;' : '&#9675;'}</span>`+
+      `<span style="${t.done ? 'text-decoration:line-through;color:var(--muted)' : ''}">${t.text}</span></div>`
+    ).join('');
+
+    return `<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px">`+
+      `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px">`+
+      `<div><div style="font-weight:700;font-size:14px">${h.name}</div>`+
+      `<div style="font-size:12px;color:var(--muted)">${h.jobTitle}</div></div>`+
+      `<div style="text-align:right"><div style="font-size:11px;color:var(--muted)">Today's Duty</div>`+
+      `<div style="font-size:12px">${dutyStr}</div></div></div>`+
+      `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`+
+      `<div>`+
+      `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Tasks Today `+
+      (rate !== null ? `<span style="color:${rateColor};font-size:12px">${doneCnt}/${hTasks.length} done</span>` : '')+`</div>`+
+      (taskRows || '<div style="font-size:12px;color:var(--dim);font-style:italic">No tasks yet.</div>')+`</div>`+
+      `<div>`+
+      `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Assign Task</div>`+
+      `<div style="display:flex;gap:6px">`+
+      `<input id="htask_${h.id}" type="text" placeholder="Add a task..." style="flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px" onkeydown="if(event.key==='Enter')addHelperTask('${h.id}')">`+
+      `<button class="btn btn-accent btn-sm" style="padding:5px 10px;font-size:12px" onclick="addHelperTask('${h.id}')">+</button></div></div>`+
+      `</div>`+
+      `</div>`;
+  }).join('');
+}
+
+async function addHelperTask(helperId) {
+  const inp = document.getElementById('htask_' + helperId);
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text) return;
+  await loadOpsData();
+  const todayKey = new Date().toLocaleDateString('en-CA');
+  if (!_opsData.helperTasks) _opsData.helperTasks = {};
+  if (!_opsData.helperTasks[todayKey]) _opsData.helperTasks[todayKey] = {};
+  if (!_opsData.helperTasks[todayKey][helperId]) _opsData.helperTasks[todayKey][helperId] = [];
+  _opsData.helperTasks[todayKey][helperId].push({ text, done: false });
+  await saveOpsData().then(() => {});
+  inp.value = '';
+  loadHelperStaff();
+  showToast('Task assigned.');
 }
 
 // ── Staff Performance ────────────────────────────────────────────────────────
@@ -2941,7 +3019,7 @@ function renderStaff(staff) {
     return `<tr>
       <td style="font-weight:600;font-family:monospace">${s.username}${frozenStaffIds.has(s.id)?frozenBadgeHtml():''}</td>
       <td>${s.full_name || '&#8212;'}${s.job_title ? `<br><span style="font-size:11px;color:var(--muted);font-weight:400">${s.job_title}</span>` : ''}</td>
-      <td><span class="badge bg-cash" style="${s.role==='manager'?'background:#1a1a3a;color:#818cf8':s.role==='others'?'background:#0f1f1a;color:#6ee7b7':''}">${s.role}</span></td>
+      <td><span class="badge bg-cash" style="${s.role==='manager'?'background:#1a1a3a;color:#818cf8':''}">${s.role}</span></td>
       <td><label class="toggle"><input type="checkbox" ${s.active?'checked':''} onchange="toggleStaff('${s.id}',this.checked)"><span class="slider"></span></label></td>
       <td style="font-size:12px;color:var(--muted)">${lastLogin}</td>
       <td style="white-space:nowrap">

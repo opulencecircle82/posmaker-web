@@ -121,6 +121,7 @@ button{cursor:pointer}
     <div class="sb-item" onclick="nav('remit')" title="View cash remittances from cashiers. Red = awaiting confirmation."><span class="ico">&#128176;</span> Cash Remit <span id="remitBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:auto"></span></div>
     <div class="sb-item" onclick="nav('checklist')" title="Tasks before opening and closing the store — with photo proof."><span class="ico">&#9989;</span> Daily Checklist</div>
     <div class="sb-item" onclick="nav('funds')" title="Money sent by owner to staff — salary, advance, allowance."><span class="ico">&#128176;</span> Staff Funds</div>
+    <div class="sb-item" onclick="nav('helpers')" title="Non-account staff — utility, maintenance, helper. Clock in/out and assign tasks."><span class="ico">&#128119;</span> Helpers</div>
   </div>
   <div class="sb-bottom">
     <div class="sb-user" id="sbUser"></div>
@@ -289,6 +290,21 @@ button{cursor:pointer}
       <div id="paymentsList2" style="display:flex;flex-direction:column;gap:10px">
         <div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">Loading...</div>
       </div>
+    </div>
+  </div>
+
+  <!-- HELPERS -->
+  <div class="section" id="sec-helpers">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div>
+        <div style="font-weight:700;font-size:15px">&#128119; Non-Account Staff / Helpers</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px">No login needed — track their duty hours and tasks.</div>
+      </div>
+      <button class="btn btn-accent btn-sm" onclick="openHelperModal()">+ Add Helper</button>
+    </div>
+    <div id="helperDateLabel" style="font-size:12px;color:var(--muted);margin-bottom:14px"></div>
+    <div id="helperList" style="display:flex;flex-direction:column;gap:10px">
+      <div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">Loading...</div>
     </div>
   </div>
   </div><!-- end left col -->
@@ -1062,7 +1078,7 @@ function downloadSalesCSV(){
 }
 
 // ── UI Helpers ─────────────────────────────────────────────────────────────
-const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', checklist:'Daily Checklist', funds:'Staff Funds'};
+const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', checklist:'Daily Checklist', funds:'Staff Funds', helpers:'Helpers'};
 function nav(id){
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
@@ -1077,6 +1093,7 @@ function nav(id){
   if(id==='remit')     { loadRemit(); checkPendingRemits(); }
   if(id==='checklist') loadChecklist();
   if(id==='funds')     loadPayments();
+  if(id==='helpers')   loadHelpers();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbOverlay').classList.add('show'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbOverlay').classList.remove('show'); }
@@ -1857,6 +1874,147 @@ async function saveDisburse() {
   await loadPayments();
 }
 
+// ── Helpers (Non-Account Staff) ───────────────────────────────────────────
+function _todayLabel() {
+  return new Date().toLocaleDateString('en-PH', {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+}
+function _hId() {
+  return 'h' + Math.random().toString(36).slice(2, 10);
+}
+
+async function loadHelpers() {
+  document.getElementById('helperDateLabel').textContent = _todayLabel();
+  if (!_opsData) await loadOpsData();
+  renderHelpers();
+}
+
+function renderHelpers() {
+  const list = document.getElementById('helperList');
+  const helpers = (_opsData && _opsData.helperStaff || []).filter(h => h.active !== false);
+  if (!helpers.length) {
+    list.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">No helpers added yet. Click <b>+ Add Helper</b> to add one.</div>';
+    return;
+  }
+  const todayKey = _todayKey();
+  const duty  = (_opsData.helperDuty  || {})[todayKey] || {};
+  const tasks = (_opsData.helperTasks || {})[todayKey] || {};
+  list.innerHTML = helpers.map(h => {
+    const d = duty[h.id] || {};
+    const clockedIn  = d.in && !d.out;
+    const clockedOut = d.in && d.out;
+    const dutyInfo = d.in
+      ? (d.out
+        ? `<span style="color:#10b981">&#8644; ${d.in} &rarr; ${d.out}</span>`
+        : `<span style="color:#f59e0b">&#8644; Clocked in at ${d.in}</span>`)
+      : `<span style="color:var(--dim)">Not clocked in today</span>`;
+    const hTasks = tasks[h.id] || [];
+    const doneCnt = hTasks.filter(t => t.done).length;
+    const taskHtml = hTasks.length
+      ? hTasks.map((t, i) => `
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer">
+          <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleHelperTask('${h.id}',${i},this.checked)" style="width:auto;margin:0;cursor:pointer">
+          <span style="${t.done ? 'text-decoration:line-through;color:var(--muted)' : ''}">${t.text}</span>
+        </label>`).join('')
+      : `<div style="color:var(--dim);font-size:12px;font-style:italic;padding:4px 0">No tasks assigned for today.</div>`;
+    const completion = hTasks.length ? Math.round(doneCnt / hTasks.length * 100) : null;
+    const rateHtml = completion !== null
+      ? `<span style="font-size:11px;font-weight:700;color:${completion>=80?'#10b981':completion>=50?'#f59e0b':'#ef4444'};margin-left:6px">${completion}% done</span>`
+      : '';
+    return `<div class="card" style="padding:14px 16px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:14px">${h.name}</div>
+          <div style="font-size:12px;color:var(--muted)">${h.jobTitle}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          ${!d.in ? `<button class="btn btn-sm" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)" onclick="clockInHelper('${h.id}')">&#128336; Clock In</button>` : ''}
+          ${clockedIn  ? `<button class="btn btn-sm" style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)" onclick="clockOutHelper('${h.id}')">&#128337; Clock Out</button>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="openHelperModal(${JSON.stringify(h).replace(/"/g,'&quot;')})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="removeHelper('${h.id}')">Del</button>
+        </div>
+      </div>
+      <div style="font-size:12px;margin-top:8px">${dutyInfo}</div>
+      <div style="margin-top:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Today's Tasks ${rateHtml}</div>
+        ${taskHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openHelperModal(h) {
+  document.getElementById('helperModalTitle').textContent = h ? 'Edit Helper' : 'Add Helper';
+  document.getElementById('helperId').value    = h ? h.id : '';
+  document.getElementById('hfName').value      = h ? h.name : '';
+  document.getElementById('hfJobTitle').value  = h ? h.jobTitle : '';
+  document.getElementById('helperModal').classList.add('show');
+  setTimeout(() => document.getElementById('hfName').focus(), 50);
+}
+
+async function saveHelper() {
+  const id       = document.getElementById('helperId').value;
+  const name     = document.getElementById('hfName').value.trim();
+  const jobTitle = document.getElementById('hfJobTitle').value.trim();
+  if (!name) { showToast('Name is required.', true); return; }
+  if (!_opsData) await loadOpsData();
+  if (!_opsData.helperStaff) _opsData.helperStaff = [];
+  if (id) {
+    const idx = _opsData.helperStaff.findIndex(h => h.id === id);
+    if (idx !== -1) { _opsData.helperStaff[idx].name = name; _opsData.helperStaff[idx].jobTitle = jobTitle; }
+  } else {
+    _opsData.helperStaff.push({ id: _hId(), name, jobTitle, active: true });
+  }
+  await saveOpsData();
+  closeModal('helperModal');
+  renderHelpers();
+  showToast('Helper saved.');
+}
+
+async function removeHelper(id) {
+  if (!confirm('Remove this helper?')) return;
+  if (!_opsData) await loadOpsData();
+  const idx = (_opsData.helperStaff || []).findIndex(h => h.id === id);
+  if (idx !== -1) _opsData.helperStaff[idx].active = false;
+  await saveOpsData();
+  renderHelpers();
+  showToast('Helper removed.');
+}
+
+async function clockInHelper(id) {
+  if (!_opsData) await loadOpsData();
+  const key = _todayKey();
+  if (!_opsData.helperDuty) _opsData.helperDuty = {};
+  if (!_opsData.helperDuty[key]) _opsData.helperDuty[key] = {};
+  const now = new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',hour12:false});
+  _opsData.helperDuty[key][id] = { in: now };
+  await saveOpsData();
+  renderHelpers();
+  showToast('Clocked in.');
+}
+
+async function clockOutHelper(id) {
+  if (!_opsData) await loadOpsData();
+  const key = _todayKey();
+  if (!_opsData.helperDuty || !_opsData.helperDuty[key] || !_opsData.helperDuty[key][id]) return;
+  const now = new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',hour12:false});
+  _opsData.helperDuty[key][id].out = now;
+  await saveOpsData();
+  renderHelpers();
+  showToast('Clocked out.');
+}
+
+async function toggleHelperTask(helperId, idx, done) {
+  if (!_opsData) await loadOpsData();
+  const key = _todayKey();
+  const tasks = ((_opsData.helperTasks || {})[key] || {})[helperId] || [];
+  if (tasks[idx]) tasks[idx].done = done;
+  if (!_opsData.helperTasks) _opsData.helperTasks = {};
+  if (!_opsData.helperTasks[key]) _opsData.helperTasks[key] = {};
+  _opsData.helperTasks[key][helperId] = tasks;
+  await saveOpsData();
+  renderHelpers();
+}
+
 function addTimestampWatermark(canvas) {
   const ctx = canvas.getContext('2d');
   const now = new Date();
@@ -2305,6 +2463,22 @@ function closeRuReceiptQR() {
 </div>
 
 <!-- RECEIPT / PROOF VIEWER -->
+<!-- HELPER MODAL -->
+<div class="modal" id="helperModal">
+  <div class="mbox">
+    <h3 id="helperModalTitle">Add Helper</h3>
+    <input type="hidden" id="helperId">
+    <div class="row2">
+      <div class="field"><label>Name</label><input id="hfName" type="text" placeholder="e.g. Juan dela Cruz" autocomplete="off"></div>
+      <div class="field"><label>Job Title</label><input id="hfJobTitle" type="text" placeholder="e.g. Utility, Maintenance, Helper"></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('helperModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveHelper()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="rcvModal" onclick="this.classList.remove('show')">
   <div style="max-width:480px;width:100%;padding:8px" onclick="event.stopPropagation()">
     <img id="rcvImg" style="max-width:100%;border-radius:10px;display:block;margin:0 auto">
