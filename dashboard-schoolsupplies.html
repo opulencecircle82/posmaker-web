@@ -1913,32 +1913,32 @@ function renderReport(orders, from, to) {
     </div>`;
   }).join('');
 
-  html += `<div style=”background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-top:4px”>
-    <div style=”font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px”>&#128202; Overall Summary</div>
-    <div style=”display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px”>
-      <div style=”background:var(--s1);border-radius:8px;padding:12px 14px”>
-        <div style=”font-size:11px;color:var(--muted);margin-bottom:4px”>Total Orders</div>
-        <div style=”font-size:22px;font-weight:800”>${grandCount}</div>
+  const summaryHtml = `<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">&#128202; Overall Summary</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div style="background:var(--s1);border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Total Orders</div>
+        <div style="font-size:20px;font-weight:800">${grandCount}</div>
       </div>
-      <div style=”background:var(--s1);border-radius:8px;padding:12px 14px”>
-        <div style=”font-size:11px;color:var(--muted);margin-bottom:4px”>Subtotal (ex-VAT)</div>
-        <div style=”font-size:22px;font-weight:800”>${CUR}${grandSub.toFixed(2)}</div>
+      <div style="background:var(--s1);border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Subtotal (ex-VAT)</div>
+        <div style="font-size:14px;font-weight:800">${CUR}${grandSub.toFixed(2)}</div>
       </div>
-      <div style=”background:var(--s1);border-radius:8px;padding:12px 14px”>
-        <div style=”font-size:11px;color:var(--muted);margin-bottom:4px”>VAT (${TAX}%)</div>
-        <div style=”font-size:22px;font-weight:800”>${CUR}${grandVat.toFixed(2)}</div>
+      <div style="background:var(--s1);border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">VAT (${TAX}%)</div>
+        <div style="font-size:14px;font-weight:800">${CUR}${grandVat.toFixed(2)}</div>
       </div>
-      <div style=”background:linear-gradient(135deg,#003d4d,#00263a);border:1px solid var(--accent);border-radius:8px;padding:12px 14px”>
-        <div style=”font-size:11px;color:var(--accent);margin-bottom:4px”>GRAND TOTAL</div>
-        <div style=”font-size:26px;font-weight:800;color:var(--accent)”>${CUR}${grandTotal.toFixed(2)}</div>
+      <div style="background:linear-gradient(135deg,#003d4d,#00263a);border:1px solid var(--accent);border-radius:8px;padding:10px 12px;grid-column:1/-1">
+        <div style="font-size:10px;color:var(--accent);margin-bottom:3px">GRAND TOTAL</div>
+        <div style="font-size:22px;font-weight:800;color:var(--accent)">${CUR}${grandTotal.toFixed(2)}</div>
       </div>
     </div>
-    ${typeCols ? `<div style=”font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px”>&#127860; By Order Type</div>
-    <div style=”display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px”>${typeCols}</div>` : ''}
+    ${typeCols ? `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">&#127860; By Order Type</div>
+    <div style="display:grid;grid-template-columns:1fr;gap:8px">${typeCols}</div>` : ''}
   </div>`;
 
   html += '</div>';
-  el.innerHTML = html;
+  el.innerHTML = `<div style="display:flex;gap:0;align-items:flex-start"><div style="flex:1;min-width:0">${html}</div><div style="width:1px;background:var(--border);margin:0 18px;align-self:stretch;flex-shrink:0"></div><div style="width:260px;flex-shrink:0;position:sticky;top:16px">${summaryHtml}</div></div>`;
   document.getElementById('rptDownload').style.display = '';
 }
 

@@ -9,11 +9,11 @@ const files = fs.readdirSync(dir)
   .filter(f => /^dashboard.*\.html$/.test(f) && f !== 'dashboard_backup.html')
   .sort();
 
-// Regex to match the Overall Summary block + closing lines (quote-agnostic)
-// Matches: html += `<div style=?background:var(--s2)...`; + html += '</div>'; + el.innerHTML = html; + rptDownload line + }
-const BLOCK_RE = /(  html \+= `<div style=.background:var\(--s2\)[^`]+`;\n\n  html \+= '<\/div>';\n  el\.innerHTML = html;\n  document\.getElementById\('rptDownload'\)\.style\.display = '';\n})/s;
+// Start: the html += Overall Summary backtick template — located via regex to handle curly quotes
+const START_RE = /  html \+= `<div style=.background:var\(--s2\)/;
+// End: the unique closing lines of renderReport
+const END_STR  = "  el.innerHTML = html;\n  document.getElementById('rptDownload').style.display = '';\n}";
 
-// The replacement block
 const NEW_BLOCK =
 '  const summaryHtml = `<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:16px 18px">\n' +
 '    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">&#128202; Overall Summary</div>\n' +
@@ -55,13 +55,17 @@ for (const file of files) {
   if (!c.includes('Overall Summary')) { skipped++; continue; }
   if (c.includes('summaryHtml')) { console.log(`— ${file}: already patched`); skipped++; continue; }
 
-  if (!BLOCK_RE.test(c)) {
-    console.log(`⚠  ${file}: block regex not found`);
-    errors++;
-    continue;
-  }
+  // Find start position using regex
+  const startMatch = c.match(START_RE);
+  if (!startMatch) { console.log(`⚠  ${file}: START regex not found`); errors++; continue; }
+  const startIdx = startMatch.index;
 
-  c = c.replace(BLOCK_RE, NEW_BLOCK);
+  // Find the end position
+  const endIdx = c.indexOf(END_STR);
+  if (endIdx === -1) { console.log(`⚠  ${file}: END string not found`); errors++; continue; }
+  if (startIdx >= endIdx) { console.log(`⚠  ${file}: anchors out of order`); errors++; continue; }
+
+  c = c.slice(0, startIdx) + NEW_BLOCK + c.slice(endIdx + END_STR.length);
 
   const out = hasCRLF ? c.replace(/\n/g, '\r\n') : c;
   fs.writeFileSync(fp, out, 'utf-8');
