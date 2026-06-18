@@ -1150,20 +1150,18 @@ async function loadProds() {
   if (_imgCount !== _prodHashes.length) buildImgHashes();
   // Rebuild AI embeds only when image count changes (avoid unnecessary recompute)
   if(_mnModel && _imgCount !== _prodEmbeds.length){
-    buildAiEmbeds().then(()=>{
-      const v=document.getElementById('camVideo');
-      if(scannerOpen&&v&&!_aiLoopId){ startAiLoop(v); camStat(_scanModes()); }
-    });
+    buildAiEmbeds().then(()=>{ camStat(_scanModes()); });
   }
   try { localStorage.setItem('pm_cached_prods_'+STORE_ID, JSON.stringify(prods.map(p=>({id:p.id,name:p.name,price:p.price,category:p.category,image_b64:p.image_b64||'',sku:p.sku||'',unit:p.unit||'pc',stock:p.stock||0,inv_links:p.inv_links||null,embeddings:p.embeddings||null})))); } catch(_) {}
-  // Load MobileNet whenever products have images (no pre-computed embeddings needed)
+  // Load MobileNet whenever products have images (no pre-computed embeddings needed).
+  // NOTE: startAiLoop() is intentionally NOT started here — its whole-frame matching
+  // has no cart-exclusion check and runs in parallel with the COCO-integrated matcher
+  // in startVisualLoop(), causing duplicate adds. The embeddings built here are used
+  // by _matchCropWithMobileNet() inside startVisualLoop() instead.
   if(!_mnModel && prods.some(p => p.image_b64)){
     _loadMnModel().then(ok => {
       if(!ok) return;
-      buildAiEmbeds().then(() => {
-        const v = document.getElementById('camVideo');
-        if(scannerOpen && v) { startAiLoop(v); camStat(_scanModes()); }
-      });
+      buildAiEmbeds().then(() => { camStat(_scanModes()); });
     });
   }
 }
@@ -2267,7 +2265,7 @@ async function openScanner(){
       if(v.videoWidth > 0){
         camStat(_scanModes());
         startBcLoop(v); startTextLoop(v); startVisualLoop(v);
-        if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
+        if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ camStat(_scanModes()); } });
         return;
       }
       // Stream alive but video frozen — soft reconnect (avoids immediate stop+request which hangs Android)
@@ -2280,7 +2278,7 @@ async function openScanner(){
       if(v.videoWidth > 0){
         camStat(_scanModes());
         startBcLoop(v); startTextLoop(v); startVisualLoop(v);
-        if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
+        if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ camStat(_scanModes()); } });
         return;
       }
       // Soft reconnect failed — full hardware restart
