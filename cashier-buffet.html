@@ -1024,17 +1024,22 @@ async function confirmRemitLogout() {
     const cash   = parseFloat(document.getElementById('remitCk4').textContent.replace(/[^0-9.]/g,'')) || 0;
     const diff   = cash - pos;
     try { localStorage.setItem('pm_last_remit_' + STORE_ID + '_' + name, new Date().toISOString()); } catch(_e) {}
-    await _sb.from('cash_remittances').insert({
-      store_id: STORE_ID, cashier_name: name, shift_date: today,
-      pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending'
-    }).then(()=>{});
+    await Promise.race([
+      _sb.from('cash_remittances').insert({
+        store_id: STORE_ID, cashier_name: name, shift_date: today,
+        pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending'
+      }),
+      new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 15000))
+    ]);
     const diffLabel = diff<0 ? `Short -${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : diff>0 ? `Over +${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : 'Balanced';
     _sb.from('activity_logs').insert({
       store_id: STORE_ID, actor_name: name, actor_role: CASHIER?.role||'cashier',
       action: 'REMITTANCE', target_name: name,
       details: `POS: ${CUR||'₱'}${pos.toFixed(2)} | Cash: ${CUR||'₱'}${cash.toFixed(2)} | ${diffLabel}`
     }).then(()=>{});
-  } catch(_) {}
+  } catch(_) {
+    showToast('Could not save the remittance — check your internet. Logging out anyway.', true);
+  }
   document.getElementById('mRemitLogout').classList.remove('show');
   _actualLogout();
 }
