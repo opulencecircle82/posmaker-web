@@ -1267,16 +1267,9 @@ async function loadProds() {
     });
   }
   try { localStorage.setItem('pm_cached_prods_'+STORE_ID, JSON.stringify(prods.map(p=>({id:p.id,name:p.name,price:p.price,category:p.category,image_b64:p.image_b64||'',sku:p.sku||'',unit:p.unit||'pc',stock:p.stock||0,inv_links:p.inv_links||null,embeddings:p.embeddings||null})))); } catch(_) {}
-  // Load MobileNet whenever products have images (no pre-computed embeddings needed)
-  if(!_mnModel && prods.some(p => p.image_b64)){
-    _loadMnModel().then(ok => {
-      if(!ok) return;
-      buildAiEmbeds().then(() => {
-        const v = document.getElementById('camVideo');
-        if(scannerOpen && v) { startAiLoop(v); camStat(_scanModes()); }
-      });
-    });
-  }
+  // TensorFlow/MobileNet AI matching disabled for now — relying on barcode +
+  // hash-based visual matching + OCR instead. _loadMnModel() is still defined
+  // below if this needs to be re-enabled later.
 }
 
 function buildCats() {
@@ -2866,7 +2859,7 @@ function stopSquareScanner() {
 
 // ── Camera Scanner (barcode + ML Kit text + visual photo matching) ───────
 let scannerOpen = false, _camStream = null, _bcLoopId = null, _zxingReader = null, _cameraOpening = false, _nativeBd = null;
-let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 0;
+let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 0, _txtConf = {};
 let _visLoopId = null, _prodHashes = [], _visConf = {};
 let _aiLoopId = null, _mnModel = null, _prodEmbeds = [], _mnConf = {};
 let _tessWorker = null, _tessLoading = false, _tessLoopId = null;
@@ -2960,7 +2953,7 @@ function closeScanner(){
   if(_txtLoopId){ clearTimeout(_txtLoopId); _txtLoopId=null; }
   if(_visLoopId){ clearTimeout(_visLoopId); _visLoopId=null; }
   if(_aiLoopId){ clearTimeout(_aiLoopId); _aiLoopId=null; }
-  _visConf = {}; _mnConf = {};
+  _visConf = {}; _mnConf = {}; _txtConf = {};
   _cameraOpening = false;
   // Do NOT pause — calling v.play() to resume on Android can block the renderer thread
 }
@@ -3086,11 +3079,15 @@ function _startNativeTextLoop(video){
         if(blocks.length){
           const allText=blocks.map(b=>b.rawValue).join(' ');
           const m=matchTextToProduct(allText);
-          if(m && !isOnCooldown(m.id)){
-            setCooldown(m.id); addItem(m.id);
-            flashMatch(m.name,'&#128221; ML Kit');
-          }
-        }
+          if(m){
+            _txtConf[m.id]=(_txtConf[m.id]||0)+1;
+            if(_txtConf[m.id]>=3 && !isOnCooldown(m.id)){
+              _txtConf={};
+              setCooldown(m.id); addItem(m.id);
+              flashMatch(m.name,'&#128221; ML Kit');
+            }
+          } else { _txtConf={}; }
+        } else { _txtConf={}; }
       }catch(_){}
     }
     _txtLoopId=setTimeout(loop, txtInterval);
@@ -3111,11 +3108,15 @@ function _startTesseractLoop(video, sess){
         if(_scanSession!==sess) return;
         if(text.trim()){
           const m=matchTextToProduct(text);
-          if(m&&!isOnCooldown(m.id)){
-            setCooldown(m.id); addItem(m.id);
-            flashMatch(m.name,'&#128269; OCR');
-          }
-        }
+          if(m){
+            _txtConf[m.id]=(_txtConf[m.id]||0)+1;
+            if(_txtConf[m.id]>=3 && !isOnCooldown(m.id)){
+              _txtConf={};
+              setCooldown(m.id); addItem(m.id);
+              flashMatch(m.name,'&#128269; OCR');
+            }
+          } else { _txtConf={}; }
+        } else { _txtConf={}; }
       }catch(_){}
     }
     _tessLoopId=setTimeout(loop,3000);
@@ -3256,11 +3257,18 @@ let _cocoModel = null, _cocoLoading = false;
 async function _loadCocoModel(){
   if(_cocoModel || _cocoLoading) return;
   _cocoLoading = true;
+  console.log('[POSMaker] Loading multi-object detector (COCO-SSD)…');
+  if(scannerOpen) camStat('&#127919; Loading multi-object detector…');
   try{
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
     _cocoModel = await cocoSsd.load({base:'lite_mobilenet_v2'});
-  }catch(_){ /* stays null — loop keeps using whole-frame fallback */ }
+    console.log('[POSMaker] COCO-SSD loaded successfully — multi-object detection active.');
+    if(scannerOpen) camStat('&#9989; Multi-object detector ready');
+  }catch(e){
+    console.warn('[POSMaker] COCO-SSD failed to load — falling back to single-item mode.', e);
+    if(scannerOpen) camStat('&#9888; Multi-object detector unavailable — single-item mode');
+  }
   _cocoLoading = false;
 }
 function _cropVideoRegion(video,x,y,w,h,outSize){
@@ -3435,33 +3443,39 @@ function startAiLoop(video){
           tf.browser.fromPixels(cv2).expandDims(0),true
         )).data().then(d=>Array.from(d));
 
-        // Color histogram from center crop for hybrid scoring
-        const frameColor=_featuresFromCanvas(cv2,224,224).colorHist;
+        // Color histogram + edge detail from center crop for hybrid scoring + blank-frame gate
+        const frameFeats=_featuresFromCanvas(cv2,224,224);
+        const frameColor=frameFeats.colorHist;
+        const blankFrame=frameFeats.edgeAvg<MIN_EDGE_DETAIL;
 
         let best=null, second=null, bestSim=0, secondSim=0;
-        for(const pe of _prodEmbeds){
-          const mnSim=Math.max(...pe.vecs.map(v=>_cosSim(fv,v)));
-          // Color L1 distance → similarity (0-1)
-          const colorDist=pe.colorHist?pe.colorHist.reduce((s,v,i)=>s+Math.abs(v-(frameColor[i]||0)),0):1;
-          const colorSim=Math.max(0,1-colorDist/2);
-          // Hybrid: 65% neural + 35% color
-          const sim=0.65*mnSim+0.35*colorSim;
-          if(sim>bestSim){secondSim=bestSim;second=best;bestSim=sim;best=pe;}
-          else if(sim>secondSim){secondSim=sim;second=pe;}
+        if(!blankFrame){
+          for(const pe of _prodEmbeds){
+            const mnSim=Math.max(...pe.vecs.map(v=>_cosSim(fv,v)));
+            // Color L1 distance → similarity (0-1)
+            const colorDist=pe.colorHist?pe.colorHist.reduce((s,v,i)=>s+Math.abs(v-(frameColor[i]||0)),0):1;
+            const colorSim=Math.max(0,1-colorDist/2);
+            // Hybrid: 65% neural + 35% color
+            const sim=0.65*mnSim+0.35*colorSim;
+            if(sim>bestSim){secondSim=bestSim;second=best;bestSim=sim;best=pe;}
+            else if(sim>secondSim){secondSim=sim;second=pe;}
+          }
         }
         const prod=best?prods.find(p=>p.id===best.id):null;
         const pct=(bestSim*100).toFixed(0);
         const gap=bestSim-secondSim;
-        const confident=bestSim>0.45&&gap>0.05;
+        const confident=!blankFrame&&bestSim>0.62&&gap>=0.08;
         // Show: product name + % + gap indicator
-        if(prod){
+        if(blankFrame){
+          _mnConf={}; camStat('&#129302; AI: point at a product');
+        } else if(prod){
           const gapTxt=second?' (+'+Math.round(gap*100)+'%)':'';
           camStat('&#129302; '+(confident?'<strong>'+prod.name+'</strong>':prod.name)+' '+pct+'%'+gapTxt);
         }
         if(best&&confident){
           _miss[best.id]=0;
           _mnConf[best.id]=(_mnConf[best.id]||0)+1;
-          if(_mnConf[best.id]>=2&&!isOnCooldown(best.id)){
+          if(_mnConf[best.id]>=3&&!isOnCooldown(best.id)){
             _mnConf={}; Object.keys(_miss).forEach(k=>_miss[k]=0);
             setCooldown(best.id); addItem(best.id); flashMatch(prod.name,'&#129302; AI');
           }
