@@ -3051,6 +3051,12 @@ function loadScript(src){
       <button type="button" class="q-cash" onclick="setWeightAmount(300)">&#8369;300</button>
     </div>
     <div style="text-align:center;font-size:20px;font-weight:800;color:var(--accent);margin-bottom:10px" id="weightPriceTotal"></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button type="button" class="q-cash" id="weightBtnDineIn" style="flex:1;padding:8px;font-size:12px" onclick="setWeightType('Dine In')">&#127869; Dine In</button>
+      <button type="button" class="q-cash" id="weightBtnTakeOut" style="flex:1;padding:8px;font-size:12px" onclick="setWeightType('Take Out')">&#129385; Take Out</button>
+    </div>
+    <select id="weightInvItem" class="inp" onchange="addWeightInvItem()" disabled style="margin-bottom:8px"><option value="">— Select Material —</option></select>
+    <div id="weightInvAddedList" style="font-size:11px;color:#ccc;margin-bottom:6px"></div>
     <div class="m-actions">
       <button class="btn-cancel" onclick="closeWeightModal()">Cancel</button>
       <button class="btn-confirm" onclick="confirmWeightAdd()">Add to Cart</button>
@@ -3151,6 +3157,7 @@ function finishUnliTakeOut() {
   redrawCart();
 }
 let _weightProdId = null, _weightPricePerKg = 0;
+let _weightType = 'Dine In', _weightExtra = 0, _weightAddedItems = [];
 function openWeightModal(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
   _weightProdId = id;
@@ -3161,8 +3168,63 @@ function openWeightModal(id) {
   document.getElementById('weightGrams').value = existing ? Math.round(existing.qty * 1000) : '';
   document.getElementById('weightAmount').value = existing ? (existing.price * existing.qty).toFixed(2) : '';
   updateWeightTotalDisplay();
+  _weightExtra = 0;
+  _weightAddedItems = [];
+  document.getElementById('weightInvAddedList').innerHTML = '';
+  setWeightType('Dine In');
   document.getElementById('weightModal').style.display = 'block';
   setTimeout(() => document.getElementById('weightGrams').focus(), 50);
+}
+function setWeightType(type) {
+  _weightType = type;
+  const isTakeOut = type === 'Take Out';
+  const dineBtn = document.getElementById('weightBtnDineIn'), outBtn = document.getElementById('weightBtnTakeOut');
+  dineBtn.style.background = isTakeOut ? '' : 'var(--accent)'; dineBtn.style.color = isTakeOut ? '' : '#fff';
+  outBtn.style.background  = isTakeOut ? 'var(--accent)' : ''; outBtn.style.color  = isTakeOut ? '#fff' : '';
+  document.getElementById('weightInvItem').disabled = !isTakeOut;
+  if (isTakeOut) {
+    populateWeightInvItems();
+  } else {
+    _weightExtra = 0;
+    _weightAddedItems = [];
+    renderWeightAddedList();
+  }
+}
+function populateWeightInvItems() {
+  const sel = document.getElementById('weightInvItem');
+  sel.innerHTML = '<option value="">\u2014 Select Material \u2014</option>';
+  const allowed = (STORE.takeout_inv_categories || '').split(',').map(s=>s.trim()).filter(Boolean);
+  storeInvItems
+    .filter(i => allowed.includes((i.category||'').trim()))
+    .forEach(i => sel.add(new Option(i.name + ' (' + (CUR||'\u20B1') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id)));
+}
+function addWeightInvItem() {
+  const sel = document.getElementById('weightInvItem');
+  const invId = sel.value;
+  if (!invId) return;
+  const inv = storeInvItems.find(i => i.id == invId);
+  if (!inv) return;
+  const cost = parseFloat(inv.cost_price) || 0;
+  _weightExtra += cost;
+  _weightAddedItems.push({ invId: inv.id, name: inv.name, cost });
+  renderWeightAddedList();
+  sel.value = '';
+}
+function renderWeightAddedList() {
+  const el = document.getElementById('weightInvAddedList');
+  if (!_weightAddedItems.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _weightAddedItems.map((it,idx) =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0">
+      <span>${it.name} (+${CUR||'\u20B1'}${it.cost.toFixed(2)})</span>
+      <button type="button" class="q-btn" onclick="removeWeightInvItem(${idx})">&#10005;</button>
+    </div>`
+  ).join('');
+}
+function removeWeightInvItem(idx) {
+  const it = _weightAddedItems[idx];
+  if (it) _weightExtra -= it.cost;
+  _weightAddedItems.splice(idx, 1);
+  renderWeightAddedList();
 }
 let _weightLastField = 'grams'; // tracks which field the cashier actually typed in
 function onWeightGramsInput() {
@@ -3204,7 +3266,16 @@ function confirmWeightAdd() {
   // If the cashier typed the peso amount, charge exactly that amount instead
   // of re-deriving it from the rounded gram value (avoids a rounding drift).
   const qtyKg = (_weightLastField === 'amount' && amount > 0 && priceKg > 0) ? (amount / priceKg) : (grams / 1000);
-  cart[p.id] = { id: p.id, name: p.name, price: priceKg, qty: qtyKg, isWeight: true };
+  const isTakeOut = _weightType === 'Take Out';
+  cart[p.id] = { id: p.id, name: p.name + (isTakeOut ? ' (Take Out)' : ''), price: priceKg, qty: qtyKg, isWeight: true };
+  // Packaging is a flat fee, not per-kilo — keep it as its own cart line so it
+  // doesn't scale with weight. id:null keeps it out of Lechon's own inv_links
+  // deduction (it would otherwise double-deduct using Lechon's own qty math).
+  const pkgKey = p.id + '_takeout_pkg';
+  delete cart[pkgKey];
+  if (isTakeOut && _weightExtra > 0) {
+    cart[pkgKey] = { id: null, name: 'Take Out Packaging', price: _weightExtra, qty: 1, _key: pkgKey, _unliInvUsed: _weightAddedItems.map(it => it.invId) };
+  }
   redrawCart();
   closeWeightModal();
 }
