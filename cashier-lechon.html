@@ -1533,12 +1533,12 @@ function _maxStock(id) {
 }
 
 function isUnliProduct(p) {
-  return (p.category||'').trim().toLowerCase().includes('unli');
+  return (p.category||'').trim().toLowerCase().startsWith('unli');
 }
 function addItem(id, skipUnliCheck) {
   const p = prods.find(x => x.id == id); if (!p) return;
-  if (!skipUnliCheck && isUnliProduct(p)) { openUnliTypeModal(id); return; }
   if (p.sold_by_weight) { openWeightModal(id); return; }
+  if (!skipUnliCheck && isUnliProduct(p)) { openUnliTypeModal(id); return; }
   if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
   const max = _maxStock(id);
   if (cart[id].qty >= max) {
