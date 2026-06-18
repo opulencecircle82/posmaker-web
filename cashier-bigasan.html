@@ -2921,8 +2921,8 @@ function loadScript(src){
   <div id="camStatus">Ready</div>
 </div>
 <!-- WEIGHT INPUT MODAL (sold-by-weight products) -->
-<div class="modal" id="weightModal">
-  <div class="mbox" style="width:min(270px,92vw);padding:16px">
+<!-- Standalone floating widget — NO dark backdrop, rest of POS stays visible -->
+<div id="weightModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;width:min(270px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.7)">
     <div class="mtitle" id="weightModalTitle" style="font-size:14px;margin-bottom:4px">&#9878;&#65039; Enter Weight</div>
     <div style="font-size:11px;color:#888;margin-bottom:10px" id="weightPricePerKg"></div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -2947,10 +2947,9 @@ function loadScript(src){
     </div>
     <div style="text-align:center;font-size:20px;font-weight:800;color:var(--accent);margin-bottom:10px" id="weightPriceTotal"></div>
     <div class="m-actions">
-      <button class="btn-cancel" onclick="closeM('weightModal')">Cancel</button>
+      <button class="btn-cancel" onclick="closeWeightModal()">Cancel</button>
       <button class="btn-confirm" onclick="confirmWeightAdd()">Add to Cart</button>
     </div>
-  </div>
 </div>
 
 <script>
@@ -2965,7 +2964,7 @@ function openWeightModal(id) {
   document.getElementById('weightGrams').value = existing ? Math.round(existing.qty * 1000) : '';
   document.getElementById('weightAmount').value = existing ? (existing.price * existing.qty).toFixed(2) : '';
   updateWeightTotalDisplay();
-  document.getElementById('weightModal').classList.add('show');
+  document.getElementById('weightModal').style.display = 'block';
   setTimeout(() => document.getElementById('weightGrams').focus(), 50);
 }
 function onWeightGramsInput() {
@@ -2992,6 +2991,10 @@ function updateWeightTotalDisplay() {
   const amount = parseFloat(document.getElementById('weightAmount').value) || 0;
   document.getElementById('weightPriceTotal').textContent = CUR + amount.toFixed(2);
 }
+function closeWeightModal() {
+  document.getElementById('weightModal').style.display = 'none';
+  _weightProdId = null;
+}
 function confirmWeightAdd() {
   const p = prods.find(x => x.id == _weightProdId); if (!p) return;
   const grams = parseFloat(document.getElementById('weightGrams').value) || 0;
@@ -2999,8 +3002,7 @@ function confirmWeightAdd() {
   const qtyKg = grams / 1000;
   cart[p.id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: qtyKg, isWeight: true };
   redrawCart();
-  closeM('weightModal');
-  _weightProdId = null;
+  closeWeightModal();
 }
 </script>
 </body>
