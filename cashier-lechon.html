@@ -3019,8 +3019,7 @@ function loadScript(src){
       <button type="button" class="q-cash" id="unliBtnDineIn" style="flex:1;padding:10px;font-size:13px" onclick="setUnliType('Dine In')">&#127869; Dine In</button>
       <button type="button" class="q-cash" id="unliBtnTakeOut" style="flex:1;padding:10px;font-size:13px" onclick="setUnliType('Take Out')">&#129385; Take Out</button>
     </div>
-    <select id="unliInvCat" class="inp" onchange="populateUnliInvItems()" disabled style="margin-bottom:6px"><option value="">— Category —</option></select>
-    <select id="unliInvItem" class="inp" onchange="addUnliInvItem()" disabled style="margin-bottom:8px"><option value="">— Material —</option></select>
+    <select id="unliInvItem" class="inp" onchange="addUnliInvItem()" disabled style="margin-bottom:8px"><option value="">— Select Material —</option></select>
     <div id="unliInvAddedList" style="font-size:11px;color:#ccc;margin-bottom:6px"></div>
     <div class="m-actions">
       <button class="btn-cancel" onclick="closeUnliTypeModal()">Cancel</button>
@@ -3082,10 +3081,9 @@ function setUnliType(type) {
   const dineBtn = document.getElementById('unliBtnDineIn'), outBtn = document.getElementById('unliBtnTakeOut');
   dineBtn.style.background = isTakeOut ? '' : 'var(--accent)'; dineBtn.style.color = isTakeOut ? '' : '#fff';
   outBtn.style.background  = isTakeOut ? 'var(--accent)' : ''; outBtn.style.color  = isTakeOut ? '#fff' : '';
-  document.getElementById('unliInvCat').disabled  = !isTakeOut;
   document.getElementById('unliInvItem').disabled = !isTakeOut;
   if (isTakeOut) {
-    populateUnliInvCats();
+    populateUnliInvItems();
   } else {
     _unliExtra = 0;
     _unliAddedItems = [];
@@ -3096,23 +3094,20 @@ function setUnliType(type) {
 function updateUnliTotalLabel() {
   document.getElementById('unliTotalLabel').textContent = (CUR||'₱') + (_unliBasePrice + _unliExtra).toFixed(2);
 }
-function populateUnliInvCats() {
-  const sel = document.getElementById('unliInvCat');
-  sel.innerHTML = '<option value="">— Category —</option>';
+function populateUnliInvItems() {
+  const sel = document.getElementById('unliInvItem');
+  sel.innerHTML = '<option value="">— Select Material —</option>';
   const allowed = (STORE.takeout_inv_categories || '').split(',').map(s=>s.trim()).filter(Boolean);
   const cats = [...new Set(storeInvItems.map(i => i.category).filter(Boolean))]
     .filter(c => allowed.includes(c))
     .sort();
-  cats.forEach(c => sel.add(new Option(c, c)));
-  document.getElementById('unliInvItem').innerHTML = '<option value="">— Material —</option>';
-}
-function populateUnliInvItems() {
-  const cat = document.getElementById('unliInvCat').value;
-  const sel = document.getElementById('unliInvItem');
-  sel.innerHTML = '<option value="">— Item —</option>';
-  if (!cat) return;
-  storeInvItems.filter(i => i.category === cat).forEach(i => {
-    sel.add(new Option(i.name + ' (' + (CUR||'₱') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id));
+  cats.forEach(cat => {
+    const items = storeInvItems.filter(i => i.category === cat);
+    if (!items.length) return;
+    const og = document.createElement('optgroup');
+    og.label = cat;
+    items.forEach(i => og.appendChild(new Option(i.name + ' (' + (CUR||'₱') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id)));
+    sel.appendChild(og);
   });
 }
 function addUnliInvItem() {
