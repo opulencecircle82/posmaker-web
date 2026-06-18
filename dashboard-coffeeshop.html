@@ -1115,7 +1115,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div style="text-align:center;padding:20px;color:var(--muted)">Loading...</div>
     </div>
     <div class="m-actions">
-      <button class="btn btn-ghost" onclick="closeModal('staffLogsModal')">Close</button>
+      <button class="btn btn-ghost" onclick="closeStaffLogsModal()">Close</button>
     </div>
   </div>
 </div>
@@ -3306,23 +3306,86 @@ function renderStaff(staff) {
     </tr>`;
   }).join('');
 }
+let _staffLogsPoll = null;
+function closeStaffLogsModal() {
+  closeModal('staffLogsModal');
+  clearInterval(_staffLogsPoll); _staffLogsPoll = null;
+}
 async function viewStaffLogs(staffId, username) {
   document.getElementById('staffLogsTitle').textContent = username + ' — Login History';
   document.getElementById('staffLogsBody').innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Loading...</div>';
   document.getElementById('staffLogsModal').classList.add('show');
-  const { data, error } = await _sb.from('staff_logs')
-    .select('login_at').eq('staff_id', staffId).order('login_at', { ascending: false }).limit(100);
-  if (error || !data?.length) {
-    document.getElementById('staffLogsBody').innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">No login records found.</div>';
+  const staffRec = (allStaff||[]).find(s => s.id === staffId);
+  const displayName = staffRec ? (staffRec.full_name || staffRec.username) : username;
+  const role = staffRec ? staffRec.role : 'cashier';
+  await renderStaffLogsBody(staffId, displayName, role);
+  clearInterval(_staffLogsPoll);
+  if (role !== 'manager') _staffLogsPoll = setInterval(() => renderStaffLogsBody(staffId, displayName, role), 20000);
+}
+async function renderStaffLogsBody(staffId, displayName, role) {
+  const body = document.getElementById('staffLogsBody');
+  const { data: logins, error } = await _sb.from('staff_logs')
+    .select('login_at').eq('staff_id', staffId).order('login_at', { ascending: true }).limit(100);
+  if (error || !logins?.length) {
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">No login records found.</div>';
     return;
   }
-  document.getElementById('staffLogsBody').innerHTML = `
+  const isCashier = role !== 'manager';
+  let logoutTimes = [], remits = [];
+  if (STORE?.id) {
+    const { data: logoutData } = await _sb.from('activity_logs')
+      .select('created_at').eq('store_id', STORE.id).eq('actor_name', displayName).eq('action', 'LOGOUT')
+      .order('created_at', { ascending: true }).limit(100);
+    logoutTimes = (logoutData||[]).map(l => l.created_at);
+    if (isCashier) {
+      const { data: remitData } = await _sb.from('cash_remittances')
+        .select('created_at,cash_on_hand').eq('store_id', STORE.id).eq('cashier_name', displayName)
+        .order('created_at', { ascending: true }).limit(200);
+      remits = remitData || [];
+    }
+  }
+  const loginTimes = logins.map(l => l.login_at);
+  const shifts = loginTimes.map((loginAt, i) => {
+    const nextLoginAt = loginTimes[i+1] || null;
+    const logoutAt = logoutTimes.find(t => t > loginAt && (!nextLoginAt || t < nextLoginAt)) || null;
+    return { loginAt, logoutAt };
+  }).reverse(); // newest first
+
+  // Live running total for the open shift (no logout yet) — sum of orders since login,
+  // so the owner sees the current cash drawer total without listing each sale.
+  const openShift = shifts.find(s => !s.logoutAt);
+  let liveTotal = null;
+  if (isCashier && openShift && STORE?.id) {
+    const { data: ord } = await _sb.from('orders').select('total')
+      .eq('store_id', STORE.id).eq('cashier_name', displayName).gte('timestamp', openShift.loginAt);
+    liveTotal = (ord||[]).reduce((s,o) => s + (parseFloat(o.total)||0), 0);
+  }
+
+  body.innerHTML = `
     <table style="width:100%">
-      <thead><tr><th>#</th><th>Date &amp; Time</th></tr></thead>
-      <tbody>${data.map((l,i) => `<tr>
+      <thead><tr><th>#</th><th>Login</th><th>Logout</th>${isCashier?'<th>Cash Drawer</th>':''}</tr></thead>
+      <tbody>${shifts.map((s,i) => {
+        const loginStr = new Date(s.loginAt).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'});
+        const logoutStr = s.logoutAt
+          ? new Date(s.logoutAt).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'})
+          : '<span style="color:#22c55e;font-weight:600">&#128994; Active</span>';
+        let cashCell = '—';
+        if (isCashier) {
+          if (!s.logoutAt) {
+            cashCell = liveTotal != null ? `<span style="color:#22c55e;font-weight:600">${CUR||'₱'}${liveTotal.toFixed(2)}</span> <span style="color:var(--muted);font-size:11px">live</span>` : '—';
+          } else {
+            const r = remits.filter(r => new Date(r.created_at).getTime() >= new Date(s.loginAt).getTime() && new Date(r.created_at).getTime() <= new Date(s.logoutAt).getTime() + 5000)
+              .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0];
+            cashCell = r ? `${CUR||'₱'}${parseFloat(r.cash_on_hand).toFixed(2)} <span style="color:var(--muted);font-size:11px">remitted</span>` : '<span style="color:var(--dim)">no remit</span>';
+          }
+        }
+        return `<tr>
         <td style="color:var(--dim);font-size:12px">${i+1}</td>
-        <td>${new Date(l.login_at).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'})}</td>
-      </tr>`).join('')}</tbody>
+        <td>${loginStr}</td>
+        <td>${logoutStr}</td>
+        ${isCashier?`<td>${cashCell}</td>`:''}
+      </tr>`;
+      }).join('')}</tbody>
     </table>`;
 }
 function openStaffModal(s) {
