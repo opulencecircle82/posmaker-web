@@ -1,4 +1,4 @@
-const CACHE = 'posmaker-v16';
+const CACHE = 'posmaker-v17';
 const STATIC = [
   'js/supabase.js',
   'js/config.js',
