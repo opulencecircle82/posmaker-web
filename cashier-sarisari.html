@@ -2621,19 +2621,29 @@ function _featureScore(f1, f2) {
 // it through the existing per-product hash matcher to identify WHICH product
 // it is. Falls back to whole-frame matching until this finishes loading.
 let _cocoModel = null, _cocoLoading = false;
+function _setCocoBadge(text, color){
+  const b=document.getElementById('cocoStatusBadge');
+  if(!b) return;
+  b.textContent=text;
+  b.style.background=color||'#333';
+  b.style.color='#fff';
+}
 async function _loadCocoModel(){
   if(_cocoModel || _cocoLoading) return;
   _cocoLoading = true;
   console.log('[POSMaker] Loading multi-object detector (COCO-SSD)…');
+  _setCocoBadge('multi-obj: loading…','#a16207');
   if(scannerOpen) camStat('&#127919; Loading multi-object detector…');
   try{
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
     _cocoModel = await cocoSsd.load({base:'lite_mobilenet_v2'});
     console.log('[POSMaker] COCO-SSD loaded successfully — multi-object detection active.');
+    _setCocoBadge('multi-obj: ON','#15803d');
     if(scannerOpen) camStat('&#9989; Multi-object detector ready');
   }catch(e){
     console.warn('[POSMaker] COCO-SSD failed to load — falling back to single-item mode.', e);
+    _setCocoBadge('multi-obj: FAILED','#b91c1c');
     if(scannerOpen) camStat('&#9888; Multi-object detector unavailable — single-item mode');
   }
   _cocoLoading = false;
@@ -2659,7 +2669,7 @@ function startVisualLoop(video) {
   _loadCocoModel(); // fire-and-forget; loop upgrades automatically once ready
   function evalMatch(best,bestScore,secScore,tag){
     const pct=Math.round((1-bestScore)*100);
-    if(best&&bestScore<=0.15&&(secScore-bestScore)>=0.07){
+    if(best&&bestScore<=0.30&&(secScore-bestScore)>=0.07){
       _visConf[best.id]=(_visConf[best.id]||0)+1;
       const prod=prods.find(p=>p.id===best.id);
       if(prod) camStat('&#128247; <strong>'+prod.name+'</strong> '+pct+'%'+tag+' — hold still…');
@@ -2695,10 +2705,10 @@ function startVisualLoop(video) {
               const {best,bestScore,secScore}=_matchFeaturesAgainstProducts(ff);
               if(best&&!seen[best.id]){ seen[best.id]=true; evalMatch(best,bestScore,secScore,' &#183; '+boxes.length+' in view'); }
             }
-          } else {
-            _visConf={}; // detector active and sees zero objects — trust it, definitely blank
-            handledByDetector=true;
           }
+          // If COCO sees zero boxes, DON'T assume blank — it only knows ~80 generic
+          // classes and may simply not recognize this product's shape. Fall through
+          // to whole-frame matching instead (handledByDetector stays false).
         }
         if(!handledByDetector){
           let best=null, bestScore=9999, secScore=9999;
@@ -2903,6 +2913,7 @@ function loadScript(src){
 <div id="camOverlay">
   <div class="cam-hdr">
     <span class="cam-hdr-ttl">&#128247; Product Scanner</span>
+    <span id="cocoStatusBadge" style="font-size:10px;padding:2px 7px;border-radius:10px;background:#333;color:#aaa;margin-left:6px">multi-obj: off</span>
     <button class="cam-cls" onclick="closeScanner()" title="Close">&#215;</button>
   </div>
   <div style="position:relative">
