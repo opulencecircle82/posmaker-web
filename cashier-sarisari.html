@@ -1156,9 +1156,16 @@ async function loadProds() {
     });
   }
   try { localStorage.setItem('pm_cached_prods_'+STORE_ID, JSON.stringify(prods.map(p=>({id:p.id,name:p.name,price:p.price,category:p.category,image_b64:p.image_b64||'',sku:p.sku||'',unit:p.unit||'pc',stock:p.stock||0,inv_links:p.inv_links||null,embeddings:p.embeddings||null})))); } catch(_) {}
-  // TensorFlow/MobileNet AI matching disabled for now — relying on barcode +
-  // hash-based visual matching + OCR instead. _loadMnModel() is still defined
-  // below if this needs to be re-enabled later.
+  // Load MobileNet whenever products have images (no pre-computed embeddings needed)
+  if(!_mnModel && prods.some(p => p.image_b64)){
+    _loadMnModel().then(ok => {
+      if(!ok) return;
+      buildAiEmbeds().then(() => {
+        const v = document.getElementById('camVideo');
+        if(scannerOpen && v) { startAiLoop(v); camStat(_scanModes()); }
+      });
+    });
+  }
 }
 
 function buildCats() {
@@ -2647,6 +2654,26 @@ function _cropVideoRegion(video,x,y,w,h,outSize){
   c.getContext('2d').drawImage(video,Math.max(0,x),Math.max(0,y),w,h,0,0,outSize,outSize);
   return c;
 }
+// Match a COCO-cropped region against MobileNet product embeddings (more
+// robust to lighting/angle than the simple aHash/edgeHash/colorHist match).
+async function _matchCropWithMobileNet(cropCanvas,excludeIds){
+  if(!_mnModel||!_prodEmbeds.length) return null;
+  const cv=document.createElement('canvas'); cv.width=224; cv.height=224;
+  cv.getContext('2d').drawImage(cropCanvas,0,0,224,224);
+  const fv=await tf.tidy(()=>_mnModel.infer(tf.browser.fromPixels(cv).expandDims(0),true)).data().then(d=>Array.from(d));
+  const frameColor=_featuresFromCanvas(cv,224,224).colorHist;
+  let best=null, bestSim=0, secondSim=0;
+  for(const pe of _prodEmbeds){
+    if(excludeIds&&excludeIds.has(pe.id)) continue;
+    const mnSim=Math.max(...pe.vecs.map(v=>_cosSim(fv,v)));
+    const colorDist=pe.colorHist?pe.colorHist.reduce((s,v,i)=>s+Math.abs(v-(frameColor[i]||0)),0):1;
+    const colorSim=Math.max(0,1-colorDist/2);
+    const sim=0.65*mnSim+0.35*colorSim;
+    if(sim>bestSim){secondSim=bestSim;bestSim=sim;best=pe;}
+    else if(sim>secondSim){secondSim=sim;}
+  }
+  return {best,bestSim,secondSim};
+}
 function _cartProductIds(){
   const s=new Set();
   for(const k in cart){ if(cart[k]&&cart[k].qty>0) s.add(cart[k].id); }
@@ -2702,10 +2729,33 @@ function startVisualLoop(video) {
             for(const box of boxes){
               const [bx,by,bw,bh]=box.bbox;
               const crop=_cropVideoRegion(video,bx,by,bw,bh,200);
-              const ff=_featuresFromCanvas(crop,200,200);
-              if(ff.edgeAvg<MIN_EDGE_DETAIL) continue;
-              const {best,bestScore,secScore}=_matchFeaturesAgainstProducts(ff,_cartIds);
-              if(best&&!seen[best.id]){ seen[best.id]=true; evalMatch(best,bestScore,secScore,' &#183; '+boxes.length+' in view'); }
+              let matched=false;
+              // Try MobileNet AI embeddings first — more robust to lighting/angle than the simple hash
+              if(_mnModel && _prodEmbeds.length){
+                const mn=await _matchCropWithMobileNet(crop,_cartIds);
+                if(mn&&mn.best&&!seen[mn.best.id]){
+                  const gap=mn.bestSim-mn.secondSim;
+                  if(mn.bestSim>0.55&&gap>=0.05){
+                    seen[mn.best.id]=true;
+                    const prod=prods.find(p=>p.id===mn.best.id);
+                    const pct2=Math.round(mn.bestSim*100);
+                    _visConf[mn.best.id]=(_visConf[mn.best.id]||0)+1;
+                    if(prod) camStat('&#129302; <strong>'+prod.name+'</strong> '+pct2+'% &#183; '+boxes.length+' in view — hold still…');
+                    if(_visConf[mn.best.id]>=3&&!isOnCooldown(mn.best.id)){
+                      _visConf[mn.best.id]=0; setCooldown(mn.best.id); addItem(mn.best.id);
+                      if(prod) flashMatch(prod.name,'&#129302; AI');
+                    }
+                    matched=true;
+                  }
+                }
+              }
+              if(!matched){
+                const ff=_featuresFromCanvas(crop,200,200);
+                if(ff.edgeAvg>=MIN_EDGE_DETAIL){
+                  const {best,bestScore,secScore}=_matchFeaturesAgainstProducts(ff,_cartIds);
+                  if(best&&!seen[best.id]){ seen[best.id]=true; evalMatch(best,bestScore,secScore,' &#183; '+boxes.length+' in view'); }
+                }
+              }
             }
             if(!Object.keys(seen).length){
               handledByDetector=false; // COCO found boxes but none matched a product — fall back to whole-frame as a safety net
