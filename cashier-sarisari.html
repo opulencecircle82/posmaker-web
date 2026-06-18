@@ -2545,7 +2545,7 @@ function _computeFeatures(src) {
       catch{ res(null); }
     };
     img.onerror=()=>res(null);
-    img.src=src;
+    img.src=src.startsWith('data:')?src:'data:image/jpeg;base64,'+src;
   });
 }
 
