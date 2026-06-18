@@ -2131,7 +2131,6 @@ async function startSquareScanner() {
     sqLoop();
     _startSqTextLoop(sv, sess);
     _startSqVisualLoop(sv, sess);
-    _startSqPyLoop(sv, sess);
   } catch(e) {
     stat.textContent = e.message === 'timeout' ? '⚠️ Camera timed out' : '⚠️ Camera blocked — allow in browser settings';
   }
@@ -2260,7 +2259,7 @@ async function openScanner(){
       if(!scannerOpen) return;
       if(v.videoWidth > 0){
         camStat(_scanModes());
-        startBcLoop(v); startTextLoop(v); startVisualLoop(v); _startPyLoop(v, _scanSession);
+        startBcLoop(v); startTextLoop(v); startVisualLoop(v);
         if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
         return;
       }
@@ -2273,7 +2272,7 @@ async function openScanner(){
       await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,1500))]);
       if(v.videoWidth > 0){
         camStat(_scanModes());
-        startBcLoop(v); startTextLoop(v); startVisualLoop(v); _startPyLoop(v, _scanSession);
+        startBcLoop(v); startTextLoop(v); startVisualLoop(v);
         if(_mnModel) buildAiEmbeds().then(()=>{ if(scannerOpen){ startAiLoop(v); camStat(_scanModes()); } });
         return;
       }
@@ -2299,7 +2298,7 @@ async function openScanner(){
     });
     if(!scannerOpen) return;
     await Promise.race([v.play().catch(()=>{}), new Promise(r=>setTimeout(r,2000))]);
-    startBcLoop(v); startTextLoop(v); startVisualLoop(v); _startPyLoop(v, _scanSession);
+    startBcLoop(v); startTextLoop(v); startVisualLoop(v);
     camStat(_scanModes());
   } catch(e){
     camStat(e.message==='timeout'
@@ -2656,7 +2655,7 @@ function _matchFeaturesAgainstProducts(ff){
 function startVisualLoop(video) {
   if(!_prodHashes.length) return;
   const sess=_scanSession;
-  _loadCocoModel(); // fire-and-forget; loop upgrades automatically once ready
+  // _loadCocoModel(); // COCO-SSD experimentation scoped to Sari-Sari Store only for now
   function evalMatch(best,bestScore,secScore,tag){
     const pct=Math.round((1-bestScore)*100);
     if(best&&bestScore<=0.15&&(secScore-bestScore)>=0.07){
