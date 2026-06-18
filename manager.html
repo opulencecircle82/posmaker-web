@@ -599,8 +599,8 @@ function goLogin(){ location.href = 'staff-login.html' + (SID ? '?sid='+SID : ''
 
 async function init(){
   const raw = localStorage.getItem('pm_mgr');
-  if(!raw){ show('noAccess'); return; }
-  try{ MGR = JSON.parse(raw); }catch{ show('noAccess'); return; }
+  if(!raw){ goLogin(); return; }
+  try{ MGR = JSON.parse(raw); }catch{ goLogin(); return; }
   if(Date.now() - MGR.ts > 8*60*60*1000){ localStorage.removeItem('pm_mgr'); goLogin(); return; }
   if(SID && MGR.store_id !== SID){ show('noAccess'); return; }
   if(MGR.role !== 'manager'){ show('noAccess'); return; }
