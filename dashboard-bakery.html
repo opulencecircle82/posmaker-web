@@ -1691,7 +1691,7 @@ async function doLogout() {
 let _idleTimer = null;
 function _resetIdleTimer() {
   clearTimeout(_idleTimer);
-  _idleTimer = setTimeout(() => { doLogout(); }, 5 * 60 * 1000);
+  _idleTimer = setTimeout(() => { doLogout(); }, 60 * 60 * 1000);
 }
 ['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt =>
   document.addEventListener(evt, _resetIdleTimer, { passive: true }));
