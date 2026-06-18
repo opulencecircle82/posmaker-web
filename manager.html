@@ -1858,6 +1858,7 @@ async function openAddDisburse(type, crId) {
   document.getElementById('disbCat').value = 'Bills';
   document.getElementById('disbAmt').value = '';
   document.getElementById('disbFile').value = '';
+  document.getElementById('disbFileCam').value = '';
   document.getElementById('disbPreview').style.display = 'none';
   const btn = document.getElementById('disbBtn');
   btn.disabled = false; btn.textContent = 'Save';
@@ -2514,7 +2515,9 @@ function closeRuReceiptQR() {
     <div class="field">
       <label>Photo Proof <span style="color:var(--muted);font-size:11px">(date &amp; time auto-stamped)</span></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <label class="btn btn-ghost" for="disbFile" style="flex:1;text-align:center;cursor:pointer;font-size:12px;margin-bottom:0">&#128247; Take / Choose Photo</label>
+        <label class="btn btn-ghost" for="disbFileCam" style="flex:1;text-align:center;cursor:pointer;font-size:12px;margin-bottom:0">&#128247; Take Photo</label>
+        <input id="disbFileCam" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleDisburseFile(this)">
+        <label class="btn btn-ghost" for="disbFile" style="flex:1;text-align:center;cursor:pointer;font-size:12px;margin-bottom:0">&#128193; Upload Photo</label>
         <input id="disbFile" type="file" accept="image/*" style="display:none" onchange="handleDisburseFile(this)">
         <button type="button" class="btn btn-ghost btn-sm" onclick="openDisburseQR()" style="white-space:nowrap;font-size:12px">&#128248; Scan QR</button>
       </div>

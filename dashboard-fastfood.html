@@ -4650,13 +4650,14 @@ function openSendPayModal(staffId){
   document.getElementById('spAmt').value='';
   document.getElementById('spNote').value='';
   document.getElementById('spFile').value='';
+  document.getElementById('spFileCam').value='';
   document.getElementById('spPreview').style.display='none';
   const btn=document.getElementById('spBtn');
   btn.disabled=false;btn.innerHTML='&#128176; Send';
   document.getElementById('sendPayModal').classList.add('show');
 }
-function previewSendPayFile(){
-  const file=document.getElementById('spFile').files[0];
+function previewSendPayFile(input){
+  const file=input.files[0];
   if(!file){document.getElementById('spPreview').style.display='none';return;}
   const reader=new FileReader();
   reader.onload=e=>{
@@ -4753,7 +4754,10 @@ async function saveSendPay(){
     <div class="field">
       <label>Receipt / Proof of Transfer</label>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input id="spFile" type="file" accept="image/*" onchange="previewSendPayFile()" style="font-size:12px;padding:8px;flex:1;min-width:0">
+        <label class="btn btn-ghost btn-sm" for="spFileCam" style="cursor:pointer;font-size:12px;margin-bottom:0">&#128247; Take Photo</label>
+        <input id="spFileCam" type="file" accept="image/*" capture="environment" onchange="previewSendPayFile(this)" style="display:none">
+        <label class="btn btn-ghost btn-sm" for="spFile" style="cursor:pointer;font-size:12px;margin-bottom:0">&#128193; Upload Photo</label>
+        <input id="spFile" type="file" accept="image/*" onchange="previewSendPayFile(this)" style="display:none">
         <button type="button" class="btn btn-ghost btn-sm" onclick="openSendPayQR()" style="white-space:nowrap;font-size:12px">&#128247; Scan QR</button>
       </div>
       <div id="spPreview" style="display:none;margin-top:8px;text-align:center">
