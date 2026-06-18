@@ -1058,7 +1058,7 @@ async function syncProds() {
 async function loadProds() {
   if (!navigator.onLine) { try { const _cp=localStorage.getItem('pm_cached_prods_'+STORE_ID); if(_cp){prods=JSON.parse(_cp);buildCats();renderProds('All');return;} } catch(_){} }
   const { data, error } = await _sb.from('products')
-    .select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings')
+    .select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings,sold_by_weight')
     .eq('store_id', STORE_ID)
     .eq('available', true)
     .order('category').order('name');
@@ -1155,7 +1155,7 @@ async function loadProds() {
       if(scannerOpen&&v&&!_aiLoopId){ startAiLoop(v); camStat(_scanModes()); }
     });
   }
-  try { localStorage.setItem('pm_cached_prods_'+STORE_ID, JSON.stringify(prods.map(p=>({id:p.id,name:p.name,price:p.price,category:p.category,image_b64:p.image_b64||'',sku:p.sku||'',unit:p.unit||'pc',stock:p.stock||0,inv_links:p.inv_links||null,embeddings:p.embeddings||null})))); } catch(_) {}
+  try { localStorage.setItem('pm_cached_prods_'+STORE_ID, JSON.stringify(prods.map(p=>({id:p.id,name:p.name,price:p.price,category:p.category,image_b64:p.image_b64||'',sku:p.sku||'',unit:p.unit||'pc',stock:p.stock||0,inv_links:p.inv_links||null,embeddings:p.embeddings||null,sold_by_weight:p.sold_by_weight||false})))); } catch(_) {}
   // TensorFlow/MobileNet AI matching disabled for now — relying on barcode +
   // hash-based visual matching + OCR instead. _loadMnModel() is still defined
   // below if this needs to be re-enabled later.
@@ -2012,11 +2012,11 @@ async function doActivateStore() {
   try {
     const [_sfull,_sp,_su]=await Promise.all([
       _sb.from('stores').select('*').eq('id',store.id).single(),
-      _sb.from('products').select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings').eq('store_id',store.id).eq('available',true).order('category').order('name'),
+      _sb.from('products').select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings,sold_by_weight').eq('store_id',store.id).eq('available',true).order('category').order('name'),
       _sb.from('store_users').select('id,username,full_name,role,password_hash,active').eq('store_id',store.id)
     ]);
     if(_sfull.data) localStorage.setItem('pm_cached_store_'+store.id,JSON.stringify(_sfull.data));
-    if(_sp.data) localStorage.setItem('pm_cached_prods_'+store.id,JSON.stringify(_sp.data.map(p=>({id:p.id,name:p.name,price:p.price,category:p.category,image_b64:p.image_b64||'',sku:p.sku||'',unit:p.unit||'pc',stock:p.stock||0,inv_links:p.inv_links||null,embeddings:p.embeddings||null}))));
+    if(_sp.data) localStorage.setItem('pm_cached_prods_'+store.id,JSON.stringify(_sp.data.map(p=>({id:p.id,name:p.name,price:p.price,category:p.category,image_b64:p.image_b64||'',sku:p.sku||'',unit:p.unit||'pc',stock:p.stock||0,inv_links:p.inv_links||null,embeddings:p.embeddings||null,sold_by_weight:p.sold_by_weight||false}))));
     if(_su.data) localStorage.setItem('pm_cached_users_'+store.id,JSON.stringify(_su.data));
     const _pro=await _sb.rpc('get_store_pro_status',{p_store_id:store.id}); localStorage.setItem('pm_cached_pro_'+store.id,JSON.stringify(!!_pro.data));
   } catch(_) {}
