@@ -2687,7 +2687,7 @@ function startVisualLoop(video) {
         let handledByDetector=false;
         if(_cocoModel){
           const preds=await _cocoModel.detect(video).catch(()=>[]);
-          const boxes=preds.filter(p=>p.score>0.4&&p.bbox[2]>40&&p.bbox[3]>40).slice(0,4);
+          const boxes=preds.filter(p=>p.score>0.2&&p.bbox[2]>30&&p.bbox[3]>30).slice(0,6);
           if(boxes.length){
             handledByDetector=true;
             const seen={};
@@ -2699,6 +2699,17 @@ function startVisualLoop(video) {
               const {best,bestScore,secScore}=_matchFeaturesAgainstProducts(ff);
               if(best&&!seen[best.id]){ seen[best.id]=true; evalMatch(best,bestScore,secScore,' &#183; '+boxes.length+' in view'); }
             }
+            if(!Object.keys(seen).length){
+              const top=boxes.map(p=>p.class+':'+Math.round(p.score*100)+'%').join(', ');
+              camStat('['+_cocoState+'] '+boxes.length+' box(es): '+top+' — no product match');
+            }
+          } else if(preds.length){
+            const top=preds.slice().sort((a,b)=>b.score-a.score).slice(0,4).map(p=>p.class+':'+Math.round(p.score*100)+'%').join(', ');
+            camStat('['+_cocoState+'] COCO saw: '+top+' (below threshold)');
+            handledByDetector=true; // hold this diagnostic on screen instead of letting whole-frame overwrite it
+          } else {
+            camStat('['+_cocoState+'] COCO: 0 objects recognized this frame');
+            handledByDetector=true;
           }
           // If COCO sees zero boxes, DON'T assume blank — it only knows ~80 generic
           // classes and may simply not recognize this product's shape. Fall through
