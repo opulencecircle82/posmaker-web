@@ -175,6 +175,97 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
       </div>
       <div id="confirmWaitMsg" style="font-size:11px;color:var(--dim);margin-top:10px">Waiting for confirmation&#8230;</div>
     </div>
+
+    <!-- Logged in, email confirmed, but no store yet (e.g. signup/confirm happened
+         across multiple tabs and the original tab was closed before it finished).
+         Account already exists — just need the store details to finish setup. -->
+    <div id="stepStoreOnly" style="display:none">
+      <h1>Finish setting up your store</h1>
+      <p class="sub">Your account is ready &mdash; we just need your store details to continue.</p>
+
+      <div class="field">
+        <label>Store Name</label>
+        <input id="soStoreName" type="text" placeholder="e.g. Jollibee Taguig">
+      </div>
+      <div class="field">
+        <label>Type of Business</label>
+        <select id="soBizType">
+          <option value="">— Select your business type —</option>
+          <optgroup label="Food &amp; Beverage">
+            <option value="Fast Food">🍔 Fast Food</option>
+            <option value="Carinderya">🍚 Carinderya</option>
+            <option value="Coffee Shop">☕ Coffee Shop / Café</option>
+            <option value="Bakery">🍞 Bakery</option>
+            <option value="Lechon">🐖 Lechon</option>
+            <option value="Pizza / Pasta">🍕 Pizza / Pasta</option>
+            <option value="Seafood">🐟 Seafood</option>
+            <option value="Milk Tea / Drinks">🧋 Milk Tea / Drinks</option>
+            <option value="Karinderya / Buffet">🍱 Karinderya / Buffet</option>
+            <option value="Snack Bar">🍿 Snack Bar</option>
+          </optgroup>
+          <optgroup label="Retail">
+            <option value="Sari-Sari Store">🏪 Convenience Store / Sari-Sari Store</option>
+            <option value="Bigasan">🌾 Bigasan / Rice Store</option>
+            <option value="Hardware">🔧 Hardware Store</option>
+            <option value="Agri Supply">🌱 Agri Supply</option>
+            <option value="Drug Store">💊 Drug Store</option>
+            <option value="Pet Store">🐾 Pet Store</option>
+            <option value="Clothing">👕 Clothing / Apparel</option>
+            <option value="Electronics">📱 Electronics</option>
+            <option value="Furniture">🛋️ Furniture</option>
+            <option value="Auto Parts">🚗 Auto Parts</option>
+            <option value="School Supplies">✏️ School Supplies</option>
+          </optgroup>
+          <optgroup label="Services">
+            <option value="Salon / Barbershop">💇 Salon / Barbershop</option>
+            <option value="Laundry">🧺 Laundry</option>
+            <option value="Printing / Photocopy">🖨️ Printing / Photocopy</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Currency Symbol</label>
+          <select id="soCurrency">
+            <option value="₱">₱ — Philippine Peso</option>
+            <option value="$">$ — US Dollar</option>
+            <option value="RM">RM — Malaysian Ringgit</option>
+            <option value="S$">S$ — Singapore Dollar</option>
+            <option value="£">£ — British Pound</option>
+            <option value="€">€ — Euro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Tax Rate (%)</label>
+          <input id="soTaxRate" type="number" value="12" min="0" max="100" step="0.5">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Opening Time</label>
+          <input id="soOpenTime" type="time" value="08:00">
+        </div>
+        <div class="field">
+          <label>Closing Time</label>
+          <input id="soCloseTime" type="time" value="20:00">
+        </div>
+      </div>
+      <div class="field">
+        <label>Closed Days (optional)</label>
+        <div class="closed-days">
+          <label><input type="checkbox" id="soClosedDay0"> Sun</label>
+          <label><input type="checkbox" id="soClosedDay1"> Mon</label>
+          <label><input type="checkbox" id="soClosedDay2"> Tue</label>
+          <label><input type="checkbox" id="soClosedDay3"> Wed</label>
+          <label><input type="checkbox" id="soClosedDay4"> Thu</label>
+          <label><input type="checkbox" id="soClosedDay5"> Fri</label>
+          <label><input type="checkbox" id="soClosedDay6"> Sat</label>
+        </div>
+      </div>
+
+      <div class="err" id="errStoreOnly"></div>
+      <button class="btn" id="btnStoreOnly" onclick="finishStoreOnly()">Create My Store →</button>
+    </div>
   </div>
 </div>
 
@@ -184,8 +275,9 @@ const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 const REF = new URLSearchParams(location.search).get('ref') || localStorage.getItem('pm_ref_code') || '';
 
 function showStep(step) {
-  document.getElementById('stepAll').style.display     = step === 'all'     ? '' : 'none';
-  document.getElementById('stepConfirm').style.display = step === 'confirm' ? '' : 'none';
+  document.getElementById('stepAll').style.display       = step === 'all'       ? '' : 'none';
+  document.getElementById('stepConfirm').style.display   = step === 'confirm'   ? '' : 'none';
+  document.getElementById('stepStoreOnly').style.display = step === 'storeOnly' ? '' : 'none';
 }
 
 function togglePw(id, btn) {
@@ -258,7 +350,8 @@ async function _finishStoreSetup(session) {
   const { data: existing } = await _sb.from('stores').select('id').eq('owner_id', userId).single();
   if (existing) {
     localStorage.setItem('pm_store_id', existing.id);
-    location.href = 'dashboard.html'; return;
+    await _sb.auth.signOut();
+    location.href = 'login.html'; return;
   }
 
   async function genUniqueCode(name) {
@@ -272,16 +365,18 @@ async function _finishStoreSetup(session) {
     return code;
   }
   const storeCode = await genUniqueCode(storeName);
+  // New stores get a 14-day free trial with Pro features unlocked
+  const freeUntil = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
   let { data: store, error: storeErr } = await _sb
     .from('stores')
-    .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate, business_type: bizType, store_code: storeCode })
+    .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate, business_type: bizType, store_code: storeCode, free_until: freeUntil })
     .select().single();
 
   if (storeErr && storeErr.message && storeErr.message.toLowerCase().includes('column')) {
     ({ data: store, error: storeErr } = await _sb
       .from('stores')
-      .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate, store_code: storeCode })
+      .insert({ name: storeName, owner_id: userId, currency, tax_rate: taxRate, store_code: storeCode, free_until: freeUntil })
       .select().single());
   }
 
@@ -308,7 +403,8 @@ async function _finishStoreSetup(session) {
   }
 
   localStorage.setItem('pm_store_id', store.id);
-  location.href = 'dashboard.html';
+  await _sb.auth.signOut();
+  location.href = 'login.html';
 }
 
 // Single combined step → create the auth account (with password) and the store together
@@ -474,7 +570,39 @@ function getDefaultInvCats(biz) {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   if (document.getElementById('stepAll').style.display !== 'none') doSignup();
+  if (document.getElementById('stepStoreOnly').style.display !== 'none') finishStoreOnly();
 });
+
+// Account already exists and is confirmed (user is logged in) but has no store yet —
+// finish setup using the current session instead of going through auth.signUp() again.
+async function finishStoreOnly() {
+  const { data: { session } } = await _sb.auth.getSession();
+  if (!session) { location.href = 'login.html'; return; }
+
+  const storeName  = document.getElementById('soStoreName').value.trim();
+  const bizType    = document.getElementById('soBizType').value;
+  const currency   = document.getElementById('soCurrency').value.trim() || '₱';
+  const taxRate    = parseFloat(document.getElementById('soTaxRate').value) || 0;
+  const openTime   = document.getElementById('soOpenTime').value || '08:00';
+  const closeTime  = document.getElementById('soCloseTime').value || '20:00';
+  const closedDays = [0,1,2,3,4,5,6].filter(d => document.getElementById('soClosedDay'+d).checked).join(',');
+  const errEl = document.getElementById('errStoreOnly');
+  const btn   = document.getElementById('btnStoreOnly');
+
+  errEl.textContent = '';
+  if (!storeName) { errEl.textContent = 'Store name is required.'; return; }
+  if (!bizType)   { errEl.textContent = 'Please select a business type.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating your store…';
+
+  _pendingStore = { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, refCode: REF };
+  const result = await _finishStoreSetup(session);
+  if (result && result.error) {
+    btn.disabled = false; btn.textContent = 'Create My Store →';
+    errEl.textContent = result.error.message;
+  }
+}
 
 // If already logged in (e.g. returning from the confirmation email link):
 // redirect to dashboard if a store exists, else finish creating the store
@@ -488,7 +616,7 @@ document.addEventListener('keydown', e => {
     return !!data;
   }
 
-  if (await _hasStore()) { location.replace('dashboard.html'); return; }
+  if (await _hasStore()) { await _sb.auth.signOut(); location.replace('login.html'); return; }
 
   const saved = localStorage.getItem('pm_pending_store');
   if (saved) {
@@ -502,9 +630,9 @@ document.addEventListener('keydown', e => {
   // a short grace period before falling back to asking the user to fill the form again.
   for (let i = 0; i < 5; i++) {
     await new Promise(r => setTimeout(r, 2000));
-    if (await _hasStore()) { location.replace('dashboard.html'); return; }
+    if (await _hasStore()) { await _sb.auth.signOut(); location.replace('login.html'); return; }
   }
-  showStep('all');
+  showStep('storeOnly');
 })();
 </script>
 </body>
