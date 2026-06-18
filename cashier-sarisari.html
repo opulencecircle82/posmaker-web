@@ -2669,7 +2669,7 @@ function startVisualLoop(video) {
   _loadCocoModel(); // fire-and-forget; loop upgrades automatically once ready
   function evalMatch(best,bestScore,secScore,tag){
     const pct=Math.round((1-bestScore)*100);
-    if(best&&bestScore<=0.40&&(secScore-bestScore)>=0.07){
+    if(best&&bestScore<=0.37&&(secScore-bestScore)>=0.07){
       _visConf[best.id]=(_visConf[best.id]||0)+1;
       const prod=prods.find(p=>p.id===best.id);
       if(prod) camStat('&#128247; <strong>'+prod.name+'</strong> '+pct+'%'+tag+' — hold still…');
