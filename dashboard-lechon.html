@@ -806,7 +806,13 @@ input:checked + .slider:before{transform:translateX(18px)}
         </select>
       </div>
     </div>
-    <div class="field"><label>Selling Price</label><input id="pPrice" type="number" min="0" step="0.01" placeholder="0.00" oninput="updateProfitPreview()"></div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <label style="margin:0;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:400">
+        <input type="checkbox" id="pSoldByWeight" onchange="toggleSoldByWeight()" style="width:auto;margin:0">
+        Sold by weight (customer picks grams/kilos at POS)
+      </label>
+    </div>
+    <div class="field"><label id="pPriceLbl">Selling Price</label><input id="pPrice" type="number" min="0" step="0.01" placeholder="0.00" oninput="updateProfitPreview()"></div>
     <input type="hidden" id="pCostPrice" value="0">
     <!-- Linked inventory items (multi) -->
     <div class="field" style="margin-bottom:6px">
@@ -2742,6 +2748,8 @@ function openProdModal(p) {
   document.getElementById('pName').value=p?p.name:'';
   document.getElementById('pSku').value=p?(p.sku||''):'';
   document.getElementById('pPrice').value=p?p.price:'';
+  document.getElementById('pSoldByWeight').checked=p?!!p.sold_by_weight:false;
+  toggleSoldByWeight();
   document.getElementById('pCostPrice').value=p?(p.cost_price||0):0;
   document.getElementById('pAvail').checked=p?p.available:true;
   document.getElementById('pAvailField').style.display=p?'flex':'none';
@@ -2858,6 +2866,11 @@ function renderInvLinkList(){
     </div>`;
   }).join('');
 }
+function toggleSoldByWeight(){
+  const on=document.getElementById('pSoldByWeight').checked;
+  document.getElementById('pPriceLbl').textContent=on?'Price per Kilo':'Selling Price';
+  document.getElementById('pPrice').placeholder=on?'e.g. 700.00 per kg':'0.00';
+}
 function updateProfitPreview(){
   const price=parseFloat(document.getElementById('pPrice').value)||0;
   const div=document.getElementById('profitPreview');
@@ -2893,7 +2906,7 @@ async function saveProd(){
   // Compress photos — skip if already small (already compressed)
   const imgs=await Promise.all(_prodPendingImgs.map(b=>b.length>15000?_compressImg(b):Promise.resolve(b)));
   let imgPayload={image_b64:imgs.length>0?JSON.stringify(imgs):null};
-  const payload={name,sku,category:cat,unit,price,cost_price:costPrice,inv_links:JSON.stringify(pInvLinks),available:avail,...imgPayload};
+  const payload={name,sku,category:cat,unit,price,cost_price:costPrice,inv_links:JSON.stringify(pInvLinks),available:avail,sold_by_weight:document.getElementById('pSoldByWeight').checked,...imgPayload};
   let err, savedId=id;
   if(id){({error:err}=await _sb.from('products').update(payload).eq('id',id));}
   else{
