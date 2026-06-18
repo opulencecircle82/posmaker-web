@@ -164,12 +164,16 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
     <!-- Fallback: confirmation sent (only shown if "Confirm email" is enabled in Supabase) -->
     <div id="stepConfirm" style="display:none;text-align:center;padding:8px 0">
       <div style="font-size:44px;margin-bottom:14px">📧</div>
-      <h1 style="margin-bottom:8px">Check your email</h1>
-      <p class="sub">We sent a confirmation link to <strong id="confirmEmail" style="color:#f0f0f8"></strong>. Please check your inbox (and spam folder), then click the link to finish creating your store.</p>
+      <h1 id="confirmTitle" style="margin-bottom:8px">Check your email</h1>
+      <p class="sub">We sent a confirmation link to <strong id="confirmEmail" style="color:#f0f0f8"></strong>. Open it on this device or any other (like your phone) — this page will continue automatically once confirmed.</p>
       <div style="margin-top:18px">
         <button id="btnResend" class="btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:13px;padding:8px 18px;width:auto" onclick="resendConfirmation()">Didn't receive it? Resend email</button>
         <div id="resendMsg" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
       </div>
+      <div style="margin-top:14px">
+        <button id="btnCheckConfirm" class="btn" style="font-size:13px;padding:8px 18px;width:auto" onclick="_manualCheckConfirm()">&#10003; I've confirmed — Continue</button>
+      </div>
+      <div id="confirmWaitMsg" style="font-size:11px;color:var(--dim);margin-top:10px">Waiting for confirmation&#8230;</div>
     </div>
   </div>
 </div>
@@ -369,6 +373,58 @@ async function doSignup() {
   btn.disabled = false; btn.textContent = 'Create Account & Store →';
   document.getElementById('confirmEmail').textContent = email;
   showStep('confirm');
+  _startConfirmPoll(email, password);
+}
+
+// Background polling so this page auto-continues even if the confirmation link
+// is opened on a different device (e.g. signed up on PC, confirmed on phone).
+// signInWithPassword() fails with "Email not confirmed" until the link is clicked,
+// then succeeds — that's our signal to proceed.
+let _pendingEmail = '', _pendingPassword = '', _confirmPollTimer = null, _confirmPollTries = 0;
+const MAX_CONFIRM_POLL_TRIES = 150; // ~10 minutes at 4s intervals
+
+function _startConfirmPoll(email, password) {
+  _pendingEmail = email; _pendingPassword = password; _confirmPollTries = 0;
+  if (_confirmPollTimer) clearInterval(_confirmPollTimer);
+  _confirmPollTimer = setInterval(_tryConfirmSignIn, 4000);
+}
+
+async function _tryConfirmSignIn() {
+  _confirmPollTries++;
+  const { data, error } = await _sb.auth.signInWithPassword({ email: _pendingEmail, password: _pendingPassword });
+  if (error) {
+    if (_confirmPollTries >= MAX_CONFIRM_POLL_TRIES) {
+      clearInterval(_confirmPollTimer); _confirmPollTimer = null;
+      const w = document.getElementById('confirmWaitMsg');
+      if (w) w.textContent = 'Still waiting — click "I\'ve confirmed — Continue" once you\'ve clicked the email link.';
+    }
+    return;
+  }
+  clearInterval(_confirmPollTimer); _confirmPollTimer = null;
+  await _onConfirmedSignIn(data.session);
+}
+
+async function _manualCheckConfirm() {
+  const btn = document.getElementById('btnCheckConfirm');
+  const w = document.getElementById('confirmWaitMsg');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  const { data, error } = await _sb.auth.signInWithPassword({ email: _pendingEmail, password: _pendingPassword });
+  if (error) {
+    btn.disabled = false; btn.textContent = "✓ I've confirmed — Continue";
+    if (w) w.textContent = 'Not confirmed yet — please click the link in your email first.';
+    return;
+  }
+  if (_confirmPollTimer) { clearInterval(_confirmPollTimer); _confirmPollTimer = null; }
+  await _onConfirmedSignIn(data.session);
+}
+
+async function _onConfirmedSignIn(session) {
+  const t = document.getElementById('confirmTitle'); if (t) t.textContent = 'Email confirmed!';
+  const w = document.getElementById('confirmWaitMsg'); if (w) w.textContent = 'Setting up your store…';
+  const saved = localStorage.getItem('pm_pending_store');
+  if (saved) { _pendingStore = JSON.parse(saved); localStorage.removeItem('pm_pending_store'); }
+  const result = await _finishStoreSetup(session);
+  if (result && result.error && w) w.textContent = 'Error: ' + result.error.message;
 }
 
 // Default product categories per business type
@@ -426,8 +482,13 @@ document.addEventListener('keydown', e => {
 (async () => {
   const { data: { session } } = await _sb.auth.getSession();
   if (!session) return;
-  const { data: store } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).maybeSingle();
-  if (store) { location.replace('dashboard.html'); return; }
+
+  async function _hasStore() {
+    const { data } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).maybeSingle();
+    return !!data;
+  }
+
+  if (await _hasStore()) { location.replace('dashboard.html'); return; }
 
   const saved = localStorage.getItem('pm_pending_store');
   if (saved) {
@@ -436,7 +497,13 @@ document.addEventListener('keydown', e => {
     await _finishStoreSetup(session);
     return;
   }
-  // No pending details found (e.g. opened the link in a different browser) — let them fill the form again
+  // No pending details on this device — signup may have started on another device
+  // (e.g. PC) whose background poll is about to finish creating the store. Give it
+  // a short grace period before falling back to asking the user to fill the form again.
+  for (let i = 0; i < 5; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    if (await _hasStore()) { location.replace('dashboard.html'); return; }
+  }
   showStep('all');
 })();
 </script>
