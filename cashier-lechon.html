@@ -2967,13 +2967,16 @@ function openWeightModal(id) {
   document.getElementById('weightModal').style.display = 'block';
   setTimeout(() => document.getElementById('weightGrams').focus(), 50);
 }
+let _weightLastField = 'grams'; // tracks which field the cashier actually typed in
 function onWeightGramsInput() {
+  _weightLastField = 'grams';
   const grams = parseFloat(document.getElementById('weightGrams').value) || 0;
   const amount = (_weightPricePerKg / 1000) * grams;
   document.getElementById('weightAmount').value = amount > 0 ? amount.toFixed(2) : '';
   updateWeightTotalDisplay();
 }
 function onWeightAmountInput() {
+  _weightLastField = 'amount';
   const amount = parseFloat(document.getElementById('weightAmount').value) || 0;
   const grams = _weightPricePerKg > 0 ? (amount / _weightPricePerKg) * 1000 : 0;
   document.getElementById('weightGrams').value = grams > 0 ? Math.round(grams) : '';
@@ -2997,10 +3000,14 @@ function closeWeightModal() {
 }
 function confirmWeightAdd() {
   const p = prods.find(x => x.id == _weightProdId); if (!p) return;
-  const grams = parseFloat(document.getElementById('weightGrams').value) || 0;
+  const grams  = parseFloat(document.getElementById('weightGrams').value) || 0;
+  const amount = parseFloat(document.getElementById('weightAmount').value) || 0;
   if (grams <= 0) { showToast('Enter a valid weight or amount.', true); return; }
-  const qtyKg = grams / 1000;
-  cart[p.id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: qtyKg, isWeight: true };
+  const priceKg = parseFloat(p.price) || 0;
+  // If the cashier typed the peso amount, charge exactly that amount instead
+  // of re-deriving it from the rounded gram value (avoids a rounding drift).
+  const qtyKg = (_weightLastField === 'amount' && amount > 0 && priceKg > 0) ? (amount / priceKg) : (grams / 1000);
+  cart[p.id] = { id: p.id, name: p.name, price: priceKg, qty: qtyKg, isWeight: true };
   redrawCart();
   closeWeightModal();
 }

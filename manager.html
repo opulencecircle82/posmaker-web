@@ -1344,6 +1344,10 @@ function renderRemit() {
     const diffColor = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : 'var(--muted)';
     const statusBadge = isPending
       ? `<span class="badge" style="background:#2e1a0d;color:#f59e0b;animation:pulse 1.5s infinite">&#9679; Pending</span>`
+      : r.status === 'mgr_remit'
+      ? (r.owner_confirmed
+          ? `<span class="badge" style="background:#0d2e1f;color:#10b981">&#10003; Confirmed</span>`
+          : `<span class="badge" style="background:#2e2a0d;color:#facc15">&#9203; Under Review</span>`)
       : diff > 0 ? `<span class="badge badge-ok">Over</span>`
       : diff < 0 ? `<span class="badge badge-out">Short</span>`
       : `<span style="font-size:11px;color:var(--muted)">Balanced</span>`;
@@ -2318,18 +2322,18 @@ async function saveMgrDeposit() {
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…';
   const today = new Date().toISOString().slice(0, 10);
   const desc = 'Deposit to owner' + (note ? ': ' + note : '');
-  const { error } = await _sb.from('cash_remittances').insert({
+  const { data: crRow, error } = await _sb.from('cash_remittances').insert({
     store_id: MGR.store_id, cashier_name: MGR.name, shift_date: today,
     pos_sales: 0, cash_on_hand: -amt, difference: -amt,
-    status: 'mgr_remit', description: desc
-  });
+    status: 'mgr_remit', description: desc, owner_confirmed: false
+  }).select().single();
   if (error) {
     showToast('Error: ' + error.message, true);
     btn.disabled = false; btn.innerHTML = '&#11014; Remit';
     return;
   }
   await logAction('MGR_REMIT', MGR.name, {
-    amount: amt, ...(note ? { note } : {}), ...(receiptB64 ? { receipt_b64: receiptB64 } : {})
+    amount: amt, ...(note ? { note } : {}), ...(receiptB64 ? { receipt_b64: receiptB64 } : {}), cr_id: crRow.id
   });
   closeModal('mgrDepositModal');
   loadCashSummary();

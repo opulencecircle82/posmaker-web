@@ -3089,6 +3089,14 @@ async function copyStaffLink() {
 
 // ── Activity Log ─────────────────────────────────────────────────────────
 let _activityLogs = [];
+async function confirmMgrDeposit(crId, btnEl) {
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Confirming…'; }
+  const { error } = await _sb.from('cash_remittances').update({ owner_confirmed: true }).eq('id', crId);
+  if (error) { showToast('Error: ' + error.message, true); if (btnEl) { btnEl.disabled = false; btnEl.textContent = '✓ Confirm Received'; } return; }
+  _mgrRemitConfirm[crId] = true;
+  showToast('Deposit confirmed as received.');
+  renderActivityLog();
+}
 async function loadActivityLog() {
   const tbody = document.getElementById('activityTbody');
   if (!tbody) return;
@@ -3106,6 +3114,18 @@ async function loadActivityLog() {
     return;
   }
   _activityLogs = data || [];
+  // Look up owner_confirmed status for any "Deposit to owner" entries (linked via cr_id)
+  _mgrRemitConfirm = {};
+  const _crIds = [];
+  _activityLogs.forEach(l => {
+    if (l.action === 'MGR_REMIT' && l.details) {
+      try { const d = JSON.parse(l.details); if (d.cr_id) _crIds.push(d.cr_id); } catch(_) {}
+    }
+  });
+  if (_crIds.length) {
+    const { data: _crRows } = await _sb.from('cash_remittances').select('id,owner_confirmed').in('id', _crIds);
+    (_crRows || []).forEach(r => { _mgrRemitConfirm[r.id] = !!r.owner_confirmed; });
+  }
   const logActors = new Set(_activityLogs.map(l => l.actor_name).filter(Boolean));
   const staffActors = (allStaff || []).map(s => s.full_name || s.username).filter(Boolean);
   staffActors.forEach(n => logActors.add(n));
@@ -3121,6 +3141,7 @@ async function loadActivityLog() {
   renderActivityLog();
 }
 const _receiptCache = {};
+let _mgrRemitConfirm = {};
 function renderActivityLog() {
   const tbody = document.getElementById('activityTbody');
   if (!tbody) return;
@@ -3152,11 +3173,17 @@ function renderActivityLog() {
         receiptB64 = d.receipt_b64 || null;
         const filtered = Object.entries(d).filter(([k]) => k !== 'receipt_b64');
         if (l.action === 'MGR_REMIT') {
-          details = filtered.map(([k,v]) => {
+          const _crId = d.cr_id;
+          details = filtered.filter(([k]) => k !== 'cr_id').map(([k,v]) => {
             if (k === 'amount') return 'amount: <span style="color:#39ff14;font-weight:700">₱' + parseFloat(v).toFixed(2) + '</span>';
             if (k === 'note')   return '<span style="color:#00e5ff;font-weight:700">' + v + '</span>';
             return k + ': ' + v;
           }).join(' &bull; ');
+          if (_crId) {
+            details += _mgrRemitConfirm[_crId]
+              ? ' <span class="badge" style="background:#0d2e1f;color:#10b981;margin-left:6px">&#10003; Confirmed</span>'
+              : ' <button class="btn btn-sm" style="background:#facc15;color:#1a1500;font-weight:700;margin-left:6px" onclick="confirmMgrDeposit(\'' + _crId + '\',this)">&#10003; Confirm Received</button>';
+          }
         } else if (l.action === 'OWNER_SEND' || l.action === 'SALARY_GIVEN' || l.action === 'EXPENSE_PAID') {
           const _amtColor = l.action === 'OWNER_SEND' ? '#39ff14' : '#ff3131';
           details = filtered.filter(([k]) => !['cr_id'].includes(k)).map(([k,v]) => {
