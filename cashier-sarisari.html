@@ -2229,7 +2229,7 @@ let _scanCooldown = {}, _textDetector = null, _txtLoopId = null, _scanSession = 
 let _visLoopId = null, _prodHashes = [], _visConf = {};
 let _aiLoopId = null, _mnModel = null, _prodEmbeds = [], _mnConf = {};
 let _tessWorker = null, _tessLoading = false, _tessLoopId = null;
-const SCAN_COOLDOWN = 1200;
+const SCAN_COOLDOWN = 8000;
 
 function isOnCooldown(id){ return _scanCooldown[id] && Date.now()-_scanCooldown[id] < SCAN_COOLDOWN; }
 function setCooldown(id){ _scanCooldown[id] = Date.now(); }
@@ -2700,17 +2700,10 @@ function startVisualLoop(video) {
               if(best&&!seen[best.id]){ seen[best.id]=true; evalMatch(best,bestScore,secScore,' &#183; '+boxes.length+' in view'); }
             }
             if(!Object.keys(seen).length){
-              const top=boxes.map(p=>p.class+':'+Math.round(p.score*100)+'%').join(', ');
-              camStat('['+_cocoState+'] '+boxes.length+' box(es): '+top+' — no product match');
+              handledByDetector=false; // COCO found boxes but none matched a product — fall back to whole-frame as a safety net
             }
-          } else if(preds.length){
-            const top=preds.slice().sort((a,b)=>b.score-a.score).slice(0,4).map(p=>p.class+':'+Math.round(p.score*100)+'%').join(', ');
-            camStat('['+_cocoState+'] COCO saw: '+top+' (below threshold)');
-            handledByDetector=true; // hold this diagnostic on screen instead of letting whole-frame overwrite it
-          } else {
-            camStat('['+_cocoState+'] COCO: 0 objects recognized this frame');
-            handledByDetector=true;
           }
+          // If COCO found no usable boxes at all, also fall back (handledByDetector stays false).
           // If COCO sees zero boxes, DON'T assume blank — it only knows ~80 generic
           // classes and may simply not recognize this product's shape. Fall through
           // to whole-frame matching instead (handledByDetector stays false).
