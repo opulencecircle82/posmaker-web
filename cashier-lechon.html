@@ -3099,9 +3099,12 @@ function updateUnliTotalLabel() {
 function populateUnliInvCats() {
   const sel = document.getElementById('unliInvCat');
   sel.innerHTML = '<option value="">— Category —</option>';
-  const cats = [...new Set(storeInvItems.map(i => i.category).filter(Boolean))].sort();
+  const allowed = (STORE.takeout_inv_categories || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const cats = [...new Set(storeInvItems.map(i => i.category).filter(Boolean))]
+    .filter(c => allowed.includes(c))
+    .sort();
   cats.forEach(c => sel.add(new Option(c, c)));
-  document.getElementById('unliInvItem').innerHTML = '<option value="">— Item —</option>';
+  document.getElementById('unliInvItem').innerHTML = '<option value="">— Material —</option>';
 }
 function populateUnliInvItems() {
   const cat = document.getElementById('unliInvCat').value;
