@@ -1729,6 +1729,13 @@ window.addEventListener('offline', ()=>{ updateNetStatus(); });
 
 // ── Confirm Order ─────────────────────────────────────────────────────────
 function confirmOrder() {
+  // Already answered Dine In/Take Out per-item via the Unli widget — don't ask again at checkout.
+  const hasTakeoutUnli = Object.values(cart).some(i => i.name && i.name.includes('(Take Out)'));
+  if (hasTakeoutUnli) {
+    orderType = 'Take Away';
+    _doConfirmOrder();
+    return;
+  }
   openOrderTypeModal();
 }
 function openOrderTypeModal() {
