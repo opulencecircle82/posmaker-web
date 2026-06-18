@@ -2669,7 +2669,8 @@ function startVisualLoop(video) {
   _loadCocoModel(); // fire-and-forget; loop upgrades automatically once ready
   function evalMatch(best,bestScore,secScore,tag){
     const pct=Math.round((1-bestScore)*100);
-    if(best&&bestScore<=0.37&&(secScore-bestScore)>=0.07){
+    const gap=Math.round((secScore-bestScore)*100);
+    if(best&&bestScore<=0.37&&(secScore-bestScore)>=0.03){
       _visConf[best.id]=(_visConf[best.id]||0)+1;
       const prod=prods.find(p=>p.id===best.id);
       if(prod) camStat('&#128247; <strong>'+prod.name+'</strong> '+pct+'%'+tag+' — hold still…');
@@ -2682,7 +2683,7 @@ function startVisualLoop(video) {
     }
     if(best&&bestScore<=0.48&&scannerOpen){
       const prod=prods.find(p=>p.id===best.id);
-      if(prod) camStat('&#128247; '+prod.name+'? '+pct+'%'+tag);
+      if(prod) camStat('&#128247; '+prod.name+'? '+pct+'% gap:'+gap+tag);
     }
     return false;
   }
