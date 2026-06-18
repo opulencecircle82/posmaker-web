@@ -3098,17 +3098,9 @@ function populateUnliInvItems() {
   const sel = document.getElementById('unliInvItem');
   sel.innerHTML = '<option value="">— Select Material —</option>';
   const allowed = (STORE.takeout_inv_categories || '').split(',').map(s=>s.trim()).filter(Boolean);
-  const cats = [...new Set(storeInvItems.map(i => i.category).filter(Boolean))]
-    .filter(c => allowed.includes(c))
-    .sort();
-  cats.forEach(cat => {
-    const items = storeInvItems.filter(i => i.category === cat);
-    if (!items.length) return;
-    const og = document.createElement('optgroup');
-    og.label = cat;
-    items.forEach(i => og.appendChild(new Option(i.name + ' (' + (CUR||'₱') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id)));
-    sel.appendChild(og);
-  });
+  storeInvItems
+    .filter(i => allowed.includes((i.category||'').trim()))
+    .forEach(i => sel.add(new Option(i.name + ' (' + (CUR||'₱') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id)));
 }
 function addUnliInvItem() {
   const sel = document.getElementById('unliInvItem');
