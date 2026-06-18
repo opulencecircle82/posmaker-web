@@ -3263,15 +3263,18 @@ async function renderStaffLogsBody(staffId, displayName, role) {
     }
   }
   const loginTimes = logins.map(l => l.login_at);
-  const shifts = loginTimes.map((loginAt, i) => {
+  const shiftsAsc = loginTimes.map((loginAt, i) => {
     const nextLoginAt = loginTimes[i+1] || null;
     const logoutAt = logoutTimes.find(t => t > loginAt && (!nextLoginAt || t < nextLoginAt)) || null;
-    return { loginAt, logoutAt };
-  }).reverse(); // newest first
+    const isOpen = !logoutAt && i === loginTimes.length - 1; // only the latest login can still be "Active"
+    return { loginAt, logoutAt, isOpen };
+  });
+  const shifts = shiftsAsc.slice().reverse(); // newest first
 
-  // Live running total for the open shift (no logout yet) — sum of orders since login,
-  // so the owner sees the current cash drawer total without listing each sale.
-  const openShift = shifts.find(s => !s.logoutAt);
+  // Live running total for the genuinely open shift (no logout yet, and no
+  // newer login after it) — sum of orders since login, so the owner sees
+  // the current cash drawer total without listing each sale.
+  const openShift = shifts.find(s => s.isOpen);
   let liveTotal = null;
   if (isCashier && openShift && STORE?.id) {
     const { data: ord } = await _sb.from('orders').select('total')
@@ -3286,12 +3289,12 @@ async function renderStaffLogsBody(staffId, displayName, role) {
         const loginStr = new Date(s.loginAt).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'});
         const logoutStr = s.logoutAt
           ? new Date(s.logoutAt).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'})
-          : '<span style="color:#22c55e;font-weight:600">&#128994; Active</span>';
+          : (s.isOpen ? '<span style="color:#22c55e;font-weight:600">&#128994; Active</span>' : '<span style="color:var(--dim)">—</span>');
         let cashCell = '—';
         if (isCashier) {
-          if (!s.logoutAt) {
+          if (s.isOpen) {
             cashCell = liveTotal != null ? `<span style="color:#22c55e;font-weight:600">${CUR||'₱'}${liveTotal.toFixed(2)}</span> <span style="color:var(--muted);font-size:11px">live</span>` : '—';
-          } else {
+          } else if (s.logoutAt) {
             const r = remits.filter(r => new Date(r.created_at).getTime() >= new Date(s.loginAt).getTime() && new Date(r.created_at).getTime() <= new Date(s.logoutAt).getTime() + 5000)
               .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0];
             cashCell = r ? `${CUR||'₱'}${parseFloat(r.cash_on_hand).toFixed(2)} <span style="color:var(--muted);font-size:11px">remitted</span>` : '<span style="color:var(--dim)">no remit</span>';
