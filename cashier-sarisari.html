@@ -2647,9 +2647,15 @@ function _cropVideoRegion(video,x,y,w,h,outSize){
   c.getContext('2d').drawImage(video,Math.max(0,x),Math.max(0,y),w,h,0,0,outSize,outSize);
   return c;
 }
-function _matchFeaturesAgainstProducts(ff){
+function _cartProductIds(){
+  const s=new Set();
+  for(const k in cart){ if(cart[k]&&cart[k].qty>0) s.add(cart[k].id); }
+  return s;
+}
+function _matchFeaturesAgainstProducts(ff,excludeIds){
   let best=null, bestScore=9999, secScore=9999;
   for(const ph of _prodHashes){
+    if(excludeIds&&excludeIds.has(ph.id)) continue; // already in cart — don't let it keep "winning" and blocking other items
     const s=Math.min(...ph.features.map(f=>_featureScore(ff,f)));
     if(s<bestScore){secScore=bestScore;bestScore=s;best=ph;}
     else if(s<secScore) secScore=s;
@@ -2663,12 +2669,6 @@ function startVisualLoop(video) {
   _loadCocoModel(); // fire-and-forget; loop upgrades automatically once ready
   function evalMatch(best,bestScore,secScore,tag){
     const pct=Math.round((1-bestScore)*100);
-    if(best&&cart[best.id]&&cart[best.id].qty>0){
-      const prod=prods.find(p=>p.id===best.id);
-      if(prod) camStat('&#10003; '+prod.name+' already in cart — show a different item');
-      _visConf[best.id]=0;
-      return true;
-    }
     if(best&&bestScore<=0.40&&(secScore-bestScore)>=0.07){
       _visConf[best.id]=(_visConf[best.id]||0)+1;
       const prod=prods.find(p=>p.id===best.id);
@@ -2691,6 +2691,7 @@ function startVisualLoop(video) {
     if(video.readyState>=2&&video.videoWidth>0){
       try{
         let handledByDetector=false;
+        const _cartIds=_cartProductIds();
         if(_cocoModel){
           const preds=await _cocoModel.detect(video).catch(()=>[]);
           const boxes=preds.filter(p=>p.score>0.2&&p.bbox[2]>30&&p.bbox[3]>30).slice(0,6);
@@ -2702,7 +2703,7 @@ function startVisualLoop(video) {
               const crop=_cropVideoRegion(video,bx,by,bw,bh,200);
               const ff=_featuresFromCanvas(crop,200,200);
               if(ff.edgeAvg<MIN_EDGE_DETAIL) continue;
-              const {best,bestScore,secScore}=_matchFeaturesAgainstProducts(ff);
+              const {best,bestScore,secScore}=_matchFeaturesAgainstProducts(ff,_cartIds);
               if(best&&!seen[best.id]){ seen[best.id]=true; evalMatch(best,bestScore,secScore,' &#183; '+boxes.length+' in view'); }
             }
             if(!Object.keys(seen).length){
@@ -2719,7 +2720,7 @@ function startVisualLoop(video) {
           for(const scale of [0.4, 0.65, 0.85]){
             const ff=_extractFrameFeatures(video, scale);
             if(ff.edgeAvg<MIN_EDGE_DETAIL) continue;
-            const r=_matchFeaturesAgainstProducts(ff);
+            const r=_matchFeaturesAgainstProducts(ff,_cartIds);
             if(r.bestScore<bestScore){bestScore=r.bestScore;secScore=r.secScore;best=r.best;}
           }
           if(!evalMatch(best,bestScore,secScore,'')) _visConf={};
