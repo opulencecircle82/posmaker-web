@@ -2663,7 +2663,13 @@ function startVisualLoop(video) {
   _loadCocoModel(); // fire-and-forget; loop upgrades automatically once ready
   function evalMatch(best,bestScore,secScore,tag){
     const pct=Math.round((1-bestScore)*100);
-    if(best&&bestScore<=0.30&&(secScore-bestScore)>=0.07){
+    if(best&&cart[best.id]&&cart[best.id].qty>0){
+      const prod=prods.find(p=>p.id===best.id);
+      if(prod) camStat('&#10003; '+prod.name+' already in cart — show a different item');
+      _visConf[best.id]=0;
+      return true;
+    }
+    if(best&&bestScore<=0.40&&(secScore-bestScore)>=0.07){
       _visConf[best.id]=(_visConf[best.id]||0)+1;
       const prod=prods.find(p=>p.id===best.id);
       if(prod) camStat('&#128247; <strong>'+prod.name+'</strong> '+pct+'%'+tag+' — hold still…');
@@ -2674,7 +2680,7 @@ function startVisualLoop(video) {
       }
       return true;
     }
-    if(best&&bestScore<=0.38&&scannerOpen){
+    if(best&&bestScore<=0.48&&scannerOpen){
       const prod=prods.find(p=>p.id===best.id);
       if(prod) camStat('&#128247; '+prod.name+'? '+pct+'%'+tag);
     }
