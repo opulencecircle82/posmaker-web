@@ -2332,7 +2332,8 @@ function stopCamera(){
   _cameraOpening = false;
 }
 
-function camStat(msg){ const el=document.getElementById('camStatus'); if(el) el.innerHTML=msg; }
+let _cocoState='OFF';
+function camStat(msg){ const el=document.getElementById('camStatus'); if(el) el.innerHTML='['+_cocoState+'] '+msg; }
 
 // ─ ZXing barcode loop ────────────────────────────────────────────────────
 function startBcLoop(video){
@@ -2621,29 +2622,22 @@ function _featureScore(f1, f2) {
 // it through the existing per-product hash matcher to identify WHICH product
 // it is. Falls back to whole-frame matching until this finishes loading.
 let _cocoModel = null, _cocoLoading = false;
-function _setCocoBadge(text, color){
-  const b=document.getElementById('cocoStatusBadge');
-  if(!b) return;
-  b.textContent=text;
-  b.style.background=color||'#333';
-  b.style.color='#fff';
-}
 async function _loadCocoModel(){
   if(_cocoModel || _cocoLoading) return;
   _cocoLoading = true;
   console.log('[POSMaker] Loading multi-object detector (COCO-SSD)…');
-  _setCocoBadge('multi-obj: loading…','#a16207');
+  _cocoState='LOADING';
   if(scannerOpen) camStat('&#127919; Loading multi-object detector…');
   try{
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
     await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
     _cocoModel = await cocoSsd.load({base:'lite_mobilenet_v2'});
     console.log('[POSMaker] COCO-SSD loaded successfully — multi-object detection active.');
-    _setCocoBadge('multi-obj: ON','#15803d');
+    _cocoState='ON';
     if(scannerOpen) camStat('&#9989; Multi-object detector ready');
   }catch(e){
     console.warn('[POSMaker] COCO-SSD failed to load — falling back to single-item mode.', e);
-    _setCocoBadge('multi-obj: FAILED','#b91c1c');
+    _cocoState='FAILED';
     if(scannerOpen) camStat('&#9888; Multi-object detector unavailable — single-item mode');
   }
   _cocoLoading = false;
@@ -2913,7 +2907,6 @@ function loadScript(src){
 <div id="camOverlay">
   <div class="cam-hdr">
     <span class="cam-hdr-ttl">&#128247; Product Scanner</span>
-    <span id="cocoStatusBadge" style="font-size:10px;padding:2px 7px;border-radius:10px;background:#333;color:#aaa;margin-left:6px">multi-obj: off</span>
     <button class="cam-cls" onclick="closeScanner()" title="Close">&#215;</button>
   </div>
   <div style="position:relative">
