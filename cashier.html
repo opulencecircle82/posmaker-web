@@ -1744,16 +1744,23 @@ async function confirmOrder() {
 
   if (oErr) { alert(oErr.message); return; }
 
-  await _sb.from('order_items').insert(
-    items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
-  );
+  // Run order_items insert and the products inv_links lookup in parallel —
+  // neither depends on the other's result.
+  const [, prodRowsRes] = await Promise.all([
+    _sb.from('order_items').insert(
+      items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
+    ),
+    _sb.from('products').select('id,inv_links').in('id', items.map(i => i.id))
+  ]);
 
   // Auto-deduct inventory stock based on inv_links (or auto-matched inventory item)
   try {
+    const prodLinksMap = {};
+    (prodRowsRes.data || []).forEach(p => { prodLinksMap[p.id] = p.inv_links; });
+
     const deductions = {};
     for (const item of items) {
-      const { data: pd } = await _sb.from('products').select('inv_links').eq('id', item.id).single();
-      let links = []; try { links = pd?.inv_links ? JSON.parse(pd.inv_links) : []; } catch {}
+      let links = []; try { links = prodLinksMap[item.id] ? JSON.parse(prodLinksMap[item.id]) : []; } catch {}
       if (links.length > 0) {
         for (const link of links) {
           const invId = typeof link === 'string' ? link : link.id;
@@ -1767,16 +1774,25 @@ async function confirmOrder() {
         if (autoId) deductions[autoId] = (deductions[autoId] || 0) + item.qty;
       }
     }
-    for (const [invId, totalUse] of Object.entries(deductions)) {
-      const { data: row } = await _sb.from('inventory_items').select('stock').eq('id', invId).single();
-      if (row != null) {
-        const newStock = Math.max(0, (row.stock || 0) - totalUse);
-        await _sb.from('inventory_items').update({ stock: newStock }).eq('id', invId);
+
+    const invIds = Object.keys(deductions);
+    if (invIds.length > 0) {
+      const { data: invRows } = await _sb.from('inventory_items').select('id,stock').in('id', invIds);
+      const stockMap = {};
+      (invRows || []).forEach(r => { stockMap[r.id] = r.stock; });
+
+      // Fire all stock updates in parallel instead of one-by-one
+      await Promise.all(invIds.map(invId => {
+        const curStock = stockMap[invId];
+        if (curStock == null) return Promise.resolve();
+        const totalUse = deductions[invId];
+        const newStock = Math.max(0, (curStock || 0) - totalUse);
         // Update in-memory stock so display refreshes without a full reload
         if (invById[invId]) invById[invId].stock = newStock;
         const mp = prods.find(x => x._autoInvLink === invId || (x._invResolved && (JSON.parse(x.inv_links||'[]').some(l=>(l.id||l)===invId))));
         if (mp) mp.stock = Math.max(0, (mp.stock || 0) - totalUse);
-      }
+        return _sb.from('inventory_items').update({ stock: newStock }).eq('id', invId);
+      }));
     }
   } catch (_) { /* stock deduction is best-effort */ }
 
@@ -2601,11 +2617,11 @@ function startVisualLoop(video) {
           }
         }
         const pct=Math.round((1-bestScore)*100);
-        if(best&&bestScore<=0.22&&(secScore-bestScore)>=0.04){
+        if(best&&bestScore<=0.15&&(secScore-bestScore)>=0.07){
           _visConf[best.id]=(_visConf[best.id]||0)+1;
           const prod=prods.find(p=>p.id===best.id);
           if(prod) camStat('&#128247; <strong>'+prod.name+'</strong> '+pct+'% — hold still…');
-          if(_visConf[best.id]>=2&&!isOnCooldown(best.id)){
+          if(_visConf[best.id]>=3&&!isOnCooldown(best.id)){
             _visConf={};
             setCooldown(best.id); addItem(best.id);
             if(prod) flashMatch(prod.name,'&#128247; visual');
