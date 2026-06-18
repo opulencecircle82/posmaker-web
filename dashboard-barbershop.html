@@ -193,6 +193,16 @@ input:checked + .slider:before{transform:translateX(18px)}
 
     <!-- DASHBOARD -->
     <div class="section active" id="sec-dashboard">
+      <!-- Free Trial Banner (shown only during active 14-day trial) -->
+      <div id="trialBanner" style="display:none;background:linear-gradient(135deg,#1a0f2a,#0a1a2a);border:1px solid #a855f7;border-radius:12px;padding:14px 24px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">&#127873;</span>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#c084fc" id="trialDaysText"></div>
+            <div style="font-size:12px;color:var(--muted)">All Pro features are unlocked during your free trial.</div>
+          </div>
+        </div>
+      </div>
       <!-- Quick Setup Banner (shown only when store is empty) -->
       <div id="setupBanner" style="display:none;background:linear-gradient(135deg,#0a1a2a,#0a2a1a);border:1px solid var(--accent);border-radius:12px;padding:20px 24px;margin-bottom:20px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
@@ -1481,6 +1491,7 @@ function _sig(ms = 25000) {
   loadStaff();
   loadPOSTerminals();
   checkSetupBanner();
+  checkTrialBanner();
 })();
 
 // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -3659,6 +3670,16 @@ async function testTelegram() {
 }
 
 // â”€â”€ Quick Setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function checkTrialBanner() {
+  const banner = document.getElementById('trialBanner');
+  if (!banner || !STORE) return;
+  if (!STORE.free_until) { banner.style.display = 'none'; return; }
+  const daysLeft = Math.ceil((new Date(STORE.free_until) - new Date()) / 86400000);
+  if (daysLeft <= 0) { banner.style.display = 'none'; return; }
+  const txt = document.getElementById('trialDaysText');
+  if (txt) txt.innerHTML = '&#127881; You have <strong>' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + '</strong> left of your free trial!';
+  banner.style.display = '';
+}
 async function checkSetupBanner() {
   const { count: pc } = await _sb.from('products').select('id',{count:'exact',head:true}).eq('store_id',STORE.id);
   const { count: sc } = await _sb.from('store_users').select('id',{count:'exact',head:true}).eq('store_id',STORE.id);
