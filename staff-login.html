@@ -116,6 +116,15 @@ async function sha256(msg) {
   return h.map(v=>(v>>>0).toString(16).padStart(8,'0')).join('');
 }
 
+function getDeviceLabel() {
+  const ua = navigator.userAgent || '';
+  const isTablet = /iPad|Android(?!.*Mobile)/i.test(ua);
+  const isMobile = !isTablet && /iPhone|Android.*Mobile|Mobile.*Android/i.test(ua);
+  const os = /Windows/i.test(ua) ? 'Windows' : /Macintosh|Mac OS X/i.test(ua) ? 'Mac' : /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Linux/i.test(ua) ? 'Linux' : 'Unknown';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  const type = isTablet ? 'Tablet' : isMobile ? 'Mobile' : 'Desktop';
+  return type + ' \u00b7 ' + os + ' \u00b7 ' + browser;
+}
 async function doLogin() {
   const username = document.getElementById('username').value.trim();
   const pw       = document.getElementById('pw').value;
@@ -147,6 +156,9 @@ async function doLogin() {
     localStorage.setItem('pm_mgr', JSON.stringify(session));
     // Record login to staff_logs so dashboard shows Last Login
     await _sb.rpc('log_staff_login', { p_store_id: SID, p_staff_id: staff.id, p_username: staff.username });
+    if (staff.role === 'manager') {
+      _sb.from('activity_logs').insert({ store_id: SID, actor_name: staff.full_name || staff.username, actor_role: 'manager', action: 'LOGIN', target_name: staff.full_name || staff.username, details: JSON.stringify({ device: getDeviceLabel() }) }).then(() => {});
+    }
     location.href = staff.role === 'manager' ? 'manager.html?sid=' + SID : 'cashier.html?store=' + SID;
   } catch(e) {
     errEl.textContent = e.message || 'Login failed.';

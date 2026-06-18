@@ -431,6 +431,8 @@ input:checked + .slider:before{transform:translateX(18px)}
               <option value="SALE">Sale</option>
               <option value="REMITTANCE">Remittance</option>
               <option value="MGR_REMIT">Deposit</option>
+              <option value="LOGIN">Login</option>
+              <option value="LOGOUT">Logout</option>
             </select>
             <button class="btn btn-ghost btn-sm" onclick="loadActivityLog()">&#8635; Refresh</button>
             <button class="btn btn-ghost btn-sm" onclick="downloadActivityLog()" style="color:#00b4d8;border-color:rgba(0,180,216,.3)">&#11123; Download</button>
@@ -1685,6 +1687,16 @@ async function doLogout() {
   localStorage.removeItem('pm_store_id');
   location.href = 'login.html';
 }
+// ── Auto-logout after 5 min idle ───────────────────────────────────────────
+let _idleTimer = null;
+function _resetIdleTimer() {
+  clearTimeout(_idleTimer);
+  _idleTimer = setTimeout(() => { doLogout(); }, 5 * 60 * 1000);
+}
+['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt =>
+  document.addEventListener(evt, _resetIdleTimer, { passive: true }));
+_resetIdleTimer();
+
 
 // â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadDashboard() {
@@ -3184,7 +3196,7 @@ function renderActivityLog() {
   if (actorF)  rows = rows.filter(l => (l.actor_name || '').trim() === actorF.trim());
   if (actionF) rows = rows.filter(l => actionF === '__others__' ? ['OWNER_SEND','SALARY_GIVEN','EXPENSE_PAID'].includes(l.action) : l.action === actionF);
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No activity found.</td></tr>'; return; }
-  const actionLabel = { ADD_STOCK: '+ Add Stock', EDIT_ITEM: 'Edit Item', ADD_ITEM: '+ New Item', SALE: '💰 Sale', REMITTANCE: '🪙 Remittance', MGR_REMIT: '⬆ Deposit', OWNER_SEND: '💸 Send', SALARY_GIVEN: '👤 Salary', EXPENSE_PAID: '📋 Expense' };
+  const actionLabel = { ADD_STOCK: '+ Add Stock', EDIT_ITEM: 'Edit Item', ADD_ITEM: '+ New Item', SALE: '💰 Sale', REMITTANCE: '🪙 Remittance', MGR_REMIT: '⬆ Deposit', OWNER_SEND: '💸 Send', SALARY_GIVEN: '👤 Salary', EXPENSE_PAID: '📋 Expense', LOGIN: '🔓 Login', LOGOUT: '🔒 Logout' };
   const actionColor = {
     ADD_STOCK:   'background:#0d2e1f;color:#10b981',
     EDIT_ITEM:   'background:#0d1a2e;color:#00b4d8',
@@ -3195,6 +3207,8 @@ function renderActivityLog() {
     OWNER_SEND:   'background:#0a2a10;color:#39ff14',
     SALARY_GIVEN: 'background:#0a2a10;color:#39ff14',
     EXPENSE_PAID: 'background:#2a1a0a;color:#f59e0b',
+    LOGIN:        'background:#0a2a2a;color:#06b6d4',
+    LOGOUT:       'background:#2a0a0a;color:#f87171',
   };
   tbody.innerHTML = rows.map(l => {
     const dt = new Date(l.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});

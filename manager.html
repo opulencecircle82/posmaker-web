@@ -1157,7 +1157,34 @@ function showToast(msg, isErr){
   _toastT = setTimeout(()=>el.style.opacity='0', 2800);
 }
 
-function doLogout(){ if(_pingInterval){clearInterval(_pingInterval);_pingInterval=null;} if(MGR?.staff_id) _sb.rpc('log_staff_logout',{p_staff_id:MGR.staff_id}).then(() => {}); localStorage.removeItem('pm_mgr'); goLogin(); }
+function getDeviceLabel() {
+  const ua = navigator.userAgent || '';
+  const isTablet = /iPad|Android(?!.*Mobile)/i.test(ua);
+  const isMobile = !isTablet && /iPhone|Android.*Mobile|Mobile.*Android/i.test(ua);
+  const os = /Windows/i.test(ua) ? 'Windows' : /Macintosh|Mac OS X/i.test(ua) ? 'Mac' : /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Linux/i.test(ua) ? 'Linux' : 'Unknown';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  const type = isTablet ? 'Tablet' : isMobile ? 'Mobile' : 'Desktop';
+  return type + ' \u00b7 ' + os + ' \u00b7 ' + browser;
+}
+function doLogout(){
+  if(_pingInterval){clearInterval(_pingInterval);_pingInterval=null;}
+  if(MGR?.staff_id){
+    _sb.rpc('log_staff_logout',{p_staff_id:MGR.staff_id}).then(() => {});
+    _sb.from('activity_logs').insert({ store_id: MGR.store_id, actor_name: MGR.name, actor_role: MGR.role || 'manager', action: 'LOGOUT', target_name: MGR.name, details: JSON.stringify({ device: getDeviceLabel() }) }).then(() => {});
+  }
+  localStorage.removeItem('pm_mgr');
+  goLogin();
+}
+// ── Auto-logout after 5 min idle ───────────────────────────────────────────
+let _idleTimer = null;
+function _resetIdleTimer() {
+  clearTimeout(_idleTimer);
+  _idleTimer = setTimeout(() => { doLogout(); }, 5 * 60 * 1000);
+}
+['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt =>
+  document.addEventListener(evt, _resetIdleTimer, { passive: true }));
+_resetIdleTimer();
+
 
 // ── Manager Inbox ────────────────────────────────────────────────────────────
 async function openMsgInbox() {

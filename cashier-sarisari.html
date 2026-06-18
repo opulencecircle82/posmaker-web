@@ -791,6 +791,15 @@ document.getElementById('lp').addEventListener('keydown', e => { if (e.key === '
 function togglePw(){ const f=document.getElementById('lp'); f.type=f.type==='password'?'text':'password'; }
 document.getElementById('mQtyVal').addEventListener('keydown', e => { if (e.key === 'Enter') confirmQty(); });
 
+function getDeviceLabel() {
+  const ua = navigator.userAgent || '';
+  const isTablet = /iPad|Android(?!.*Mobile)/i.test(ua);
+  const isMobile = !isTablet && /iPhone|Android.*Mobile|Mobile.*Android/i.test(ua);
+  const os = /Windows/i.test(ua) ? 'Windows' : /Macintosh|Mac OS X/i.test(ua) ? 'Mac' : /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Linux/i.test(ua) ? 'Linux' : 'Unknown';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  const type = isTablet ? 'Tablet' : isMobile ? 'Mobile' : 'Desktop';
+  return type + ' \u00b7 ' + os + ' \u00b7 ' + browser;
+}
 async function doLogin() {
   const username = document.getElementById('lu').value.trim().toLowerCase();
   const pw       = document.getElementById('lp').value;
@@ -838,6 +847,7 @@ async function doLogin() {
     CASHIER = found;
     try { const _cu=JSON.parse(localStorage.getItem('pm_cached_users_'+STORE_ID)||'[]'); const _xi=_cu.findIndex(u=>u.id===found.id); if(_xi>=0)_cu[_xi]=found;else _cu.push(found); localStorage.setItem('pm_cached_users_'+STORE_ID,JSON.stringify(_cu)); } catch(_) {}
     _sb.rpc('log_staff_login', { p_store_id: STORE_ID, p_staff_id: found.id, p_username: found.username }).then(() => {});
+    _sb.from('activity_logs').insert({ store_id: STORE_ID, actor_name: found.full_name || found.username, actor_role: found.role || 'cashier', action: 'LOGIN', target_name: found.full_name || found.username, details: JSON.stringify({ device: getDeviceLabel() }) }).then(() => {});
     if (prods.length === 0) {
       await loadProds(); // first login — must load before showing POS
     } else {
@@ -1036,7 +1046,10 @@ function cancelRemitLogout() {
 function _actualLogout() {
   clearTimeout(_openScanTimer); _openScanTimer = null;
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
-  if (CASHIER?.id) _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
+  if (CASHIER?.id) {
+    _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
+    _sb.from('activity_logs').insert({ store_id: STORE_ID, actor_name: CASHIER.full_name || CASHIER.username, actor_role: CASHIER.role || 'cashier', action: 'LOGOUT', target_name: CASHIER.full_name || CASHIER.username, details: JSON.stringify({ device: getDeviceLabel() }) }).then(() => {});
+  }
   closeScanner();
   stopSquareScanner();
   stopCamera();
