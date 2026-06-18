@@ -2082,7 +2082,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── Square Scanner ─────────────────────────────────────────────────────────
-let _sqStream = null, _sqOpen = false, _sqBcId = null, _sqSess = 0, _sqNativeBd = null;
+let _sqStream = null, _sqOpen = false, _sqBcId = null, _sqSess = 0, _sqNativeBd = null, _sqVisConf = {};
 let _sqTxtLoopId = null, _sqTextDet = null;
 const _sqBc = document.createElement('canvas'); _sqBc.width = 480; _sqBc.height = 480;
 const _sqBctx = _sqBc.getContext('2d');
@@ -2151,21 +2151,24 @@ function _startSqVisualLoop(video, sess) {
   if (!_prodHashes.length) return;
   const stat = document.getElementById('sqStatus');
   const isMobile = /android|mobile|tablet/i.test(navigator.userAgent);
+  _sqVisConf = {};
   function loop() {
     if (!_sqOpen || _sqSess !== sess) { _sqVisLoopId = null; return; }
     try {
       let best = null, bestScore = Infinity, secScore = Infinity;
       for (const scale of [0.4, 0.65, 0.85]) {
         const ff = _extractFrameFeatures(video, scale);
+        if (ff.edgeAvg < MIN_EDGE_DETAIL) continue; // blank/featureless frame — no real object in view
         for (const ph of _prodHashes) {
           const s = Math.min(...ph.features.map(f => _featureScore(ff, f)));
           if (s < bestScore) { secScore = bestScore; bestScore = s; best = ph; }
           else if (s < secScore) { secScore = s; }
         }
       }
-      const _visConf = {};  // reuse local conf map per loop
-      if (best && bestScore < 0.72 && (secScore - bestScore) > 0.08) {
-        if (!isOnCooldown(best.id)) {
+      if (best && bestScore <= 0.15 && (secScore - bestScore) >= 0.07) {
+        _sqVisConf[best.id] = (_sqVisConf[best.id] || 0) + 1;
+        if (_sqVisConf[best.id] >= 3 && !isOnCooldown(best.id)) {
+          _sqVisConf = {};
           setCooldown(best.id); addItem(best.id);
           const p = prods.find(x => x.id == best.id);
           if (p) showSqHit(p);
@@ -2174,6 +2177,8 @@ function _startSqVisualLoop(video, sess) {
             setTimeout(() => { sqStatusUpdate(); }, 1500);
           }
         }
+      } else {
+        _sqVisConf = {};
       }
     } catch(_) {}
     _sqVisLoopId = setTimeout(loop, isMobile ? 1800 : 1000);
@@ -2505,6 +2510,9 @@ function matchTextToProduct(ocrText){
 // ── Visual product matching: shape (Sobel edges) + color (HSV) + structure ─
 // Features per photo: aHash (structure) + edgeHash (shape) + colorHist (HSV hue+value)
 // Frame tested at 3 scales (close / mid / far) for distance-independent matching.
+// MIN_EDGE_DETAIL: raw Sobel magnitude average below this means the frame is
+// blank/featureless (hand, counter, wall) — skip matching, there's no real object in view.
+const MIN_EDGE_DETAIL = 12;
 
 async function buildImgHashes() {
   _prodHashes = [];
@@ -2581,7 +2589,7 @@ function _featuresFromCanvas(source, sw, sh) {
     ...vBins.map(v=>v/totalPx)
   ];
 
-  return { aHash, edgeHash, colorHist };
+  return { aHash, edgeHash, colorHist, edgeAvg: eAvg };
 }
 
 function _extractFrameFeatures(video, scale) {
@@ -2616,6 +2624,7 @@ function startVisualLoop(video) {
         let best=null, bestScore=9999, secScore=9999;
         for(const scale of [0.4, 0.65, 0.85]){
           const ff=_extractFrameFeatures(video, scale);
+          if(ff.edgeAvg<MIN_EDGE_DETAIL) continue; // blank/featureless frame — no real object in view
           for(const ph of _prodHashes){
             const s=Math.min(...ph.features.map(f=>_featureScore(ff,f)));
             if(s<bestScore){secScore=bestScore;bestScore=s;best=ph;}
