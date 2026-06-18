@@ -695,8 +695,8 @@ function adaptCashierMode(bizType) {
   IS_RETAIL   = !isRestaurant;
   USES_CHAIRS = usesChairs;
 
-  // Hide order type tabs / KOT for non-restaurant; Table/Chair button shown for restaurants and chair-based shops
-  document.querySelector('.ot-bar').style.display   = isRestaurant ? '' : 'none';
+  // Hide KOT for non-restaurant; Table/Chair button shown for restaurants and chair-based shops
+  // (order type tabs were replaced by the Confirm Order popup — no .ot-bar element anymore)
   document.getElementById('btnTable').style.display = (isRestaurant || usesChairs) ? '' : 'none';
   document.getElementById('btnKOT').style.display   = isRestaurant ? '' : 'none';
   updateTableBtn();
