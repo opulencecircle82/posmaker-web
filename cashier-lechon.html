@@ -1532,8 +1532,12 @@ function _maxStock(id) {
   return Math.max(0, parseFloat(p.stock));
 }
 
-function addItem(id) {
+function isUnliProduct(p) {
+  return (p.category||'').trim().toLowerCase().includes('unli');
+}
+function addItem(id, skipUnliCheck) {
   const p = prods.find(x => x.id == id); if (!p) return;
+  if (!skipUnliCheck && isUnliProduct(p)) { openUnliTypeModal(id); return; }
   if (p.sold_by_weight) { openWeightModal(id); return; }
   if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
   const max = _maxStock(id);
@@ -2997,7 +3001,18 @@ function loadScript(src){
 </div>
 <!-- WEIGHT INPUT MODAL (sold-by-weight products) -->
 <!-- Standalone floating widget — NO dark backdrop, rest of POS stays visible -->
-<div id="weightModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;width:min(270px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.7)">
+<div id="unliTypeModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;width:min(270px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.7)">
+    <div class="mtitle" style="font-size:14px;margin-bottom:10px">&#127869; Dine In or Take Out?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+      <button type="button" class="q-cash" style="padding:12px;font-size:13px" onclick="confirmUnliType('Dine In')">&#127869; Dine In</button>
+      <button type="button" class="q-cash" style="padding:12px;font-size:13px" onclick="confirmUnliType('Take Out')">&#129385; Take Out <span style="color:#888">(+<span id="unliFeeLabel"></span>)</span></button>
+    </div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeUnliTypeModal()">Cancel</button>
+    </div>
+  </div>
+
+  <div id="weightModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;width:min(270px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.7)">
     <div class="mtitle" id="weightModalTitle" style="font-size:14px;margin-bottom:4px">&#9878;&#65039; Enter Weight</div>
     <div style="font-size:11px;color:#888;margin-bottom:10px" id="weightPricePerKg"></div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -3028,6 +3043,31 @@ function loadScript(src){
 </div>
 
 <script>
+let _unliProdId = null;
+function openUnliTypeModal(id) {
+  _unliProdId = id;
+  const fee = parseFloat(STORE.unli_takeout_fee) || 0;
+  document.getElementById('unliFeeLabel').textContent = (CUR||'₱') + fee.toFixed(2);
+  document.getElementById('unliTypeModal').style.display = 'block';
+}
+function closeUnliTypeModal() {
+  document.getElementById('unliTypeModal').style.display = 'none';
+  _unliProdId = null;
+}
+function confirmUnliType(type) {
+  const id = _unliProdId;
+  const p = prods.find(x => x.id == id);
+  closeUnliTypeModal();
+  if (!p) return;
+  if (type === 'Dine In') { addItem(id, true); return; }
+  const fee = parseFloat(STORE.unli_takeout_fee) || 0;
+  const key = id + '_takeout';
+  if (!cart[key]) cart[key] = { id: p.id, name: p.name + ' (Take Out)', price: parseFloat(p.price) + fee, qty: 0 };
+  const max = _maxStock(id);
+  if (cart[key].qty >= max) { showToast(`Only ${max} in stock`); return; }
+  cart[key].qty++;
+  redrawCart();
+}
 let _weightProdId = null, _weightPricePerKg = 0;
 function openWeightModal(id) {
   const p = prods.find(x => x.id == id); if (!p) return;

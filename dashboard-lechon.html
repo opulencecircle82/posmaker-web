@@ -571,6 +571,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div class="field"><label>Currency Symbol</label><input id="sCurrency" type="text" maxlength="4"></div>
           <div class="field"><label>Tax Rate (%)</label><input id="sTax" type="number" min="0" max="100" step="0.5"></div>
         </div>
+        <div class="field"><label>Unli Takeout Fee (&#8369;) <span style="color:var(--muted);font-size:11px;font-weight:400">(extra charge when an Unli item is ordered Take Out)</span></label><input id="sUnliFee" type="number" min="0" step="0.01" placeholder="0.00"></div>
         <div class="row2">
           <div class="field"><label>Opening Time</label><input id="sOpenTime" type="time"></div>
           <div class="field"><label>Closing Time</label><input id="sCloseTime" type="time"></div>
@@ -1375,6 +1376,7 @@ function _sig(ms = 25000) {
   document.getElementById('sAddress').value  = store.address || '';
   document.getElementById('sCurrency').value = store.currency || '&#8369;';
   document.getElementById('sTax').value      = store.tax_rate || 12;
+  document.getElementById('sUnliFee').value  = store.unli_takeout_fee || 0;
   document.getElementById('sOpenTime').value  = store.open_time  || '08:00';
   document.getElementById('sCloseTime').value = store.close_time || '20:00';
   const _closedDays = (store.closed_days || '').split(',').filter(Boolean);
@@ -3592,6 +3594,7 @@ async function saveSettings() {
     address:        document.getElementById('sAddress').value.trim(),
     currency:       document.getElementById('sCurrency').value.trim() || '&#8369;',
     tax_rate:       parseFloat(document.getElementById('sTax').value) || 0,
+    unli_takeout_fee: parseFloat(document.getElementById('sUnliFee').value) || 0,
     open_time:      document.getElementById('sOpenTime').value || '08:00',
     close_time:     document.getElementById('sCloseTime').value || '20:00',
     closed_days:    [0,1,2,3,4,5,6].filter(d => document.getElementById('sClosedDay'+d).checked).join(','),
