@@ -1585,9 +1585,9 @@ function redrawCart() {
       </div>` : `<div class="ci">
         <span class="ci-name">${i.name}</span>
         <div class="ci-qty">
-          <button class="q-btn" onclick="adjQty('${i.id}',-1)">&#8722;</button>
+          <button class="q-btn" onclick="adjQty('${i._key||i.id}',-1)">&#8722;</button>
           <span class="ci-qty-num">${i.qty}</span>
-          <button class="q-btn" onclick="adjQty('${i.id}',1)">+</button>
+          <button class="q-btn" onclick="adjQty('${i._key||i.id}',1)">+</button>
         </div>
         <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
       </div>`).join('')
@@ -3006,21 +3006,18 @@ function loadScript(src){
 <!-- WEIGHT INPUT MODAL (sold-by-weight products) -->
 <!-- Standalone floating widget — NO dark backdrop, rest of POS stays visible -->
 <div id="unliTypeModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;width:min(300px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.7)">
-    <div class="mtitle" style="font-size:14px;margin-bottom:10px">&#127869; Dine In or Take Out?</div>
-    <div id="unliStep1" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
-      <button type="button" class="q-cash" style="padding:12px;font-size:13px" onclick="chooseUnliDineIn()">&#127869; Dine In</button>
-      <button type="button" class="q-cash" style="padding:12px;font-size:13px" onclick="chooseUnliTakeOut()">&#129385; Take Out</button>
+    <div class="mtitle" id="unliModalTitle" style="font-size:14px;margin-bottom:6px">&#127869; Dine In or Take Out?</div>
+    <div style="text-align:center;font-size:22px;font-weight:800;color:var(--accent);margin-bottom:10px" id="unliTotalLabel">₱0.00</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button type="button" class="q-cash" id="unliBtnDineIn" style="flex:1;padding:10px;font-size:13px" onclick="setUnliType('Dine In')">&#127869; Dine In</button>
+      <button type="button" class="q-cash" id="unliBtnTakeOut" style="flex:1;padding:10px;font-size:13px" onclick="setUnliType('Take Out')">&#129385; Take Out</button>
     </div>
-    <div id="unliStep2" style="display:none">
-      <div style="text-align:center;font-size:20px;font-weight:800;color:var(--accent);margin-bottom:10px">+<span id="unliTotalLabel">₱0.00</span></div>
-      <div style="font-size:11px;color:#888;margin-bottom:6px">Add packaging from raw materials (optional):</div>
-      <select id="unliInvCat" class="inp" onchange="populateUnliInvItems()" style="margin-bottom:6px"><option value="">— Category —</option></select>
-      <select id="unliInvItem" class="inp" onchange="addUnliInvItem()" style="margin-bottom:8px"><option value="">— Item —</option></select>
-      <div id="unliInvAddedList" style="font-size:11px;color:#ccc;margin-bottom:6px"></div>
-    </div>
+    <select id="unliInvCat" class="inp" onchange="populateUnliInvItems()" disabled style="margin-bottom:6px"><option value="">— Category —</option></select>
+    <select id="unliInvItem" class="inp" onchange="addUnliInvItem()" disabled style="margin-bottom:8px"><option value="">— Material —</option></select>
+    <div id="unliInvAddedList" style="font-size:11px;color:#ccc;margin-bottom:6px"></div>
     <div class="m-actions">
       <button class="btn-cancel" onclick="closeUnliTypeModal()">Cancel</button>
-      <button class="btn-confirm" id="unliConfirmBtn" style="display:none" onclick="finishUnliTakeOut()">Add to Cart</button>
+      <button class="btn-confirm" onclick="finishUnliTakeOut()">Add to Cart</button>
     </div>
   </div>
 
@@ -3056,37 +3053,41 @@ function loadScript(src){
 
 <script>
 let _unliProdId = null;
-let _unliExtra = 0, _unliAddedItems = [];
+let _unliBasePrice = 0, _unliExtra = 0, _unliAddedItems = [], _unliType = 'Dine In';
 function openUnliTypeModal(id) {
+  const p = prods.find(x => x.id == id); if (!p) return;
   _unliProdId = id;
+  _unliBasePrice = parseFloat(p.price) || 0;
   _unliExtra = 0;
   _unliAddedItems = [];
-  document.getElementById('unliStep1').style.display = '';
-  document.getElementById('unliStep2').style.display = 'none';
-  document.getElementById('unliConfirmBtn').style.display = 'none';
+  document.getElementById('unliModalTitle').innerHTML = '&#127869; ' + p.name;
+  document.getElementById('unliInvAddedList').innerHTML = '';
+  setUnliType('Dine In');
   document.getElementById('unliTypeModal').style.display = 'block';
 }
 function closeUnliTypeModal() {
   document.getElementById('unliTypeModal').style.display = 'none';
   _unliProdId = null;
 }
-function chooseUnliDineIn() {
-  const id = _unliProdId;
-  closeUnliTypeModal();
-  addItem(id, true);
-}
-function chooseUnliTakeOut() {
-  _unliExtra = parseFloat(STORE.unli_takeout_fee) || 0;
-  _unliAddedItems = [];
-  document.getElementById('unliStep1').style.display = 'none';
-  document.getElementById('unliStep2').style.display = '';
-  document.getElementById('unliConfirmBtn').style.display = '';
+function setUnliType(type) {
+  _unliType = type;
+  const isTakeOut = type === 'Take Out';
+  const dineBtn = document.getElementById('unliBtnDineIn'), outBtn = document.getElementById('unliBtnTakeOut');
+  dineBtn.style.background = isTakeOut ? '' : 'var(--accent)'; dineBtn.style.color = isTakeOut ? '' : '#fff';
+  outBtn.style.background  = isTakeOut ? 'var(--accent)' : ''; outBtn.style.color  = isTakeOut ? '#fff' : '';
+  document.getElementById('unliInvCat').disabled  = !isTakeOut;
+  document.getElementById('unliInvItem').disabled = !isTakeOut;
+  if (isTakeOut) {
+    populateUnliInvCats();
+  } else {
+    _unliExtra = 0;
+    _unliAddedItems = [];
+    renderUnliAddedList();
+  }
   updateUnliTotalLabel();
-  populateUnliInvCats();
-  renderUnliAddedList();
 }
 function updateUnliTotalLabel() {
-  document.getElementById('unliTotalLabel').textContent = (CUR||'₱') + _unliExtra.toFixed(2);
+  document.getElementById('unliTotalLabel').textContent = (CUR||'₱') + (_unliBasePrice + _unliExtra).toFixed(2);
 }
 function populateUnliInvCats() {
   const sel = document.getElementById('unliInvCat');
@@ -3138,10 +3139,15 @@ function finishUnliTakeOut() {
   const id = _unliProdId;
   const p = prods.find(x => x.id == id);
   if (!p) { closeUnliTypeModal(); return; }
+  if (_unliType === 'Dine In') {
+    closeUnliTypeModal();
+    addItem(id, true);
+    return;
+  }
   const key = id + '_takeout';
-  if (!cart[key]) cart[key] = { id: p.id, name: p.name + ' (Take Out)', price: parseFloat(p.price) + _unliExtra, qty: 0, _unliInvUsed: [] };
+  if (!cart[key]) cart[key] = { id: p.id, name: p.name + ' (Take Out)', price: parseFloat(p.price) + _unliExtra, qty: 0, _unliInvUsed: [], _key: key };
   const max = _maxStock(id);
-  if (cart[key].qty >= max) { showToast(`Only ${max} in stock`); return; }
+  if (cart[key].qty >= max) { showToast(`Only ${max} in stock`); closeUnliTypeModal(); return; }
   cart[key].qty++;
   cart[key]._unliInvUsed = (cart[key]._unliInvUsed || []).concat(_unliAddedItems.map(it => it.invId));
   closeUnliTypeModal();
