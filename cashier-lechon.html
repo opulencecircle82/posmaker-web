@@ -1125,7 +1125,7 @@ async function loadProds() {
   // For products without inv_links: match by name/SKU as fallback (e.g. drug stores)
   try {
     const { data: invData } = await _sb.from('inventory_items')
-      .select('id,name,sku,stock,low_stock_threshold,unit,category,cost').eq('store_id', STORE_ID);
+      .select('id,name,sku,stock,low_stock_threshold,unit,category,cost_price').eq('store_id', STORE_ID);
     storeInvItems = invData || [];
     invById = {}; invByName = {};
     storeInvItems.forEach(i => {
@@ -3102,7 +3102,7 @@ function populateUnliInvItems() {
   sel.innerHTML = '<option value="">— Item —</option>';
   if (!cat) return;
   storeInvItems.filter(i => i.category === cat).forEach(i => {
-    sel.add(new Option(i.name + ' (' + (CUR||'₱') + (parseFloat(i.cost)||0).toFixed(2) + ')', i.id));
+    sel.add(new Option(i.name + ' (' + (CUR||'₱') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id));
   });
 }
 function addUnliInvItem() {
@@ -3111,7 +3111,7 @@ function addUnliInvItem() {
   if (!invId) return;
   const inv = storeInvItems.find(i => i.id == invId);
   if (!inv) return;
-  const cost = parseFloat(inv.cost) || 0;
+  const cost = parseFloat(inv.cost_price) || 0;
   _unliExtra += cost;
   _unliAddedItems.push({ invId: inv.id, name: inv.name, cost });
   updateUnliTotalLabel();
