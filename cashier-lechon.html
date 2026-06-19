@@ -532,6 +532,37 @@ function getBrowserDevId() {
   }
   return id;
 }
+// Hardware/browser fingerprint — recomputed from the device's own environment
+// each time (canvas rendering, GPU renderer string, screen size, timezone),
+// so unlike pm_dev_id it survives a cleared localStorage/cache. Best-effort
+// only: a browser/driver update can change it, so it's a fallback signal,
+// not a guarantee.
+async function getDeviceFingerprint() {
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillText('posmaker-fp', 2, 2);
+    const canvasData = canvas.toDataURL();
+    let renderer = '';
+    try {
+      const gl = document.createElement('canvas').getContext('webgl');
+      const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+      renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : '';
+    } catch (_) {}
+    const raw = [
+      navigator.userAgent,
+      screen.width + 'x' + screen.height,
+      navigator.hardwareConcurrency || '',
+      Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+      renderer,
+      canvasData.slice(-60),
+    ].join('|');
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (_) { return null; }
+}
 function getDeviceName() {
   const ua = navigator.userAgent;
   if (/android/i.test(ua)) {
@@ -581,13 +612,16 @@ async function checkWebDevice(storeId, register = false) {
 async function reclaimDevice(storeId) {
   try {
     const devId = getBrowserDevId();
+    const fingerprint = await getDeviceFingerprint();
     const { data: rows } = await _sb.from('pos_devices').select('id,device_id').eq('store_id', storeId).limit(1);
     if (rows && rows.length) {
       if (rows[0].device_id !== devId) {
-        await _sb.from('pos_devices').update({ device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform(), registered_at: new Date().toISOString() }).eq('id', rows[0].id);
+        await _sb.from('pos_devices').update({ device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform(), registered_at: new Date().toISOString(), fingerprint }).eq('id', rows[0].id);
+      } else {
+        await _sb.from('pos_devices').update({ fingerprint }).eq('id', rows[0].id);
       }
     } else {
-      await _sb.from('pos_devices').insert({ store_id: storeId, device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform() });
+      await _sb.from('pos_devices').insert({ store_id: storeId, device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform(), fingerprint });
     }
   } catch (_) {}
 }
@@ -625,6 +659,21 @@ async function reclaimDevice(storeId) {
   }
 
   if (!STORE_ID && !navigator.onLine) { try { const _cm=JSON.parse(localStorage.getItem('pm_store_code_map')||'{}'); for(const _sid of Object.values(_cm)){ if(localStorage.getItem('pm_cached_store_'+_sid)){ STORE_ID=_sid; localStorage.setItem('pm_store_id',_sid); break; } } } catch(_){} }
+  // Local device record (pm_store_id) is gone — before asking for the Store
+  // Code again, try recognizing this device by its hardware/browser
+  // fingerprint, which survives a cleared cache since it isn't read from storage.
+  if (!STORE_ID && navigator.onLine) {
+    try {
+      const fp = await getDeviceFingerprint();
+      if (fp) {
+        const { data: fpRows } = await _sb.from('pos_devices').select('store_id').eq('fingerprint', fp).limit(1);
+        if (fpRows && fpRows.length) {
+          STORE_ID = fpRows[0].store_id;
+          localStorage.setItem('pm_store_id', STORE_ID);
+        }
+      }
+    } catch (_) {}
+  }
   if (!STORE_ID) {
     document.getElementById('loginWrap').style.display = 'none';
     document.getElementById('activateWrap').classList.add('show');

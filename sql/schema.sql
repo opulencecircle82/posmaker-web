@@ -282,11 +282,23 @@ ALTER TABLE pos_devices ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS pd_owner        ON pos_devices;
 DROP POLICY IF EXISTS pd_anon_select  ON pos_devices;
 DROP POLICY IF EXISTS pd_anon_insert  ON pos_devices;
+DROP POLICY IF EXISTS pd_anon_update  ON pos_devices;
 CREATE POLICY pd_owner ON pos_devices FOR ALL TO authenticated
   USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
   WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
 CREATE POLICY pd_anon_select ON pos_devices FOR SELECT TO anon USING (TRUE);
 CREATE POLICY pd_anon_insert ON pos_devices FOR INSERT TO anon WITH CHECK (TRUE);
+-- Lets a cashier device that re-logs in re-claim its slot (e.g. after a
+-- cleared cache changed its local device fingerprint) without the owner
+-- needing to click "Reset Device".
+CREATE POLICY pd_anon_update ON pos_devices FOR UPDATE TO anon USING (TRUE) WITH CHECK (TRUE);
+
+-- Hardware/browser fingerprint — survives a cleared localStorage/cache,
+-- since it's recomputed from the device's environment each time rather
+-- than read from storage. Used as a fallback to recognize a returning
+-- device without asking for the Store Code again.
+ALTER TABLE pos_devices ADD COLUMN IF NOT EXISTS fingerprint TEXT;
+CREATE INDEX IF NOT EXISTS idx_pos_devices_fingerprint ON pos_devices(fingerprint);
 
 -- Staff online tracking columns
 ALTER TABLE store_users ADD COLUMN IF NOT EXISTS last_seen     TIMESTAMPTZ;
