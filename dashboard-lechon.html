@@ -1912,36 +1912,65 @@ async function addHelperTask(helperId) {
 }
 
 // ── Manager Cash on Hand ─────────────────────────────────────────────────
-async function openMgrCohModal() {
-  if (!STORE) return;
+let _cohStaffId = '', _cohPeriod = 'all';
+function openMgrCohModal(staffId) {
+  if (staffId) _cohStaffId = staffId;
   document.getElementById('mgrCohModal').classList.add('show');
+  _cohPeriod = 'all';
+  renderMgrCohModal();
+}
+function setCohPeriod(period) {
+  _cohPeriod = period;
+  renderMgrCohModal();
+}
+function _cohPeriodRange(period) {
+  const today = new Date().toISOString().slice(0,10);
+  if (period === 'today') return [today, today];
+  if (period === 'week') {
+    const d = new Date(); d.setDate(d.getDate() - 6);
+    return [d.toISOString().slice(0,10), today];
+  }
+  if (period === 'month') {
+    const d = new Date(); const start = new Date(d.getFullYear(), d.getMonth(), 1);
+    return [start.toISOString().slice(0,10), today];
+  }
+  return [null, null];
+}
+async function renderMgrCohModal() {
+  if (!STORE) return;
   const el = document.getElementById('mgrCohModalContent');
   el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>';
   const { data } = await _sb.from('cash_remittances')
     .select('cashier_name,cash_on_hand,status,shift_date')
     .eq('store_id', STORE.id)
     .order('created_at', { ascending: false });
-  const rows = data || [];
-  if (!rows.length) {
+  const allRows = data || [];
+  if (!allRows.length) {
     el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">No remittances recorded yet.</div>';
     return;
   }
   const adjStatuses = ['purchase','deposit','coh_to_staff'];
   const mgrRemitStatuses = ['mgr_remit'];
   const paymentStatuses = ['owner_payment','payment_confirmed'];
-  const cashierRows  = rows.filter(r => !adjStatuses.includes(r.status) && !mgrRemitStatuses.includes(r.status) && !paymentStatuses.includes(r.status));
-  const adjRows      = rows.filter(r => adjStatuses.includes(r.status));
-  const mgrRemitRows = rows.filter(r => mgrRemitStatuses.includes(r.status));
+
+  // "Net Cash with Manager" is the manager's CURRENT running balance — always
+  // all-time, regardless of the period tab (a period filter wouldn't make
+  // sense for a current-state total). Only the breakdown list below is
+  // filtered by the selected period.
+  const cashierRowsAll  = allRows.filter(r => !adjStatuses.includes(r.status) && !mgrRemitStatuses.includes(r.status) && !paymentStatuses.includes(r.status));
+  const adjRowsAll       = allRows.filter(r => adjStatuses.includes(r.status));
+  const mgrRemitRowsAll  = allRows.filter(r => mgrRemitStatuses.includes(r.status));
   const confirmedStatuses = ['over','short','balanced'];
-  const confirmedRows = cashierRows.filter(r => confirmedStatuses.includes(r.status));
-  const pendingRows   = cashierRows.filter(r => r.status === 'pending');
-  const confirmedTotal = confirmedRows.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
-  const pendingTotal   = pendingRows.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
-  const adjTotal       = adjRows.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
-  const mgrRemitTotal  = mgrRemitRows.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
+  const confirmedRowsAll = cashierRowsAll.filter(r => confirmedStatuses.includes(r.status));
+  const pendingRowsAll   = cashierRowsAll.filter(r => r.status === 'pending');
+  const confirmedTotal = confirmedRowsAll.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
+  const pendingTotal   = pendingRowsAll.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
+  const adjTotal       = adjRowsAll.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
+  const mgrRemitTotal  = mgrRemitRowsAll.reduce((s,r) => s + parseFloat(r.cash_on_hand||0), 0);
   const netTotal       = confirmedTotal + adjTotal + mgrRemitTotal;
-  const purchaseTotal  = adjRows.filter(r=>r.status==='purchase').reduce((s,r)=>s+Math.abs(parseFloat(r.cash_on_hand||0)),0);
-  const depositTotal   = adjRows.filter(r=>r.status==='deposit').reduce((s,r)=>s+parseFloat(r.cash_on_hand||0),0);
+  const purchaseTotal  = adjRowsAll.filter(r=>r.status==='purchase').reduce((s,r)=>s+Math.abs(parseFloat(r.cash_on_hand||0)),0);
+  const depositTotal   = adjRowsAll.filter(r=>r.status==='deposit').reduce((s,r)=>s+parseFloat(r.cash_on_hand||0),0);
+  const staffTransferTotal = allRows.filter(r=>r.status==='coh_to_staff').reduce((s,r)=>s+Math.abs(parseFloat(r.cash_on_hand||0)),0);
 
   const subLine = mgrRemitTotal<0
     ? CUR+confirmedTotal.toFixed(2)+' received &minus; '+CUR+Math.abs(mgrRemitTotal).toFixed(2)+' deposited to owner'
@@ -1953,6 +1982,12 @@ async function openMgrCohModal() {
     ? '+'+CUR+pendingTotal.toFixed(2)+' pending confirmation'
     : CUR+confirmedTotal.toFixed(2)+' received';
 
+  // Period-filtered breakdown list
+  const [pStart, pEnd] = _cohPeriodRange(_cohPeriod);
+  const confirmedRows = pStart
+    ? confirmedRowsAll.filter(r => r.shift_date >= pStart && r.shift_date <= pEnd)
+    : confirmedRowsAll;
+
   const breakdownHtml = confirmedRows.length
     ? confirmedRows.slice(0,15).map(r => {
         const cash = parseFloat(r.cash_on_hand||0);
@@ -1963,15 +1998,18 @@ async function openMgrCohModal() {
           '<span>'+r.cashier_name+' <span style="color:var(--dim)">'+(r.shift_date||'')+'</span>'+badge+'</span>'+
           '<span style="font-weight:600;color:#10b981">+'+CUR+cash.toFixed(2)+'</span></div>';
       }).join('')
-    : '<div style="font-size:12px;color:var(--muted)">No cashier remittances yet.</div>';
+    : '<div style="font-size:12px;color:var(--muted)">No cashier remittances in this period.</div>';
 
-  const staffTransferTotal = rows.filter(r=>r.status==='coh_to_staff').reduce((s,r)=>s+Math.abs(parseFloat(r.cash_on_hand||0)),0);
+  const tab = (p, label) => '<button class="btn btn-sm '+(_cohPeriod===p?'btn-accent':'btn-ghost')+'" onclick="setCohPeriod(\''+p+'\')" style="flex:1">'+label+'</button>';
 
   el.innerHTML = '<div style="background:var(--s2);border-radius:8px;padding:14px 16px;text-align:center;margin-bottom:14px">'+
     '<div style="font-size:11px;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;text-transform:uppercase">Net Cash with Manager</div>'+
     '<div style="font-size:28px;font-weight:800;color:#10b981">'+CUR+netTotal.toFixed(2)+'</div>'+
     '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+subLine+'</div>'+
     (staffTransferTotal>0?'<div style="font-size:11px;color:#a855f7;margin-top:4px">'+CUR+staffTransferTotal.toFixed(2)+' total transferred to Staff Funds</div>':'')+
+    '</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:14px">'+
+    '<button class="btn btn-accent btn-sm" style="flex:1" onclick="openSendPayModal(\''+_cohStaffId+'\')">&#128176; Send Payment</button>'+
     '</div>'+
     '<div style="background:var(--s2);border-radius:8px;padding:12px 14px;margin-bottom:14px">'+
     '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Transfer to Staff Funds</div>'+
@@ -1981,7 +2019,10 @@ async function openMgrCohModal() {
     '<button class="btn btn-accent btn-sm" onclick="transferCohToStaffFunds('+netTotal+')">Transfer</button>'+
     '</div>'+
     '</div>'+
-    '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Recent Remittances</div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+    '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Recent Remittances</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:10px">'+tab('today','Day')+tab('week','Week')+tab('month','Month')+tab('all','All')+'</div>'+
     '<div style="max-height:280px;overflow-y:auto">'+breakdownHtml+'</div>';
 }
 
@@ -2004,7 +2045,7 @@ async function transferCohToStaffFunds(maxAmount) {
   });
   if (e2) { showToast('Error: ' + e2.message, true); return; }
   showToast(CUR + amt.toFixed(2) + ' transferred to Staff Funds.');
-  openMgrCohModal();
+  renderMgrCohModal();
 }
 
 async function loadManagerCash() {
@@ -3047,8 +3088,7 @@ function renderStaff(staff) {
         <button class="btn btn-ghost btn-sm" onclick="viewStaffLogs('${s.id}','${s.username}')">Logs</button>
         ${frozenStaffIds.has(s.id)?`<button class="btn btn-ghost btn-sm" onclick="showUpgradeModal('staff', allStaff.length, FREE_STAFF_LIMIT)">Edit</button>`:`<button class="btn btn-ghost btn-sm" onclick="openStaffModal(${JSON.stringify(s).replace(/"/g,'&quot;')})">Edit</button>`}
         ${s.role==='manager'?`<button class="btn btn-sm" style="background:rgba(0,180,216,.15);color:#00b4d8;border:1px solid rgba(0,180,216,.3)" onclick="copyStaffLink()">&#128279; Link</button>`:''}
-        ${s.role==='manager'?`<button class="btn btn-sm" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)" onclick="openMgrCohModal()">&#128181; View COH</button>`:''}
-        ${s.role==='manager'?`<button class="btn btn-sm" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)" onclick="openSendPayModal('${s.id}')">&#128176; Send</button>` : ''}
+        ${s.role==='manager'?`<button class="btn btn-sm" style="background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)" onclick="openMgrCohModal('${s.id}')">&#128181; View Services</button>`:''}
         <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">Del</button>
       </td>
     </tr>`;
