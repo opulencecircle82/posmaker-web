@@ -1,4 +1,4 @@
-const CACHE = 'posmaker-v17';
+const CACHE = 'posmaker-v18';
 const STATIC = [
   'js/supabase.js',
   'js/config.js',
@@ -79,10 +79,15 @@ self.addEventListener('fetch', e => {
       fetch(e.request, {cache:'no-cache'})
         .then(resp => {
           if (resp && resp.status === 200) {
+            // Clone synchronously, before the async caches.open() gap — cloning
+            // after that gap can race with the page reading the response body,
+            // throwing "Response body is already used".
+            const toCache = resp.clone();
+            const base = url.split('?')[0];
+            const toCacheBase = base !== url ? resp.clone() : null;
             caches.open(CACHE).then(c => {
-              c.put(e.request, resp.clone());
-              const base = url.split('?')[0];
-              if (base !== url) c.put(base, resp.clone());
+              c.put(e.request, toCache);
+              if (toCacheBase) c.put(base, toCacheBase);
             });
           }
           return resp;
@@ -108,7 +113,10 @@ self.addEventListener('fetch', e => {
     e.respondWith(
       fetch(e.request, {cache:'no-cache'})
         .then(resp => {
-          if (resp && resp.status === 200) caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
+          if (resp && resp.status === 200) {
+            const toCache = resp.clone();
+            caches.open(CACHE).then(c => c.put(e.request, toCache));
+          }
           return resp;
         })
         .catch(() => caches.match(e.request))
@@ -120,7 +128,8 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
       if (resp && resp.status === 200 && e.request.method === 'GET') {
-        caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
+        const toCache = resp.clone();
+        caches.open(CACHE).then(c => c.put(e.request, toCache));
       }
       return resp;
     }).catch(() => new Response('', {status: 408})))
