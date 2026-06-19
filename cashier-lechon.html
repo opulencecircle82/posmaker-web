@@ -3092,6 +3092,11 @@ function loadScript(src){
 <div id="unliTypeModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;width:min(300px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.7)">
     <div class="mtitle" id="unliModalTitle" style="font-size:14px;margin-bottom:6px">&#127869; Dine In or Take Out?</div>
     <div style="text-align:center;font-size:22px;font-weight:800;color:var(--accent);margin-bottom:10px" id="unliTotalLabel">₱0.00</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px">
+      <button type="button" class="q-btn" onclick="adjUnliPersons(-1)" style="width:32px;height:32px;font-size:16px">&#8722;</button>
+      <span style="font-size:14px;min-width:90px;text-align:center" id="unliPersonsLabel">1 person</span>
+      <button type="button" class="q-btn" onclick="adjUnliPersons(1)" style="width:32px;height:32px;font-size:16px">+</button>
+    </div>
     <div style="display:flex;gap:6px;margin-bottom:10px">
       <button type="button" class="q-cash" id="unliBtnDineIn" style="flex:1;padding:10px;font-size:13px" onclick="setUnliType('Dine In')">&#127869; Dine In</button>
       <button type="button" class="q-cash" id="unliBtnTakeOut" style="flex:1;padding:10px;font-size:13px" onclick="setUnliType('Take Out')">&#129385; Take Out</button>
@@ -3143,16 +3148,24 @@ function loadScript(src){
 <script>
 let _unliProdId = null;
 let _unliBasePrice = 0, _unliExtra = 0, _unliAddedItems = [], _unliType = 'Dine In';
+let _unliPersons = 1;
 function openUnliTypeModal(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
   _unliProdId = id;
   _unliBasePrice = parseFloat(p.price) || 0;
   _unliExtra = 0;
   _unliAddedItems = [];
+  _unliPersons = 1;
   document.getElementById('unliModalTitle').innerHTML = '&#127869; ' + p.name;
   document.getElementById('unliInvAddedList').innerHTML = '';
+  document.getElementById('unliPersonsLabel').textContent = '1 person';
   setUnliType('Dine In');
   document.getElementById('unliTypeModal').style.display = 'block';
+}
+function adjUnliPersons(delta) {
+  _unliPersons = Math.max(1, _unliPersons + delta);
+  document.getElementById('unliPersonsLabel').textContent = _unliPersons + (_unliPersons === 1 ? ' person' : ' persons');
+  updateUnliTotalLabel();
 }
 function closeUnliTypeModal() {
   document.getElementById('unliTypeModal').style.display = 'none';
@@ -3175,7 +3188,7 @@ function setUnliType(type) {
   updateUnliTotalLabel();
 }
 function updateUnliTotalLabel() {
-  document.getElementById('unliTotalLabel').textContent = (CUR||'₱') + (_unliBasePrice + _unliExtra).toFixed(2);
+  document.getElementById('unliTotalLabel').textContent = (CUR||'₱') + (_unliBasePrice * _unliPersons + _unliExtra).toFixed(2);
 }
 function populateUnliInvItems() {
   const sel = document.getElementById('unliInvItem');
@@ -3219,17 +3232,27 @@ function finishUnliTakeOut() {
   const id = _unliProdId;
   const p = prods.find(x => x.id == id);
   if (!p) { closeUnliTypeModal(); return; }
+  const max = _maxStock(id);
   if (_unliType === 'Dine In') {
+    if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
+    if (cart[id].qty + _unliPersons > max) { showToast(`Only ${max} in stock`); closeUnliTypeModal(); return; }
+    cart[id].qty += _unliPersons;
     closeUnliTypeModal();
-    addItem(id, true);
+    redrawCart();
     return;
   }
   const key = id + '_takeout';
-  if (!cart[key]) cart[key] = { id: p.id, name: p.name + ' (Take Out)', price: parseFloat(p.price) + _unliExtra, qty: 0, _unliInvUsed: [], _key: key };
-  const max = _maxStock(id);
-  if (cart[key].qty >= max) { showToast(`Only ${max} in stock`); closeUnliTypeModal(); return; }
-  cart[key].qty++;
-  cart[key]._unliInvUsed = (cart[key]._unliInvUsed || []).concat(_unliAddedItems.map(it => it.invId));
+  if (!cart[key]) cart[key] = { id: p.id, name: p.name + ' (Take Out)', price: parseFloat(p.price), qty: 0, _key: key };
+  if (cart[key].qty + _unliPersons > max) { showToast(`Only ${max} in stock`); closeUnliTypeModal(); return; }
+  cart[key].qty += _unliPersons;
+  // Packaging is a flat fee, not per-person — keep it as its own cart line
+  // so it doesn't scale with how many people are availing the Unli deal.
+  if (_unliExtra > 0) {
+    const pkgKey = id + '_unli_pkg';
+    if (!cart[pkgKey]) cart[pkgKey] = { id: null, name: p.name + ' — Packaging', price: 0, qty: 1, _key: pkgKey, _unliInvUsed: [] };
+    cart[pkgKey].price += _unliExtra;
+    cart[pkgKey]._unliInvUsed = (cart[pkgKey]._unliInvUsed || []).concat(_unliAddedItems.map(it => it.invId));
+  }
   closeUnliTypeModal();
   redrawCart();
 }
