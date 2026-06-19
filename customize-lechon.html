@@ -422,6 +422,19 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
       </div>
     </div>
 
+    <!-- LOGO -->
+    <div class="cz-sec">
+      <div class="cz-sec-title">&#128247; Your Logo</div>
+      <div class="cz-field">
+        <div class="img-drop" onclick="document.getElementById('logoImgFile').click()">
+          &#128247; Upload Logo (JPG / PNG / WebP)
+        </div>
+        <input type="file" id="logoImgFile" accept="image/*" style="display:none" onchange="handleLogoImg(event)">
+        <img id="logoImgThumb" class="img-thumb" alt="">
+        <button class="btn btn-ghost btn-xs" id="removeLogoBtn" style="display:none;margin-top:6px" onclick="removeLogoImg()">&#10005; Remove Logo</button>
+      </div>
+    </div>
+
     <!-- BACKGROUND IMAGE -->
     <div class="cz-sec">
       <div class="cz-sec-title">&#127960; Background Image</div>
@@ -806,7 +819,11 @@ function setScale(id) {
 
   document.getElementById('czStoreName').textContent = store.name;
   document.getElementById('pmStoreName').textContent = store.name;
-  document.getElementById('pmLogo').textContent = (store.name || 'P')[0].toUpperCase();
+  if (store.logo_b64) {
+    logoImgData = store.logo_b64.startsWith('data:') ? store.logo_b64 : 'data:image/png;base64,' + store.logo_b64;
+    showLogoThumb();
+  }
+  updateLogoPreview();
   const _czUrl = cashierUrlFor(store);
   document.getElementById('openPosBtn').href = _czUrl;
   document.getElementById('czLinkBox').textContent = _czUrl;
@@ -897,6 +914,38 @@ function blend(hex1, hex2, r) {
   return '#'+c(r1*r+r2*(1-r))+c(g1*r+g2*(1-r))+c(b1*r+b2*(1-r));
 }
 
+// ── Logo ──────────────────────────────────────────────────────────────────────
+let logoImgData = '';
+function handleLogoImg(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { logoImgData = ev.target.result; showLogoThumb(); updateLogoPreview(); };
+  reader.readAsDataURL(file);
+}
+function showLogoThumb() {
+  document.getElementById('logoImgThumb').src = logoImgData;
+  document.getElementById('logoImgThumb').style.display = 'block';
+  document.getElementById('removeLogoBtn').style.display = '';
+}
+function removeLogoImg() {
+  logoImgData = '';
+  document.getElementById('logoImgThumb').style.display = 'none';
+  document.getElementById('removeLogoBtn').style.display = 'none';
+  updateLogoPreview();
+}
+function updateLogoPreview() {
+  const el = document.getElementById('pmLogo');
+  if (logoImgData) {
+    el.textContent = '';
+    el.style.backgroundImage = `url(${logoImgData})`;
+    el.style.backgroundSize = 'cover';
+    el.style.backgroundPosition = 'center';
+  } else {
+    el.style.backgroundImage = '';
+    el.textContent = (document.getElementById('pmStoreName').textContent || 'P')[0].toUpperCase();
+  }
+}
+
 // ── BG Image ──────────────────────────────────────────────────────────────────
 function handleBgImg(e) {
   const file = e.target.files[0]; if (!file) return;
@@ -936,18 +985,19 @@ async function saveTheme() {
   const footer  = document.getElementById('czFooter').value;
   const imgVal  = bgImgData || '';
   const opacity = parseInt(document.getElementById('czBgOpacity').value);
+  const logoVal = logoImgData ? logoImgData.split(',')[1] : '';
 
   // Try progressively simpler payloads until one succeeds
   // (handles databases where new columns haven't been added yet)
   const tries = [
     { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
       pos_name_color:nameColor, pos_price_color:priceColor,
-      pos_btn_style:btnStyle, pos_bg_scale:bgScale, pos_bg_opacity:opacity, pos_bg_img:imgVal, receipt_footer:footer },
+      pos_btn_style:btnStyle, pos_bg_scale:bgScale, pos_bg_opacity:opacity, pos_bg_img:imgVal, receipt_footer:footer, logo_b64:logoVal },
     { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
-      pos_bg_img:imgVal, receipt_footer:footer },
+      pos_bg_img:imgVal, receipt_footer:footer, logo_b64:logoVal },
     { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
-      receipt_footer:footer },
-    { pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, receipt_footer:footer },
+      receipt_footer:footer, logo_b64:logoVal },
+    { pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, receipt_footer:footer, logo_b64:logoVal },
   ];
 
   for (let i = 0; i < tries.length; i++) {
