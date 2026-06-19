@@ -1566,7 +1566,7 @@ function adaptDashboardToBizType(bizType) {
 let _staffRefreshTimer = null;
 function nav(id) {
   if (_staffRefreshTimer) { clearInterval(_staffRefreshTimer); _staffRefreshTimer = null; }
-  if (id === 'staff') _staffRefreshTimer = setInterval(loadStaff, 30 * 1000);
+  if (id === 'staff') _staffRefreshTimer = setInterval(loadStaff, 10 * 1000);
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-' + id).classList.add('active');
