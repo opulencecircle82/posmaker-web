@@ -1798,7 +1798,8 @@ async function loadDashboard() {
         localStorage.setItem(_tgKey, _today);
         const _lines = lowItems.map(i => {
           const s = parseFloat(i.stock ?? 0);
-          return `• ${i.name}: <b>${s <= 0 ? 'OUT OF STOCK' : s + ' ' + (i.unit || 'pc') + ' left'}</b>`;
+          const sFmt = Number.isInteger(s) ? s : s.toFixed(2);
+          return `• ${i.name}: <b>${s <= 0 ? 'OUT OF STOCK' : sFmt + ' ' + (i.unit || 'pc') + ' left'}</b>`;
         }).join('\n');
         sendTelegramMsg(STORE.telegram_bot_token, STORE.telegram_chat_id,
           `⚠️ <b>Low Stock Alert</b> — ${STORE.name}\n\n${_lines}\n\n<i>${new Date().toLocaleString()}</i>`
