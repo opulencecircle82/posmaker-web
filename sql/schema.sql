@@ -655,6 +655,12 @@ ALTER TABLE stores ADD COLUMN IF NOT EXISTS close_time  TEXT DEFAULT '20:00';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS closed_days TEXT DEFAULT '';
 
 -- ============================================================
+--  Floating Calculator widget on/off switch
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS show_calculator BOOLEAN DEFAULT TRUE;
+
+-- ============================================================
 --  Cash Remittances — description column + MobileNet embeddings
 --  Run this block in Supabase -> SQL Editor (once)
 -- ============================================================
