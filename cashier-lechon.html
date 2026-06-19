@@ -3213,6 +3213,7 @@ function setWeightType(type) {
     _weightAddedItems = [];
     renderWeightAddedList();
   }
+  updateWeightTotalDisplay();
 }
 function populateWeightInvItems() {
   const sel = document.getElementById('weightInvItem');
@@ -3232,6 +3233,7 @@ function addWeightInvItem() {
   _weightExtra += cost;
   _weightAddedItems.push({ invId: inv.id, name: inv.name, cost });
   renderWeightAddedList();
+  updateWeightTotalDisplay();
   sel.value = '';
 }
 function renderWeightAddedList() {
@@ -3249,6 +3251,7 @@ function removeWeightInvItem(idx) {
   if (it) _weightExtra -= it.cost;
   _weightAddedItems.splice(idx, 1);
   renderWeightAddedList();
+  updateWeightTotalDisplay();
 }
 let _weightLastField = 'grams'; // tracks which field the cashier actually typed in
 function onWeightGramsInput() {
@@ -3275,7 +3278,7 @@ function setWeightAmount(a) {
 }
 function updateWeightTotalDisplay() {
   const amount = parseFloat(document.getElementById('weightAmount').value) || 0;
-  document.getElementById('weightPriceTotal').textContent = CUR + amount.toFixed(2);
+  document.getElementById('weightPriceTotal').textContent = CUR + (amount + _weightExtra).toFixed(2);
 }
 function closeWeightModal() {
   document.getElementById('weightModal').style.display = 'none';
