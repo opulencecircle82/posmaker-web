@@ -771,6 +771,7 @@ function previewAsReceipt(){
       const scale=Math.min(1,MAX/Math.max(img.width,img.height));
       cv.width=img.width*scale; cv.height=img.height*scale;
       cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      addTimestampWatermark(cv);
       document.getElementById('asReceiptImg').src=cv.toDataURL('image/jpeg',0.6);
       document.getElementById('asReceiptPreview').style.display='';
     };
@@ -802,6 +803,7 @@ function previewChecklistPhoto(){
       const scale=Math.min(1,MAX/Math.max(img.width,img.height));
       cv.width=img.width*scale; cv.height=img.height*scale;
       cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      addTimestampWatermark(cv);
       document.getElementById('ckPhotoImg').src=cv.toDataURL('image/jpeg',0.6);
       document.getElementById('ckPhotoPreview').style.display='';
       document.getElementById('ckPhotoConfirmBtn').disabled=false;
@@ -861,7 +863,7 @@ async function openCkPhotoQR() {
     const s = (_opsData && _opsData.imgUploadSessions && _opsData.imgUploadSessions[_ckPhotoQRToken]) || null;
     if (!s || !s.images || s.images.length === 0) return;
     const b64 = s.images[0];
-    const dataUrl = 'data:image/jpeg;base64,' + b64;
+    const dataUrl = await watermarkImageDataUrl('data:image/jpeg;base64,' + b64);
     document.getElementById('ckPhotoQRStatus').textContent = '✅ Photo received!';
     await clearImgUploadSession(_ckPhotoQRToken); _ckPhotoQRToken = null;
     if (_ckPhotoQRPoll) { clearInterval(_ckPhotoQRPoll); _ckPhotoQRPoll = null; }
@@ -1432,6 +1434,7 @@ function previewReuploadReceipt() {
       const scale = Math.min(1, MAX / Math.max(img.width, img.height));
       cv.width = img.width * scale; cv.height = img.height * scale;
       cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      addTimestampWatermark(cv);
       document.getElementById('ruReceiptImg').src = cv.toDataURL('image/jpeg', 0.6);
       document.getElementById('ruReceiptPreview').style.display = '';
     };
@@ -2099,6 +2102,26 @@ async function toggleHelperTask(helperId, idx, done) {
   renderHelpers();
 }
 
+// Photos uploaded via "Scan QR" (from the manager's phone) arrive as raw
+// base64, bypassing the canvas pipeline that stamps the date/time on direct
+// uploads — this re-runs them through the same watermark so QR-uploaded
+// proof always carries a timestamp too.
+function watermarkImageDataUrl(rawDataUrl, maxSize) {
+  maxSize = maxSize || 800;
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      cv.width = img.width * scale; cv.height = img.height * scale;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      addTimestampWatermark(cv);
+      resolve(cv.toDataURL('image/jpeg', 0.6));
+    };
+    img.onerror = () => resolve(rawDataUrl);
+    img.src = rawDataUrl;
+  });
+}
 function addTimestampWatermark(canvas) {
   const ctx = canvas.getContext('2d');
   const now = new Date();
@@ -2313,6 +2336,7 @@ function previewMgrDepReceipt() {
       const scale = Math.min(1, MAX / Math.max(img.width, img.height));
       cv.width = img.width * scale; cv.height = img.height * scale;
       cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      addTimestampWatermark(cv);
       document.getElementById('mgrDepReceiptImg').src = cv.toDataURL('image/jpeg', 0.6);
       document.getElementById('mgrDepReceiptPreview').style.display = '';
     };
@@ -2333,7 +2357,7 @@ async function openMgrDepQR() {
     const s = (_opsData && _opsData.imgUploadSessions && _opsData.imgUploadSessions[_mgrDepQRToken]) || null;
     if (!s || !s.images || s.images.length === 0) return;
     const b64 = s.images[0];
-    document.getElementById('mgrDepReceiptImg').src = 'data:image/jpeg;base64,' + b64;
+    document.getElementById('mgrDepReceiptImg').src = await watermarkImageDataUrl('data:image/jpeg;base64,' + b64);
     document.getElementById('mgrDepReceiptPreview').style.display = '';
     document.getElementById('mgrDepQRStatus').textContent = '✅ Photo received!';
     await clearImgUploadSession(_mgrDepQRToken); _mgrDepQRToken = null;
@@ -2388,7 +2412,7 @@ async function openAsReceiptQR() {
     const s = (_opsData && _opsData.imgUploadSessions && _opsData.imgUploadSessions[_asQRToken]) || null;
     if (!s || !s.images || s.images.length === 0) return;
     const b64 = s.images[0];
-    document.getElementById('asReceiptImg').src = 'data:image/jpeg;base64,' + b64;
+    document.getElementById('asReceiptImg').src = await watermarkImageDataUrl('data:image/jpeg;base64,' + b64);
     document.getElementById('asReceiptPreview').style.display = '';
     document.getElementById('asQRStatus').textContent = '✅ Photo received!';
     await clearImgUploadSession(_asQRToken); _asQRToken = null;
@@ -2414,7 +2438,7 @@ async function openRuReceiptQR() {
     const s = (_opsData && _opsData.imgUploadSessions && _opsData.imgUploadSessions[_ruQRToken]) || null;
     if (!s || !s.images || s.images.length === 0) return;
     const b64 = s.images[0];
-    document.getElementById('ruReceiptImg').src = 'data:image/jpeg;base64,' + b64;
+    document.getElementById('ruReceiptImg').src = await watermarkImageDataUrl('data:image/jpeg;base64,' + b64);
     document.getElementById('ruReceiptPreview').style.display = '';
     document.getElementById('ruQRStatus').textContent = '✅ Photo received!';
     await clearImgUploadSession(_ruQRToken); _ruQRToken = null;
