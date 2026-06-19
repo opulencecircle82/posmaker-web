@@ -368,9 +368,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   </div>
 </div>
 
-<!-- ── RECEIPT MODAL ── -->
-<div class="modal" id="mConfirm">
-  <div class="mbox">
+<!-- ── RECEIPT WIDGET ── -->
+<!-- Standalone floating widget — NO dark backdrop, rest of POS stays visible -->
+<div id="mConfirm" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:20px;width:min(420px,96vw);max-height:90dvh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.7)">
     <div class="mtitle">&#10004; Order Confirmed</div>
     <div class="mtotal" id="confirmTotal"></div>
     <div id="confirmChange" style="font-size:12px;color:#10b981;margin-bottom:8px"></div>
@@ -379,7 +379,6 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <button class="btn-cancel"  onclick="newOrder()">New Order</button>
       <button class="btn-confirm" onclick="doPrint()">&#128438; Print Receipt</button>
     </div>
-  </div>
 </div>
 
 <!-- ── TABLE MODAL ── -->
@@ -1952,7 +1951,7 @@ function showReceipt(d) {
   document.getElementById('confirmTotal').textContent = CUR + d.total.toFixed(2);
   document.getElementById('confirmChange').textContent = d.method === 'Cash' ? 'Change: ' + CUR + d.change.toFixed(2) : '';
   document.getElementById('receiptTxt').textContent = buildReceiptText(d);
-  document.getElementById('mConfirm').classList.add('show');
+  document.getElementById('mConfirm').style.display = 'block';
 }
 
 function doPrint() {
@@ -1975,7 +1974,7 @@ function newOrder() {
   document.getElementById('btnKOT').classList.remove('on');
   document.getElementById('btnKOT').textContent = '\u{1F468}‍\u{1F373} KOT';
   redrawCart();
-  closeM('mConfirm');
+  document.getElementById('mConfirm').style.display = 'none';
 }
 
 function closeM(id) { document.getElementById(id).classList.remove('show'); }
