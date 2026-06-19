@@ -1745,10 +1745,18 @@ window.addEventListener('offline', ()=>{ updateNetStatus(); });
 
 // ── Confirm Order ─────────────────────────────────────────────────────────
 function confirmOrder() {
-  // Already answered Dine In/Take Out per-item via the Unli widget — don't ask again at checkout.
-  const hasTakeoutUnli = Object.values(cart).some(i => i.name && i.name.includes('(Take Out)'));
-  if (hasTakeoutUnli) {
-    orderType = 'Take Away';
+  // Already answered Dine In/Take Out per-item via the Unli widget or the
+  // weight (per-kilo) widget — don't ask again at checkout, regardless of
+  // which answer (Dine In or Take Out) was given per item.
+  const cartItems = Object.values(cart);
+  const hasTakeoutTag = cartItems.some(i => i.name && i.name.includes('(Take Out)'));
+  const hasPerItemTypeChoice = cartItems.some(i => {
+    if (i.isWeight) return true;
+    const p = prods.find(x => x.id === i.id);
+    return p && isUnliProduct(p);
+  });
+  if (hasPerItemTypeChoice) {
+    orderType = hasTakeoutTag ? 'Take Away' : 'Dine In';
     _doConfirmOrder();
     return;
   }
