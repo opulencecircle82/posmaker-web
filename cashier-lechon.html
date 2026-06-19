@@ -1862,11 +1862,16 @@ async function _doConfirmOrder() {
 
   // Run order_items insert and the products inv_links lookup in parallel —
   // neither depends on the other's result.
+  // Synthetic cart lines (e.g. Take Out Packaging) use id:null and must be
+  // excluded here — a null in .in('id', ...) breaks the whole products
+  // lookup, which would silently skip inv_links deduction for EVERY item
+  // in the order, not just the synthetic one.
+  const validProdIds = [...new Set(items.map(i => i.id).filter(Boolean))];
   const [, prodRowsRes] = await Promise.all([
     _sb.from('order_items').insert(
       items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
     ),
-    _sb.from('products').select('id,inv_links').in('id', items.map(i => i.id))
+    validProdIds.length ? _sb.from('products').select('id,inv_links').in('id', validProdIds) : Promise.resolve({ data: [] })
   ]);
 
   // Auto-deduct inventory stock based on inv_links (or auto-matched inventory item)

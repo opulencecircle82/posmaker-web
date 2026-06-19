@@ -649,11 +649,12 @@ function renderInv(items){
   if(!items.length){ tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No items found.</td></tr>'; return; }
   tb.innerHTML = items.map(i => {
     const st=parseFloat(i.stock||0), lo=parseFloat(i.low_stock_threshold||5);
+    const stFmt = Number.isInteger(st) ? st : st.toFixed(2);
     const [sCls,sTxt] = st<=0 ? ['badge-out','Out of Stock'] : st<=lo ? ['badge-low','Low Stock'] : ['badge-ok','OK'];
     return `<tr>
       <td><strong>${i.name}</strong>${i.sku?`<div style="font-size:11px;color:var(--dim)">${i.sku}</div>`:''}</td>
       <td style="color:var(--muted)">${i.category||'—'}</td>
-      <td><strong style="color:${st<=0?'#ef4444':st<=lo?'#f59e0b':'#10b981'}">${st}</strong></td>
+      <td><strong style="color:${st<=0?'#ef4444':st<=lo?'#f59e0b':'#10b981'}">${stFmt}</strong></td>
       <td style="color:var(--muted)">${i.unit||'—'}</td>
       <td><span class="badge ${sCls}">${sTxt}</span></td>
       <td style="white-space:nowrap;display:flex;gap:4px;padding:8px">

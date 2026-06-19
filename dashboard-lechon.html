@@ -1104,7 +1104,7 @@ input:checked + .slider:before{transform:translateX(18px)}
         <label>Role</label>
         <select id="sfRole">
           <option value="cashier">Cashier</option>
-          <option value="manager">Manager</option>
+          <option value="manager">Manager</option>
         </select>
       </div>
     </div>
@@ -3906,7 +3906,7 @@ function renderInv(items) {
       <td><div style="display:flex;align-items:center;gap:4px">
         ${unlimited ? '<span style="min-width:32px;text-align:center;font-weight:700;color:var(--muted)">&#8734;</span>' : `
         <button class="btn btn-ghost btn-sm" style="padding:3px 8px" onclick="adjInvStock('${i.id}',-1)">&#8722;</button>
-        <span style="min-width:32px;text-align:center;font-weight:700;color:${out?'#ef4444':low?'#f59e0b':'var(--text)'}">${stock}</span>
+        <span style="min-width:32px;text-align:center;font-weight:700;color:${out?'#ef4444':low?'#f59e0b':'var(--text)'}">${Number.isInteger(stock)?stock:stock.toFixed(2)}</span>
         <button class="btn btn-ghost btn-sm" style="padding:3px 8px" onclick="adjInvStock('${i.id}',1)">+</button>`}
       </div></td>
       <td>${badge}</td>
