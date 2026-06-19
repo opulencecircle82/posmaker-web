@@ -575,6 +575,23 @@ async function checkWebDevice(storeId, register = false) {
     return 'locked';
   } catch { return 'ok'; }
 }
+// Re-claims this store's device slot for the CURRENT browser. Called after a
+// successful staff login so a cleared cache (which wipes the local device
+// fingerprint) doesn't require the owner to click "Reset Device" — a valid
+// login is itself proof this browser is authorized to use this POS.
+async function reclaimDevice(storeId) {
+  try {
+    const devId = getBrowserDevId();
+    const { data: rows } = await _sb.from('pos_devices').select('id,device_id').eq('store_id', storeId).limit(1);
+    if (rows && rows.length) {
+      if (rows[0].device_id !== devId) {
+        await _sb.from('pos_devices').update({ device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform(), registered_at: new Date().toISOString() }).eq('id', rows[0].id);
+      }
+    } else {
+      await _sb.from('pos_devices').insert({ store_id: storeId, device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform() });
+    }
+  } catch (_) {}
+}
 
 // ── Page init ────────────────────────────────────────────────────────────
 (async () => {
@@ -632,13 +649,11 @@ async function checkWebDevice(storeId, register = false) {
     document.getElementById('activateWrap').classList.add('show');
     return;
   }
-  if (devStatus === 'locked') {
-    localStorage.removeItem('pm_store_id');
-    document.getElementById('loginWrap').style.display = 'none';
-    document.getElementById('activateWrap').classList.add('show');
-    document.getElementById('actErr').textContent = 'This POS is already active on another device. Ask your store manager to reset it from the dashboard.';
-    return;
-  }
+  // 'locked' (this browser's local device fingerprint was cleared/changed, so
+  // it no longer matches what's registered server-side) is NOT a hard block —
+  // let the cashier log in normally; a valid login re-claims this device slot
+  // automatically (see reclaimDevice(), called from doLogin()), so a cleared
+  // cache doesn't strand the terminal until the owner clicks "Reset Device".
   // Route to this store's dedicated cashier page based on business type
   {
     const _expected = bizCashierFile(store.business_type);
@@ -862,6 +877,7 @@ async function doLogin() {
     CASHIER = found;
     try { const _cu=JSON.parse(localStorage.getItem('pm_cached_users_'+STORE_ID)||'[]'); const _xi=_cu.findIndex(u=>u.id===found.id); if(_xi>=0)_cu[_xi]=found;else _cu.push(found); localStorage.setItem('pm_cached_users_'+STORE_ID,JSON.stringify(_cu)); } catch(_) {}
     _sb.rpc('log_staff_login', { p_store_id: STORE_ID, p_staff_id: found.id, p_username: found.username }).then(() => {});
+    reclaimDevice(STORE_ID);
     _sb.from('activity_logs').insert({ store_id: STORE_ID, actor_name: found.full_name || found.username, actor_role: found.role || 'cashier', action: 'LOGIN', target_name: found.full_name || found.username, details: JSON.stringify({ device: getDeviceLabel() }) }).then(() => {});
     if (prods.length === 0) {
       await loadProds(); // first login — must load before showing POS
