@@ -3093,25 +3093,37 @@ async function renderStaffLogsBody(staffId, displayName, role) {
     }
   }
   const loginTimes = logins.map(l => l.login_at);
-  const shiftsAsc = loginTimes.map((loginAt, i) => {
+  // Group logins into shifts: a NEW shift only starts after an ACTUAL
+  // logout. Re-logging in without one (e.g. reopened after a crash/brownout,
+  // closed the window instead of clicking Logout) continues the SAME shift
+  // — same running total — instead of fragmenting into separate rows, since
+  // it's the same cashier still holding the same cash drawer.
+  const shiftsAsc = [];
+  let curStart = null;
+  for (let i = 0; i < loginTimes.length; i++) {
+    const loginAt = loginTimes[i];
+    if (curStart === null) curStart = loginAt;
     const nextLoginAt = loginTimes[i+1] || null;
     const logoutAt = logoutTimes.find(t => t > loginAt && (!nextLoginAt || t < nextLoginAt)) || null;
-    const isOpen = !logoutAt && i === loginTimes.length - 1; // only the latest login can still be "Active"
-    return { loginAt, logoutAt, nextLoginAt, isOpen };
-  });
+    if (logoutAt) {
+      shiftsAsc.push({ loginAt: curStart, logoutAt, isOpen: false });
+      curStart = null;
+    } else if (!nextLoginAt) {
+      shiftsAsc.push({ loginAt: curStart, logoutAt: null, isOpen: true });
+      curStart = null;
+    }
+    // else: no logout yet, but another login follows — keep merging
+  }
   const shifts = shiftsAsc.slice().reverse(); // newest first
 
-  // Bounded running total for any shift with no matching logout — covers
-  // both the genuinely open/"Active" shift (bounded by now) AND orphaned
-  // shifts where the cashier closed the window/crashed instead of using
-  // Logout (bounded by the next login) — so cash collected there doesn't
-  // just disappear as "—" while still showing up fine in the Sales report.
+  // Live running total for the open shift — sum of orders since the shift's
+  // (possibly merged) start, so the owner sees the current cash drawer
+  // total without listing each sale.
   if (isCashier && STORE?.id) {
     await Promise.all(shifts.filter(s => !s.logoutAt).map(async s => {
-      const upper = s.nextLoginAt || new Date().toISOString();
       const { data: ord } = await _sb.from('orders').select('total')
         .eq('store_id', STORE.id).eq('cashier_name', displayName)
-        .gte('timestamp', s.loginAt).lt('timestamp', upper);
+        .gte('timestamp', s.loginAt);
       s._total = (ord||[]).reduce((sum,o) => sum + (parseFloat(o.total)||0), 0);
     }));
   }
@@ -3123,7 +3135,7 @@ async function renderStaffLogsBody(staffId, displayName, role) {
         const loginStr = new Date(s.loginAt).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'});
         const logoutStr = s.logoutAt
           ? new Date(s.logoutAt).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'})
-          : (s.isOpen ? '<span style="color:#22c55e;font-weight:600">&#128994; Active</span>' : '<span style="color:var(--dim)">— (no logout)</span>');
+          : '<span style="color:#22c55e;font-weight:600">&#128994; Active</span>';
         let cashCell = '—';
         if (isCashier) {
           if (s.logoutAt) {
@@ -3131,9 +3143,7 @@ async function renderStaffLogsBody(staffId, displayName, role) {
               .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0];
             cashCell = r ? `${CUR||'₱'}${parseFloat(r.cash_on_hand).toFixed(2)} <span style="color:var(--muted);font-size:11px">remitted</span>` : '<span style="color:var(--dim)">no remit</span>';
           } else {
-            const tag = s.isOpen ? 'live' : 'unremitted';
-            const color = s.isOpen ? '#22c55e' : '#f59e0b';
-            cashCell = s._total != null ? `<span style="color:${color};font-weight:600">${CUR||'₱'}${s._total.toFixed(2)}</span> <span style="color:var(--muted);font-size:11px">${tag}</span>` : '—';
+            cashCell = s._total != null ? `<span style="color:#22c55e;font-weight:600">${CUR||'₱'}${s._total.toFixed(2)}</span> <span style="color:var(--muted);font-size:11px">live</span>` : '—';
           }
         }
         return `<tr>
