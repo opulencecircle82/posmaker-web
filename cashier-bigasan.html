@@ -1563,9 +1563,10 @@ function addItem(id) {
   redrawCart();
 }
 
-// ── Product Options widget — stages multiple products (each with its own
-// qty/discount/notes) before one "Add to Cart" pushes all of them in. ──────
-let _poItems = []; // [{ id, name, price, unit, qty, discPct, discAmt, notes }]
+// ── Product Options widget — stages multiple products in a compact list
+// before one "Add to Cart" pushes all of them in. Discount stays a single,
+// whole-cart thing (the existing 🏷️ Discount widget) — not duplicated here.
+let _poItems = []; // [{ id, name, price, unit, qty, notes }]
 function openProductOptWidget(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
   // Newest click always lands at the TOP of the list — whether it's a brand
@@ -1579,7 +1580,7 @@ function openProductOptWidget(id) {
     _poItems.splice(existingIdx, 1);
     _poItems.unshift(entry);
   } else {
-    _poItems.unshift({ id: p.id, name: p.name, price: parseFloat(p.price), unit: p.unit || 'pc', qty: 1, discPct: 0, discAmt: 0, notes: '' });
+    _poItems.unshift({ id: p.id, name: p.name, price: parseFloat(p.price), unit: p.unit || 'pc', qty: 1, notes: '' });
   }
   renderProductOptWidget();
   document.getElementById('prodOptWidget').style.display = 'block';
@@ -1589,42 +1590,27 @@ function closeProductOptWidget() {
   document.getElementById('prodOptWidget').style.display = 'none';
   _poItems = [];
 }
-function _poItemNet(it) {
-  const raw = it.price * it.qty;
-  const disc = it.discAmt > 0 ? Math.min(it.discAmt, raw) : (raw * it.discPct / 100);
-  return Math.max(0, raw - disc);
-}
 function renderProductOptWidget() {
   const wrap = document.getElementById('poList');
   wrap.innerHTML = _poItems.length ? _poItems.map((it, idx) => `
-    <div style="border-top:1px solid var(--border);padding:8px 0">
-      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px">
-        <strong style="font-size:12px">${it.name}</strong>
-        <span style="cursor:pointer;color:var(--muted);font-size:13px" onclick="removePoItem(${idx})">&#10005;</span>
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</div>
+        <input class="inp" type="text" placeholder="Notes" value="${it.notes || ''}" oninput="setPoItemNotes(${idx},this.value)" style="margin:3px 0 0;padding:4px 6px;font-size:11px">
       </div>
-      <div style="font-size:10px;color:#888;margin-bottom:5px">${CUR}${it.price.toFixed(2)} / ${it.unit}</div>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-        <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},-1)" style="width:24px;height:24px;font-size:13px">&#8722;</button>
-        <span id="poItemQty_${idx}" style="flex:1;text-align:center;font-size:13px;font-weight:700">${it.qty}</span>
-        <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},1)" style="width:24px;height:24px;font-size:13px">+</button>
+      <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},-1)" style="width:22px;height:22px;font-size:12px;flex-shrink:0">&#8722;</button>
+      <span id="poItemQty_${idx}" style="min-width:14px;text-align:center;font-size:12px;font-weight:700">${it.qty}</span>
+      <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},1)" style="width:22px;height:22px;font-size:12px;flex-shrink:0">+</button>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
+        <span id="poItemTotal_${idx}" style="font-size:12px;font-weight:700;color:var(--accent)">${CUR}${(it.price*it.qty).toFixed(2)}</span>
+        <span style="cursor:pointer;color:var(--muted);font-size:11px" onclick="removePoItem(${idx})">&#10005;</span>
       </div>
-      <div class="disc-inputs" style="margin-bottom:5px">
-        <input class="disc-inp" id="poItemPct_${idx}" type="number" placeholder="%" min="0" max="100" step="0.5" value="${it.discPct || ''}" oninput="setPoItemDiscPct(${idx},this.value)">
-        <input class="disc-inp" id="poItemAmt_${idx}" type="number" placeholder="Amount" min="0" step="0.01" value="${it.discAmt || ''}" oninput="setPoItemDiscAmt(${idx},this.value)">
-      </div>
-      <input class="inp" type="text" placeholder="Notes (size, sugar level, etc.)" value="${it.notes || ''}" oninput="setPoItemNotes(${idx},this.value)" style="margin-bottom:0;padding:6px 8px;font-size:12px">
-      <div id="poItemTotal_${idx}" style="text-align:right;font-size:12px;color:var(--accent);font-weight:700;margin-top:4px">${CUR}${_poItemNet(it).toFixed(2)}</div>
     </div>`).join('') : '<div style="font-size:11px;color:#666;text-align:center;padding:10px 0">No items yet.</div>';
   updatePoGrandTotal();
 }
 function updatePoGrandTotal() {
-  const grand = _poItems.reduce((s, it) => s + _poItemNet(it), 0);
+  const grand = _poItems.reduce((s, it) => s + it.price * it.qty, 0);
   document.getElementById('poTotal').textContent = CUR + grand.toFixed(2);
-}
-function updatePoItemTotal(idx) {
-  const el = document.getElementById('poItemTotal_' + idx);
-  if (el) el.textContent = CUR + _poItemNet(_poItems[idx]).toFixed(2);
-  updatePoGrandTotal();
 }
 function adjPoItemQty(idx, d) {
   const it = _poItems[idx]; if (!it) return;
@@ -1635,23 +1621,9 @@ function adjPoItemQty(idx, d) {
   it.qty = next;
   const qtyEl = document.getElementById('poItemQty_' + idx);
   if (qtyEl) qtyEl.textContent = it.qty;
-  updatePoItemTotal(idx);
-}
-function setPoItemDiscPct(idx, val) {
-  const it = _poItems[idx]; if (!it) return;
-  it.discPct = parseFloat(val) || 0;
-  it.discAmt = 0;
-  const amtEl = document.getElementById('poItemAmt_' + idx);
-  if (amtEl) amtEl.value = '';
-  updatePoItemTotal(idx);
-}
-function setPoItemDiscAmt(idx, val) {
-  const it = _poItems[idx]; if (!it) return;
-  it.discAmt = parseFloat(val) || 0;
-  it.discPct = 0;
-  const pctEl = document.getElementById('poItemPct_' + idx);
-  if (pctEl) pctEl.value = '';
-  updatePoItemTotal(idx);
+  const totalEl = document.getElementById('poItemTotal_' + idx);
+  if (totalEl) totalEl.textContent = CUR + (it.price * it.qty).toFixed(2);
+  updatePoGrandTotal();
 }
 function setPoItemNotes(idx, val) {
   const it = _poItems[idx]; if (!it) return;
@@ -1665,31 +1637,21 @@ function confirmProductOpt() {
   if (!_poItems.length) { closeProductOptWidget(); return; }
   for (const it of _poItems) {
     const notes = (it.notes || '').trim();
-    const hasCustom = it.discPct > 0 || it.discAmt > 0 || !!notes;
-    const key = hasCustom ? (it.id + '_opt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) : it.id;
+    const key = notes ? (it.id + '_opt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) : it.id;
     const max = _maxStock(it.id);
     const existingQty = cart[key] ? cart[key].qty : 0;
     if (existingQty + it.qty > max) { showToast(`Only ${max} in stock for ${it.name}`); continue; }
     if (!cart[key]) {
       cart[key] = { id: it.id, name: it.name, price: it.price, qty: 0 };
-      if (hasCustom) cart[key]._key = key;
+      if (notes) cart[key]._key = key;
     }
     cart[key].qty += it.qty;
-    cart[key]._itemDiscPct = it.discPct;
-    cart[key]._itemDiscAmt = it.discAmt;
     cart[key]._notes = notes;
   }
   _poItems = [];
   redrawCart();
   closeProductOptWidget();
 }
-// Net total for one cart line after its own per-item discount (if any).
-function _lineNet(i) {
-  const lineRaw = i.price * i.qty;
-  const lineDisc = i._itemDiscAmt > 0 ? Math.min(i._itemDiscAmt, lineRaw) : (lineRaw * (i._itemDiscPct || 0) / 100);
-  return Math.max(0, lineRaw - lineDisc);
-}
-
 function adjQty(id, d) {
   if (!cart[id]) return;
   if (d > 0) {
@@ -1703,7 +1665,7 @@ function adjQty(id, d) {
 
 function getCartTotals() {
   const items = Object.values(cart);
-  const raw = parseFloat(items.reduce((s, i) => s + _lineNet(i), 0).toFixed(2));
+  const raw = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
   const disc = discAmt > 0 ? parseFloat(Math.min(discAmt, raw).toFixed(2)) : parseFloat((raw * discPct / 100).toFixed(2));
   const total = parseFloat((raw - disc).toFixed(2));
   const tax   = parseFloat((total * TAX / (100 + TAX)).toFixed(2));
@@ -1724,13 +1686,13 @@ function redrawCart() {
         </div>
         <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
       </div>` : `<div class="ci">
-        <span class="ci-name">${i.name}${i._notes ? ` <span style="font-size:10px;color:var(--muted)">&#8212; ${i._notes}</span>` : ''}${(i._itemDiscPct||i._itemDiscAmt) ? ` <span style="font-size:10px;color:#10b981">(-${i._itemDiscPct ? i._itemDiscPct+'%' : CUR+i._itemDiscAmt.toFixed(2)})</span>` : ''}</span>
+        <span class="ci-name">${i.name}${i._notes ? ` <span style="font-size:10px;color:var(--muted)">&#8212; ${i._notes}</span>` : ''}</span>
         <div class="ci-qty">
           <button class="q-btn" onclick="adjQty('${i._key||i.id}',-1)">&#8722;</button>
           <span class="ci-qty-num">${i.qty}</span>
           <button class="q-btn" onclick="adjQty('${i._key||i.id}',1)">+</button>
         </div>
-        <span class="ci-line">${CUR}${_lineNet(i).toFixed(2)}</span>
+        <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
       </div>`).join('')
     : `<div class="cart-empty">Cart is empty</div>`;
 
@@ -1927,7 +1889,7 @@ async function confirmOrder() {
       order_type:      orderType,
       table_no:        tableNo,
       is_kot:          isKOT,
-      items: items.map(i => ({ product_id: i.id, name: i.name + (i._notes ? ' (' + i._notes + ')' : ''), price: _lineNet(i) / i.qty, qty: i.qty })),
+      items: items.map(i => ({ product_id: i.id, name: i.name + (i._notes ? ' (' + i._notes + ')' : ''), price: i.price, qty: i.qty })),
     });
     receiptData.order_id = offlineId + ' (saved offline)';
     showReceipt(receiptData);
@@ -1965,7 +1927,7 @@ async function confirmOrder() {
   const validProdIds = [...new Set(items.map(i => i.id).filter(Boolean))];
   const [, prodRowsRes] = await Promise.all([
     _sb.from('order_items').insert(
-      items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name + (i._notes ? ' (' + i._notes + ')' : ''), price: _lineNet(i) / i.qty, qty: i.qty }))
+      items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name + (i._notes ? ' (' + i._notes + ')' : ''), price: i.price, qty: i.qty }))
     ),
     validProdIds.length ? _sb.from('products').select('id,inv_links').in('id', validProdIds) : Promise.resolve({ data: [] })
   ]);
@@ -2039,8 +2001,7 @@ function buildReceiptText(d) {
   s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
   s += `Cashier: ${d.cashier}\n${ln}\n`;
   d.items.forEach(i => {
-    s += `${i.name}${i._notes ? ' (' + i._notes + ')' : ''}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${_lineNet(i).toFixed(2)}\n`;
-    if (i._itemDiscPct || i._itemDiscAmt) s += `  (item discount: -${i._itemDiscPct ? i._itemDiscPct+'%' : CUR+i._itemDiscAmt.toFixed(2)})\n`;
+    s += `${i.name}${i._notes ? ' (' + i._notes + ')' : ''}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`;
   });
   s += `${ln}\nSubtotal: ${CUR}${d.sub.toFixed(2)}\n`;
   if (d.disc > 0) s += `Discount: -${CUR}${d.disc.toFixed(2)}\n`;
