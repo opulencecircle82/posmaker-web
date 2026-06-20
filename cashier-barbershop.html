@@ -421,8 +421,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 </div>
 
 <!-- ── RECEIPT MODAL ── -->
-<div class="modal" id="mConfirm">
-  <div class="mbox">
+<div id="mConfirm" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500">
+  <div class="mbox" style="box-shadow:0 10px 40px rgba(0,0,0,.7)">
     <div class="mtitle">&#10004; Order Confirmed</div>
     <div class="mtotal" id="confirmTotal"></div>
     <div id="confirmChange" style="font-size:12px;color:#10b981;margin-bottom:8px"></div>
@@ -2460,7 +2460,7 @@ function showReceipt(d) {
   document.getElementById('confirmTotal').textContent = CUR + d.total.toFixed(2);
   document.getElementById('confirmChange').textContent = d.method === 'Cash' ? 'Change: ' + CUR + d.change.toFixed(2) : '';
   document.getElementById('receiptTxt').textContent = buildReceiptText(d);
-  document.getElementById('mConfirm').classList.add('show');
+  document.getElementById('mConfirm').style.display = 'block';
 }
 
 function doPrint() {
@@ -2501,7 +2501,7 @@ function newOrder() {
     }
   }
   redrawCart();
-  closeM('mConfirm');
+  document.getElementById('mConfirm').style.display = 'none';
 }
 
 function closeM(id) { document.getElementById(id).classList.remove('show'); }
