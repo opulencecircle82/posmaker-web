@@ -148,6 +148,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .disc-inp:focus{border-color:var(--accent)}
 .disc-trigger{width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--s2);color:#999;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;text-align:center;font-family:inherit}
 .disc-trigger.active{border-color:var(--accent);color:var(--accent)}
+#poList{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#poList::-webkit-scrollbar{width:6px}
+#poList::-webkit-scrollbar-track{background:transparent}
+#poList::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
 /* Totals */
 .totals{padding:7px 9px;border-top:1px solid var(--border);font-size:11px;flex-shrink:0}
@@ -1342,7 +1346,7 @@ function renderRetailList(list) {
     : `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
 }
 
-// ── Retail: tap product → open options widget (qty/discount/notes) ────────
+// ── Retail: tap product → open the "Add Items" staging widget ─────────────
 function addProductDirect(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
   if (p.sold_by_weight) { openWeightModal(id); return; }
@@ -1578,7 +1582,7 @@ function addItem(id) {
 // ── Product Options widget — stages multiple products in a scrollable list,
 // plus ONE shared discount and ONE bag/packaging picker for the whole batch.
 // Nothing is committed to the real cart until "Add to Cart" is clicked.
-let _poItems = []; // [{ id, name, price, unit, qty, notes }]
+let _poItems = []; // [{ id, name, price, unit, qty }]
 let _poDiscPct = 0, _poDiscAmt = 0;
 let _poExtra = 0, _poAddedItems = [];
 function openProductOptWidget(id) {
@@ -1605,7 +1609,7 @@ function openProductOptWidget(id) {
     _poItems.splice(existingIdx, 1);
     _poItems.unshift(entry);
   } else {
-    _poItems.unshift({ id: p.id, name: p.name, price: parseFloat(p.price), unit: p.unit || 'pc', qty: 1, notes: '' });
+    _poItems.unshift({ id: p.id, name: p.name, price: parseFloat(p.price), unit: p.unit || 'pc', qty: 1 });
   }
   renderProductOptWidget();
   widget.style.display = 'block';
@@ -1620,18 +1624,13 @@ function closeProductOptWidget() {
 function renderProductOptWidget() {
   const wrap = document.getElementById('poList');
   wrap.innerHTML = _poItems.length ? _poItems.map((it, idx) => `
-    <div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--border)">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</div>
-        <input class="inp" type="text" placeholder="Notes" value="${it.notes || ''}" oninput="setPoItemNotes(${idx},this.value)" style="margin:3px 0 0;padding:4px 6px;font-size:11px">
-      </div>
-      <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},-1)" style="width:22px;height:22px;font-size:12px;flex-shrink:0">&#8722;</button>
+    <div style="display:flex;align-items:center;gap:5px;padding:5px 0;border-top:1px solid var(--border)">
+      <span style="flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</span>
+      <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},-1)" style="width:20px;height:20px;font-size:11px;flex-shrink:0">&#8722;</button>
       <span id="poItemQty_${idx}" style="min-width:14px;text-align:center;font-size:12px;font-weight:700">${it.qty}</span>
-      <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},1)" style="width:22px;height:22px;font-size:12px;flex-shrink:0">+</button>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
-        <span id="poItemTotal_${idx}" style="font-size:12px;font-weight:700;color:var(--accent)">${CUR}${(it.price*it.qty).toFixed(2)}</span>
-        <span style="cursor:pointer;color:var(--muted);font-size:11px" onclick="removePoItem(${idx})">&#10005;</span>
-      </div>
+      <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},1)" style="width:20px;height:20px;font-size:11px;flex-shrink:0">+</button>
+      <span id="poItemTotal_${idx}" style="font-size:12px;font-weight:700;color:var(--accent);min-width:54px;text-align:right;flex-shrink:0">${CUR}${(it.price*it.qty).toFixed(2)}</span>
+      <span style="cursor:pointer;color:var(--muted);font-size:12px;flex-shrink:0" onclick="removePoItem(${idx})">&#10005;</span>
     </div>`).join('') : '<div style="font-size:11px;color:#666;text-align:center;padding:10px 0">No items yet.</div>';
   updatePoGrandTotal();
 }
@@ -1653,10 +1652,6 @@ function adjPoItemQty(idx, d) {
   const totalEl = document.getElementById('poItemTotal_' + idx);
   if (totalEl) totalEl.textContent = CUR + (it.price * it.qty).toFixed(2);
   updatePoGrandTotal();
-}
-function setPoItemNotes(idx, val) {
-  const it = _poItems[idx]; if (!it) return;
-  it.notes = val;
 }
 function removePoItem(idx) {
   _poItems.splice(idx, 1);
@@ -1713,17 +1708,11 @@ function removePoInvItem(idx) {
 function confirmProductOpt() {
   if (!_poItems.length) { closeProductOptWidget(); return; }
   for (const it of _poItems) {
-    const notes = (it.notes || '').trim();
-    const key = notes ? (it.id + '_opt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)) : it.id;
     const max = _maxStock(it.id);
-    const existingQty = cart[key] ? cart[key].qty : 0;
+    const existingQty = cart[it.id] ? cart[it.id].qty : 0;
     if (existingQty + it.qty > max) { showToast(`Only ${max} in stock for ${it.name}`); continue; }
-    if (!cart[key]) {
-      cart[key] = { id: it.id, name: it.name, price: it.price, qty: 0 };
-      if (notes) cart[key]._key = key;
-    }
-    cart[key].qty += it.qty;
-    cart[key]._notes = notes;
+    if (!cart[it.id]) cart[it.id] = { id: it.id, name: it.name, price: it.price, qty: 0 };
+    cart[it.id].qty += it.qty;
   }
   // Commit the batch discount into the shared cart-wide discount.
   discPct = _poDiscPct; discAmt = _poDiscAmt;
@@ -1772,7 +1761,7 @@ function redrawCart() {
         </div>
         <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
       </div>` : `<div class="ci">
-        <span class="ci-name">${i.name}${i._notes ? ` <span style="font-size:10px;color:var(--muted)">&#8212; ${i._notes}</span>` : ''}</span>
+        <span class="ci-name">${i.name}</span>
         <div class="ci-qty">
           <button class="q-btn" onclick="adjQty('${i._key||i.id}',-1)">&#8722;</button>
           <span class="ci-qty-num">${i.qty}</span>
@@ -1975,7 +1964,7 @@ async function confirmOrder() {
       order_type:      orderType,
       table_no:        tableNo,
       is_kot:          isKOT,
-      items: items.map(i => ({ product_id: i.id, name: i.name + (i._notes ? ' (' + i._notes + ')' : ''), price: i.price, qty: i.qty })),
+      items: items.map(i => ({ product_id: i.id, name: i.name, price: i.price, qty: i.qty })),
     });
     receiptData.order_id = offlineId + ' (saved offline)';
     showReceipt(receiptData);
@@ -2013,7 +2002,7 @@ async function confirmOrder() {
   const validProdIds = [...new Set(items.map(i => i.id).filter(Boolean))];
   const [, prodRowsRes] = await Promise.all([
     _sb.from('order_items').insert(
-      items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name + (i._notes ? ' (' + i._notes + ')' : ''), price: i.price, qty: i.qty }))
+      items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
     ),
     validProdIds.length ? _sb.from('products').select('id,inv_links').in('id', validProdIds) : Promise.resolve({ data: [] })
   ]);
@@ -2087,7 +2076,7 @@ function buildReceiptText(d) {
   s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
   s += `Cashier: ${d.cashier}\n${ln}\n`;
   d.items.forEach(i => {
-    s += `${i.name}${i._notes ? ' (' + i._notes + ')' : ''}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`;
+    s += `${i.name}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`;
   });
   s += `${ln}\nSubtotal: ${CUR}${d.sub.toFixed(2)}\n`;
   if (d.disc > 0) s += `Discount: -${CUR}${d.disc.toFixed(2)}\n`;
