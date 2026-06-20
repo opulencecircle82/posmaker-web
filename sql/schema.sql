@@ -721,3 +721,41 @@ BEGIN
     UPDATE stores SET free_until = NULL;
   END IF;
 END; $$;
+
+-- ============================================================
+--  Plan Limits (Dev Support -> Plan Limits)
+--  Admin-configurable Inventory/Product/Staff/POS-terminal limits for each
+--  of the 4 plan tiers (free, standard, pro, premium). Reads are public
+--  (dashboards will eventually check these to enforce limits); writes are
+--  gated to a logged-in dev admin.
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.plan_limits (
+  tier            TEXT PRIMARY KEY,
+  inventory_limit INTEGER NOT NULL DEFAULT 0,
+  product_limit   INTEGER NOT NULL DEFAULT 0,
+  staff_limit     INTEGER NOT NULL DEFAULT 0,
+  pos_limit       INTEGER NOT NULL DEFAULT 0
+);
+ALTER TABLE plan_limits ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS plan_limits_read ON plan_limits;
+CREATE POLICY plan_limits_read ON plan_limits FOR SELECT TO anon USING (true);
+
+INSERT INTO plan_limits (tier, inventory_limit, product_limit, staff_limit, pos_limit) VALUES
+  ('free',     3,  3,  1, 1),
+  ('standard', 10, 10, 3, 1),
+  ('pro',      50, 50, 10, 3),
+  ('premium',  999999, 999999, 999999, 999999)
+ON CONFLICT (tier) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION dev_set_plan_limit(p_token text, p_tier text,
+  p_inventory int, p_product int, p_staff int, p_pos int)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  INSERT INTO plan_limits (tier, inventory_limit, product_limit, staff_limit, pos_limit)
+    VALUES (p_tier, p_inventory, p_product, p_staff, p_pos)
+    ON CONFLICT (tier) DO UPDATE SET inventory_limit = p_inventory,
+      product_limit = p_product, staff_limit = p_staff, pos_limit = p_pos;
+END; $$;

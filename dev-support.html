@@ -178,6 +178,7 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
       <button class="snav" id="tabAgents"   onclick="showTab('agents')">&#127919; Agents</button>
       <button class="snav" id="tabReferrals" onclick="showTab('referrals')">&#128279; Referrals</button>
       <button class="snav" id="tabSupport"  onclick="showTab('support')">&#128139; Support</button>
+      <button class="snav" id="tabPlans"    onclick="showTab('plans')">&#128202; Plan Limits</button>
     </div>
     <!-- Main Panel -->
     <div class="main-panel">
@@ -373,6 +374,16 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
             <tbody id="ticketsTbody"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- PLAN LIMITS -->
+    <div id="secPlans" style="display:none">
+      <div class="card">
+        <div class="card-title">Plan Limits</div>
+        <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">Pick a plan tier, then use &minus;/+ to set how many Inventory Items, Products, Staff accounts, and POS Terminals that tier allows. Changes save immediately.</p>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;max-width:640px" id="planTierGrid"></div>
+        <div id="planLimitRows" style="max-width:420px"></div>
       </div>
     </div>
 
@@ -1526,6 +1537,74 @@ async function toggleFreeForAll(enabled) {
   label.textContent = enabled ? 'ON — every store is unlimited' : 'OFF — normal trial / paid plan';
 }
 
+// ── Plan Limits ────────────────────────────────────────────────────────────────
+let _planLimits = [];
+let _selectedTier = 'free';
+const PLAN_TIERS = [
+  { key: 'free',     label: 'Free' },
+  { key: 'standard', label: 'Standard' },
+  { key: 'pro',      label: 'PRO' },
+  { key: 'premium',  label: 'Premium' },
+];
+const PLAN_RESOURCES = [
+  { key: 'inventory_limit', label: 'Add Inventory' },
+  { key: 'product_limit',   label: 'Add Product' },
+  { key: 'staff_limit',     label: 'Add Staff' },
+  { key: 'pos_limit',       label: 'Add POS' },
+];
+async function loadPlanLimits() {
+  const { data, error } = await _sb.from('plan_limits').select('*');
+  if (error) return;
+  _planLimits = data || [];
+  renderPlanTierGrid();
+  renderPlanLimitRows();
+}
+function getTierLimits(tier) {
+  return _planLimits.find(p => p.tier === tier)
+    || { tier, inventory_limit: 0, product_limit: 0, staff_limit: 0, pos_limit: 0 };
+}
+function renderPlanTierGrid() {
+  const grid = document.getElementById('planTierGrid');
+  grid.innerHTML = PLAN_TIERS.map(t => {
+    const active = t.key === _selectedTier;
+    return `<div onclick="selectPlanTier('${t.key}')" style="cursor:pointer;border:2px solid ${active ? 'var(--accent)' : 'var(--border)'};border-radius:10px;padding:16px 8px;text-align:center;background:${active ? 'rgba(0,180,216,.08)' : 'var(--bg)'};transition:border-color .15s">
+      <div style="font-weight:800;font-size:14px;${active ? 'color:var(--accent)' : ''}">${t.label}</div>
+    </div>`;
+  }).join('');
+}
+function selectPlanTier(tier) {
+  _selectedTier = tier;
+  renderPlanTierGrid();
+  renderPlanLimitRows();
+}
+function renderPlanLimitRows() {
+  const limits = getTierLimits(_selectedTier);
+  const tierLabel = PLAN_TIERS.find(t => t.key === _selectedTier).label;
+  const wrap = document.getElementById('planLimitRows');
+  wrap.innerHTML = `<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Editing: <strong style="color:var(--accent)">${tierLabel}</strong></div>`
+    + PLAN_RESOURCES.map(r => `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1;font-size:13px">${r.label}</span>
+      <button class="btn btn-ghost btn-sm" onclick="adjPlanLimit('${r.key}',-1)">&#8722;</button>
+      <span style="min-width:64px;text-align:center;font-weight:800;font-size:15px" id="planVal_${r.key}">${limits[r.key]}</span>
+      <button class="btn btn-ghost btn-sm" onclick="adjPlanLimit('${r.key}',1)">+</button>
+    </div>`).join('');
+}
+async function adjPlanLimit(field, delta) {
+  const limits = getTierLimits(_selectedTier);
+  const next = Math.max(0, (limits[field] || 0) + delta);
+  limits[field] = next;
+  document.getElementById('planVal_' + field).textContent = next;
+  const idx = _planLimits.findIndex(p => p.tier === _selectedTier);
+  if (idx === -1) _planLimits.push(limits); else _planLimits[idx] = limits;
+  const { error } = await _sb.rpc('dev_set_plan_limit', {
+    p_token: _devToken, p_tier: _selectedTier,
+    p_inventory: limits.inventory_limit, p_product: limits.product_limit,
+    p_staff: limits.staff_limit, p_pos: limits.pos_limit
+  });
+  if (error) handleAuthError(error);
+}
+
 // ── Subscriptions ─────────────────────────────────────────────────────────────
 let _allSubs = [];
 async function loadSubs() {
@@ -1838,7 +1917,7 @@ async function doGrantReferral() {
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function showTab(tab) {
-  const map = {stores:'Stores',staff:'Staff',accounts:'Accounts',orders:'Orders',subs:'Subs',agents:'Agents',referrals:'Referrals',support:'Support'};
+  const map = {stores:'Stores',staff:'Staff',accounts:'Accounts',orders:'Orders',subs:'Subs',agents:'Agents',referrals:'Referrals',support:'Support',plans:'Plans'};
   Object.keys(map).forEach(t => {
     document.getElementById('sec' + map[t]).style.display = t === tab ? '' : 'none';
     document.getElementById('tab' + map[t]).classList.toggle('active', t === tab);
@@ -1848,6 +1927,7 @@ function showTab(tab) {
   if (tab === 'referrals' && !_allReferrals.length) loadReferrals();
   if (tab === 'support') { if (_allTickets.length) renderTickets(); else loadTickets(); }
   if (tab === 'accounts') renderAccounts();
+  if (tab === 'plans' && !_planLimits.length) loadPlanLimits();
 }
 
 // ── Support Tickets ────────────────────────────────────────────────────────────
