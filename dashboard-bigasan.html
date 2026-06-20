@@ -866,7 +866,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:10px">
         <button type="button" class="btn btn-accent btn-sm" style="flex:0 0 auto" id="btnInvCam" onclick="openImgUploadQR('inventory',1)">&#128248; Scan QR to Upload</button>
-        <button type="button" class="btn btn-ghost btn-sm" style="flex:0 0 auto;display:none" id="btnInvUpload" onclick="document.getElementById('invImgInput').click()">&#128193; Upload Service Image</button>
+        <button type="button" class="btn btn-ghost btn-sm" style="flex:0 0 auto" id="btnInvUpload" onclick="document.getElementById('invImgInput').click()">&#128193; Upload from File</button>
         <span id="invCamHint" style="font-size:11px;color:var(--dim);flex:1">1 photo. Barcode auto-detected.</span>
       </div>
       <div id="invImgThumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
@@ -3977,7 +3977,7 @@ async function openInvModal(item){
   const isServiceBiz = TRUE_SERVICE_BIZ.has(STORE?.business_type || '');
   document.getElementById('invModalTitle').textContent = item ? (isServiceBiz?'Edit Service':'Edit Item') : (isServiceBiz?'Add Service':'Add Inventory Item');
   document.getElementById('btnInvCam').style.display    = isServiceBiz ? 'none' : '';
-  document.getElementById('btnInvUpload').style.display = isServiceBiz ? '' : 'none';
+  document.getElementById('btnInvUpload').style.display = '';
   document.getElementById('invCamHint').textContent     = isServiceBiz ? '1 photo showing this service.' : '1 photo. Barcode auto-detected.';
   document.getElementById('invStockRow').style.display    = isServiceBiz ? 'none' : '';
   document.getElementById('invCostCalc').style.display    = isServiceBiz ? 'none' : '';
