@@ -668,6 +668,12 @@ ALTER TABLE cash_remittances ADD COLUMN IF NOT EXISTS description TEXT DEFAULT N
 ALTER TABLE products         ADD COLUMN IF NOT EXISTS embeddings  TEXT DEFAULT NULL;
 
 -- ============================================================
+--  Customize POS — Font Size Scale (80-130%, applied as CSS zoom)
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_font_scale INTEGER DEFAULT 100;
+
+-- ============================================================
 --  Fix: deleting a store from Dev Support failed with
 --  "violates foreign key constraint agent_referrals_store_id_fkey"
 --  because agent_referrals.store_id had no ON DELETE behavior.

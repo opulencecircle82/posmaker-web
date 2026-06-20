@@ -819,6 +819,7 @@ function applyPosTheme(s) {
   if (s.pos_card)   { r.style.setProperty('--s1', s.pos_card); r.style.setProperty('--s2', s.pos_card + 'cc'); }
   if (s.pos_text)        { r.style.setProperty('--text', s.pos_text); document.body.style.color = s.pos_text; }
   if (s.pos_radius)      r.style.setProperty('--radius', s.pos_radius + 'px');
+  if (s.pos_font_scale)  document.body.style.zoom = s.pos_font_scale / 100;
   if (s.pos_name_color)  r.style.setProperty('--name-color', s.pos_name_color);
   if (s.pos_price_color) r.style.setProperty('--price-color', s.pos_price_color);
 
