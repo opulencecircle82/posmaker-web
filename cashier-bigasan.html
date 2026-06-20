@@ -1326,24 +1326,37 @@ function _firstImg(b64) {
   return b64;
 }
 
+// Sold-by-weight products always render in their own section at the bottom
+// of the list — they open the Weight modal instead of the Add Items widget,
+// so keeping them visually separate avoids the cashier clicking the wrong kind.
+function renderRetailCard(p) {
+  const stock  = parseFloat(p.stock ?? 0);
+  const oos    = stock <= 0 && (p._invResolved || STORE.track_stock);
+  const sc     = stockClass(stock);
+  const unit   = p.unit || 'pc';
+  const sLabel = oos ? 'Out' : !isFinite(stock) ? 'Unlimited' : (stock % 1 === 0 ? stock : stock.toFixed(1)) + ' ' + unit;
+  return `
+    <div class="r-card${oos?' out-of-stock':''}" id="rcard_${p.id}" onclick="${oos?'void 0':'addProductDirect(\''+p.id+'\')'}">
+      <div class="r-card-name">${p.name}</div>
+      <div class="r-card-row">
+        <span class="r-card-price">${CUR}${parseFloat(p.price).toFixed(2)}</span>
+        <span class="r-card-stock ${sc}">${sLabel}</span>
+      </div>
+    </div>`;
+}
 function renderRetailList(list) {
-  document.getElementById('retailGrid').innerHTML = list.length
-    ? list.map(p => {
-        const stock  = parseFloat(p.stock ?? 0);
-        const oos    = stock <= 0 && (p._invResolved || STORE.track_stock);
-        const sc     = stockClass(stock);
-        const unit   = p.unit || 'pc';
-        const sku    = p.sku  || '';
-        const sLabel = oos ? 'Out' : !isFinite(stock) ? 'Unlimited' : (stock % 1 === 0 ? stock : stock.toFixed(1)) + ' ' + unit;
-        return `
-        <div class="r-card${oos?' out-of-stock':''}" id="rcard_${p.id}" onclick="${oos?'void 0':'addProductDirect(\''+p.id+'\')'}">
-          <div class="r-card-name">${p.name}</div>
-          <div class="r-card-row">
-            <span class="r-card-price">${CUR}${parseFloat(p.price).toFixed(2)}</span>
-            <span class="r-card-stock ${sc}">${sLabel}</span>
-          </div>
-        </div>`; }).join('')
-    : `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
+  if (!list.length) {
+    document.getElementById('retailGrid').innerHTML = `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
+    return;
+  }
+  const regular = list.filter(p => !p.sold_by_weight);
+  const weighed = list.filter(p => p.sold_by_weight);
+  let html = regular.map(renderRetailCard).join('');
+  if (weighed.length) {
+    html += `<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin:10px 0 2px;border-top:1px solid var(--border);padding-top:8px">&#9878;&#65039; Sold by Weight</div>`;
+    html += weighed.map(renderRetailCard).join('');
+  }
+  document.getElementById('retailGrid').innerHTML = html;
 }
 
 // ── Retail: tap product → open the "Add Items" staging widget ─────────────
