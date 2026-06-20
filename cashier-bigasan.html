@@ -2945,8 +2945,14 @@ function loadScript(src){
     <div style="font-size:11px;color:#888;margin-bottom:10px" id="weightPricePerKg"></div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <div style="flex:1">
-        <label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Grams</label>
-        <input class="inp" id="weightGrams" type="number" min="1" step="1" placeholder="200" oninput="onWeightGramsInput()" style="margin-bottom:0;padding:8px 6px;text-align:center;font-size:14px">
+        <label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Weight</label>
+        <div style="display:flex;gap:4px">
+          <input class="inp" id="weightGrams" type="number" min="0" step="any" placeholder="200" oninput="onWeightGramsInput()" style="margin-bottom:0;padding:8px 6px;text-align:center;font-size:14px;flex:1;min-width:0">
+          <select id="weightUnit" onchange="onWeightUnitChange()" style="background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:8px;font-size:13px;padding:0 4px">
+            <option value="g">g</option>
+            <option value="kg">Kg</option>
+          </select>
+        </div>
       </div>
       <div style="flex:1">
         <label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Or &#8369;</label>
@@ -2978,6 +2984,8 @@ function openWeightModal(id) {
   _weightPricePerKg = parseFloat(p.price) || 0;
   document.getElementById('weightModalTitle').textContent = '\u2696\uFE0F ' + p.name;
   document.getElementById('weightPricePerKg').textContent = CUR + _weightPricePerKg.toFixed(2) + ' per kilo';
+  _weightUnit = 'g';
+  document.getElementById('weightUnit').value = 'g';
   const existing = cart[id];
   document.getElementById('weightGrams').value = existing ? Math.round(existing.qty * 1000) : '';
   document.getElementById('weightAmount').value = existing ? (existing.price * existing.qty).toFixed(2) : '';
@@ -2986,9 +2994,21 @@ function openWeightModal(id) {
   setTimeout(() => document.getElementById('weightGrams').focus(), 50);
 }
 let _weightLastField = 'grams'; // tracks which field the cashier actually typed in
+let _weightUnit = 'g'; // 'g' or 'kg' \u2014 which unit the weight input is currently showing
+function gramsFromWeightInput() {
+  const raw = parseFloat(document.getElementById('weightGrams').value) || 0;
+  return _weightUnit === 'kg' ? raw * 1000 : raw;
+}
+function onWeightUnitChange() {
+  const grams = gramsFromWeightInput();
+  _weightUnit = document.getElementById('weightUnit').value;
+  const display = _weightUnit === 'kg' ? grams / 1000 : grams;
+  document.getElementById('weightGrams').value = display > 0 ? (_weightUnit === 'kg' ? (Math.round(display * 1000) / 1000) : Math.round(display)) : '';
+  onWeightGramsInput();
+}
 function onWeightGramsInput() {
   _weightLastField = 'grams';
-  const grams = parseFloat(document.getElementById('weightGrams').value) || 0;
+  const grams = gramsFromWeightInput();
   const amount = (_weightPricePerKg / 1000) * grams;
   document.getElementById('weightAmount').value = amount > 0 ? amount.toFixed(2) : '';
   updateWeightTotalDisplay();
@@ -2997,11 +3017,14 @@ function onWeightAmountInput() {
   _weightLastField = 'amount';
   const amount = parseFloat(document.getElementById('weightAmount').value) || 0;
   const grams = _weightPricePerKg > 0 ? (amount / _weightPricePerKg) * 1000 : 0;
-  document.getElementById('weightGrams').value = grams > 0 ? Math.round(grams) : '';
+  const display = _weightUnit === 'kg' ? grams / 1000 : grams;
+  document.getElementById('weightGrams').value = display > 0 ? (_weightUnit === 'kg' ? (Math.round(display * 1000) / 1000) : Math.round(display)) : '';
   updateWeightTotalDisplay();
 }
 function setWeightGrams(g) {
-  document.getElementById('weightGrams').value = g;
+  _weightUnit = g >= 1000 ? 'kg' : 'g';
+  document.getElementById('weightUnit').value = _weightUnit;
+  document.getElementById('weightGrams').value = _weightUnit === 'kg' ? g / 1000 : g;
   onWeightGramsInput();
 }
 function setWeightAmount(a) {
@@ -3018,7 +3041,7 @@ function closeWeightModal() {
 }
 function confirmWeightAdd() {
   const p = prods.find(x => x.id == _weightProdId); if (!p) return;
-  const grams  = parseFloat(document.getElementById('weightGrams').value) || 0;
+  const grams  = gramsFromWeightInput();
   const amount = parseFloat(document.getElementById('weightAmount').value) || 0;
   if (grams <= 0) { showToast('Enter a valid weight or amount.', true); return; }
   const priceKg = parseFloat(p.price) || 0;
