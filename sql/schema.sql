@@ -716,9 +716,9 @@ BEGIN
   INSERT INTO app_settings (key, value) VALUES ('free_for_all', p_enabled::text)
     ON CONFLICT (key) DO UPDATE SET value = p_enabled::text;
   IF p_enabled THEN
-    UPDATE stores SET free_until = now() + interval '100 years';
+    UPDATE stores SET free_until = now() + interval '100 years' WHERE true;
   ELSE
-    UPDATE stores SET free_until = NULL;
+    UPDATE stores SET free_until = NULL WHERE true;
   END IF;
 END; $$;
 
