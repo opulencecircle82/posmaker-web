@@ -1568,13 +1568,18 @@ function addItem(id) {
 let _poItems = []; // [{ id, name, price, unit, qty, discPct, discAmt, notes }]
 function openProductOptWidget(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
-  let entry = _poItems.find(it => it.id === id);
-  if (entry) {
+  // Newest click always lands at the TOP of the list — whether it's a brand
+  // new product or the cashier tapping an already-staged one again.
+  const existingIdx = _poItems.findIndex(it => it.id === id);
+  if (existingIdx !== -1) {
+    const entry = _poItems[existingIdx];
     const max = _maxStock(id);
     if (entry.qty + 1 > max) { showToast(`Only ${max} in stock`); return; }
     entry.qty++;
+    _poItems.splice(existingIdx, 1);
+    _poItems.unshift(entry);
   } else {
-    _poItems.push({ id: p.id, name: p.name, price: parseFloat(p.price), unit: p.unit || 'pc', qty: 1, discPct: 0, discAmt: 0, notes: '' });
+    _poItems.unshift({ id: p.id, name: p.name, price: parseFloat(p.price), unit: p.unit || 'pc', qty: 1, discPct: 0, discAmt: 0, notes: '' });
   }
   renderProductOptWidget();
   document.getElementById('prodOptWidget').style.display = 'block';
