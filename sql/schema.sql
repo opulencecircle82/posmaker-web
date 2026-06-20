@@ -735,8 +735,10 @@ CREATE TABLE IF NOT EXISTS public.plan_limits (
   inventory_limit INTEGER NOT NULL DEFAULT 0,
   product_limit   INTEGER NOT NULL DEFAULT 0,
   staff_limit     INTEGER NOT NULL DEFAULT 0,
-  pos_limit       INTEGER NOT NULL DEFAULT 0
+  pos_limit       INTEGER NOT NULL DEFAULT 0,
+  price_usd       NUMERIC(10,2) NOT NULL DEFAULT 0
 );
+ALTER TABLE plan_limits ADD COLUMN IF NOT EXISTS price_usd NUMERIC(10,2) NOT NULL DEFAULT 0;
 ALTER TABLE plan_limits ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS plan_limits_read ON plan_limits;
 CREATE POLICY plan_limits_read ON plan_limits FOR SELECT TO anon USING (true);
@@ -748,14 +750,17 @@ INSERT INTO plan_limits (tier, inventory_limit, product_limit, staff_limit, pos_
   ('premium',  999999, 999999, 999999, 999999)
 ON CONFLICT (tier) DO NOTHING;
 
+-- Signature changed (added p_price) — drop the old 6-arg version first so
+-- CREATE OR REPLACE doesn't leave a stale orphaned overload behind.
+DROP FUNCTION IF EXISTS dev_set_plan_limit(text, text, int, int, int, int);
 CREATE OR REPLACE FUNCTION dev_set_plan_limit(p_token text, p_tier text,
-  p_inventory int, p_product int, p_staff int, p_pos int)
+  p_inventory int, p_product int, p_staff int, p_pos int, p_price numeric DEFAULT 0)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
-  INSERT INTO plan_limits (tier, inventory_limit, product_limit, staff_limit, pos_limit)
-    VALUES (p_tier, p_inventory, p_product, p_staff, p_pos)
+  INSERT INTO plan_limits (tier, inventory_limit, product_limit, staff_limit, pos_limit, price_usd)
+    VALUES (p_tier, p_inventory, p_product, p_staff, p_pos, p_price)
     ON CONFLICT (tier) DO UPDATE SET inventory_limit = p_inventory,
-      product_limit = p_product, staff_limit = p_staff, pos_limit = p_pos;
+      product_limit = p_product, staff_limit = p_staff, pos_limit = p_pos, price_usd = p_price;
 END; $$;

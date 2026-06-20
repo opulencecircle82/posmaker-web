@@ -1562,7 +1562,7 @@ async function loadPlanLimits() {
 }
 function getTierLimits(tier) {
   return _planLimits.find(p => p.tier === tier)
-    || { tier, inventory_limit: 0, product_limit: 0, staff_limit: 0, pos_limit: 0 };
+    || { tier, inventory_limit: 0, product_limit: 0, staff_limit: 0, pos_limit: 0, price_usd: 0 };
 }
 function renderPlanTierGrid() {
   const grid = document.getElementById('planTierGrid');
@@ -1596,7 +1596,14 @@ function renderPlanLimitRows() {
           <input type="checkbox" ${isUnl ? 'checked' : ''} onchange="togglePlanUnlimited('${r.key}',this.checked)" style="cursor:pointer">Unli
         </label>
       </div>`;
-    }).join('');
+    }).join('')
+    + (_selectedTier === 'free' ? '' : `
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 0">
+        <span style="flex:1;font-size:13px">Price</span>
+        <span style="font-weight:800;font-size:14px;color:var(--muted)">$</span>
+        <input type="number" min="0" step="0.01" id="planPrice" value="${limits.price_usd || 0}" onchange="setPlanPrice(this.value)" style="width:90px;text-align:center;font-weight:800;font-size:14px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 2px">
+        <span style="font-size:11px;color:var(--muted)">/mo</span>
+      </div>`);
 }
 function setPlanLimitValue(field, val) {
   savePlanLimitField(field, Math.max(0, parseInt(val, 10) || 0));
@@ -1608,6 +1615,9 @@ function adjPlanLimit(field, delta) {
   const limits = getTierLimits(_selectedTier);
   savePlanLimitField(field, Math.max(0, (limits[field] || 0) + delta));
 }
+function setPlanPrice(val) {
+  savePlanLimitField('price_usd', Math.max(0, parseFloat(val) || 0));
+}
 async function savePlanLimitField(field, value) {
   const limits = getTierLimits(_selectedTier);
   limits[field] = value;
@@ -1617,7 +1627,7 @@ async function savePlanLimitField(field, value) {
   const { error } = await _sb.rpc('dev_set_plan_limit', {
     p_token: _devToken, p_tier: _selectedTier,
     p_inventory: limits.inventory_limit, p_product: limits.product_limit,
-    p_staff: limits.staff_limit, p_pos: limits.pos_limit
+    p_staff: limits.staff_limit, p_pos: limits.pos_limit, p_price: limits.price_usd || 0
   });
   if (error) { handleAuthError(error); return; }
   showToast(PLAN_TIERS.find(t => t.key === _selectedTier).label + ' saved.');
