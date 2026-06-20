@@ -1120,7 +1120,7 @@ async function loadProds() {
   // For products without inv_links: match by name/SKU as fallback (e.g. drug stores)
   try {
     const { data: invData } = await _sb.from('inventory_items')
-      .select('id,name,sku,stock,low_stock_threshold,unit').eq('store_id', STORE_ID);
+      .select('id,name,sku,stock,low_stock_threshold,unit,category,cost_price').eq('store_id', STORE_ID);
     storeInvItems = invData || [];
     invById = {}; invByName = {};
     storeInvItems.forEach(i => {
@@ -1576,9 +1576,9 @@ function redrawCart() {
       </div>` : `<div class="ci">
         <span class="ci-name">${i.name}</span>
         <div class="ci-qty">
-          <button class="q-btn" onclick="adjQty('${i.id}',-1)">&#8722;</button>
+          <button class="q-btn" onclick="adjQty('${i._key||i.id}',-1)">&#8722;</button>
           <span class="ci-qty-num">${i.qty}</span>
-          <button class="q-btn" onclick="adjQty('${i.id}',1)">+</button>
+          <button class="q-btn" onclick="adjQty('${i._key||i.id}',1)">+</button>
         </div>
         <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
       </div>`).join('')
@@ -1808,11 +1808,16 @@ async function confirmOrder() {
 
   // Run order_items insert and the products inv_links lookup in parallel —
   // neither depends on the other's result.
+  // Synthetic cart lines (e.g. weight packaging) use id:null and must be
+  // excluded here — a null in .in('id', ...) breaks the whole products
+  // lookup, which would silently skip inv_links deduction for EVERY item
+  // in the order, not just the synthetic one.
+  const validProdIds = [...new Set(items.map(i => i.id).filter(Boolean))];
   const [, prodRowsRes] = await Promise.all([
     _sb.from('order_items').insert(
       items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
     ),
-    _sb.from('products').select('id,inv_links').in('id', items.map(i => i.id))
+    validProdIds.length ? _sb.from('products').select('id,inv_links').in('id', validProdIds) : Promise.resolve({ data: [] })
   ]);
 
   // Auto-deduct inventory stock based on inv_links (or auto-matched inventory item)
@@ -1834,6 +1839,10 @@ async function confirmOrder() {
         const p = prods.find(x => x.id === item.id);
         const autoId = p?._autoInvLink;
         if (autoId) deductions[autoId] = (deductions[autoId] || 0) + item.qty;
+      }
+      // Raw materials manually picked for weight packaging (bag/utensils)
+      if (item._unliInvUsed && item._unliInvUsed.length) {
+        item._unliInvUsed.forEach(invId => { deductions[invId] = (deductions[invId] || 0) + 1; });
       }
     }
 
@@ -3009,6 +3018,8 @@ function loadScript(src){
       <button type="button" class="q-cash" onclick="setWeightAmount(300)">&#8369;300</button>
     </div>
     <div style="text-align:center;font-size:20px;font-weight:800;color:var(--accent);margin-bottom:10px" id="weightPriceTotal"></div>
+    <select id="weightInvItem" class="inp" onchange="addWeightInvItem()" style="margin-bottom:8px"><option value="">&#8212; Add Bag / Packaging &#8212;</option></select>
+    <div id="weightInvAddedList" style="font-size:11px;color:#ccc;margin-bottom:6px"></div>
     <div class="m-actions">
       <button class="btn-cancel" onclick="closeWeightModal()">Cancel</button>
       <button class="btn-confirm" onclick="confirmWeightAdd()">Add to Cart</button>
@@ -3017,6 +3028,7 @@ function loadScript(src){
 
 <script>
 let _weightProdId = null, _weightPricePerKg = 0;
+let _weightExtra = 0, _weightAddedItems = [];
 function openWeightModal(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
   _weightProdId = id;
@@ -3028,9 +3040,51 @@ function openWeightModal(id) {
   const existing = cart[id];
   document.getElementById('weightGrams').value = existing ? (Math.round(existing.qty * 1000) / 1000) : '';
   document.getElementById('weightAmount').value = existing ? (existing.price * existing.qty).toFixed(2) : '';
+  _weightExtra = 0;
+  _weightAddedItems = [];
+  document.getElementById('weightInvAddedList').innerHTML = '';
+  populateWeightInvItems();
   updateWeightTotalDisplay();
   document.getElementById('weightModal').style.display = 'block';
   setTimeout(() => document.getElementById('weightGrams').focus(), 50);
+}
+function populateWeightInvItems() {
+  const sel = document.getElementById('weightInvItem');
+  sel.innerHTML = '<option value="">\u2014 Add Bag / Packaging \u2014</option>';
+  const allowed = (STORE.takeout_inv_categories || '').split(',').map(s=>s.trim()).filter(Boolean);
+  storeInvItems
+    .filter(i => allowed.includes((i.category||'').trim()))
+    .forEach(i => sel.add(new Option(i.name + ' (' + (CUR||'\u20B1') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id)));
+}
+function addWeightInvItem() {
+  const sel = document.getElementById('weightInvItem');
+  const invId = sel.value;
+  if (!invId) return;
+  const inv = storeInvItems.find(i => i.id == invId);
+  if (!inv) return;
+  const cost = parseFloat(inv.cost_price) || 0;
+  _weightExtra += cost;
+  _weightAddedItems.push({ invId: inv.id, name: inv.name, cost });
+  renderWeightAddedList();
+  updateWeightTotalDisplay();
+  sel.value = '';
+}
+function renderWeightAddedList() {
+  const el = document.getElementById('weightInvAddedList');
+  if (!_weightAddedItems.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _weightAddedItems.map((it,idx) =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0">
+      <span>${it.name} (+${CUR||'\u20B1'}${it.cost.toFixed(2)})</span>
+      <button type="button" class="q-btn" onclick="removeWeightInvItem(${idx})">&#10005;</button>
+    </div>`
+  ).join('');
+}
+function removeWeightInvItem(idx) {
+  const it = _weightAddedItems[idx];
+  if (it) _weightExtra -= it.cost;
+  _weightAddedItems.splice(idx, 1);
+  renderWeightAddedList();
+  updateWeightTotalDisplay();
 }
 let _weightLastField = 'grams'; // tracks which field the cashier actually typed in
 let _weightUnit = 'g'; // 'g' or 'kg' \u2014 which unit the weight input is currently showing
@@ -3072,7 +3126,7 @@ function setWeightAmount(a) {
 }
 function updateWeightTotalDisplay() {
   const amount = parseFloat(document.getElementById('weightAmount').value) || 0;
-  document.getElementById('weightPriceTotal').textContent = CUR + amount.toFixed(2);
+  document.getElementById('weightPriceTotal').textContent = CUR + (amount + _weightExtra).toFixed(2);
 }
 function closeWeightModal() {
   document.getElementById('weightModal').style.display = 'none';
@@ -3088,6 +3142,14 @@ function confirmWeightAdd() {
   // of re-deriving it from the rounded gram value (avoids a rounding drift).
   const qtyKg = (_weightLastField === 'amount' && amount > 0 && priceKg > 0) ? (amount / priceKg) : (grams / 1000);
   cart[p.id] = { id: p.id, name: p.name, price: priceKg, qty: qtyKg, isWeight: true };
+  // Packaging is a flat fee, not per-kilo — keep it as its own cart line so it
+  // doesn't scale with weight. id:null keeps it out of this product's own
+  // inv_links deduction (would otherwise double-deduct using this qty math).
+  const pkgKey = p.id + '_weight_pkg';
+  delete cart[pkgKey];
+  if (_weightExtra > 0) {
+    cart[pkgKey] = { id: null, name: p.name + ' — Packaging', price: _weightExtra, qty: 1, _key: pkgKey, _unliInvUsed: _weightAddedItems.map(it => it.invId) };
+  }
   redrawCart();
   closeWeightModal();
 }
