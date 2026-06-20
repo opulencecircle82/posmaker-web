@@ -95,7 +95,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .r-card-stock.zero{color:#ef4444;background:rgba(239,68,68,.13)}
 /* ── RETAIL MID PANEL — cart items (center column) ─────── */
 .retail-mid{flex:1;display:none;flex-direction:column;overflow:hidden;background:var(--bg)}
-.r-card.flash{background:rgba(0,180,216,.22)!important;border-color:var(--accent)!important;transition:none!important}
+.r-card.flash,.p-btn.flash{background:rgba(0,180,216,.22)!important;border-color:var(--accent)!important;transition:none!important}
 /* ── RETAIL RIGHT — totals-only panel ─────────────────── */
 .retail-pay{width:220px!important}
 .retail-pay .totals{padding:20px 12px 8px}
@@ -146,6 +146,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .disc-inputs{display:flex;gap:5px}
 .disc-inp{flex:1;padding:5px 7px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;outline:none;font-family:inherit;min-width:0}
 .disc-inp:focus{border-color:var(--accent)}
+#poList{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#poList::-webkit-scrollbar{width:6px}
+#poList::-webkit-scrollbar-track{background:transparent}
+#poList::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
 /* Totals */
 .totals{padding:7px 9px;border-top:1px solid var(--border);font-size:11px;flex-shrink:0}
@@ -327,6 +331,37 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       </div>
     </div>
   </div>
+
+  <!-- Product Options floating widget — opens on the right when a product is
+       clicked, before it's added to cart. Clicking another product while it's
+       open ADDS it as another line here (scrollable list), plus ONE shared
+       discount and ONE bag/packaging picker (for Take Away) for the whole
+       batch — then "Add to Cart" pushes everything in at once. Works the
+       same regardless of which Dine In / Take Away / Delivery tab is active. -->
+  <div id="prodOptWidget" style="display:none;position:fixed;top:90px;right:20px;z-index:600;background:var(--s1);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);padding:14px;width:240px;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <strong style="font-size:13px;color:var(--text)">Add Items</strong>
+      <span style="cursor:pointer;color:var(--muted);font-size:14px" onclick="closeProductOptWidget()">&#10005;</span>
+    </div>
+    <div id="poList" style="max-height:200px;overflow-y:auto"></div>
+
+    <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px">
+      <label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Discount (all items)</label>
+      <div class="disc-inputs" style="margin-bottom:8px">
+        <input class="disc-inp" id="poDiscPct" type="number" placeholder="%" min="0" max="100" step="0.5" oninput="onPoDiscPct()">
+        <input class="disc-inp" id="poDiscAmt" type="number" placeholder="Amount" min="0" step="0.01" oninput="onPoDiscAmt()">
+      </div>
+      <select id="poInvItem" class="inp" onchange="addPoInvItem()" style="margin-bottom:6px"><option value="">&#8212; Add Bag / Packaging &#8212;</option></select>
+      <div id="poInvAddedList" style="font-size:11px;color:#ccc"></div>
+    </div>
+
+    <div style="text-align:center;font-size:18px;font-weight:800;color:var(--accent);margin:8px 0;border-top:1px solid var(--border);padding-top:8px" id="poTotal">&#8369;0.00</div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeProductOptWidget()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmProductOpt()">Add to Cart</button>
+    </div>
+  </div>
+
   <!-- Product grid (restaurant) -->
   <div class="products" id="grid"></div>
 
@@ -1110,7 +1145,7 @@ async function loadProds() {
   // For products without inv_links: match by name/SKU as fallback (e.g. drug stores)
   try {
     const { data: invData } = await _sb.from('inventory_items')
-      .select('id,name,sku,stock,low_stock_threshold,unit').eq('store_id', STORE_ID);
+      .select('id,name,sku,stock,low_stock_threshold,unit,category,cost_price').eq('store_id', STORE_ID);
     storeInvItems = invData || [];
     invById = {}; invByName = {};
     storeInvItems.forEach(i => {
@@ -1264,7 +1299,7 @@ function renderPhotoGrid(list) {
         const oos = parseFloat(p.stock ?? 0) <= 0 && STORE.track_stock;
         const img = _firstImg(p.image_b64);
         return `
-        <div class="p-btn${oos?' out-of-stock':''}" onclick="${oos?'void 0':'addItem(\''+p.id+'\')'}">
+        <div class="p-btn${oos?' out-of-stock':''}" id="rcard_${p.id}" onclick="${oos?'void 0':'openProductOptWidget(\''+p.id+'\')'}">
           ${img
             ? `<img class="p-img" src="data:image/jpeg;base64,${img}" alt="">`
             : `<div class="p-noimg">&#127869;</div>`}
@@ -1529,6 +1564,155 @@ function addItem(id) {
   redrawCart();
 }
 
+// ── Product Options widget — stages multiple products in a scrollable list,
+// plus ONE shared discount and ONE bag/packaging picker for the whole batch.
+// Nothing is committed to the real cart until "Add to Cart" is clicked.
+let _poItems = []; // [{ id, name, price, unit, qty }]
+let _poDiscPct = 0, _poDiscAmt = 0;
+let _poExtra = 0, _poAddedItems = [];
+function openProductOptWidget(id) {
+  const p = prods.find(x => x.id == id); if (!p) return;
+  const widget = document.getElementById('prodOptWidget');
+  if (widget.style.display !== 'block') {
+    // Fresh open (was closed) — seed the batch discount from whatever the
+    // cart-wide discount currently is, and reset the packaging picker.
+    _poDiscPct = discPct; _poDiscAmt = discAmt;
+    document.getElementById('poDiscPct').value = discPct || '';
+    document.getElementById('poDiscAmt').value = discAmt || '';
+    _poExtra = 0; _poAddedItems = [];
+    document.getElementById('poInvAddedList').innerHTML = '';
+    populatePoInvItems();
+  }
+  // Newest click always lands at the TOP of the list — whether it's a brand
+  // new product or the cashier tapping an already-staged one again.
+  const existingIdx = _poItems.findIndex(it => it.id === id);
+  if (existingIdx !== -1) {
+    const entry = _poItems[existingIdx];
+    const max = _maxStock(id);
+    if (entry.qty + 1 > max) { showToast(`Only ${max} in stock`); return; }
+    entry.qty++;
+    _poItems.splice(existingIdx, 1);
+    _poItems.unshift(entry);
+  } else {
+    _poItems.unshift({ id: p.id, name: p.name, price: parseFloat(p.price), unit: p.unit || 'pc', qty: 1 });
+  }
+  renderProductOptWidget();
+  widget.style.display = 'block';
+  const card = document.getElementById('rcard_' + id);
+  if (card) { card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 350); }
+}
+function closeProductOptWidget() {
+  document.getElementById('prodOptWidget').style.display = 'none';
+  _poItems = [];
+  _poDiscPct = 0; _poDiscAmt = 0;
+  _poExtra = 0; _poAddedItems = [];
+}
+function renderProductOptWidget() {
+  const wrap = document.getElementById('poList');
+  wrap.innerHTML = _poItems.length ? _poItems.map((it, idx) => `
+    <div style="display:flex;align-items:center;gap:5px;padding:5px 0;border-top:1px solid var(--border)">
+      <span style="flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</span>
+      <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},-1)" style="width:20px;height:20px;font-size:11px;flex-shrink:0">&#8722;</button>
+      <span id="poItemQty_${idx}" style="min-width:14px;text-align:center;font-size:12px;font-weight:700">${it.qty}</span>
+      <button type="button" class="q-btn" onclick="adjPoItemQty(${idx},1)" style="width:20px;height:20px;font-size:11px;flex-shrink:0">+</button>
+      <span id="poItemTotal_${idx}" style="font-size:12px;font-weight:700;color:var(--accent);min-width:54px;text-align:right;flex-shrink:0">${CUR}${(it.price*it.qty).toFixed(2)}</span>
+      <span style="cursor:pointer;color:var(--muted);font-size:12px;flex-shrink:0" onclick="removePoItem(${idx})">&#10005;</span>
+    </div>`).join('') : '<div style="font-size:11px;color:#666;text-align:center;padding:10px 0">No items yet.</div>';
+  updatePoGrandTotal();
+}
+function updatePoGrandTotal() {
+  const itemsRaw = _poItems.reduce((s, it) => s + it.price * it.qty, 0);
+  const discRaw  = _poDiscAmt > 0 ? Math.min(_poDiscAmt, itemsRaw) : (itemsRaw * _poDiscPct / 100);
+  const grand = Math.max(0, itemsRaw - discRaw) + _poExtra;
+  document.getElementById('poTotal').textContent = CUR + grand.toFixed(2);
+}
+function adjPoItemQty(idx, d) {
+  const it = _poItems[idx]; if (!it) return;
+  const next = it.qty + d;
+  if (next < 1) { removePoItem(idx); return; }
+  const max = _maxStock(it.id);
+  if (next > max) { showToast(`Only ${max} in stock`); return; }
+  it.qty = next;
+  const qtyEl = document.getElementById('poItemQty_' + idx);
+  if (qtyEl) qtyEl.textContent = it.qty;
+  const totalEl = document.getElementById('poItemTotal_' + idx);
+  if (totalEl) totalEl.textContent = CUR + (it.price * it.qty).toFixed(2);
+  updatePoGrandTotal();
+}
+function removePoItem(idx) {
+  _poItems.splice(idx, 1);
+  renderProductOptWidget();
+}
+function onPoDiscPct() {
+  _poDiscPct = parseFloat(document.getElementById('poDiscPct').value) || 0;
+  _poDiscAmt = 0; document.getElementById('poDiscAmt').value = '';
+  updatePoGrandTotal();
+}
+function onPoDiscAmt() {
+  _poDiscAmt = parseFloat(document.getElementById('poDiscAmt').value) || 0;
+  _poDiscPct = 0; document.getElementById('poDiscPct').value = '';
+  updatePoGrandTotal();
+}
+function populatePoInvItems() {
+  const sel = document.getElementById('poInvItem');
+  sel.innerHTML = '<option value="">— Add Bag / Packaging —</option>';
+  const allowed = (STORE.takeout_inv_categories || '').split(',').map(s=>s.trim()).filter(Boolean);
+  storeInvItems
+    .filter(i => allowed.includes((i.category||'').trim()))
+    .forEach(i => sel.add(new Option(i.name + ' (' + (CUR||'₱') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id)));
+}
+function addPoInvItem() {
+  const sel = document.getElementById('poInvItem');
+  const invId = sel.value;
+  if (!invId) return;
+  const inv = storeInvItems.find(i => i.id == invId);
+  if (!inv) return;
+  const cost = parseFloat(inv.cost_price) || 0;
+  _poExtra += cost;
+  _poAddedItems.push({ invId: inv.id, name: inv.name, cost });
+  renderPoAddedList();
+  updatePoGrandTotal();
+  sel.value = '';
+}
+function renderPoAddedList() {
+  const el = document.getElementById('poInvAddedList');
+  if (!_poAddedItems.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _poAddedItems.map((it,idx) =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0">
+      <span>${it.name} (+${CUR||'₱'}${it.cost.toFixed(2)})</span>
+      <button type="button" class="q-btn" onclick="removePoInvItem(${idx})">&#10005;</button>
+    </div>`
+  ).join('');
+}
+function removePoInvItem(idx) {
+  const it = _poAddedItems[idx];
+  if (it) _poExtra -= it.cost;
+  _poAddedItems.splice(idx, 1);
+  renderPoAddedList();
+  updatePoGrandTotal();
+}
+function confirmProductOpt() {
+  if (!_poItems.length) { closeProductOptWidget(); return; }
+  for (const it of _poItems) {
+    const max = _maxStock(it.id);
+    const existingQty = cart[it.id] ? cart[it.id].qty : 0;
+    if (existingQty + it.qty > max) { showToast(`Only ${max} in stock for ${it.name}`); continue; }
+    if (!cart[it.id]) cart[it.id] = { id: it.id, name: it.name, price: it.price, qty: 0 };
+    cart[it.id].qty += it.qty;
+  }
+  // Commit the batch discount into the shared cart-wide discount.
+  discPct = _poDiscPct; discAmt = _poDiscAmt;
+  document.getElementById('discPct').value = discPct || '';
+  document.getElementById('discAmt').value = discAmt || '';
+  // Bag/packaging picked for this batch — flat fee, its own cart line.
+  if (_poExtra > 0) {
+    const pkgKey = '_po_pkg_' + Date.now();
+    cart[pkgKey] = { id: null, name: 'Bag / Packaging', price: _poExtra, qty: 1, _key: pkgKey, _unliInvUsed: _poAddedItems.map(it => it.invId) };
+  }
+  redrawCart();
+  closeProductOptWidget();
+}
+
 function adjQty(id, d) {
   if (!cart[id]) return;
   if (d > 0) {
@@ -1558,9 +1742,9 @@ function redrawCart() {
     ? items.map(i => `<div class="ci">
         <span class="ci-name">${i.name}</span>
         <div class="ci-qty">
-          <button class="q-btn" onclick="adjQty('${i.id}',-1)">&#8722;</button>
+          <button class="q-btn" onclick="adjQty('${i._key||i.id}',-1)">&#8722;</button>
           <span class="ci-qty-num">${i.qty}</span>
-          <button class="q-btn" onclick="adjQty('${i.id}',1)">+</button>
+          <button class="q-btn" onclick="adjQty('${i._key||i.id}',1)">+</button>
         </div>
         <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
       </div>`).join('')
@@ -1763,11 +1947,16 @@ async function confirmOrder() {
 
   // Run order_items insert and the products inv_links lookup in parallel —
   // neither depends on the other's result.
+  // Synthetic cart lines (e.g. Take Out Packaging) use id:null and must be
+  // excluded here — a null in .in('id', ...) breaks the whole products
+  // lookup, which would silently skip inv_links deduction for EVERY item
+  // in the order, not just the synthetic one.
+  const validProdIds = [...new Set(items.map(i => i.id).filter(Boolean))];
   const [, prodRowsRes] = await Promise.all([
     _sb.from('order_items').insert(
       items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
     ),
-    _sb.from('products').select('id,inv_links').in('id', items.map(i => i.id))
+    validProdIds.length ? _sb.from('products').select('id,inv_links').in('id', validProdIds) : Promise.resolve({ data: [] })
   ]);
 
   // Auto-deduct inventory stock based on inv_links (or auto-matched inventory item)
@@ -1789,6 +1978,10 @@ async function confirmOrder() {
         const p = prods.find(x => x.id === item.id);
         const autoId = p?._autoInvLink;
         if (autoId) deductions[autoId] = (deductions[autoId] || 0) + item.qty;
+      }
+      // Raw materials manually picked for Take Out packaging (Add Items widget)
+      if (item._unliInvUsed && item._unliInvUsed.length) {
+        item._unliInvUsed.forEach(invId => { deductions[invId] = (deductions[invId] || 0) + 1; });
       }
     }
 
@@ -1866,6 +2059,7 @@ function newOrder() {
   document.getElementById('chgDisp').textContent = '';
   document.getElementById('discPct').value = '';
   document.getElementById('discAmt').value = '';
+  closeProductOptWidget();
   document.querySelectorAll('.m-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
   isKOT = false;
   document.getElementById('btnKOT').classList.remove('on');
