@@ -375,6 +375,34 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
           </table>
         </div>
       </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">
+          &#128172; Contact Messages
+          <button class="btn btn-ghost btn-sm" onclick="loadContactMessages()">&#8635; Refresh</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">Submitted via the public contact.html form.</p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Date</th><th>Name / Email</th><th>Store</th><th>Subject</th><th>Message</th><th>Status</th><th></th></tr></thead>
+            <tbody id="contactMsgsTbody"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">
+          &#11088; Satisfaction Surveys
+          <button class="btn btn-ghost btn-sm" onclick="loadSatisfactionSurveys()">&#8635; Refresh</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">The 5-day "Are you satisfied?" check-in shown once on each owner's dashboard.</p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Date</th><th>Store / Email</th><th>Rating</th><th>Comment</th></tr></thead>
+            <tbody id="surveysTbody"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- PLAN LIMITS -->
@@ -1957,7 +1985,11 @@ function showTab(tab) {
   if (tab === 'subs') { loadFreeForAllSetting(); if (!_allSubs.length) loadSubs(); }
   if (tab === 'agents' && !_allAgents.length) loadAgents();
   if (tab === 'referrals' && !_allReferrals.length) loadReferrals();
-  if (tab === 'support') { if (_allTickets.length) renderTickets(); else loadTickets(); }
+  if (tab === 'support') {
+    if (_allTickets.length) renderTickets(); else loadTickets();
+    if (!_allContactMsgs.length) loadContactMessages();
+    if (!_allSurveys.length) loadSatisfactionSurveys();
+  }
   if (tab === 'accounts') renderAccounts();
   if (tab === 'plans' && !_planLimits.length) loadPlanLimits();
 }
@@ -2033,6 +2065,64 @@ async function setTicketStatus(status) {
   document.getElementById('stTickets').textContent = _allTickets.filter(t => t.status === 'open').length;
   renderTickets();
   showToast('Ticket status updated!');
+}
+
+// ── Contact Messages (public contact.html submissions) ──────────────────────────
+let _allContactMsgs = [];
+async function loadContactMessages() {
+  const { data, error } = await _sb.rpc('dev_get_contact_messages', { p_token: _devToken });
+  if (error) { handleAuthError(error); return; }
+  _allContactMsgs = data || [];
+  renderContactMessages();
+}
+function renderContactMessages() {
+  const tb = document.getElementById('contactMsgsTbody');
+  if (!_allContactMsgs.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="8">No messages yet.</td></tr>'; return; }
+  tb.innerHTML = _allContactMsgs.map((m, i) => {
+    const dt = new Date(m.created_at).toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      <td style="color:var(--muted);font-size:12px">${dt}</td>
+      <td><strong>${esc(m.name)}</strong><div style="font-size:11px;color:var(--muted)">${esc(m.email)}</div></td>
+      <td style="color:var(--muted);font-size:12px">${esc(m.store_name||'—')}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.subject)}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px">${esc(m.message)}</td>
+      <td>${_ticketBadge(m.status)}</td>
+      <td>${m.status !== 'resolved' ? `<button class="btn btn-ghost btn-sm" onclick="resolveContactMessage('${m.id}')">Mark Resolved</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+async function resolveContactMessage(id) {
+  const { error } = await _sb.rpc('dev_set_contact_status', { p_token: _devToken, p_id: id, p_status: 'resolved' });
+  if (error) { showToast('Failed to update', true); return; }
+  const m = _allContactMsgs.find(x => x.id === id);
+  if (m) m.status = 'resolved';
+  renderContactMessages();
+  showToast('Marked resolved.');
+}
+
+// ── Satisfaction Surveys (5-day dashboard check-in) ──────────────────────────────
+let _allSurveys = [];
+async function loadSatisfactionSurveys() {
+  const { data, error } = await _sb.rpc('dev_get_satisfaction_surveys', { p_token: _devToken });
+  if (error) { handleAuthError(error); return; }
+  _allSurveys = data || [];
+  renderSatisfactionSurveys();
+}
+function renderSatisfactionSurveys() {
+  const tb = document.getElementById('surveysTbody');
+  if (!_allSurveys.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="5">No survey responses yet.</td></tr>'; return; }
+  tb.innerHTML = _allSurveys.map((s, i) => {
+    const dt = new Date(s.created_at).toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
+    const ratingColor = s.rating >= 8 ? 'var(--success)' : s.rating >= 5 ? '#f59e0b' : 'var(--danger)';
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      <td style="color:var(--muted);font-size:12px">${dt}</td>
+      <td><strong>${esc(s.store_name||'—')}</strong><div style="font-size:11px;color:var(--muted)">${esc(s.owner_email||'—')}</div></td>
+      <td style="font-weight:800;font-size:15px;color:${ratingColor}">${s.rating ?? '—'}/10</td>
+      <td style="max-width:300px;color:var(--muted);font-size:12px">${esc(s.comment||'—')}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────────

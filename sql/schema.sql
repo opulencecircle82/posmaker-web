@@ -764,3 +764,62 @@ BEGIN
     ON CONFLICT (tier) DO UPDATE SET inventory_limit = p_inventory,
       product_limit = p_product, staff_limit = p_staff, pos_limit = p_pos, price_usd = p_price;
 END; $$;
+
+-- ============================================================
+--  5-day "Are you satisfied?" check-in survey (owner dashboard) +
+--  public Contact Support form (contact.html)
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+-- Marks a store as already prompted so the survey only ever shows once.
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS survey_prompted_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS public.satisfaction_surveys (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id    UUID REFERENCES stores ON DELETE SET NULL,
+  store_name  TEXT DEFAULT '',
+  owner_email TEXT DEFAULT '',
+  rating      INTEGER,
+  comment     TEXT DEFAULT '',
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE satisfaction_surveys ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS satisfaction_surveys_insert ON satisfaction_surveys;
+CREATE POLICY satisfaction_surveys_insert ON satisfaction_surveys FOR INSERT TO anon WITH CHECK (true);
+
+CREATE OR REPLACE FUNCTION dev_get_satisfaction_surveys(p_token text)
+RETURNS SETOF satisfaction_surveys LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  RETURN QUERY SELECT * FROM satisfaction_surveys ORDER BY created_at DESC;
+END; $$;
+
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name       TEXT NOT NULL,
+  email      TEXT NOT NULL,
+  store_name TEXT DEFAULT '',
+  subject    TEXT NOT NULL,
+  message    TEXT NOT NULL,
+  status     TEXT DEFAULT 'open',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE contact_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS contact_messages_insert ON contact_messages;
+CREATE POLICY contact_messages_insert ON contact_messages FOR INSERT TO anon WITH CHECK (true);
+
+CREATE OR REPLACE FUNCTION dev_get_contact_messages(p_token text)
+RETURNS SETOF contact_messages LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  RETURN QUERY SELECT * FROM contact_messages ORDER BY created_at DESC;
+END; $$;
+
+CREATE OR REPLACE FUNCTION dev_set_contact_status(p_token text, p_id uuid, p_status text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  UPDATE contact_messages SET status = p_status WHERE id = p_id;
+END; $$;

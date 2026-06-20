@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POSMaker — Contact Support</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="js/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#09090f;color:#f0f0f8;font-family:'Inter',sans-serif;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:min(460px,100%)}
+.logo{text-align:center;font-size:22px;font-weight:800;margin-bottom:32px}
+.logo span{color:#00b4d8}
+.card{background:#111120;border:1px solid #252540;border-radius:16px;padding:36px}
+h1{font-size:22px;font-weight:800;margin-bottom:4px}
+.sub{font-size:14px;color:#8888aa;margin-bottom:28px;line-height:1.6}
+.field{margin-bottom:16px}
+label{display:block;font-size:13px;font-weight:600;color:#aaa;margin-bottom:6px}
+input,textarea{width:100%;padding:11px 14px;background:#09090f;border:1.5px solid #252540;border-radius:8px;color:#f0f0f8;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+textarea{resize:vertical;min-height:110px}
+input:focus,textarea:focus{border-color:#00b4d8}
+input::placeholder,textarea::placeholder{color:#44445a}
+.btn{width:100%;padding:13px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;font-family:'Inter',sans-serif;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.err{color:#ef4444;font-size:13px;min-height:18px;margin-bottom:10px;text-align:center}
+.success{text-align:center;padding:20px 0}
+.success .ic{font-size:44px;margin-bottom:12px}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<a href="index.html" style="position:fixed;top:16px;left:16px;color:#8888aa;font-size:13px;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:6px;z-index:99">&#8592; Back to Home</a>
+<div class="wrap">
+  <div class="logo">POS<span>Maker</span></div>
+  <div class="card" id="formCard">
+    <h1>&#128172; Contact Support</h1>
+    <p class="sub">Run into an issue or have a question? Send us a message and we'll get back to you by email.</p>
+    <div class="field">
+      <label>Your Name</label>
+      <input id="cName" type="text" placeholder="Juan Dela Cruz">
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input id="cEmail" type="email" placeholder="you@example.com">
+    </div>
+    <div class="field">
+      <label>Store Name <span style="color:#555;font-weight:400">(optional)</span></label>
+      <input id="cStore" type="text" placeholder="e.g. Fried Chiks">
+    </div>
+    <div class="field">
+      <label>Subject</label>
+      <input id="cSubject" type="text" placeholder="e.g. Cashier won't connect">
+    </div>
+    <div class="field">
+      <label>Message</label>
+      <textarea id="cMessage" placeholder="Describe the issue or question..."></textarea>
+    </div>
+    <div class="err" id="cErr"></div>
+    <button class="btn" id="cBtn" onclick="submitContact()">Send Message</button>
+  </div>
+  <div class="card" id="successCard" style="display:none">
+    <div class="success">
+      <div class="ic">&#9989;</div>
+      <h1 style="text-align:center">Message Sent!</h1>
+      <p class="sub" style="text-align:center">Thanks for reaching out — we'll reply to your email as soon as we can.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createClient } = (typeof supabase !== 'undefined' ? supabase : {});
+const _sb = typeof createClient === 'function' ? createClient(SUPABASE_URL, SUPABASE_ANON) : null;
+
+// Pre-fill from query string (e.g. linked from the dashboard satisfaction survey)
+const _qp = new URLSearchParams(location.search);
+if (_qp.get('store'))   document.getElementById('cStore').value   = _qp.get('store');
+if (_qp.get('email'))   document.getElementById('cEmail').value   = _qp.get('email');
+if (_qp.get('subject')) document.getElementById('cSubject').value = _qp.get('subject');
+
+async function submitContact() {
+  const name    = document.getElementById('cName').value.trim();
+  const email   = document.getElementById('cEmail').value.trim();
+  const store   = document.getElementById('cStore').value.trim();
+  const subject = document.getElementById('cSubject').value.trim();
+  const message = document.getElementById('cMessage').value.trim();
+  const errEl   = document.getElementById('cErr');
+  const btn     = document.getElementById('cBtn');
+
+  errEl.textContent = '';
+  if (!name || !email || !subject || !message) { errEl.textContent = 'Please fill in your name, email, subject, and message.'; return; }
+  if (!_sb) { errEl.textContent = 'Page failed to load. Please reload.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Sending...';
+
+  const { error } = await _sb.from('contact_messages').insert({
+    name, email, store_name: store, subject, message
+  });
+
+  if (error) {
+    errEl.textContent = 'Could not send your message: ' + error.message;
+    btn.disabled = false; btn.textContent = 'Send Message';
+    return;
+  }
+
+  document.getElementById('formCard').style.display = 'none';
+  document.getElementById('successCard').style.display = '';
+}
+</script>
+</body>
+</html>
