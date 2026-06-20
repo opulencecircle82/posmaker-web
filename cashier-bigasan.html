@@ -340,15 +340,27 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 
   <!-- Product Options floating widget — opens on the right when a product is
        clicked, before it's added to cart. Clicking another product while it's
-       open ADDS it as another line here, so the cashier can keep browsing and
-       stage several items (each with its own qty/discount/notes) before one
-       "Add to Cart" pushes all of them in. -->
-  <div id="prodOptWidget" style="display:none;position:fixed;top:90px;right:20px;z-index:600;background:var(--s1);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);padding:14px;width:240px;max-height:80vh;overflow-y:auto">
+       open ADDS it as another line here (scrollable list, like a spreadsheet,
+       so the widget itself doesn't keep growing), plus ONE shared discount
+       and ONE bag/packaging picker for the whole batch — then "Add to Cart"
+       pushes everything in at once. -->
+  <div id="prodOptWidget" style="display:none;position:fixed;top:90px;right:20px;z-index:600;background:var(--s1);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);padding:14px;width:240px;max-height:85vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
       <strong style="font-size:13px;color:var(--text)">Add Items</strong>
       <span style="cursor:pointer;color:var(--muted);font-size:14px" onclick="closeProductOptWidget()">&#10005;</span>
     </div>
-    <div id="poList"></div>
+    <div id="poList" style="max-height:200px;overflow-y:auto"></div>
+
+    <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px">
+      <label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Discount (all items)</label>
+      <div class="disc-inputs" style="margin-bottom:8px">
+        <input class="disc-inp" id="poDiscPct" type="number" placeholder="%" min="0" max="100" step="0.5" oninput="onPoDiscPct()">
+        <input class="disc-inp" id="poDiscAmt" type="number" placeholder="Amount" min="0" step="0.01" oninput="onPoDiscAmt()">
+      </div>
+      <select id="poInvItem" class="inp" onchange="addPoInvItem()" style="margin-bottom:6px"><option value="">&#8212; Add Bag / Packaging &#8212;</option></select>
+      <div id="poInvAddedList" style="font-size:11px;color:#ccc"></div>
+    </div>
+
     <div style="text-align:center;font-size:18px;font-weight:800;color:var(--accent);margin:8px 0;border-top:1px solid var(--border);padding-top:8px" id="poTotal">&#8369;0.00</div>
     <div class="m-actions">
       <button class="btn-cancel" onclick="closeProductOptWidget()">Cancel</button>
@@ -1563,12 +1575,25 @@ function addItem(id) {
   redrawCart();
 }
 
-// ── Product Options widget — stages multiple products in a compact list
-// before one "Add to Cart" pushes all of them in. Discount stays a single,
-// whole-cart thing (the existing 🏷️ Discount widget) — not duplicated here.
+// ── Product Options widget — stages multiple products in a scrollable list,
+// plus ONE shared discount and ONE bag/packaging picker for the whole batch.
+// Nothing is committed to the real cart until "Add to Cart" is clicked.
 let _poItems = []; // [{ id, name, price, unit, qty, notes }]
+let _poDiscPct = 0, _poDiscAmt = 0;
+let _poExtra = 0, _poAddedItems = [];
 function openProductOptWidget(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
+  const widget = document.getElementById('prodOptWidget');
+  if (widget.style.display !== 'block') {
+    // Fresh open (was closed) — seed the batch discount from whatever the
+    // cart-wide discount currently is, and reset the packaging picker.
+    _poDiscPct = discPct; _poDiscAmt = discAmt;
+    document.getElementById('poDiscPct').value = discPct || '';
+    document.getElementById('poDiscAmt').value = discAmt || '';
+    _poExtra = 0; _poAddedItems = [];
+    document.getElementById('poInvAddedList').innerHTML = '';
+    populatePoInvItems();
+  }
   // Newest click always lands at the TOP of the list — whether it's a brand
   // new product or the cashier tapping an already-staged one again.
   const existingIdx = _poItems.findIndex(it => it.id === id);
@@ -1583,12 +1608,14 @@ function openProductOptWidget(id) {
     _poItems.unshift({ id: p.id, name: p.name, price: parseFloat(p.price), unit: p.unit || 'pc', qty: 1, notes: '' });
   }
   renderProductOptWidget();
-  document.getElementById('prodOptWidget').style.display = 'block';
+  widget.style.display = 'block';
   flashCard(id);
 }
 function closeProductOptWidget() {
   document.getElementById('prodOptWidget').style.display = 'none';
   _poItems = [];
+  _poDiscPct = 0; _poDiscAmt = 0;
+  _poExtra = 0; _poAddedItems = [];
 }
 function renderProductOptWidget() {
   const wrap = document.getElementById('poList');
@@ -1609,7 +1636,9 @@ function renderProductOptWidget() {
   updatePoGrandTotal();
 }
 function updatePoGrandTotal() {
-  const grand = _poItems.reduce((s, it) => s + it.price * it.qty, 0);
+  const itemsRaw = _poItems.reduce((s, it) => s + it.price * it.qty, 0);
+  const discRaw  = _poDiscAmt > 0 ? Math.min(_poDiscAmt, itemsRaw) : (itemsRaw * _poDiscPct / 100);
+  const grand = Math.max(0, itemsRaw - discRaw) + _poExtra;
   document.getElementById('poTotal').textContent = CUR + grand.toFixed(2);
 }
 function adjPoItemQty(idx, d) {
@@ -1633,6 +1662,54 @@ function removePoItem(idx) {
   _poItems.splice(idx, 1);
   renderProductOptWidget();
 }
+function onPoDiscPct() {
+  _poDiscPct = parseFloat(document.getElementById('poDiscPct').value) || 0;
+  _poDiscAmt = 0; document.getElementById('poDiscAmt').value = '';
+  updatePoGrandTotal();
+}
+function onPoDiscAmt() {
+  _poDiscAmt = parseFloat(document.getElementById('poDiscAmt').value) || 0;
+  _poDiscPct = 0; document.getElementById('poDiscPct').value = '';
+  updatePoGrandTotal();
+}
+function populatePoInvItems() {
+  const sel = document.getElementById('poInvItem');
+  sel.innerHTML = '<option value="">— Add Bag / Packaging —</option>';
+  const allowed = (STORE.takeout_inv_categories || '').split(',').map(s=>s.trim()).filter(Boolean);
+  storeInvItems
+    .filter(i => allowed.includes((i.category||'').trim()))
+    .forEach(i => sel.add(new Option(i.name + ' (' + (CUR||'₱') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id)));
+}
+function addPoInvItem() {
+  const sel = document.getElementById('poInvItem');
+  const invId = sel.value;
+  if (!invId) return;
+  const inv = storeInvItems.find(i => i.id == invId);
+  if (!inv) return;
+  const cost = parseFloat(inv.cost_price) || 0;
+  _poExtra += cost;
+  _poAddedItems.push({ invId: inv.id, name: inv.name, cost });
+  renderPoAddedList();
+  updatePoGrandTotal();
+  sel.value = '';
+}
+function renderPoAddedList() {
+  const el = document.getElementById('poInvAddedList');
+  if (!_poAddedItems.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _poAddedItems.map((it,idx) =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0">
+      <span>${it.name} (+${CUR||'₱'}${it.cost.toFixed(2)})</span>
+      <button type="button" class="q-btn" onclick="removePoInvItem(${idx})">&#10005;</button>
+    </div>`
+  ).join('');
+}
+function removePoInvItem(idx) {
+  const it = _poAddedItems[idx];
+  if (it) _poExtra -= it.cost;
+  _poAddedItems.splice(idx, 1);
+  renderPoAddedList();
+  updatePoGrandTotal();
+}
 function confirmProductOpt() {
   if (!_poItems.length) { closeProductOptWidget(); return; }
   for (const it of _poItems) {
@@ -1648,7 +1725,16 @@ function confirmProductOpt() {
     cart[key].qty += it.qty;
     cart[key]._notes = notes;
   }
-  _poItems = [];
+  // Commit the batch discount into the shared cart-wide discount.
+  discPct = _poDiscPct; discAmt = _poDiscAmt;
+  document.getElementById('discPct').value = discPct || '';
+  document.getElementById('discAmt').value = discAmt || '';
+  updateDiscTriggerLabel();
+  // Bag/packaging picked for this batch — flat fee, its own cart line.
+  if (_poExtra > 0) {
+    const pkgKey = '_po_pkg_' + Date.now();
+    cart[pkgKey] = { id: null, name: 'Bag / Packaging', price: _poExtra, qty: 1, _key: pkgKey, _unliInvUsed: _poAddedItems.map(it => it.invId) };
+  }
   redrawCart();
   closeProductOptWidget();
 }
