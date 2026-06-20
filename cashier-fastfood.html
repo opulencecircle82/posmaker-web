@@ -1501,6 +1501,7 @@ function setOrderType(btn) {
   btn.classList.add('active');
   // Clear table when switching away from Dine In
   if (orderType !== 'Dine In' && tableNo) { tableNo = ''; updateTableBtn(); }
+  updatePoPackagingAvailability();
 }
 
 // ── Table / Chair management ──────────────────────────────────────────────
@@ -1582,6 +1583,7 @@ function openProductOptWidget(id) {
     _poExtra = 0; _poAddedItems = [];
     document.getElementById('poInvAddedList').innerHTML = '';
     populatePoInvItems();
+    updatePoPackagingAvailability();
   }
   // Newest click always lands at the TOP of the list — whether it's a brand
   // new product or the cashier tapping an already-staged one again.
@@ -1660,6 +1662,16 @@ function populatePoInvItems() {
   storeInvItems
     .filter(i => allowed.includes((i.category||'').trim()))
     .forEach(i => sel.add(new Option(i.name + ' (' + (CUR||'₱') + (parseFloat(i.cost_price)||0).toFixed(2) + ')', i.id)));
+}
+// Packaging only makes sense for Take Away / Delivery — disabled on Dine In.
+function updatePoPackagingAvailability() {
+  const sel = document.getElementById('poInvItem');
+  if (!sel) return;
+  const enabled = orderType !== 'Dine In';
+  sel.disabled = !enabled;
+  sel.style.opacity = enabled ? '1' : '.5';
+  sel.style.cursor = enabled ? '' : 'not-allowed';
+  sel.title = enabled ? '' : 'Only available for Take Away / Delivery';
 }
 function addPoInvItem() {
   const sel = document.getElementById('poInvItem');
