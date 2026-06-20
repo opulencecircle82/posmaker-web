@@ -347,7 +347,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="section" id="sec-products">
       <div class="tbl-wrap">
         <div class="tbl-head">
-          <h3>Products</h3>
+          <h3 id="prodSecTitle">Products</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <input class="search" id="prodSearch" placeholder="Search..." oninput="filterProds()">
             <button class="btn btn-sm" id="btnReindexAI" onclick="bulkReindexAI()" style="background:#1a2a3a;border:1px solid #2563eb;color:#60a5fa" title="Recompute AI embeddings for all products">🤖 Re-index AI</button>
@@ -1454,15 +1454,16 @@ function adaptDashboardToBizType(bizType) {
     if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = 'Stock Management';
   } else if (isService) {
     document.getElementById('navOrdersLbl').textContent    = 'Transactions';
-    document.getElementById('navProductsLbl').textContent  = 'Services & Prices';
-    document.getElementById('navInventoryLbl').textContent = isTrueService ? 'My Services' : 'Supplies';
-    if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = isTrueService ? 'My Services' : 'Supplies';
+    document.getElementById('navProductsLbl').textContent  = isTrueService ? 'My Services' : 'Services & Prices';
+    document.getElementById('navInventoryLbl').textContent = 'Supplies';
+    if (document.getElementById('qaInvLbl')) document.getElementById('qaInvLbl').textContent = 'Supplies';
+    if (document.getElementById('prodSecTitle')) document.getElementById('prodSecTitle').textContent = isTrueService ? 'My Services' : 'Services & Prices';
     if (isTrueService) {
-      if (document.getElementById('invSecTitle')) document.getElementById('invSecTitle').firstChild.textContent = 'My Services ';
+      if (document.getElementById('invSecTitle')) document.getElementById('invSecTitle').firstChild.textContent = 'Supplies ';
       if (document.getElementById('invSecSub'))   document.getElementById('invSecSub').textContent = '(used for your services)';
-      SECTION_TITLES.inventory = 'My Services';
+      SECTION_TITLES.inventory = 'Supplies';
       if (document.getElementById('topbarTitle') && document.getElementById('topbarTitle').textContent === 'Inventory')
-        document.getElementById('topbarTitle').textContent = 'My Services';
+        document.getElementById('topbarTitle').textContent = 'Supplies';
     }
   } else {
     // Restaurant — defaults already correct
