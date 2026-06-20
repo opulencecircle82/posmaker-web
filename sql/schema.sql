@@ -366,7 +366,7 @@ CREATE TABLE IF NOT EXISTS agent_referrals (
   notes          TEXT        DEFAULT '',
   status         TEXT        DEFAULT 'pending',  -- pending | granted | denied
   free_period    TEXT        DEFAULT '',         -- '1month' | '1year'
-  store_id       UUID        REFERENCES stores,
+  store_id       UUID        REFERENCES stores ON DELETE SET NULL,
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE agent_referrals ENABLE ROW LEVEL SECURITY;
@@ -666,3 +666,13 @@ ALTER TABLE stores ADD COLUMN IF NOT EXISTS show_calculator BOOLEAN DEFAULT TRUE
 -- ============================================================
 ALTER TABLE cash_remittances ADD COLUMN IF NOT EXISTS description TEXT DEFAULT NULL;
 ALTER TABLE products         ADD COLUMN IF NOT EXISTS embeddings  TEXT DEFAULT NULL;
+
+-- ============================================================
+--  Fix: deleting a store from Dev Support failed with
+--  "violates foreign key constraint agent_referrals_store_id_fkey"
+--  because agent_referrals.store_id had no ON DELETE behavior.
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+ALTER TABLE agent_referrals DROP CONSTRAINT IF EXISTS agent_referrals_store_id_fkey;
+ALTER TABLE agent_referrals ADD CONSTRAINT agent_referrals_store_id_fkey
+  FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE SET NULL;
