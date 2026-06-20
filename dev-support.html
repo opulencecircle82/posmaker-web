@@ -1568,32 +1568,10 @@ function renderPlanTierGrid() {
   const grid = document.getElementById('planTierGrid');
   grid.innerHTML = PLAN_TIERS.map(t => {
     const active = t.key === _selectedTier;
-    const limits = getTierLimits(t.key);
-    const allUnl = PLAN_RESOURCES.every(r => (limits[r.key] || 0) >= PLAN_UNLIMITED_VALUE);
-    return `<div onclick="selectPlanTier('${t.key}')" style="cursor:pointer;position:relative;border:2px solid ${active ? 'var(--accent)' : 'var(--border)'};border-radius:10px;padding:16px 8px;text-align:center;background:${active ? 'rgba(0,180,216,.08)' : 'var(--bg)'};transition:border-color .15s">
-      <label style="position:absolute;top:6px;right:8px;display:flex;align-items:center;gap:3px;font-size:9px;color:var(--muted);cursor:pointer" onclick="event.stopPropagation()" title="Set all limits for this tier to unlimited">
-        <input type="checkbox" ${allUnl ? 'checked' : ''} onchange="toggleTierUnlimited('${t.key}',this.checked)" style="cursor:pointer;width:12px;height:12px">Unli
-      </label>
+    return `<div onclick="selectPlanTier('${t.key}')" style="cursor:pointer;border:2px solid ${active ? 'var(--accent)' : 'var(--border)'};border-radius:10px;padding:16px 8px;text-align:center;background:${active ? 'rgba(0,180,216,.08)' : 'var(--bg)'};transition:border-color .15s">
       <div style="font-weight:800;font-size:14px;${active ? 'color:var(--accent)' : ''}">${t.label}</div>
     </div>`;
   }).join('');
-}
-async function toggleTierUnlimited(tier, checked) {
-  const limits = getTierLimits(tier);
-  const value = checked ? PLAN_UNLIMITED_VALUE : 0;
-  PLAN_RESOURCES.forEach(r => { limits[r.key] = value; });
-  const idx = _planLimits.findIndex(p => p.tier === tier);
-  if (idx === -1) _planLimits.push(limits); else _planLimits[idx] = limits;
-  renderPlanTierGrid();
-  if (tier === _selectedTier) renderPlanLimitRows();
-  const { error } = await _sb.rpc('dev_set_plan_limit', {
-    p_token: _devToken, p_tier: tier,
-    p_inventory: limits.inventory_limit, p_product: limits.product_limit,
-    p_staff: limits.staff_limit, p_pos: limits.pos_limit
-  });
-  if (error) { handleAuthError(error); return; }
-  const tierLabel = PLAN_TIERS.find(t => t.key === tier).label;
-  showToast(checked ? `${tierLabel} set to unlimited.` : `${tierLabel} limits reset to 0.`);
 }
 function selectPlanTier(tier) {
   _selectedTier = tier;
