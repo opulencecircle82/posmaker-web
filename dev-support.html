@@ -1577,26 +1577,42 @@ function selectPlanTier(tier) {
   renderPlanTierGrid();
   renderPlanLimitRows();
 }
+const PLAN_UNLIMITED_VALUE = 999999;
 function renderPlanLimitRows() {
   const limits = getTierLimits(_selectedTier);
   const tierLabel = PLAN_TIERS.find(t => t.key === _selectedTier).label;
   const wrap = document.getElementById('planLimitRows');
   wrap.innerHTML = `<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Editing: <strong style="color:var(--accent)">${tierLabel}</strong></div>`
-    + PLAN_RESOURCES.map(r => `
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
-      <span style="flex:1;font-size:13px">${r.label}</span>
-      <button class="btn btn-ghost btn-sm" onclick="adjPlanLimit('${r.key}',-1)">&#8722;</button>
-      <span style="min-width:64px;text-align:center;font-weight:800;font-size:15px" id="planVal_${r.key}">${limits[r.key]}</span>
-      <button class="btn btn-ghost btn-sm" onclick="adjPlanLimit('${r.key}',1)">+</button>
-    </div>`).join('');
+    + PLAN_RESOURCES.map(r => {
+      const isUnl = (limits[r.key] || 0) >= PLAN_UNLIMITED_VALUE;
+      return `
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <span style="flex:1;font-size:13px">${r.label}</span>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap">
+          <input type="checkbox" ${isUnl ? 'checked' : ''} onchange="togglePlanUnlimited('${r.key}',this.checked)" style="cursor:pointer">Unlimited
+        </label>
+        <button class="btn btn-ghost btn-sm" onclick="adjPlanLimit('${r.key}',-1)" ${isUnl ? 'disabled' : ''}>&#8722;</button>
+        <input type="number" min="0" id="planVal_${r.key}" value="${isUnl ? '' : limits[r.key]}" placeholder="${isUnl ? '∞' : ''}" ${isUnl ? 'disabled' : ''} onchange="setPlanLimitValue('${r.key}',this.value)" style="width:64px;text-align:center;font-weight:800;font-size:14px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 2px">
+        <button class="btn btn-ghost btn-sm" onclick="adjPlanLimit('${r.key}',1)" ${isUnl ? 'disabled' : ''}>+</button>
+      </div>`;
+    }).join('');
 }
-async function adjPlanLimit(field, delta) {
+function setPlanLimitValue(field, val) {
+  savePlanLimitField(field, Math.max(0, parseInt(val, 10) || 0));
+}
+function togglePlanUnlimited(field, checked) {
+  savePlanLimitField(field, checked ? PLAN_UNLIMITED_VALUE : 0);
+}
+function adjPlanLimit(field, delta) {
   const limits = getTierLimits(_selectedTier);
-  const next = Math.max(0, (limits[field] || 0) + delta);
-  limits[field] = next;
-  document.getElementById('planVal_' + field).textContent = next;
+  savePlanLimitField(field, Math.max(0, (limits[field] || 0) + delta));
+}
+async function savePlanLimitField(field, value) {
+  const limits = getTierLimits(_selectedTier);
+  limits[field] = value;
   const idx = _planLimits.findIndex(p => p.tier === _selectedTier);
   if (idx === -1) _planLimits.push(limits); else _planLimits[idx] = limits;
+  renderPlanLimitRows();
   const { error } = await _sb.rpc('dev_set_plan_limit', {
     p_token: _devToken, p_tier: _selectedTier,
     p_inventory: limits.inventory_limit, p_product: limits.product_limit,
