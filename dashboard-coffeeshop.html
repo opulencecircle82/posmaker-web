@@ -4176,11 +4176,10 @@ function filterInv() {
 function renderInv(items) {
   const tbody=document.getElementById('invTbody');
   if(!items.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No items. Click + Add Item.</td></tr>';return;}
-  const isServiceBiz = TRUE_SERVICE_BIZ.has(STORE?.business_type || '');
   tbody.innerHTML=items.map(i=>{
     const stock=parseFloat(i.stock??0);
     const thresh=parseFloat(i.low_stock_threshold??5);
-    const unlimited=isServiceBiz&&stock===0;
+    const unlimited=false;
     const out=!unlimited&&stock===0;
     const low=!out&&!unlimited&&stock<=thresh;
     const badge=unlimited?'<span class="badge bg-cash">Unlimited</span>':out?'<span class="badge" style="background:#2a0a0a;color:#ef4444">Out of Stock</span>':low?`<span class="badge" style="background:#2a1a0a;color:#f59e0b">Low</span>`:'<span class="badge bg-cash">In Stock</span>';
@@ -4256,24 +4255,15 @@ async function openInvModal(item){
   }
   renderInvThumbs();
   const isServiceBiz = TRUE_SERVICE_BIZ.has(STORE?.business_type || '');
-  document.getElementById('invModalTitle').textContent = item ? (isServiceBiz?'Edit Service':'Edit Item') : (isServiceBiz?'Add Service':'Add Inventory Item');
+  document.getElementById('invModalTitle').textContent = item ? (isServiceBiz?'Edit Supply':'Edit Item') : (isServiceBiz?'Add Supply':'Add Inventory Item');
   document.getElementById('btnInvCam').style.display    = isServiceBiz ? 'none' : '';
   document.getElementById('btnInvUpload').style.display = '';
-  document.getElementById('invCamHint').textContent     = isServiceBiz ? '1 photo showing this service.' : '1 photo. Barcode auto-detected.';
-  document.getElementById('invStockRow').style.display    = isServiceBiz ? 'none' : '';
-  document.getElementById('invCostCalc').style.display    = isServiceBiz ? 'none' : '';
-  document.getElementById('invLowStockField').style.display = isServiceBiz ? 'none' : '';
-  document.getElementById('invServiceCostField').style.display = isServiceBiz ? '' : 'none';
-  document.getElementById('invServiceCost').value = item ? (item.cost_price || '') : '';
-  document.getElementById('invServiceStockField').style.display = isServiceBiz ? '' : 'none';
-  if (isServiceBiz) {
-    const svcStock = item ? (item.stock ?? 0) : 0;
-    const unlimited = svcStock === 0;
-    document.getElementById('invServiceUnlimited').checked = unlimited;
-    document.getElementById('invServiceStock').value = unlimited ? '' : svcStock;
-    document.getElementById('invLowStock').value = item ? (item.low_stock_threshold ?? 5) : 5;
-    toggleServiceUnlimitedStock();
-  }
+  document.getElementById('invCamHint').textContent     = isServiceBiz ? '1 photo showing this supply item.' : '1 photo. Barcode auto-detected.';
+  document.getElementById('invStockRow').style.display    = '';
+  document.getElementById('invCostCalc').style.display    = '';
+  document.getElementById('invLowStockField').style.display = '';
+  document.getElementById('invServiceCostField').style.display = 'none';
+  document.getElementById('invServiceStockField').style.display = 'none';
   document.getElementById('invItemId').value=item?item.id:'';
   document.getElementById('invName').value=item?item.name:'';
   document.getElementById('invSku').value=item?(item.sku||''):'';
