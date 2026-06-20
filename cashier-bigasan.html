@@ -2348,7 +2348,11 @@ if ('serviceWorker' in navigator) {
     // Self-cache this page so it opens offline
     if (navigator.onLine) { navigator.serviceWorker.ready.then(r=>{ if(r.active) r.active.postMessage({type:'CACHE_PAGE',url:location.href}); }).catch(()=>{}); }
   }).catch(()=>{});
-  navigator.serviceWorker.addEventListener('controllerchange', () => setTimeout(()=>location.reload(), 400));
+    // Intentionally no reload-on-update: nothing about the active session
+  // (staff login, device pairing) lives in the SW cache, so there's nothing
+  // to gain from reloading — it only disrupted whoever was using the page.
+  // The new worker still takes over future requests via skipWaiting() above;
+  // this tab just keeps running until it's next closed and reopened.
 }
 
 // ── Square Scanner ─────────────────────────────────────────────────────────

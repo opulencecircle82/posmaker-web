@@ -5158,7 +5158,11 @@ if('serviceWorker' in navigator){
       });
     });
   }).catch(()=>{});
-  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+    // Intentionally no reload-on-update: nothing about the active session
+  // (staff login, device pairing) lives in the SW cache, so there's nothing
+  // to gain from reloading — it only disrupted whoever was using the page.
+  // The new worker still takes over future requests via skipWaiting() above;
+  // this tab just keeps running until it's next closed and reopened.
 }
 </script>
 
