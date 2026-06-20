@@ -1302,8 +1302,11 @@ function renderRetailList(list) {
     : `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
 }
 
-// ── Retail: tap product → add 1 to cart with flash ────────────────────────
+// ── Retail: tap product → add 1 to cart with flash (or ask qty if priced by weight/volume) ──
 function addProductDirect(id) {
+  const p = prods.find(x => x.id == id);
+  const unit = (p?.unit || 'pc').toLowerCase();
+  if (!WHOLE_UNITS.has(unit)) { askQty(id); return; }
   addItem(id);
   const card = document.getElementById('rcard_' + id);
   if (card) {
@@ -1456,7 +1459,7 @@ function confirmQty() {
 function addItemWithQty(id, qty) {
   const p = prods.find(x => x.id == id); if (!p) return;
   const key = id + '_' + qty;
-  cart[key] = { id: p.id, name: `${p.name} (${qty} ${p.unit||'pc'})`, price: parseFloat(p.price) * qty, qty: 1, _base: p };
+  cart[key] = { id: p.id, name: `${p.name} (${qty} ${p.unit||'pc'})`, price: parseFloat(p.price) * qty, qty: 1, _base: p, _realQty: qty, _key: key };
   redrawCart();
 }
 
@@ -1520,7 +1523,7 @@ function _maxStock(id) {
 
 function addItem(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
-  if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
+  if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0, _key: id };
   const max = _maxStock(id);
   if (cart[id].qty >= max) {
     showToast(`Only ${max} in stock`);
@@ -1559,9 +1562,9 @@ function redrawCart() {
     ? items.map(i => `<div class="ci">
         <span class="ci-name">${i.name}</span>
         <div class="ci-qty">
-          <button class="q-btn" onclick="adjQty('${i.id}',-1)">&#8722;</button>
+          <button class="q-btn" onclick="adjQty('${i._key||i.id}',-1)">&#8722;</button>
           <span class="ci-qty-num">${i.qty}</span>
-          <button class="q-btn" onclick="adjQty('${i.id}',1)">+</button>
+          <button class="q-btn" onclick="adjQty('${i._key||i.id}',1)">+</button>
         </div>
         <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
       </div>`).join('')
@@ -1669,15 +1672,16 @@ async function syncOfflineQueue(){
         for(const item of (entry.items||[])){
           const{data:pd}=await _sb.from('products').select('inv_links').eq('id',item.product_id).single();
           let links=[];try{links=pd?.inv_links?JSON.parse(pd.inv_links):[];}catch{}
+          const useMultiplier=item._realQty||item.qty;
           if(links.length>0){
             for(const link of links){
               const invId=typeof link==='string'?link:link.id;
               const useQty=typeof link==='object'?(link.qty||1):1;
-              deductions[invId]=(deductions[invId]||0)+useQty*item.qty;
+              deductions[invId]=(deductions[invId]||0)+useQty*useMultiplier;
             }
           }else{
             const p=prods.find(x=>x.id===item.product_id);
-            if(p?._autoInvLink)deductions[p._autoInvLink]=(deductions[p._autoInvLink]||0)+item.qty;
+            if(p?._autoInvLink)deductions[p._autoInvLink]=(deductions[p._autoInvLink]||0)+useMultiplier;
           }
         }
         for(const[invId,totalUse]of Object.entries(deductions)){
@@ -1733,7 +1737,7 @@ async function confirmOrder() {
       order_type:      orderType,
       table_no:        tableNo,
       is_kot:          isKOT,
-      items: items.map(i => ({ product_id: i.id, name: i.name, price: i.price, qty: i.qty })),
+      items: items.map(i => ({ product_id: i.id, name: i.name, price: i.price, qty: i.qty, _realQty: i._realQty })),
     });
     receiptData.order_id = offlineId + ' (saved offline)';
     showReceipt(receiptData);
@@ -1779,17 +1783,18 @@ async function confirmOrder() {
     const deductions = {};
     for (const item of items) {
       let links = []; try { links = prodLinksMap[item.id] ? JSON.parse(prodLinksMap[item.id]) : []; } catch {}
+      const useMultiplier = item._realQty || item.qty;
       if (links.length > 0) {
         for (const link of links) {
           const invId = typeof link === 'string' ? link : link.id;
           const useQty = typeof link === 'object' ? (link.qty || 1) : 1;
-          deductions[invId] = (deductions[invId] || 0) + useQty * item.qty;
+          deductions[invId] = (deductions[invId] || 0) + useQty * useMultiplier;
         }
       } else {
         // Fallback: match inventory item by product name/SKU
         const p = prods.find(x => x.id === item.id);
         const autoId = p?._autoInvLink;
-        if (autoId) deductions[autoId] = (deductions[autoId] || 0) + item.qty;
+        if (autoId) deductions[autoId] = (deductions[autoId] || 0) + useMultiplier;
       }
     }
 
