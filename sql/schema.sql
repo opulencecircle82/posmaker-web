@@ -684,12 +684,40 @@ ALTER TABLE agent_referrals ADD CONSTRAINT agent_referrals_store_id_fkey
   FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE SET NULL;
 
 -- ============================================================
---  TEMP: unlock Pro features for every EXISTING store while everything is
---  free. Both the dashboard's IS_PRO check and the cashier's
---  get_store_pro_status() RPC read stores.free_until, so extending it here
---  is the one change needed for every account at once. New signups already
---  get a long free_until by default (see signup.html).
---  Run this block in Supabase -> SQL Editor whenever you want to grant it.
---  TO REVERT: UPDATE stores SET free_until = NULL; (or a real trial date)
+--  "Free for Everyone" toggle (Dev Support -> Subscriptions)
+--  Lets the admin flip every store (existing + new signups) between Pro
+--  unlocked indefinitely and the normal 14-day trial / paid plan, without
+--  hand-running SQL. Both the dashboard's IS_PRO check and the cashier's
+--  get_store_pro_status() RPC already read stores.free_until, so flipping
+--  this just extends/clears that one column for every store at once.
+--  Run this block in Supabase -> SQL Editor (once)
 -- ============================================================
-UPDATE stores SET free_until = now() + interval '100 years';
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT
+);
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS app_settings_all ON app_settings;
+CREATE POLICY app_settings_all ON app_settings FOR ALL TO anon USING (true) WITH CHECK (true);
+
+-- Public read — signup.html checks this (no admin token) to decide whether a
+-- new store's trial should be the normal 14 days or unlocked indefinitely.
+CREATE OR REPLACE FUNCTION get_free_for_all()
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT COALESCE((SELECT value::boolean FROM app_settings WHERE key = 'free_for_all'), false);
+$$;
+GRANT EXECUTE ON FUNCTION get_free_for_all() TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION dev_set_free_for_all(p_token text, p_enabled boolean)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  INSERT INTO app_settings (key, value) VALUES ('free_for_all', p_enabled::text)
+    ON CONFLICT (key) DO UPDATE SET value = p_enabled::text;
+  IF p_enabled THEN
+    UPDATE stores SET free_until = now() + interval '100 years';
+  ELSE
+    UPDATE stores SET free_until = NULL;
+  END IF;
+END; $$;

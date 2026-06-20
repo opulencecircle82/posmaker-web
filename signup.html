@@ -365,12 +365,12 @@ async function _finishStoreSetup(session) {
     return code;
   }
   const storeCode = await genUniqueCode(storeName);
-  // TEMP: every store gets Pro features unlocked indefinitely while everything
-  // is free — was a 14-day trial (`Date.now() + 14 * 24 * 60 * 60 * 1000`).
-  // To revert, restore that line — nothing else needs to change since both
-  // the dashboard's IS_PRO check and the cashier's get_store_pro_status RPC
-  // both just read this same stores.free_until column.
-  const freeUntil = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString();
+  // Normally a 14-day trial — but if the dev admin has switched "Free for
+  // Everyone" on (Dev Support → Subscriptions), new stores get Pro unlocked
+  // indefinitely instead. See get_free_for_all() in dev-support.html's SQL.
+  let _freeForAll = false;
+  try { const { data } = await _sb.rpc('get_free_for_all'); _freeForAll = !!data; } catch (_) {}
+  const freeUntil = new Date(Date.now() + (_freeForAll ? 100 * 365 : 14) * 24 * 60 * 60 * 1000).toISOString();
 
   let { data: store, error: storeErr } = await _sb
     .from('stores')

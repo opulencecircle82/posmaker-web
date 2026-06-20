@@ -272,6 +272,14 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
 
     <!-- SUBSCRIPTIONS -->
     <div id="secSubs" style="display:none">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">&#128178; Free for Everyone</div>
+        <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">When ON, every store (existing and new signups) gets Pro features unlocked indefinitely — no product/staff/POS-terminal limits, no paywall. Turn OFF to go back to the normal 14-day trial / paid plan.</p>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;width:fit-content">
+          <input type="checkbox" id="freeForAllToggle" onchange="toggleFreeForAll(this.checked)" style="width:18px;height:18px;cursor:pointer">
+          <span id="freeForAllLabel" style="font-size:13px;font-weight:700;color:var(--muted)">Loading…</span>
+        </label>
+      </div>
       <div class="card">
         <div class="card-title">
           Subscriptions
@@ -1503,6 +1511,21 @@ async function doResetPassword() {
   document.getElementById('credsModal').classList.add('show');
 }
 
+// ── Free for Everyone toggle ──────────────────────────────────────────────────
+async function loadFreeForAllSetting() {
+  const { data, error } = await _sb.rpc('get_free_for_all');
+  if (error) return;
+  document.getElementById('freeForAllToggle').checked = !!data;
+  document.getElementById('freeForAllLabel').textContent = data ? 'ON — every store is unlimited' : 'OFF — normal trial / paid plan';
+}
+async function toggleFreeForAll(enabled) {
+  const label = document.getElementById('freeForAllLabel');
+  label.textContent = 'Saving…';
+  const { error } = await _sb.rpc('dev_set_free_for_all', { p_token: _devToken, p_enabled: enabled });
+  if (error) { handleAuthError(error); document.getElementById('freeForAllToggle').checked = !enabled; label.textContent = 'Error — try again'; return; }
+  label.textContent = enabled ? 'ON — every store is unlimited' : 'OFF — normal trial / paid plan';
+}
+
 // ── Subscriptions ─────────────────────────────────────────────────────────────
 let _allSubs = [];
 async function loadSubs() {
@@ -1820,7 +1843,7 @@ function showTab(tab) {
     document.getElementById('sec' + map[t]).style.display = t === tab ? '' : 'none';
     document.getElementById('tab' + map[t]).classList.toggle('active', t === tab);
   });
-  if (tab === 'subs' && !_allSubs.length) loadSubs();
+  if (tab === 'subs') { loadFreeForAllSetting(); if (!_allSubs.length) loadSubs(); }
   if (tab === 'agents' && !_allAgents.length) loadAgents();
   if (tab === 'referrals' && !_allReferrals.length) loadReferrals();
   if (tab === 'support') { if (_allTickets.length) renderTickets(); else loadTickets(); }
