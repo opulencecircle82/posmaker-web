@@ -1554,7 +1554,7 @@ async function doResetPassword() {
 // ── Free for Everyone toggle ──────────────────────────────────────────────────
 async function loadFreeForAllSetting() {
   const { data, error } = await _sb.rpc('get_free_for_all');
-  if (error) return;
+  if (error) { document.getElementById('freeForAllLabel').textContent = 'Error: ' + error.message; return; }
   document.getElementById('freeForAllToggle').checked = !!data;
   document.getElementById('freeForAllLabel').textContent = data ? 'ON — every store is unlimited' : 'OFF — normal trial / paid plan';
 }
@@ -1562,7 +1562,7 @@ async function toggleFreeForAll(enabled) {
   const label = document.getElementById('freeForAllLabel');
   label.textContent = 'Saving…';
   const { error } = await _sb.rpc('dev_set_free_for_all', { p_token: _devToken, p_enabled: enabled });
-  if (error) { handleAuthError(error); document.getElementById('freeForAllToggle').checked = !enabled; label.textContent = 'Error — try again'; return; }
+  if (error) { handleAuthError(error); document.getElementById('freeForAllToggle').checked = !enabled; label.textContent = 'Error: ' + error.message; return; }
   label.textContent = enabled ? 'ON — every store is unlimited' : 'OFF — normal trial / paid plan';
 }
 
