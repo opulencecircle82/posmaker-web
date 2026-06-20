@@ -337,6 +337,40 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <input class="disc-inp" id="discAmt" type="number" placeholder="Amount" min="0" step="0.01" oninput="onDiscAmt()">
     </div>
   </div>
+
+  <!-- Product Options floating widget — opens on the right when a product is
+       clicked, before it's added to cart. Clicking another product while it's
+       open just retargets it, so the cashier can keep browsing. -->
+  <div id="prodOptWidget" style="display:none;position:fixed;top:90px;right:20px;z-index:600;background:var(--s1);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);padding:14px;width:230px;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:2px">
+      <strong id="poName" style="font-size:13px;color:var(--text)"></strong>
+      <span style="cursor:pointer;color:var(--muted);font-size:14px" onclick="closeProductOptWidget()">&#10005;</span>
+    </div>
+    <div id="poPrice" style="font-size:11px;color:#888;margin-bottom:10px"></div>
+
+    <label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Quantity</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <button type="button" class="q-btn" onclick="adjPoQty(-1)">&#8722;</button>
+      <span id="poQtyLabel" style="flex:1;text-align:center;font-size:16px;font-weight:700">1</span>
+      <button type="button" class="q-btn" onclick="adjPoQty(1)">+</button>
+    </div>
+
+    <label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Discount (this item)</label>
+    <div class="disc-inputs" style="margin-bottom:10px">
+      <input class="disc-inp" id="poDiscPct" type="number" placeholder="%" min="0" max="100" step="0.5" oninput="onPoDiscPct()">
+      <input class="disc-inp" id="poDiscAmt" type="number" placeholder="Amount" min="0" step="0.01" oninput="onPoDiscAmt()">
+    </div>
+
+    <label style="font-size:10px;color:#888;display:block;margin-bottom:3px">Options / Notes</label>
+    <input class="inp" id="poNotes" type="text" placeholder="e.g. size, sugar level, instructions" style="margin-bottom:10px;padding:8px 9px;font-size:13px">
+
+    <div style="text-align:center;font-size:18px;font-weight:800;color:var(--accent);margin-bottom:10px" id="poTotal"></div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeProductOptWidget()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmProductOpt()">Add to Cart</button>
+    </div>
+  </div>
+
   <!-- Product grid (restaurant) -->
   <div class="products" id="grid"></div>
 
@@ -1311,9 +1345,13 @@ function renderRetailList(list) {
     : `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
 }
 
-// ── Retail: tap product → add 1 to cart with flash ────────────────────────
+// ── Retail: tap product → open options widget (qty/discount/notes) ────────
 function addProductDirect(id) {
-  addItem(id);
+  const p = prods.find(x => x.id == id); if (!p) return;
+  if (p.sold_by_weight) { openWeightModal(id); return; }
+  openProductOptWidget(id);
+}
+function flashCard(id) {
   const card = document.getElementById('rcard_' + id);
   if (card) {
     card.classList.add('flash');
@@ -1540,6 +1578,78 @@ function addItem(id) {
   redrawCart();
 }
 
+// ── Product Options widget (qty / per-item discount / notes) ──────────────
+let _poProdId = null, _poQty = 1, _poDiscPct = 0, _poDiscAmt = 0;
+function openProductOptWidget(id) {
+  const p = prods.find(x => x.id == id); if (!p) return;
+  _poProdId = id;
+  _poQty = 1;
+  _poDiscPct = 0; _poDiscAmt = 0;
+  document.getElementById('poName').textContent = p.name;
+  document.getElementById('poPrice').textContent = CUR + parseFloat(p.price).toFixed(2) + ' / ' + (p.unit || 'pc');
+  document.getElementById('poQtyLabel').textContent = '1';
+  document.getElementById('poDiscPct').value = '';
+  document.getElementById('poDiscAmt').value = '';
+  document.getElementById('poNotes').value = '';
+  updatePoTotal();
+  document.getElementById('prodOptWidget').style.display = 'block';
+}
+function closeProductOptWidget() {
+  document.getElementById('prodOptWidget').style.display = 'none';
+  _poProdId = null;
+}
+function adjPoQty(d) {
+  const max = _maxStock(_poProdId);
+  const next = _poQty + d;
+  if (next < 1) return;
+  if (next > max) { showToast(`Only ${max} in stock`); return; }
+  _poQty = next;
+  document.getElementById('poQtyLabel').textContent = _poQty;
+  updatePoTotal();
+}
+function onPoDiscPct() {
+  _poDiscPct = parseFloat(document.getElementById('poDiscPct').value) || 0;
+  _poDiscAmt = 0; document.getElementById('poDiscAmt').value = '';
+  updatePoTotal();
+}
+function onPoDiscAmt() {
+  _poDiscAmt = parseFloat(document.getElementById('poDiscAmt').value) || 0;
+  _poDiscPct = 0; document.getElementById('poDiscPct').value = '';
+  updatePoTotal();
+}
+function updatePoTotal() {
+  const p = prods.find(x => x.id == _poProdId); if (!p) return;
+  const raw  = parseFloat(p.price) * _poQty;
+  const disc = _poDiscAmt > 0 ? Math.min(_poDiscAmt, raw) : (raw * _poDiscPct / 100);
+  document.getElementById('poTotal').textContent = CUR + Math.max(0, raw - disc).toFixed(2);
+}
+function confirmProductOpt() {
+  const p = prods.find(x => x.id == _poProdId); if (!p) return;
+  const notes = document.getElementById('poNotes').value.trim();
+  const hasCustom = _poDiscPct > 0 || _poDiscAmt > 0 || !!notes;
+  const key = hasCustom ? (p.id + '_opt_' + Date.now()) : p.id;
+  const max = _maxStock(p.id);
+  const existingQty = cart[key] ? cart[key].qty : 0;
+  if (existingQty + _poQty > max) { showToast(`Only ${max} in stock`); return; }
+  if (!cart[key]) {
+    cart[key] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
+    if (hasCustom) cart[key]._key = key;
+  }
+  cart[key].qty += _poQty;
+  cart[key]._itemDiscPct = _poDiscPct;
+  cart[key]._itemDiscAmt = _poDiscAmt;
+  cart[key]._notes = notes;
+  redrawCart();
+  flashCard(p.id);
+  closeProductOptWidget();
+}
+// Net total for one cart line after its own per-item discount (if any).
+function _lineNet(i) {
+  const lineRaw = i.price * i.qty;
+  const lineDisc = i._itemDiscAmt > 0 ? Math.min(i._itemDiscAmt, lineRaw) : (lineRaw * (i._itemDiscPct || 0) / 100);
+  return Math.max(0, lineRaw - lineDisc);
+}
+
 function adjQty(id, d) {
   if (!cart[id]) return;
   if (d > 0) {
@@ -1553,7 +1663,7 @@ function adjQty(id, d) {
 
 function getCartTotals() {
   const items = Object.values(cart);
-  const raw = parseFloat(items.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2));
+  const raw = parseFloat(items.reduce((s, i) => s + _lineNet(i), 0).toFixed(2));
   const disc = discAmt > 0 ? parseFloat(Math.min(discAmt, raw).toFixed(2)) : parseFloat((raw * discPct / 100).toFixed(2));
   const total = parseFloat((raw - disc).toFixed(2));
   const tax   = parseFloat((total * TAX / (100 + TAX)).toFixed(2));
@@ -1574,13 +1684,13 @@ function redrawCart() {
         </div>
         <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
       </div>` : `<div class="ci">
-        <span class="ci-name">${i.name}</span>
+        <span class="ci-name">${i.name}${i._notes ? ` <span style="font-size:10px;color:var(--muted)">&#8212; ${i._notes}</span>` : ''}${(i._itemDiscPct||i._itemDiscAmt) ? ` <span style="font-size:10px;color:#10b981">(-${i._itemDiscPct ? i._itemDiscPct+'%' : CUR+i._itemDiscAmt.toFixed(2)})</span>` : ''}</span>
         <div class="ci-qty">
           <button class="q-btn" onclick="adjQty('${i._key||i.id}',-1)">&#8722;</button>
           <span class="ci-qty-num">${i.qty}</span>
           <button class="q-btn" onclick="adjQty('${i._key||i.id}',1)">+</button>
         </div>
-        <span class="ci-line">${CUR}${(i.price*i.qty).toFixed(2)}</span>
+        <span class="ci-line">${CUR}${_lineNet(i).toFixed(2)}</span>
       </div>`).join('')
     : `<div class="cart-empty">Cart is empty</div>`;
 
@@ -1777,7 +1887,7 @@ async function confirmOrder() {
       order_type:      orderType,
       table_no:        tableNo,
       is_kot:          isKOT,
-      items: items.map(i => ({ product_id: i.id, name: i.name, price: i.price, qty: i.qty })),
+      items: items.map(i => ({ product_id: i.id, name: i.name + (i._notes ? ' (' + i._notes + ')' : ''), price: _lineNet(i) / i.qty, qty: i.qty })),
     });
     receiptData.order_id = offlineId + ' (saved offline)';
     showReceipt(receiptData);
@@ -1815,7 +1925,7 @@ async function confirmOrder() {
   const validProdIds = [...new Set(items.map(i => i.id).filter(Boolean))];
   const [, prodRowsRes] = await Promise.all([
     _sb.from('order_items').insert(
-      items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
+      items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name + (i._notes ? ' (' + i._notes + ')' : ''), price: _lineNet(i) / i.qty, qty: i.qty }))
     ),
     validProdIds.length ? _sb.from('products').select('id,inv_links').in('id', validProdIds) : Promise.resolve({ data: [] })
   ]);
@@ -1888,7 +1998,10 @@ function buildReceiptText(d) {
   s += `${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\n`;
   s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
   s += `Cashier: ${d.cashier}\n${ln}\n`;
-  d.items.forEach(i => s += `${i.name}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`);
+  d.items.forEach(i => {
+    s += `${i.name}${i._notes ? ' (' + i._notes + ')' : ''}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${_lineNet(i).toFixed(2)}\n`;
+    if (i._itemDiscPct || i._itemDiscAmt) s += `  (item discount: -${i._itemDiscPct ? i._itemDiscPct+'%' : CUR+i._itemDiscAmt.toFixed(2)})\n`;
+  });
   s += `${ln}\nSubtotal: ${CUR}${d.sub.toFixed(2)}\n`;
   if (d.disc > 0) s += `Discount: -${CUR}${d.disc.toFixed(2)}\n`;
   s += `VAT:      ${CUR}${d.tax.toFixed(2)}\nTOTAL:    ${CUR}${d.total.toFixed(2)}\n`;
@@ -1922,6 +2035,7 @@ function newOrder() {
   document.getElementById('discAmt').value = '';
   document.getElementById('discPanel').style.display = 'none';
   updateDiscTriggerLabel();
+  closeProductOptWidget();
   document.querySelectorAll('.m-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
   isKOT = false;
   document.getElementById('btnKOT').classList.remove('on');
