@@ -2746,7 +2746,7 @@ function showAddPOSModal() {
   const d = document.createElement('div');
   d.id = '_addPOSModal';
   d.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
-  const defaultName = (STORE ? STORE.name : 'My Store') + ' #' + (allStores.length + 1);
+  const defaultName = 'POS #' + (allStores.length + 1) + ' — ' + (STORE ? STORE.name : 'My Store');
   d.innerHTML = `<div style="background:#1a1a2e;border:1px solid #333;border-radius:14px;padding:24px;max-width:360px;width:100%">
     <div style="font-size:15px;font-weight:700;color:#e0e0f0;margin-bottom:6px">&#128187; Add POS Terminal</div>
     <div style="font-size:12px;color:#888;margin-bottom:16px">Creates a new cashier terminal with its own store code and device slot.</div>
