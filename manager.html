@@ -2133,8 +2133,12 @@ function addTimestampWatermark(canvas) {
   const x = pad, y = canvas.height - th - pad;
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fillRect(x, y, tw, th);
-  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = '#39ff14';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = '#39ff14';
   ctx.fillText(ts, x + pad, y + pad + fs * 0.85);
+  ctx.fillText(ts, x + pad, y + pad + fs * 0.85);
+  ctx.shadowBlur = 0;
 }
 // ── Monitor Panel ──────────────────────────────────────────────────────────
 let _monitorTab = 'sales', _monitorPeriod = 'day';

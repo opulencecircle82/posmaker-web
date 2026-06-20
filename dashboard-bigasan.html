@@ -708,14 +708,15 @@ input:checked + .slider:before{transform:translateX(18px)}
             <div style="position:absolute;top:12px;right:12px;font-size:10px;background:rgba(0,180,216,.15);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:700">AVAILABLE</div>
             <div style="font-size:22px;margin-bottom:8px">&#128187;</div>
             <div style="font-size:14px;font-weight:700;margin-bottom:4px">Windows PC App</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Download, extract, and run <strong style="color:var(--text)">POSMaker.exe</strong>. Enter your Store Code on first launch — locked to that device automatically.</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">Download the app and your personal config file, then run <strong style="color:var(--text)">POSMaker.exe</strong> — it connects automatically, no typing needed.</div>
             <div style="font-size:11px;background:var(--s2);border-radius:7px;padding:10px;color:#ccc;line-height:1.9;margin-bottom:12px">
               1&#65039;&#8419; Download &amp; extract the <strong style="color:var(--accent)">ZIP</strong><br>
-              2&#65039;&#8419; Run <strong style="color:var(--accent)">POSMaker.exe</strong><br>
-              3&#65039;&#8419; Enter your <strong style="color:var(--accent)">Store Code</strong> on first launch<br>
+              2&#65039;&#8419; Download your <strong style="color:var(--accent)">Config File</strong> and put it in the same folder as POSMaker.exe<br>
+              3&#65039;&#8419; Run <strong style="color:var(--accent)">POSMaker.exe</strong> — connects automatically<br>
               4&#65039;&#8419; Device is locked to your store &#128274;
             </div>
-            <a class="btn btn-accent btn-sm" style="width:100%;justify-content:center;text-decoration:none;display:flex" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMaker-Windows.zip" target="_blank">&#11015; Download Windows ZIP</a>
+            <a class="btn btn-accent btn-sm" style="width:100%;justify-content:center;text-decoration:none;display:flex;margin-bottom:8px" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMaker-Windows.zip" target="_blank">&#11015; Download Windows ZIP</a>
+            <button type="button" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="downloadStoreConfig()">&#128196; Download Your Config File</button>
           </div>
 
           <!-- ANDROID -->
@@ -4716,8 +4717,12 @@ function addTimestampWatermark(canvas) {
   const x = pad, y = canvas.height - th - pad;
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fillRect(x, y, tw, th);
-  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = '#39ff14';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = '#39ff14';
   ctx.fillText(ts, x + pad, y + pad + fs * 0.85);
+  ctx.fillText(ts, x + pad, y + pad + fs * 0.85);
+  ctx.shadowBlur = 0;
 }
 function watermarkImageDataUrl(rawDataUrl, maxSize) {
   maxSize = maxSize || 1200;
