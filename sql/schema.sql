@@ -682,3 +682,14 @@ ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_font_scale INTEGER DEFAULT 100;
 ALTER TABLE agent_referrals DROP CONSTRAINT IF EXISTS agent_referrals_store_id_fkey;
 ALTER TABLE agent_referrals ADD CONSTRAINT agent_referrals_store_id_fkey
   FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE SET NULL;
+
+-- ============================================================
+--  TEMP: unlock Pro features for every EXISTING store while everything is
+--  free. Both the dashboard's IS_PRO check and the cashier's
+--  get_store_pro_status() RPC read stores.free_until, so extending it here
+--  is the one change needed for every account at once. New signups already
+--  get a long free_until by default (see signup.html).
+--  Run this block in Supabase -> SQL Editor whenever you want to grant it.
+--  TO REVERT: UPDATE stores SET free_until = NULL; (or a real trial date)
+-- ============================================================
+UPDATE stores SET free_until = now() + interval '100 years';
