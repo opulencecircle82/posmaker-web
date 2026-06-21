@@ -1855,9 +1855,8 @@ function buildReceiptHTML(d, copyLabel) {
   if (STORE?.phone)   head += `Tel: ${STORE.phone}\n`;
   if (STORE?.address) head += `${STORE.address}\n`;
   if (d.isKOT) head += '*** KITCHEN ORDER TICKET ***\n';
-  head += ln;
 
-  let tail = `\n${new Date().toLocaleTimeString()}\n`;
+  let tail = `${ln}\n${new Date().toLocaleTimeString()}\n`;
   tail += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
   if (d.custName || d.custPhone) tail += `Customer: ${d.custName || '—'}${d.custPhone ? ' (' + d.custPhone + ')' : ''}\n`;
   tail += `Cashier: ${d.cashier}\n${ln}\n`;
