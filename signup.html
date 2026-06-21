@@ -349,6 +349,10 @@ async function resendConfirmation() {
 // Pending store details, kept while we wait on session/email confirmation
 let _pendingStore = null;
 
+// Guards against double-submit (e.g. impatient double-click or slow network
+// making the button look unresponsive) creating duplicate accounts/stores.
+let _signupSubmitting = false;
+
 async function _finishStoreSetup(session) {
   localStorage.removeItem('pm_pending_store');
   const userId = session.user.id;
@@ -421,6 +425,7 @@ async function _finishStoreSetup(session) {
 
 // Single combined step → create the auth account (with password) and the store together
 async function doSignup() {
+  if (_signupSubmitting) return;
   const fullName  = document.getElementById('fullName').value.trim();
   const email     = document.getElementById('email').value.trim();
   const password  = document.getElementById('password').value;
@@ -445,6 +450,7 @@ async function doSignup() {
   if (!storeName)              { errEl.textContent = 'Store name is required.'; return; }
   if (!bizType)                { errEl.textContent = 'Please select a business type.'; return; }
 
+  _signupSubmitting = true;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Creating your account…';
 
@@ -462,6 +468,7 @@ async function doSignup() {
   });
 
   if (authErr) {
+    _signupSubmitting = false;
     btn.disabled = false; btn.textContent = 'Create Account & Store →';
     errEl.textContent = authErr.message;
     return;
@@ -472,6 +479,7 @@ async function doSignup() {
   if (signUpData && signUpData.session) {
     const result = await _finishStoreSetup(signUpData.session);
     if (result && result.error) {
+      _signupSubmitting = false;
       btn.disabled = false; btn.textContent = 'Create Account & Store →';
       errEl.textContent = result.error.message;
     }
@@ -479,6 +487,7 @@ async function doSignup() {
   }
 
   // Otherwise, Supabase requires email confirmation — wait for it, then finish on return
+  _signupSubmitting = false;
   btn.disabled = false; btn.textContent = 'Create Account & Store →';
   document.getElementById('confirmEmail').textContent = email;
   showStep('confirm');
@@ -589,6 +598,7 @@ document.addEventListener('keydown', e => {
 // Account already exists and is confirmed (user is logged in) but has no store yet —
 // finish setup using the current session instead of going through auth.signUp() again.
 async function finishStoreOnly() {
+  if (_signupSubmitting) return;
   const { data: { session } } = await _sb.auth.getSession();
   if (!session) { location.href = 'login.html'; return; }
 
@@ -607,12 +617,14 @@ async function finishStoreOnly() {
   if (!storeName) { errEl.textContent = 'Store name is required.'; return; }
   if (!bizType)   { errEl.textContent = 'Please select a business type.'; return; }
 
+  _signupSubmitting = true;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Creating your store…';
 
   _pendingStore = { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, address, refCode: REF };
   const result = await _finishStoreSetup(session);
   if (result && result.error) {
+    _signupSubmitting = false;
     btn.disabled = false; btn.textContent = 'Create My Store →';
     errEl.textContent = result.error.message;
   }

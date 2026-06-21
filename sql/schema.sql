@@ -829,3 +829,88 @@ END; $$;
 -- to who dropped it off.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name  TEXT DEFAULT '';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT DEFAULT '';
+
+-- One store per owner, enforced at the DB level (the "MC" x4 duplicate-store
+-- incident showed the client-side "already has a store" check alone isn't
+-- enough — a race between two near-simultaneous signup attempts can slip
+-- past it). Run the dedupe DELETE first if any duplicates already exist,
+-- or this ALTER will fail.
+ALTER TABLE stores ADD CONSTRAINT stores_owner_id_unique UNIQUE (owner_id);
+
+-- ============================================================
+--  Inactivity auto-delete policy
+--  "Inactive" = no LOGIN in activity_logs AND no orders for that store.
+--  Flow: warn the owner by email once a store has been inactive for
+--  (3 months - 1 week); if still inactive 1 week after that warning
+--  (~3 months total), delete the store. Re-activity before the deadline
+--  clears the warning and resets the clock.
+--  Requires: the send-inactivity-warning-email Edge Function deployed
+--  (supabase/functions/send-inactivity-warning-email/index.ts) with
+--  RESEND_API_KEY set, the pg_cron / pg_net extensions enabled below, and
+--  a one-time app_settings row holding the project's anon key — run
+--  separately in SQL Editor (not committed here):
+--    INSERT INTO app_settings (key, value) VALUES ('supabase_anon_key', '<Settings -> API -> anon public key>')
+--    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+-- ============================================================
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS inactivity_warned_at TIMESTAMPTZ;
+
+CREATE OR REPLACE FUNCTION process_inactive_stores()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  r RECORD;
+  _anon_key TEXT;
+  _fn_url   TEXT := 'https://djvwlwnnlldoppomhbap.supabase.co/functions/v1/send-inactivity-warning-email';
+  _cutoff   INTERVAL := INTERVAL '3 months' - INTERVAL '1 week';
+BEGIN
+  SELECT value INTO _anon_key FROM app_settings WHERE key = 'supabase_anon_key';
+  IF _anon_key IS NULL THEN
+    RAISE NOTICE 'process_inactive_stores: app_settings.supabase_anon_key not set — skipping email step, deletions still run.';
+  END IF;
+
+  -- Step 0: re-activity since being warned clears the warning (restart the clock)
+  UPDATE stores s SET inactivity_warned_at = NULL
+  WHERE s.inactivity_warned_at IS NOT NULL
+    AND (
+      EXISTS (SELECT 1 FROM activity_logs al WHERE al.store_id = s.id AND al.action = 'LOGIN' AND al.created_at > s.inactivity_warned_at)
+      OR EXISTS (SELECT 1 FROM orders o WHERE o.store_id = s.id AND o.timestamp > s.inactivity_warned_at)
+    );
+
+  -- Step 1: warn stores inactive for (3 months - 1 week) that haven't been warned yet
+  IF _anon_key IS NOT NULL THEN
+    FOR r IN
+      SELECT s.id, s.name, u.email
+      FROM stores s
+      JOIN auth.users u ON u.id = s.owner_id
+      WHERE s.inactivity_warned_at IS NULL
+        AND s.created_at < now() - _cutoff
+        AND NOT EXISTS (SELECT 1 FROM activity_logs al WHERE al.store_id = s.id AND al.action = 'LOGIN' AND al.created_at > now() - _cutoff)
+        AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.store_id = s.id AND o.timestamp > now() - _cutoff)
+    LOOP
+      PERFORM net.http_post(
+        url     := _fn_url,
+        headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || _anon_key),
+        body    := jsonb_build_object('to', r.email, 'name', r.name)
+      );
+      UPDATE stores SET inactivity_warned_at = now() WHERE id = r.id;
+    END LOOP;
+  END IF;
+
+  -- Step 2: delete stores warned 1+ week ago that are still inactive (~3 months total)
+  DELETE FROM stores s
+  WHERE s.inactivity_warned_at IS NOT NULL
+    AND s.inactivity_warned_at < now() - INTERVAL '1 week'
+    AND NOT EXISTS (SELECT 1 FROM activity_logs al WHERE al.store_id = s.id AND al.action = 'LOGIN' AND al.created_at > s.inactivity_warned_at)
+    AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.store_id = s.id AND o.timestamp > s.inactivity_warned_at);
+END;
+$$;
+
+-- Re-runnable: drop any existing schedule with this name before re-creating it
+DO $$
+BEGIN
+  PERFORM cron.unschedule('process-inactive-stores-daily');
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+SELECT cron.schedule('process-inactive-stores-daily', '0 3 * * *', 'SELECT process_inactive_stores();');
