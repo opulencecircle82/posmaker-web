@@ -1734,7 +1734,9 @@ function confirmProductOpt() {
   document.getElementById('discAmt').value = discAmt || '';
   updateDiscTriggerLabel();
   // Bag/packaging picked for this batch — flat fee, its own cart line.
-  if (_poExtra > 0) {
+  // Gate on having picked an item, not on its cost: a ₱0 packaging item
+  // (e.g. a free plastic bag) still needs its stock deducted.
+  if (_poAddedItems.length > 0) {
     const pkgKey = '_po_pkg_' + Date.now();
     cart[pkgKey] = { id: null, name: 'Bag / Packaging', price: _poExtra, qty: 1, _key: pkgKey, _unliInvUsed: _poAddedItems.map(it => it.invId) };
   }
@@ -3355,7 +3357,9 @@ function confirmWeightAdd() {
   // inv_links deduction (would otherwise double-deduct using this qty math).
   const pkgKey = p.id + '_weight_pkg';
   delete cart[pkgKey];
-  if (_weightExtra > 0) {
+  // Gate on having picked an item, not on its cost: a ₱0 packaging item
+  // (e.g. a free plastic bag) still needs its stock deducted.
+  if (_weightAddedItems.length > 0) {
     cart[pkgKey] = { id: null, name: p.name + ' — Packaging', price: _weightExtra, qty: 1, _key: pkgKey, _unliInvUsed: _weightAddedItems.map(it => it.invId) };
   }
   redrawCart();

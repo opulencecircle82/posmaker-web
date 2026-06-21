@@ -1717,7 +1717,9 @@ function confirmProductOpt() {
   document.getElementById('discPct').value = discPct || '';
   document.getElementById('discAmt').value = discAmt || '';
   // Bag/packaging picked for this batch — flat fee, its own cart line.
-  if (_poExtra > 0) {
+  // Gate on having picked an item, not on its cost: a ₱0 packaging item
+  // (e.g. a free plastic bag) still needs its stock deducted.
+  if (_poAddedItems.length > 0) {
     const pkgKey = '_po_pkg_' + Date.now();
     cart[pkgKey] = { id: null, name: 'Bag / Packaging', price: _poExtra, qty: 1, _key: pkgKey, _unliInvUsed: _poAddedItems.map(it => it.invId) };
   }
