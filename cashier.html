@@ -483,6 +483,10 @@ const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 const params   = new URLSearchParams(location.search);
 let   STORE_ID = params.get('store') || localStorage.getItem('pm_store_id') || null;
 const IS_DEMO  = params.get('demo') === '1';
+// Set by the native Windows/Android cashier app's webview — that app already
+// enforces its own device lock natively before this page ever loads, so the
+// browser-side lock below (a different device-id scheme) must stay out of its way.
+const IS_NATIVE_APP = params.get('native') === '1';
 
 // Hide login immediately if demo — must run synchronously before any async code
 if (IS_DEMO) document.getElementById('loginWrap').style.display = 'none';
@@ -539,7 +543,7 @@ function getDevicePlatform() {
   return 'web';
 }
 async function checkWebDevice(storeId, register = false) {
-  if (navigator.userAgent.includes('Electron')) return 'ok';
+  if (navigator.userAgent.includes('Electron') || navigator.userAgent.includes('POSMakerNative')) return 'ok';
   const devId = getBrowserDevId();
   try {
     const { data: rows } = await _sb.from('pos_devices').select('device_id').eq('store_id', storeId).limit(1);
