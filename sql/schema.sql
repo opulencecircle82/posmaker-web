@@ -823,3 +823,9 @@ BEGIN
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   UPDATE contact_messages SET status = p_status WHERE id = p_id;
 END; $$;
+
+-- Customer name/contact on orders — used by the Laundry cashier's claim-slip
+-- receipt (customer copy + owner copy) so the owner can match a slip back
+-- to who dropped it off.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name  TEXT DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT DEFAULT '';
