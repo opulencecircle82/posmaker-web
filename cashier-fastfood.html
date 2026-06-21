@@ -574,7 +574,7 @@ function getDevicePlatform() {
   return 'web';
 }
 async function checkWebDevice(storeId, register = false) {
-  if (navigator.userAgent.includes('Electron')) return 'ok';
+  if (navigator.userAgent.includes('Electron') || navigator.userAgent.includes('POSMakerNative')) return 'ok';
   const devId = getBrowserDevId();
   try {
     const { data: rows } = await _sb.from('pos_devices').select('device_id').eq('store_id', storeId).limit(1);
