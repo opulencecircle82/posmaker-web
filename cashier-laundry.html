@@ -361,13 +361,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 </div>
 
 <!-- ── QTY INPUT MODAL (retail) ── -->
-<div class="modal" id="mQty">
-  <div class="mbox" style="width:min(300px,96vw)">
+<div id="mQty" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500">
+  <div class="mbox" style="width:min(300px,96vw);box-shadow:0 10px 40px rgba(0,0,0,.7)">
     <div class="mtitle" id="mQtyTitle">Enter Quantity</div>
     <div style="font-size:12px;color:#888;margin-bottom:10px" id="mQtyUnit"></div>
     <input class="inp" id="mQtyVal" type="number" min="0.001" step="any" placeholder="e.g. 2.5" style="font-size:20px;text-align:center;padding:12px">
     <div class="m-actions" style="margin-top:10px">
-      <button class="btn-cancel" onclick="closeM('mQty')">Cancel</button>
+      <button class="btn-cancel" onclick="document.getElementById('mQty').style.display='none'">Cancel</button>
       <button class="btn-confirm" onclick="confirmQty()">Add to Cart</button>
     </div>
   </div>
@@ -508,6 +508,7 @@ let prods = [], cart = {}, payMeth = 'Cash';
 let storeInvItems = [], invById = {}, invByName = {};
 let orderType = 'Dine In', tableNo = '', isKOT = false;
 let discPct = 0, discAmt = 0;
+let _lastReceiptData = null;
 
 // ── Web device lock ───────────────────────────────────────────────────────
 function getBrowserDevId() {
@@ -1443,7 +1444,7 @@ function askQty(id) {
   document.getElementById('mQtyTitle').textContent = p.name;
   document.getElementById('mQtyUnit').textContent  = `${CUR}${parseFloat(p.price).toFixed(2)} / ${p.unit||'pc'}  ·  Stock: ${p.stock??0} ${p.unit||'pc'}`;
   document.getElementById('mQtyVal').value = '';
-  document.getElementById('mQty').classList.add('show');
+  document.getElementById('mQty').style.display = 'block';
   setTimeout(() => document.getElementById('mQtyVal').focus(), 80);
 }
 
@@ -1452,7 +1453,7 @@ function confirmQty() {
   if (!qty || qty <= 0) { alert('Enter a valid quantity.'); return; }
   const max = _maxStock(_qtyPid);
   if (qty > max) { alert(`Only ${max} in stock.`); return; }
-  closeM('mQty');
+  document.getElementById('mQty').style.display='none';
   addItemWithQty(_qtyPid, qty);
 }
 
@@ -1836,6 +1837,8 @@ function buildReceiptText(d) {
   const ln = '─'.repeat(32);
   const store = STORE?.name || 'POSMaker';
   let s = store + '\n';
+  if (STORE?.phone)   s += `Tel: ${STORE.phone}\n`;
+  if (STORE?.address) s += `${STORE.address}\n`;
   if (d.isKOT) s += '*** KITCHEN ORDER TICKET ***\n';
   s += `${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\n`;
   s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
@@ -1850,17 +1853,56 @@ function buildReceiptText(d) {
   return s;
 }
 
+function _escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Printed copy — same info as buildReceiptText, but with the Order # blown
+// up in its own large centered line (easier to match the customer slip
+// against the owner slip later) and a copy label at the bottom.
+function buildReceiptHTML(d, copyLabel) {
+  const ln = '─'.repeat(32);
+  const store = STORE?.name || 'POSMaker';
+  let head = store + '\n';
+  if (STORE?.phone)   head += `Tel: ${STORE.phone}\n`;
+  if (STORE?.address) head += `${STORE.address}\n`;
+  if (d.isKOT) head += '*** KITCHEN ORDER TICKET ***\n';
+  head += ln;
+
+  let tail = `\n${new Date().toLocaleTimeString()}\n`;
+  tail += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
+  tail += `Cashier: ${d.cashier}\n${ln}\n`;
+  d.items.forEach(i => tail += `${i.name}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`);
+  tail += `${ln}\nSubtotal: ${CUR}${d.sub.toFixed(2)}\n`;
+  if (d.disc > 0) tail += `Discount: -${CUR}${d.disc.toFixed(2)}\n`;
+  tail += `VAT:      ${CUR}${d.tax.toFixed(2)}\nTOTAL:    ${CUR}${d.total.toFixed(2)}\n`;
+  if (d.method === 'Cash') tail += `Cash:     ${CUR}${d.tender.toFixed(2)}\nChange:   ${CUR}${d.change.toFixed(2)}\n`;
+  else tail += `Paid via: ${d.method}\n`;
+  tail += `${ln}\n${STORE?.receipt_footer || 'Thank you!'}\n\n*** ${copyLabel} ***`;
+
+  return `<pre style="font-family:monospace;font-size:12px;margin:0">${_escHtml(head)}</pre>`
+       + `<div style="font-size:22px;font-weight:800;text-align:center;margin:2px 0">Order #${_escHtml(d.order_id)}</div>`
+       + `<pre style="font-family:monospace;font-size:12px;margin:0">${_escHtml(tail)}</pre>`;
+}
+
 function showReceipt(d) {
+  _lastReceiptData = d;
   document.getElementById('confirmTotal').textContent = CUR + d.total.toFixed(2);
   document.getElementById('confirmChange').textContent = d.method === 'Cash' ? 'Change: ' + CUR + d.change.toFixed(2) : '';
   document.getElementById('receiptTxt').textContent = buildReceiptText(d);
   document.getElementById('mConfirm').style.display = 'block';
 }
 
+// Prints two slips per order — customer copy first, then the owner's copy
+// on its own page/section (page-break-before) — so the cashier never has to
+// remember to print a second one for store records.
 function doPrint() {
-  const txt = document.getElementById('receiptTxt').textContent;
-  const w = window.open('', '', 'width=300,height=500');
-  w.document.write('<pre style="font-family:monospace;font-size:12px">' + txt + '</pre>');
+  const d = _lastReceiptData;
+  const w = window.open('', '', 'width=300,height=600');
+  w.document.write(
+    '<div>' + buildReceiptHTML(d, 'CUSTOMER COPY') + '</div>'
+    + '<div style="page-break-before:always">' + buildReceiptHTML(d, 'OWNER COPY') + '</div>'
+  );
   w.print(); w.close();
   newOrder();
 }
