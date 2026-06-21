@@ -342,7 +342,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     </div>
 
     <!-- Customer info (for the laundry claim slip) -->
-    <div class="pay-section" id="custInfoSection" style="display:none">
+    <div class="pay-section" id="custInfoSection">
       <div class="pay-label">Customer Info <span style="color:var(--dim);font-weight:400">(optional &mdash; for claim slip)</span></div>
       <input class="inp" id="custName" type="text" placeholder="Customer Name" style="margin-bottom:6px">
       <input class="inp" id="custPhone" type="tel" placeholder="Contact Number">
@@ -1592,7 +1592,6 @@ function redrawCart() {
 
   document.getElementById('discSection').classList.toggle('show', hasItems);
   document.getElementById('paySection').style.display = hasItems ? '' : 'none';
-  document.getElementById('custInfoSection').style.display = hasItems ? '' : 'none';
   document.getElementById('btnCO').disabled = !hasItems;
 
   if (hasItems) {
