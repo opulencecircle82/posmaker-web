@@ -1270,7 +1270,7 @@ function renderPhotoGrid(list) {
         const oos = parseFloat(p.stock ?? 0) <= 0 && STORE.track_stock;
         const img = _firstImg(p.image_b64);
         return `
-        <div class="p-btn${oos?' out-of-stock':''}" onclick="${oos?'void 0':'addItem(\''+p.id+'\')'}">
+        <div class="p-btn${oos?' out-of-stock':''}" onclick="${oos?'void 0':'askQty(\''+p.id+'\')'}">
           ${img
             ? `<img class="p-img" src="data:image/jpeg;base64,${img}" alt="">`
             : `<div class="p-noimg">&#127869;</div>`}
@@ -1307,14 +1307,9 @@ function renderRetailList(list) {
     : `<div style="color:#555;padding:12px 4px;font-size:11px">No products found.</div>`;
 }
 
-// ── Retail: tap product → add 1 to cart with flash ────────────────────────
+// ── Retail: tap product → open the qty/options widget ────────────────────
 function addProductDirect(id) {
-  addItem(id);
-  const card = document.getElementById('rcard_' + id);
-  if (card) {
-    card.classList.add('flash');
-    setTimeout(() => card.classList.remove('flash'), 350);
-  }
+  askQty(id);
 }
 
 // ── Python Vision Server config ───────────────────────────────────────────
@@ -1440,7 +1435,6 @@ const WHOLE_UNITS = new Set(['pc','pcs','piece','pieces','box','boxes','pack','p
 function askQty(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
   const unit = (p.unit || 'pc').toLowerCase();
-  if (WHOLE_UNITS.has(unit)) { addItem(id); return; }
   _qtyPid = id;
   document.getElementById('mQtyTitle').textContent = p.name;
   document.getElementById('mQtyUnit').textContent  = `${CUR}${parseFloat(p.price).toFixed(2)} / ${p.unit||'pc'}  ·  Stock: ${p.stock??0} ${p.unit||'pc'}`;

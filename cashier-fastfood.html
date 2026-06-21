@@ -1470,7 +1470,6 @@ const WHOLE_UNITS = new Set(['pc','pcs','piece','pieces','box','boxes','pack','p
 function askQty(id) {
   const p = prods.find(x => x.id == id); if (!p) return;
   const unit = (p.unit || 'pc').toLowerCase();
-  if (WHOLE_UNITS.has(unit)) { addItem(id); return; }
   _qtyPid = id;
   document.getElementById('mQtyTitle').textContent = p.name;
   document.getElementById('mQtyUnit').textContent  = `${CUR}${parseFloat(p.price).toFixed(2)} / ${p.unit||'pc'}  ·  Stock: ${p.stock??0} ${p.unit||'pc'}`;
