@@ -155,6 +155,10 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
           <label><input type="checkbox" id="closedDay6"> Sat</label>
         </div>
       </div>
+      <div class="field">
+        <label>Store Address <span style="color:var(--dim);font-weight:400">(optional)</span></label>
+        <input id="storeAddress" type="text" placeholder="e.g. 123 Rizal St., Brgy. San Antonio, Makati City" autocomplete="street-address">
+      </div>
 
       <div class="err" id="errAll"></div>
       <button class="btn" id="btnAll" onclick="doSignup()">Create Account &amp; Store →</button>
@@ -262,6 +266,10 @@ select optgroup{background:#0a0a18;color:#8888aa;font-style:normal;font-size:11p
           <label><input type="checkbox" id="soClosedDay6"> Sat</label>
         </div>
       </div>
+      <div class="field">
+        <label>Store Address <span style="color:var(--dim);font-weight:400">(optional)</span></label>
+        <input id="soStoreAddress" type="text" placeholder="e.g. 123 Rizal St., Brgy. San Antonio, Makati City" autocomplete="street-address">
+      </div>
 
       <div class="err" id="errStoreOnly"></div>
       <button class="btn" id="btnStoreOnly" onclick="finishStoreOnly()">Create My Store →</button>
@@ -344,7 +352,7 @@ let _pendingStore = null;
 async function _finishStoreSetup(session) {
   localStorage.removeItem('pm_pending_store');
   const userId = session.user.id;
-  const { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, refCode } = _pendingStore;
+  const { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, address, refCode } = _pendingStore;
 
   // Check if this user already has a store
   const { data: existing } = await _sb.from('stores').select('id').eq('owner_id', userId).single();
@@ -388,7 +396,7 @@ async function _finishStoreSetup(session) {
 
   // Best-effort: store hours columns may not exist yet if the SQL migration
   // hasn't been run — don't let that block account/store creation.
-  await _sb.from('stores').update({ open_time: openTime, close_time: closeTime, closed_days: closedDays }).eq('id', store.id);
+  await _sb.from('stores').update({ open_time: openTime, close_time: closeTime, closed_days: closedDays, address }).eq('id', store.id);
 
   const prodCats = getDefaultProdCats(bizType);
   const invCats  = getDefaultInvCats(bizType);
@@ -424,6 +432,7 @@ async function doSignup() {
   const openTime  = document.getElementById('openTime').value || '08:00';
   const closeTime = document.getElementById('closeTime').value || '20:00';
   const closedDays = [0,1,2,3,4,5,6].filter(d => document.getElementById('closedDay'+d).checked).join(',');
+  const address   = document.getElementById('storeAddress').value.trim();
   const errEl     = document.getElementById('errAll');
   const btn       = document.getElementById('btnAll');
 
@@ -439,7 +448,7 @@ async function doSignup() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Creating your account…';
 
-  _pendingStore = { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, refCode: REF };
+  _pendingStore = { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, address, refCode: REF };
   localStorage.setItem('pm_pending_store', JSON.stringify(_pendingStore));
   localStorage.removeItem('pm_ref_code');
 
@@ -590,6 +599,7 @@ async function finishStoreOnly() {
   const openTime   = document.getElementById('soOpenTime').value || '08:00';
   const closeTime  = document.getElementById('soCloseTime').value || '20:00';
   const closedDays = [0,1,2,3,4,5,6].filter(d => document.getElementById('soClosedDay'+d).checked).join(',');
+  const address    = document.getElementById('soStoreAddress').value.trim();
   const errEl = document.getElementById('errStoreOnly');
   const btn   = document.getElementById('btnStoreOnly');
 
@@ -600,7 +610,7 @@ async function finishStoreOnly() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Creating your store…';
 
-  _pendingStore = { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, refCode: REF };
+  _pendingStore = { storeName, bizType, currency, taxRate, openTime, closeTime, closedDays, address, refCode: REF };
   const result = await _finishStoreSetup(session);
   if (result && result.error) {
     btn.disabled = false; btn.textContent = 'Create My Store →';
