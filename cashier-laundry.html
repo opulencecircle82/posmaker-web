@@ -382,7 +382,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="mtitle">&#10004; Order Confirmed</div>
     <div class="mtotal" id="confirmTotal"></div>
     <div id="confirmChange" style="font-size:12px;color:#10b981;margin-bottom:8px"></div>
-    <pre class="receipt-pre" id="receiptTxt"></pre>
+    <div class="receipt-pre" id="receiptTxt"></div>
     <div class="m-actions">
       <button class="btn-cancel"  onclick="newOrder()">New Order</button>
       <button class="btn-confirm" onclick="doPrint()">&#128438; Print Receipt</button>
@@ -1840,34 +1840,14 @@ async function confirmOrder() {
   showReceipt(receiptData);
 }
 
-function buildReceiptText(d) {
-  const ln = '─'.repeat(32);
-  const store = STORE?.name || 'POSMaker';
-  let s = store + '\n';
-  if (STORE?.phone)   s += `Tel: ${STORE.phone}\n`;
-  if (STORE?.address) s += `${STORE.address}\n`;
-  if (d.isKOT) s += '*** KITCHEN ORDER TICKET ***\n';
-  s += `${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\n`;
-  s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
-  if (d.custName || d.custPhone) s += `Customer: ${d.custName || '—'}${d.custPhone ? ' (' + d.custPhone + ')' : ''}\n`;
-  s += `Cashier: ${d.cashier}\n${ln}\n`;
-  d.items.forEach(i => s += `${i.name}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`);
-  s += `${ln}\nSubtotal: ${CUR}${d.sub.toFixed(2)}\n`;
-  if (d.disc > 0) s += `Discount: -${CUR}${d.disc.toFixed(2)}\n`;
-  s += `VAT:      ${CUR}${d.tax.toFixed(2)}\nTOTAL:    ${CUR}${d.total.toFixed(2)}\n`;
-  if (d.method === 'Cash') s += `Cash:     ${CUR}${d.tender.toFixed(2)}\nChange:   ${CUR}${d.change.toFixed(2)}\n`;
-  else s += `Paid via: ${d.method}\n`;
-  s += `${ln}\n${STORE?.receipt_footer || 'Thank you!'}`;
-  return s;
-}
-
 function _escHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Printed copy — same info as buildReceiptText, but with the Order # blown
-// up in its own large centered line (easier to match the customer slip
-// against the owner slip later) and a copy label at the bottom.
+// Renders the receipt with the Order # blown up in its own large centered
+// line (easier to match the customer slip against the owner slip later).
+// Used both for the on-screen confirm preview (no copyLabel) and for the
+// two printed slips (copyLabel = 'CUSTOMER COPY' / 'OWNER COPY').
 function buildReceiptHTML(d, copyLabel) {
   const ln = '─'.repeat(32);
   const store = STORE?.name || 'POSMaker';
@@ -1887,7 +1867,8 @@ function buildReceiptHTML(d, copyLabel) {
   tail += `VAT:      ${CUR}${d.tax.toFixed(2)}\nTOTAL:    ${CUR}${d.total.toFixed(2)}\n`;
   if (d.method === 'Cash') tail += `Cash:     ${CUR}${d.tender.toFixed(2)}\nChange:   ${CUR}${d.change.toFixed(2)}\n`;
   else tail += `Paid via: ${d.method}\n`;
-  tail += `${ln}\n${STORE?.receipt_footer || 'Thank you!'}\n\n*** ${copyLabel} ***`;
+  tail += `${ln}\n${STORE?.receipt_footer || 'Thank you!'}`;
+  if (copyLabel) tail += `\n\n*** ${copyLabel} ***`;
 
   return `<pre style="font-family:monospace;font-size:12px;margin:0">${_escHtml(head)}</pre>`
        + `<div style="font-size:22px;font-weight:800;text-align:center;margin:2px 0">Order #${_escHtml(d.order_id)}</div>`
@@ -1898,7 +1879,7 @@ function showReceipt(d) {
   _lastReceiptData = d;
   document.getElementById('confirmTotal').textContent = CUR + d.total.toFixed(2);
   document.getElementById('confirmChange').textContent = d.method === 'Cash' ? 'Change: ' + CUR + d.change.toFixed(2) : '';
-  document.getElementById('receiptTxt').textContent = buildReceiptText(d);
+  document.getElementById('receiptTxt').innerHTML = buildReceiptHTML(d);
   document.getElementById('mConfirm').style.display = 'block';
 }
 
