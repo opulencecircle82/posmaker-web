@@ -85,10 +85,16 @@ async function doLogin() {
     ]);
     if (error) { errEl.textContent = error.message; btn.disabled = false; btn.textContent = 'Log In →'; return; }
 
-    const { data: store } = await Promise.race([
-      _sb.from('stores').select('id').eq('owner_id', data.user.id).maybeSingle(),
+    // Owners with multiple POS terminals/branches have more than one row
+    // here — .maybeSingle() throws on >1 row, which was silently sending
+    // them to signup.html as if they had no store at all. Picking the
+    // oldest one as the login landing store fixes that without changing
+    // behavior for the common single-store case.
+    const { data: stores } = await Promise.race([
+      _sb.from('stores').select('id').eq('owner_id', data.user.id).order('created_at', { ascending: true }).limit(1),
       new Promise((_, rej) => setTimeout(() => rej(new Error('Connection timed out.')), 10000))
     ]);
+    const store = stores?.[0];
     localStorage.setItem('pm_store_id', store?.id || '');
     location.href = store ? 'dashboard.html' : 'signup.html';
   } catch(e) {

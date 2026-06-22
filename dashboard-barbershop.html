@@ -733,7 +733,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="font-size:16px;font-weight:700">My POS Terminals</div>
           <div style="font-size:13px;color:var(--muted);margin-top:2px">Each terminal has its own unique Store Code</div>
         </div>
-        <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()" title="Add another POS terminal for a second counter, cashier station, or branch.">+ Add POS</button>
+        <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()" title="Multiple terminals sharing one store's menu and staff — coming soon.">+ Add Terminal</button>
       </div>
       <div id="posPlanBanner" style="background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.25);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
         <span style="font-size:22px">&#127381;</span>
@@ -2777,7 +2777,7 @@ function renderPOSTerminals() {
   const pTitle = document.getElementById('posPlanTitle');
   const pSub   = document.getElementById('posPlanSub');
   if (pTitle) pTitle.textContent = IS_PRO ? 'Pro Plan — Unlimited POS Terminals' : 'Free Plan — 1 POS Terminal Included';
-  if (pSub)   pSub.textContent   = IS_PRO ? `You have ${allStores.length} POS terminal${allStores.length !== 1 ? 's' : ''}. Click + Add POS to create another terminal for a second counter or branch.` : 'Upgrade to Pro to run multiple POS counters or locations under one account.';
+  if (pSub)   pSub.textContent   = `You have ${allStores.length} POS terminal${allStores.length !== 1 ? 's' : ''}. Multiple terminals sharing one store's menu and staff are coming soon.`;
   if (!allStores.length) { list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted)">No POS terminals found.</div>'; return; }
   list.innerHTML = allStores.map((s, i) => {
     const url  = cashierUrlFor(s);
@@ -2907,13 +2907,11 @@ function showInstallModal(type) {
   document.getElementById('posInstallModal').classList.add('show');
 }
 function tryAddPOS() {
-  if (!IS_PRO) {
-    document.getElementById('upgradeMsg').innerHTML =
-      `You have <strong>${allStores.length}/${FREE_POS_LIMIT}</strong> POS terminal &mdash; that&apos;s the free plan limit.<br>Upgrade to Pro to run multiple POS counters or branches under one account.`;
-    document.getElementById('upgradeModal').classList.add('show');
-    return;
-  }
-  showAddPOSModal();
+  // Disabled for now — this used to create a brand-new, separate store
+  // (own menu/staff/sales), which conflicted with owners who just wanted a
+  // second cashier register sharing the SAME store. Re-enable once that's
+  // built as "register another device for this store" instead.
+  showToast("Multiple terminals for the same store — coming soon!");
 }
 function showAddPOSModal() {
   const existing = document.getElementById('_addPOSModal');
@@ -2974,7 +2972,7 @@ function updateAddPOSBtn() {
   const btn = document.getElementById('btnAddPOS');
   if (!btn) return;
   const over = !IS_PRO && allStores.length >= FREE_POS_LIMIT;
-  btn.textContent = IS_PRO ? `+ Add POS` : (over ? `+ Add POS (${allStores.length}/${FREE_POS_LIMIT} — Full)` : `+ Add POS (${allStores.length}/${FREE_POS_LIMIT})`);
+  btn.textContent = '+ Add Terminal';
   btn.style.background = over ? '#6b7280' : '';
   const badge = document.getElementById('posNavBadge');
   if (badge) badge.textContent = IS_PRO ? `${allStores.length}` : `${allStores.length}/${FREE_POS_LIMIT}`;

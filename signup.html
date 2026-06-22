@@ -638,8 +638,11 @@ async function finishStoreOnly() {
   if (!session) return;
 
   async function _hasStore() {
-    const { data } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).maybeSingle();
-    return !!data;
+    // .maybeSingle() throws on >1 row — owners with multiple POS
+    // terminals/branches have more than one store row, which made this
+    // wrongly report "no store" and strand them on the signup form.
+    const { data } = await _sb.from('stores').select('id').eq('owner_id', session.user.id).limit(1);
+    return !!(data && data.length);
   }
 
   if (await _hasStore()) { await _sb.auth.signOut(); location.replace('login.html'); return; }
