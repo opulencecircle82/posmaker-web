@@ -1154,7 +1154,7 @@ input:checked + .slider:before{transform:translateX(18px)}
         <label>Role</label>
         <select id="sfRole">
           <option value="cashier">Cashier</option>
-          <option value="manager">Manager</option>
+          <option value="manager">Manager</option>
         </select>
       </div>
     </div>
@@ -2753,7 +2753,7 @@ function tryAddPOS() {
   // (own menu/staff/sales), which conflicted with owners who just wanted a
   // second cashier register sharing the SAME store. Re-enable once that's
   // built as "register another device for this store" instead.
-  showToast("Multiple terminals for the same store — coming soon!");
+  showToast("You don't need to add anything — give your Store Code below to the other device, it connects automatically.");
 }
 function showAddPOSModal() {
   const existing = document.getElementById('_addPOSModal');
