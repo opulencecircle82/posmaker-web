@@ -2642,20 +2642,23 @@ function renderPOSTerminals() {
       </div>
     </div>`;
     }
-    const dev  = posDevices.find(d => d.store_id === s.id);
-    const devIcon = dev ? ({'android':'&#128241;','ios':'&#128241;','windows':'&#128187;','web':'&#127760;'}[dev.platform]||'&#128187;') : '';
-    const devBlock = dev
-      ? `<div style="background:#0a1a10;border:1px solid #1a4a25;border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+    // A store can have several registered devices at once now (e.g. a
+    // second cashier register sharing this same menu/staff) — list all of
+    // them, each with its own Remove button to unregister just that one.
+    const devs = posDevices.filter(d => d.store_id === s.id);
+    const devIconFor = d => ({'android':'&#128241;','ios':'&#128241;','windows':'&#128187;','web':'&#127760;'}[d.platform]||'&#128187;');
+    const devBlock = devs.length
+      ? devs.map(dev => `<div style="background:#0a1a10;border:1px solid #1a4a25;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
            <div>
              <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Registered Device</div>
-             <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px">${devIcon} ${dev.device_name||'Unknown Device'} <span style="font-size:11px;color:var(--muted);font-weight:400">(${dev.platform||'web'})</span></div>
+             <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px">${devIconFor(dev)} ${dev.device_name||'Unknown Device'} <span style="font-size:11px;color:var(--muted);font-weight:400">(${dev.platform||'web'})</span></div>
              <div style="font-size:11px;color:var(--muted);margin-top:1px">Since ${new Date(dev.registered_at).toLocaleDateString()}</div>
            </div>
-           <button class="btn btn-danger btn-sm" onclick="resetPOSDevice('${s.id}')" title="Unlink the device currently connected to this terminal so a different device can use this Store Code.">&#128260; Reset Device</button>
-         </div>`
+           <button class="btn btn-danger btn-sm" onclick="resetPOSDevice('${s.id}','${dev.device_id}')" title="Remove this device — it will need the Store Code again to reconnect.">&#128260; Remove</button>
+         </div>`).join('') + '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Give the Store Code below to another device to add it as an extra terminal for this store.</div>'
       : `<div style="background:#2a1a00;border:1px solid #f59e0b;border-radius:8px;padding:10px 12px;margin-bottom:12px">
            <div style="font-size:12px;color:#f59e0b;font-weight:600">&#9888; No device registered yet</div>
-           <div style="font-size:11px;color:var(--muted);margin-top:2px">Download the app and enter your Store Code to lock this POS to one device.</div>
+           <div style="font-size:11px;color:var(--muted);margin-top:2px">Download the app and enter your Store Code to connect a device.</div>
          </div>`;
     return `<div class="info-card" style="margin-bottom:12px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
@@ -2714,12 +2717,13 @@ function editStoreCode(storeId, currentCode) {
     loadPOSTerminals();
   };
 }
-async function resetPOSDevice(storeId) {
-  showConfirmModal('Reset registered device?\n\nAfter this, the POS can be set up on a new device.', async () => {
+async function resetPOSDevice(storeId, deviceId) {
+  const msg = deviceId ? 'Remove this device?\n\nIt will need the Store Code again to reconnect.' : 'Reset registered device?\n\nAfter this, the POS can be set up on a new device.';
+  showConfirmModal(msg, async () => {
     // Use RPC to bypass RLS (SECURITY DEFINER function in Supabase)
-    const { error } = await _sb.rpc('reset_pos_device', { p_store_id: storeId });
+    const { error } = await _sb.rpc('reset_pos_device', { p_store_id: storeId, p_device_id: deviceId || null });
     if (error) { showToast('Reset failed: ' + error.message, true); return; }
-    showToast('Device reset. You can now set up a new device.');
+    showToast(deviceId ? 'Device removed.' : 'Device reset. You can now set up a new device.');
     setTimeout(() => loadPOSTerminals(), 600);
   });
 }

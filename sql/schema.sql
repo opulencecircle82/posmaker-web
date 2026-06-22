@@ -300,6 +300,28 @@ CREATE POLICY pd_anon_update ON pos_devices FOR UPDATE TO anon USING (TRUE) WITH
 ALTER TABLE pos_devices ADD COLUMN IF NOT EXISTS fingerprint TEXT;
 CREATE INDEX IF NOT EXISTS idx_pos_devices_fingerprint ON pos_devices(fingerprint);
 
+-- Removes a registered device from a store so it (or a different device)
+-- needs the Store Code again to reconnect. SECURITY DEFINER bypasses RLS
+-- since the dashboard calls this as the authenticated owner via RPC rather
+-- than a direct table delete. p_device_id is optional for backward
+-- compatibility — omitting it resets every device on the store at once
+-- (the original single-device behavior); passing it removes just that one
+-- device, since a store can now have several devices registered at once
+-- (e.g. a second cashier register sharing the same menu/staff).
+CREATE OR REPLACE FUNCTION reset_pos_device(p_store_id UUID, p_device_id TEXT DEFAULT NULL)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF p_device_id IS NULL THEN
+    DELETE FROM pos_devices WHERE store_id = p_store_id;
+  ELSE
+    DELETE FROM pos_devices WHERE store_id = p_store_id AND device_id = p_device_id;
+  END IF;
+END;
+$$;
+
 -- Staff online tracking columns
 ALTER TABLE store_users ADD COLUMN IF NOT EXISTS last_seen     TIMESTAMPTZ;
 ALTER TABLE store_users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;

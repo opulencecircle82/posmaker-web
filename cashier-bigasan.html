@@ -583,26 +583,26 @@ function getDevicePlatform() {
   if (/windows/i.test(ua)) return 'windows';
   return 'web';
 }
+// A store can have multiple registered devices at once (e.g. a second
+// cashier register sharing the same menu/staff/sales) — each device is
+// recognized by its OWN devId, not by being "the one" device for the store.
 async function checkWebDevice(storeId, register = false) {
   if (navigator.userAgent.includes('Electron') || navigator.userAgent.includes('POSMakerNative')) return 'ok';
   const devId = getBrowserDevId();
   try {
-    const { data: rows } = await _sb.from('pos_devices').select('device_id').eq('store_id', storeId).limit(1);
-    if (!rows || rows.length === 0) {
-      if (register) {
-        await _sb.from('pos_devices').insert({ store_id: storeId, device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform() });
-        return 'ok';
-      }
-      return 'unregistered';
-    }
-    if (rows[0].device_id === devId) {
+    const { data: rows } = await _sb.from('pos_devices').select('device_id').eq('store_id', storeId).eq('device_id', devId).limit(1);
+    if (rows && rows.length) {
       if (register) {
         // Refresh device name/platform in case it was "Web Browser" before
         _sb.from('pos_devices').update({ device_name: getDeviceName(), platform: getDevicePlatform() }).eq('store_id', storeId).eq('device_id', devId).then(()=>{});
       }
       return 'ok';
     }
-    return 'locked';
+    if (register) {
+      await _sb.from('pos_devices').insert({ store_id: storeId, device_id: devId, device_name: getDeviceName(), platform: getDevicePlatform() });
+      return 'ok';
+    }
+    return 'unregistered';
   } catch { return 'ok'; }
 }
 
@@ -660,13 +660,6 @@ async function checkWebDevice(storeId, register = false) {
   if (devStatus === 'unregistered') {
     document.getElementById('loginWrap').style.display = 'none';
     document.getElementById('activateWrap').classList.add('show');
-    return;
-  }
-  if (devStatus === 'locked') {
-    localStorage.removeItem('pm_store_id');
-    document.getElementById('loginWrap').style.display = 'none';
-    document.getElementById('activateWrap').classList.add('show');
-    document.getElementById('actErr').textContent = 'This POS is already active on another device. Ask your store manager to reset it from the dashboard.';
     return;
   }
   // Route to this store's dedicated cashier page based on business type
@@ -2274,12 +2267,7 @@ async function doActivateStore() {
     return;
   }
 
-  const lockStatus = await checkWebDevice(store.id, true);
-  if (lockStatus === 'locked') {
-    err.textContent = 'This POS is already active on another device. Ask your store manager to reset it from the dashboard.';
-    btn.disabled = false; btn.innerHTML = '&#10003; Connect';
-    return;
-  }
+  await checkWebDevice(store.id, true);
   try { const _cm=JSON.parse(localStorage.getItem('pm_store_code_map')||'{}'); _cm[raw]=store.id; localStorage.setItem('pm_store_code_map',JSON.stringify(_cm)); } catch(_) {}
   // Pre-cache everything so POS works immediately offline after first Connect
   btn.innerHTML='<span class="spinner"></span> Setting up offline…';
