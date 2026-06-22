@@ -149,7 +149,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 
 /* Totals */
 .totals{padding:7px 9px;border-top:1px solid var(--border);font-size:calc(11px * var(--font-scale,1));flex-shrink:0}
-.t-row{display:flex;justify-content:space-between;padding:2px 0;color:#777}
+.t-row{display:flex;justify-content:space-between;padding:2px 0;color:var(--text);opacity:.7}
 .t-row.disc-line{color:#ef4444}
 .t-row.big{font-size:calc(15px * var(--font-scale,1));font-weight:800;color:var(--accent);padding-top:4px}
 
@@ -566,7 +566,7 @@ async function getDeviceFingerprint() {
 function getDeviceName() {
   const ua = navigator.userAgent;
   if (/android/i.test(ua)) {
-    const m = ua.match(/\(Linux;[^)]*;\s*([^;)]+)\)/);
+    const m = ua.match(/\(Linux;\s*Android[^;]*;\s*([^;)]+?)(?:;\s*wv)?\)/);
     const model = m ? m[1].trim() : 'Android';
     return (/tablet|tab/i.test(ua) || (screen.width >= 768 && screen.height >= 768)) ? model + ' (Tablet)' : model + ' (Phone)';
   }
@@ -1049,10 +1049,12 @@ async function openRemitOnLogout() {
     const from = (_lsRemitTime && _dbRemitTime)
       ? (_lsRemitTime > _dbRemitTime ? _lsRemitTime : _dbRemitTime)
       : (_lsRemitTime || _dbRemitTime || (today + 'T00:00:00'));
-    const { data } = await _sb.from('orders').select('total')
+    const { data } = await _sb.from('orders').select('total,payment_method')
       .eq('store_id', STORE_ID).eq('cashier_name', name)
       .gte('timestamp', from).lte('timestamp', to);
-    const total = (data||[]).reduce((s,o)=>s+(parseFloat(o.total)||0), 0);
+    // Compare against actual cash received only — card/GCash sales settle
+    // electronically and were never in the physical drawer to count.
+    const total = (data||[]).filter(o => (o.payment_method || 'Cash') === 'Cash').reduce((s,o)=>s+(parseFloat(o.total)||0), 0);
     document.getElementById('remitLogPOS').textContent = (CUR||'₱') + total.toFixed(2);
   } catch(_) {
     document.getElementById('remitLogPOS').textContent = '—';
