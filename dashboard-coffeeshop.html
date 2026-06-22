@@ -730,7 +730,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <div style="font-size:16px;font-weight:700">My POS Terminals</div>
           <div style="font-size:13px;color:var(--muted);margin-top:2px">Each terminal has its own unique Store Code</div>
         </div>
-        <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()" title="Multiple terminals sharing one store's menu and staff — coming soon.">+ Add Terminal</button>
+        <button class="btn btn-accent btn-sm" id="btnAddPOS" onclick="tryAddPOS()" title="Add another cashier register with its own code, sharing this store's same menu and staff.">+ Add Terminal</button>
       </div>
       <div id="posPlanBanner" style="background:rgba(0,180,216,.07);border:1px solid rgba(0,180,216,.25);border-radius:10px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:12px">
         <span style="font-size:22px">&#127381;</span>
@@ -1292,7 +1292,7 @@ const BIZ_FILE_MAP = {
 function bizCashierFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `cashier-${s}.html` : 'cashier.html'; }
 function bizCustomizeFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `customize-${s}.html` : 'customize.html'; }
 function bizDashboardFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `dashboard-${s}.html` : 'dashboard.html'; }
-function cashierUrlFor(s) { return `${location.origin}${location.pathname.replace(/[^/]+\.html$/, bizCashierFile(s.business_type))}?store=${s.id}`; }
+function cashierUrlFor(s, terminalId) { return `${location.origin}${location.pathname.replace(/[^/]+\.html$/, bizCashierFile(s.business_type))}?store=${s.id}${terminalId ? '&terminal=' + terminalId : ''}`; }
 
 // ── Custom Date Picker ──────────────────────────────────────────────────────────
 const _dpState = {};
@@ -2812,7 +2812,8 @@ function updateAddBtnLabels() {
     sb.style.background = over ? '#6b7280' : '';
   }
 }
-let posDevices = []; // registered devices per store
+let posDevices = []; // registered devices, scoped by store_id + terminal_id
+let posTerminals = []; // extra terminals — own code/device lock, same store menu/staff/sales
 function genStoreCode(name) {
   const prefix = (name||'STORE').toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,6).padEnd(3,'X');
   const digits = String(Math.floor(1000+Math.random()*9000));
@@ -2821,9 +2822,10 @@ function genStoreCode(name) {
 async function loadPOSTerminals() {
   const list = document.getElementById('posTerminalList');
   if (list) list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Loading...</div>';
-  const [storesRes, devicesRes] = await Promise.all([
+  const [storesRes, devicesRes, terminalsRes] = await Promise.all([
     _sb.from('stores').select('id,name,business_type,store_code,created_at').order('created_at').abortSignal(_sig()),
-    _sb.from('pos_devices').select('store_id,device_id,device_name,platform,registered_at').abortSignal(_sig())
+    _sb.from('pos_devices').select('store_id,terminal_id,device_id,device_name,platform,registered_at').abortSignal(_sig()),
+    _sb.from('pos_terminals').select('id,store_id,terminal_code,name,created_at').order('created_at').abortSignal(_sig())
   ]);
   // If store_code column is missing, fall back to query without it
   if (storesRes.error && storesRes.error.message && storesRes.error.message.includes('store_code')) {
@@ -2833,7 +2835,10 @@ async function loadPOSTerminals() {
     allStores = storesRes.data || [];
   }
   posDevices = devicesRes.data || [];
-  frozenStoreIds = computeFrozenIds(allStores, FREE_POS_LIMIT, IS_PRO);
+  posTerminals = terminalsRes.error ? [] : (terminalsRes.data || []);
+  // One combined limit across the store's own code + its extra terminals —
+  // free plan gets 1 total, oldest wins; the rest show the upgrade prompt.
+  frozenStoreIds = computeFrozenIds([...allStores, ...posTerminals], FREE_POS_LIMIT, IS_PRO);
   // Auto-generate store codes for stores that don't have one
   for (const s of allStores) {
     if (!s.store_code) {
@@ -2853,82 +2858,99 @@ async function loadPOSTerminals() {
 function renderPOSTerminals() {
   const list = document.getElementById('posTerminalList');
   if (!list) return;
+  const totalTerminals = allStores.length + posTerminals.length;
   // Update plan banner
   const pTitle = document.getElementById('posPlanTitle');
   const pSub   = document.getElementById('posPlanSub');
-  if (pTitle) pTitle.textContent = IS_PRO ? 'Pro Plan — Unlimited POS Terminals' : 'Free Plan — 1 POS Terminal Included';
-  if (pSub)   pSub.textContent   = `You have ${allStores.length} POS terminal${allStores.length !== 1 ? 's' : ''}. Multiple terminals sharing one store's menu and staff are coming soon.`;
+  if (pTitle) pTitle.textContent = IS_PRO ? 'Pro Plan — Unlimited Terminals' : 'Free Plan — 1 Terminal Included';
+  if (pSub)   pSub.textContent   = IS_PRO ? `You have ${totalTerminals} terminal${totalTerminals !== 1 ? 's' : ''}. Click + Add Terminal for another cashier register sharing this store's same menu and staff.` : 'Upgrade to Pro to run more than one cashier register for this store.';
   if (!allStores.length) { list.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted)">No POS terminals found.</div>'; return; }
-  list.innerHTML = allStores.map((s, i) => {
-    const url  = cashierUrlFor(s);
-    const code = s.store_code || '—';
-    if (frozenStoreIds.has(s.id)) {
-      return `<div class="info-card" style="margin-bottom:12px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-        <div>
-          <div style="font-size:15px;font-weight:700">&#128187; POS #${i+1} &mdash; ${s.name}</div>
-          ${s.business_type?`<div style="font-size:11px;color:var(--accent);margin-top:3px">${s.business_type}</div>`:''}
-        </div>
-        ${frozenBadgeHtml()}
-      </div>
-      <div style="background:#2a1a00;border:1px solid #f59e0b;border-radius:8px;padding:14px 16px">
-        <div style="font-size:12px;color:#f59e0b;font-weight:600;margin-bottom:6px">&#128274; This POS terminal is over your free plan limit</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Its Store Code is hidden and it can't be managed until you upgrade to Pro.</div>
-        <button class="btn btn-accent btn-sm" onclick="showUpgradeModal('pos', allStores.length, FREE_POS_LIMIT)">Upgrade to Pro</button>
-      </div>
-    </div>`;
-    }
-    // A store can have several registered devices at once now (e.g. a
-    // second cashier register sharing this same menu/staff) — list all of
-    // them, each with its own Remove button to unregister just that one.
-    const devs = posDevices.filter(d => d.store_id === s.id);
-    const devIconFor = d => ({'android':'&#128241;','ios':'&#128241;','windows':'&#128187;','web':'&#127760;'}[d.platform]||'&#128187;');
-    const devBlock = devs.length
+
+  const devIconFor = d => ({'android':'&#128241;','ios':'&#128241;','windows':'&#128187;','web':'&#127760;'}[d.platform]||'&#128187;');
+  function deviceBlockHtml(devs) {
+    return devs.length
       ? devs.map(dev => `<div style="background:#0a1a10;border:1px solid #1a4a25;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
            <div>
              <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px">Registered Device</div>
              <div style="font-size:13px;font-weight:700;color:#10b981;margin-top:2px">${devIconFor(dev)} ${dev.device_name||'Unknown Device'} <span style="font-size:11px;color:var(--muted);font-weight:400">(${dev.platform||'web'})</span></div>
              <div style="font-size:11px;color:var(--muted);margin-top:1px">Since ${new Date(dev.registered_at).toLocaleDateString()}</div>
            </div>
-           <button class="btn btn-danger btn-sm" onclick="resetPOSDevice('${s.id}','${dev.device_id}')" title="Remove this device — it will need the Store Code again to reconnect.">&#128260; Remove</button>
-         </div>`).join('') + '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Give the Store Code below to another device to add it as an extra terminal for this store.</div>'
+           <button class="btn btn-danger btn-sm" onclick="resetPOSDevice('${dev.store_id}','${dev.device_id}')" title="Remove this device — it will need the code again to reconnect.">&#128260; Remove Device</button>
+         </div>`).join('')
       : `<div style="background:#2a1a00;border:1px solid #f59e0b;border-radius:8px;padding:10px 12px;margin-bottom:12px">
            <div style="font-size:12px;color:#f59e0b;font-weight:600">&#9888; No device registered yet</div>
-           <div style="font-size:11px;color:var(--muted);margin-top:2px">Download the app and enter your Store Code to connect a device.</div>
+           <div style="font-size:11px;color:var(--muted);margin-top:2px">Download the app and enter this code to connect a device.</div>
          </div>`;
-    return `<div class="info-card" style="margin-bottom:12px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-        <div>
-          <div style="font-size:15px;font-weight:700">&#128187; POS #${i+1} &mdash; ${s.name}</div>
-          ${s.business_type?`<div style="font-size:11px;color:var(--accent);margin-top:3px">${s.business_type}</div>`:''}
+  }
+
+  let cardsHtml = '';
+  let slotNum = 0;
+  allStores.forEach(s => {
+    // Each terminal slot for this store: its own code first ("Terminal
+    // #1"), then each extra pos_terminals row — every slot has its OWN
+    // independent single-device lock even though they share this store's
+    // menu, staff, and sales.
+    const slots = [
+      { id: s.id, code: s.store_code, terminalId: null, name: s.name, removableSlot: false },
+      ...posTerminals.filter(t => t.store_id === s.id)
+        .map(t => ({ id: t.id, code: t.terminal_code, terminalId: t.id, name: t.name, removableSlot: true })),
+    ];
+    slots.forEach(slot => {
+      slotNum++;
+      if (frozenStoreIds.has(slot.id)) {
+        cardsHtml += `<div class="info-card" style="margin-bottom:12px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+            <div><div style="font-size:15px;font-weight:700">&#128187; Terminal #${slotNum} &mdash; ${slot.name}</div></div>
+            ${frozenBadgeHtml()}
+          </div>
+          <div style="background:#2a1a00;border:1px solid #f59e0b;border-radius:8px;padding:14px 16px">
+            <div style="font-size:12px;color:#f59e0b;font-weight:600;margin-bottom:6px">&#128274; This terminal is over your free plan limit</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Its code is hidden and it can't be used until you upgrade to Pro.</div>
+            <button class="btn btn-accent btn-sm" onclick="showUpgradeModal('pos', ${totalTerminals}, FREE_POS_LIMIT)">Upgrade to Pro</button>
+          </div>
+        </div>`;
+        return;
+      }
+      const url  = cashierUrlFor(s, slot.terminalId);
+      const code = slot.code || '—';
+      const devs = posDevices.filter(d => d.store_id === s.id && (slot.terminalId ? d.terminal_id === slot.terminalId : !d.terminal_id));
+      const titleLabel = slot.removableSlot ? `Terminal #${slotNum} &mdash; ${slot.name}` : `Terminal #${slotNum} &mdash; ${s.name}`;
+      cardsHtml += `<div class="info-card" style="margin-bottom:12px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+          <div>
+            <div style="font-size:15px;font-weight:700">&#128187; ${titleLabel}</div>
+            ${s.business_type?`<div style="font-size:11px;color:var(--accent);margin-top:3px">${s.business_type}</div>`:''}
+          </div>
+          <span class="badge" style="background:#0a2a1a;color:#10b981">&#9679; Active</span>
         </div>
-        <span class="badge" style="background:#0a2a1a;color:#10b981">&#9679; Active</span>
-      </div>
-      ${devBlock}
-      <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">&#128273; Store Code — Share this with your cashier</div>
-      <div style="display:flex;align-items:center;gap:10px;background:var(--s2);border:2px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:12px">
-        <div style="flex:1;font-size:26px;font-weight:900;letter-spacing:6px;color:var(--accent);font-family:monospace">${code}</div>
-        <button class="btn btn-accent btn-sm" onclick="_copyText('${code}').then(ok=>ok?showToast('Store code copied!'):showToast('Copy failed.',true))" title="Copy this Store Code to share with your cashier.">&#128203; Copy</button>
-        <button class="btn btn-ghost btn-sm" onclick="editStoreCode('${s.id}','${code}')" title="Change the Store Code for this terminal.">&#9998; Edit</button>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
-        Cashier enters this code once on first launch of the Windows app or Android APK to connect their device to your store.
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="_copyText('${url}').then(ok=>ok?showToast('Cashier link copied!'):showToast('Copy failed.',true))" title="Copy the web link for this POS terminal &mdash; open it on any browser or device.">&#128203; Copy Browser Link</button>
-        <a class="btn btn-ghost btn-sm" href="${url}" target="_blank" title="Open this POS terminal in a new browser tab.">Open in Browser</a>
-      </div>
-    </div>`;
-  }).join('');
+        ${deviceBlockHtml(devs)}
+        <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">&#128273; Code — Share this with your cashier</div>
+        <div style="display:flex;align-items:center;gap:10px;background:var(--s2);border:2px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:12px">
+          <div style="flex:1;font-size:26px;font-weight:900;letter-spacing:6px;color:var(--accent);font-family:monospace">${code}</div>
+          <button class="btn btn-accent btn-sm" onclick="_copyText('${code}').then(ok=>ok?showToast('Code copied!'):showToast('Copy failed.',true))" title="Copy this code to share with your cashier.">&#128203; Copy</button>
+          <button class="btn btn-ghost btn-sm" onclick="editStoreCode('${s.id}','${code}','${slot.terminalId||''}')" title="Change this code.">&#9998; Edit</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+          Cashier enters this code once on first launch of the Windows app or Android APK to connect their device.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="_copyText('${url}').then(ok=>ok?showToast('Cashier link copied!'):showToast('Copy failed.',true))" title="Copy the web link for this terminal &mdash; open it on any browser or device.">&#128203; Copy Browser Link</button>
+          <a class="btn btn-ghost btn-sm" href="${url}" target="_blank" title="Open this terminal in a new browser tab.">Open in Browser</a>
+          ${slot.removableSlot ? `<button class="btn btn-danger btn-sm" onclick="removeTerminal('${slot.terminalId}')" title="Delete this terminal and its code entirely.">&#128465; Delete Terminal</button>` : ''}
+        </div>
+      </div>`;
+    });
+  });
+  list.innerHTML = cardsHtml;
 }
-function editStoreCode(storeId, currentCode) {
+function editStoreCode(storeId, currentCode, terminalId) {
   const existing = document.getElementById('_editCodeModal');
   if (existing) existing.remove();
   const d = document.createElement('div');
   d.id = '_editCodeModal';
   d.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
   d.innerHTML = `<div style="background:#1a1a2e;border:1px solid #333;border-radius:14px;padding:24px;max-width:340px;width:100%">
-    <div style="font-size:15px;font-weight:700;color:#e0e0f0;margin-bottom:16px">&#9998; Edit Store Code</div>
+    <div style="font-size:15px;font-weight:700;color:#e0e0f0;margin-bottom:16px">&#9998; Edit Code</div>
     <div style="font-size:12px;color:#888;margin-bottom:8px">Letters and numbers only, 4–10 characters</div>
     <input id="_editCodeInp" type="text" maxlength="10" value="${currentCode}"
       style="width:100%;padding:12px;background:#252540;border:1px solid #444;color:#fff;border-radius:8px;font-size:18px;font-weight:700;letter-spacing:4px;font-family:monospace;text-transform:uppercase;margin-bottom:16px">
@@ -2944,25 +2966,42 @@ function editStoreCode(storeId, currentCode) {
   document.getElementById('_editCodeOk').onclick = async () => {
     const clean = inp.value.toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10);
     if (clean.length < 4) { showToast('Code must be at least 4 characters.', true); return; }
-    const { data: taken } = await _sb.from('stores').select('id').eq('store_code', clean).maybeSingle();
-    if (taken && taken.id !== storeId) { showToast('That code is already taken. Try another.', true); return; }
-    const { error } = await _sb.from('stores').update({ store_code: clean }).eq('id', storeId);
-    if (error) { showToast('Error: ' + error.message, true); return; }
+    const { data: takenStore } = await _sb.from('stores').select('id').eq('store_code', clean).maybeSingle();
+    const { data: takenTerm }  = await _sb.from('pos_terminals').select('id').eq('terminal_code', clean).maybeSingle();
+    if (terminalId) {
+      if ((takenTerm && takenTerm.id !== terminalId) || takenStore) { showToast('That code is already taken. Try another.', true); return; }
+      const { error } = await _sb.from('pos_terminals').update({ terminal_code: clean }).eq('id', terminalId);
+      if (error) { showToast('Error: ' + error.message, true); return; }
+    } else {
+      if ((takenStore && takenStore.id !== storeId) || takenTerm) { showToast('That code is already taken. Try another.', true); return; }
+      const { error } = await _sb.from('stores').update({ store_code: clean }).eq('id', storeId);
+      if (error) { showToast('Error: ' + error.message, true); return; }
+    }
     d.remove();
-    showToast('Store code updated to ' + clean);
+    showToast('Code updated to ' + clean);
     loadPOSTerminals();
   };
 }
 async function resetPOSDevice(storeId, deviceId) {
-  const msg = deviceId ? 'Remove this device?\n\nIt will need the Store Code again to reconnect.' : 'Reset registered device?\n\nAfter this, the POS can be set up on a new device.';
-  showConfirmModal(msg, async () => {
+  showConfirmModal('Remove this device?\n\nIt will need the code again to reconnect.', async () => {
     // Use RPC to bypass RLS (SECURITY DEFINER function in Supabase)
     const { error } = await _sb.rpc('reset_pos_device', { p_store_id: storeId, p_device_id: deviceId || null });
     if (error) { showToast('Reset failed: ' + error.message, true); return; }
-    showToast(deviceId ? 'Device removed.' : 'Device reset. You can now set up a new device.');
+    showToast('Device removed.');
     setTimeout(() => loadPOSTerminals(), 600);
   });
 }
+async function removeTerminal(terminalId) {
+  if (!terminalId) return;
+  showConfirmModal('Delete this terminal?\n\nIts code stops working and any connected device is disconnected.', async () => {
+    await _sb.from('pos_devices').delete().eq('terminal_id', terminalId);
+    const { error } = await _sb.from('pos_terminals').delete().eq('id', terminalId);
+    if (error) { showToast('Delete failed: ' + error.message, true); return; }
+    showToast('Terminal deleted.');
+    setTimeout(() => loadPOSTerminals(), 600);
+  });
+}
+
 function downloadStoreConfig() {
   if (!STORE) return;
   const cfg = { storeId: STORE.id, storeName: STORE.name, generated: new Date().toISOString().split('T')[0] };
@@ -2991,23 +3030,27 @@ function showInstallModal(type) {
   document.getElementById('posInstallModal').classList.add('show');
 }
 function tryAddPOS() {
-  // Disabled for now — this used to create a brand-new, separate store
-  // (own menu/staff/sales), which conflicted with owners who just wanted a
-  // second cashier register sharing the SAME store. Re-enable once that's
-  // built as "register another device for this store" instead.
-  showToast("You don't need to add anything — give your Store Code below to the other device, it connects automatically.");
+  const totalTerminals = allStores.length + posTerminals.length;
+  if (!IS_PRO && totalTerminals >= FREE_POS_LIMIT) {
+    document.getElementById('upgradeMsg').innerHTML =
+      `You have <strong>${totalTerminals}/${FREE_POS_LIMIT}</strong> terminal &mdash; that&apos;s the free plan limit.<br>Upgrade to Pro to add more cashier registers for this store.`;
+    document.getElementById('upgradeModal').classList.add('show');
+    return;
+  }
+  showAddPOSModal();
 }
 function showAddPOSModal() {
+  if (!STORE) return;
   const existing = document.getElementById('_addPOSModal');
   if (existing) existing.remove();
   const d = document.createElement('div');
   d.id = '_addPOSModal';
   d.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px';
-  const defaultName = 'POS #' + (allStores.length + 1) + ' — ' + (STORE ? STORE.name : 'My Store');
+  const defaultName = 'Terminal #' + (allStores.length + posTerminals.length + 1);
   d.innerHTML = `<div style="background:#1a1a2e;border:1px solid #333;border-radius:14px;padding:24px;max-width:360px;width:100%">
-    <div style="font-size:15px;font-weight:700;color:#e0e0f0;margin-bottom:6px">&#128187; Add POS Terminal</div>
-    <div style="font-size:12px;color:#888;margin-bottom:16px">Creates a new cashier terminal with its own store code and device slot.</div>
-    <label style="font-size:12px;color:#aaa;display:block;margin-bottom:6px;font-weight:600">POS Name</label>
+    <div style="font-size:15px;font-weight:700;color:#e0e0f0;margin-bottom:6px">&#128187; Add Terminal</div>
+    <div style="font-size:12px;color:#888;margin-bottom:16px">Creates a new code with its own device lock — sharing this store's same menu, staff, and sales.</div>
+    <label style="font-size:12px;color:#aaa;display:block;margin-bottom:6px;font-weight:600">Terminal Name</label>
     <input id="_addPOSName" type="text" maxlength="40" value="${defaultName.replace(/"/g,'&quot;')}" placeholder="e.g. Counter 2"
       style="width:100%;padding:11px 14px;background:#252540;border:1.5px solid #444;color:#fff;border-radius:8px;font-size:14px;outline:none;margin-bottom:16px">
     <div id="_addPOSErr" style="color:#ef4444;font-size:12px;min-height:16px;margin-bottom:10px"></div>
@@ -3027,24 +3070,17 @@ function showAddPOSModal() {
     okBtn.disabled = true; okBtn.textContent = 'Creating...';
     errEl.textContent = '';
     try {
-      const { data: { user } } = await _sb.auth.getUser();
       let code, taken = true;
       while (taken) {
         code = genStoreCode(name);
-        const { data } = await _sb.from('stores').select('id').eq('store_code', code).maybeSingle();
-        taken = !!data;
+        const { data: t1 } = await _sb.from('stores').select('id').eq('store_code', code).maybeSingle();
+        const { data: t2 } = await _sb.from('pos_terminals').select('id').eq('terminal_code', code).maybeSingle();
+        taken = !!t1 || !!t2;
       }
-      const { error } = await _sb.from('stores').insert({
-        name,
-        owner_id: user.id,
-        currency: STORE?.currency || '₱',
-        tax_rate: STORE?.tax_rate || 0,
-        business_type: STORE?.business_type || '',
-        store_code: code
-      });
+      const { error } = await _sb.from('pos_terminals').insert({ store_id: STORE.id, terminal_code: code, name });
       if (error) { errEl.textContent = error.message; okBtn.disabled = false; okBtn.textContent = 'Create Terminal'; return; }
       d.remove();
-      showToast('POS terminal created! Store code: ' + code);
+      showToast('Terminal created! Code: ' + code);
       loadPOSTerminals();
     } catch(e) {
       errEl.textContent = e.message;
@@ -3055,12 +3091,14 @@ function showAddPOSModal() {
 function updateAddPOSBtn() {
   const btn = document.getElementById('btnAddPOS');
   if (!btn) return;
-  const over = !IS_PRO && allStores.length >= FREE_POS_LIMIT;
+  const totalTerminals = allStores.length + posTerminals.length;
+  const over = !IS_PRO && totalTerminals >= FREE_POS_LIMIT;
   btn.textContent = '+ Add Terminal';
   btn.style.background = over ? '#6b7280' : '';
   const badge = document.getElementById('posNavBadge');
-  if (badge) badge.textContent = IS_PRO ? `${allStores.length}` : `${allStores.length}/${FREE_POS_LIMIT}`;
+  if (badge) badge.textContent = IS_PRO ? `${totalTerminals}` : `${totalTerminals}/${FREE_POS_LIMIT}`;
 }
+
 function _bizPlaceholder(field) {
   const biz = STORE?.business_type || '';
   const prod = {
