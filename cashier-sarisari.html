@@ -46,7 +46,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 /* ── CATEGORIES ─────────────────────────────────────────── */
 .cat-bar{background:var(--s1);display:flex;overflow-x:auto;padding:5px 8px;gap:5px;flex-shrink:0;border-bottom:1px solid var(--border);scrollbar-width:none}
 .cat-bar::-webkit-scrollbar{display:none}
-.cat-btn{background:var(--s2);border:1px solid var(--border);color:#888;padding:7px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;font-size:calc(11px * var(--font-scale,1));font-weight:700;flex-shrink:0;text-transform:uppercase;letter-spacing:.6px;transition:all .15s}
+.cat-btn{background:var(--s2);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;font-size:calc(11px * var(--font-scale,1));font-weight:700;flex-shrink:0;text-transform:uppercase;letter-spacing:.6px;transition:all .15s;font-family:inherit}
 .cat-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 
 /* ── MAIN LAYOUT ────────────────────────────────────────── */
@@ -124,7 +124,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 
 /* Cart action row (Draft / Table / KOT) */
 .cart-acts{display:flex;gap:4px;padding:6px 7px;border-bottom:1px solid var(--border);flex-shrink:0}
-.act-btn{flex:1;padding:5px 2px;border:1px solid var(--border);background:var(--s2);color:#999;border-radius:5px;cursor:pointer;font-size:calc(10px * var(--font-scale,1));font-weight:700;text-align:center;white-space:nowrap;letter-spacing:.3px}
+.act-btn{flex:1;padding:5px 2px;border:1px solid var(--border);background:var(--s2);color:var(--text);border-radius:5px;cursor:pointer;font-size:calc(10px * var(--font-scale,1));font-weight:700;text-align:center;white-space:nowrap;letter-spacing:.3px;font-family:inherit}
 .act-btn:active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .act-btn.on{background:rgba(0,180,216,.15);color:var(--accent);border-color:var(--accent)}
 
