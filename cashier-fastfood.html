@@ -927,6 +927,21 @@ async function doLogout() {
   openRemitOnLogout();
 }
 
+// Auto-logout after 10 min idle — an unattended or take-home cashier
+// session shouldn't stay logged in indefinitely (e.g. a staff member's
+// kid picking up the tablet at home). Re-entering the password is
+// required to resume, same as a manual logout.
+let _cashierIdleTimer = null;
+function _resetCashierIdleTimer() {
+  if (document.getElementById('loginWrap').style.display === 'none') {
+    clearTimeout(_cashierIdleTimer);
+    _cashierIdleTimer = setTimeout(() => { doLogout(); }, 10 * 60 * 1000);
+  }
+}
+['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt =>
+  document.addEventListener(evt, _resetCashierIdleTimer, { passive: true }));
+_resetCashierIdleTimer();
+
 // ── Cashier Inbox ────────────────────────────────────────────────────────────
 async function openCashierInbox() {
   const list = document.getElementById('cashierInboxList');

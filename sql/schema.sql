@@ -300,6 +300,34 @@ CREATE POLICY pd_anon_update ON pos_devices FOR UPDATE TO anon USING (TRUE) WITH
 ALTER TABLE pos_devices ADD COLUMN IF NOT EXISTS fingerprint TEXT;
 CREATE INDEX IF NOT EXISTS idx_pos_devices_fingerprint ON pos_devices(fingerprint);
 
+-- Extra terminals for a store, each with its OWN unique code and its OWN
+-- single-device lock — so a second (or third) cashier register shares the
+-- same store's menu/staff/sales, but its code can be revoked/rotated
+-- independently of the others if it's lost or a device needs replacing.
+-- The store's own store_code remains "Terminal #1" implicitly (no row
+-- here), so existing single-terminal stores need no migration.
+CREATE TABLE IF NOT EXISTS pos_terminals (
+  id            UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id      UUID        REFERENCES stores NOT NULL,
+  terminal_code TEXT        NOT NULL UNIQUE,
+  name          TEXT        NOT NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE pos_terminals ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS pt_owner       ON pos_terminals;
+DROP POLICY IF EXISTS pt_anon_select ON pos_terminals;
+CREATE POLICY pt_owner ON pos_terminals FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+CREATE POLICY pt_anon_select ON pos_terminals FOR SELECT TO anon USING (TRUE);
+
+-- A device now registers against a specific terminal (NULL terminal_id
+-- means it's on the store's own code, i.e. "Terminal #1") so each extra
+-- terminal's device lock is independent of the others. Removal still goes
+-- through reset_pos_device() (SECURITY DEFINER) or the owner's own
+-- authenticated session — anon never gets DELETE on pos_devices directly.
+ALTER TABLE pos_devices ADD COLUMN IF NOT EXISTS terminal_id UUID REFERENCES pos_terminals;
+
 -- Removes a registered device from a store so it (or a different device)
 -- needs the Store Code again to reconnect. SECURITY DEFINER bypasses RLS
 -- since the dashboard calls this as the authenticated owner via RPC rather
