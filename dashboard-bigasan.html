@@ -3178,10 +3178,12 @@ async function renderStaffLogsBody(staffId, displayName, role) {
   // total without listing each sale.
   if (isCashier && STORE?.id) {
     await Promise.all(shifts.filter(s => !s.logoutAt).map(async s => {
-      const { data: ord } = await _sb.from('orders').select('total')
+      const { data: ord } = await _sb.from('orders').select('total,payment_method')
         .eq('store_id', STORE.id).eq('cashier_name', displayName)
         .gte('timestamp', s.loginAt);
-      s._total = (ord||[]).reduce((sum,o) => sum + (parseFloat(o.total)||0), 0);
+      // Cash drawer should only reflect actual cash received — card/GCash
+      // sales settle electronically and never touch the physical drawer.
+      s._total = (ord||[]).filter(o => (o.payment_method || 'Cash') === 'Cash').reduce((sum,o) => sum + (parseFloat(o.total)||0), 0);
     }));
   }
 
