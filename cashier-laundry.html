@@ -823,7 +823,7 @@ async function doLogin() {
   btn.textContent = 'Logging in…';
   try {
     const { data: found, error: qErr } = await _sb.from('store_users')
-      .select('id,username,full_name,role,password_hash,active')
+      .select('id,username,full_name,role,password_hash,active,last_seen')
       .eq('store_id', STORE_ID)
       .eq('username', username)
       .single();
@@ -843,6 +843,15 @@ async function doLogin() {
     const hash = await sha256(pw);
     if (found.password_hash !== hash) {
       errEl.textContent = 'Wrong password. Try again or ask your manager to reset it.';
+      return;
+    }
+
+    // last_seen is refreshed every 30s while a session is active (see the
+    // ping_staff_online heartbeat below) — since we only reach this check
+    // before establishing our OWN session, a recent value here can only
+    // mean a different device/tab is currently logged in as this staff.
+    if (found.last_seen && (Date.now() - new Date(found.last_seen).getTime()) < 60 * 1000) {
+      errEl.textContent = 'This cashier is already logged in on another device. Log out there first, or ask your manager to reset it.';
       return;
     }
 
