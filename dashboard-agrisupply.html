@@ -1375,8 +1375,12 @@ function _sig(ms = 25000) {
   // Load store
   let store, storeErr;
   try {
-    const res = await Promise.race([_sb.from('stores').select('*').eq('owner_id', session.user.id).single(), _tout(15000, 'Store load timed out. Check your internet.')]);
-    store = res.data; storeErr = res.error;
+    // .single() throws on >1 row — owners with multiple POS terminals/
+    // branches have more than one store row, which made this think they had
+    // NO store and bounced them to signup.html (which then signs them back
+    // out, looping back to login). Oldest store wins as the login landing.
+    const res = await Promise.race([_sb.from('stores').select('*').eq('owner_id', session.user.id).order('created_at', { ascending: true }).limit(1), _tout(15000, 'Store load timed out. Check your internet.')]);
+    store = res.data?.[0]; storeErr = res.error;
   } catch(e) {
     document.getElementById('loadingPage').innerHTML = `<div style="text-align:center"><div style="color:#ef4444;margin-bottom:12px">&#9888; ${e.message}</div><button onclick="location.reload()" style="padding:10px 24px;background:#00b4d8;border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Retry</button></div>`;
     return;
