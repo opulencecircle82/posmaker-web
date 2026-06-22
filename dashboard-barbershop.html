@@ -187,7 +187,10 @@ input:checked + .slider:before{transform:translateX(18px)}
       <button class="sb-toggle" onclick="openSidebar()">â˜°</button>
       <span class="topbar-title" id="topbarTitle">Dashboard</span>
     </div>
-    <button id="btnUpdate" onclick="applyUpdate()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 14px;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s">&#8635; Update</button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button id="btnHelp" onclick="document.getElementById('helpModal').classList.add('show')" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 14px;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s">&#10067; Help</button>
+      <button id="btnUpdate" onclick="applyUpdate()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 14px;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s">&#8635; Update</button>
+    </div>
   </div>
   <div class="content" id="content">
 
@@ -1032,6 +1035,34 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('catModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveCat()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal" id="helpModal">
+  <div class="mbox" style="width:min(640px,100%)">
+    <h3 style="margin-bottom:2px">&#10067; Dashboard Help</h3>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:16px">What each section does, with an example of when to use it.</p>
+    <div style="display:flex;flex-direction:column;gap:14px;max-height:60dvh;overflow-y:auto;padding-right:4px">
+      <div><div style="font-weight:700;font-size:14px">&#128202; Dashboard</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Overview of your store: sales, orders, and quick stats for today.</div><div style="font-size:12px;color:var(--accent)">Example: Open this each morning to see how many orders came in overnight and your running sales total.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128221; Orders</div><div style="color:var(--muted);font-size:13px;margin:2px 0">See incoming and past orders from your POS.</div><div style="font-size:12px;color:var(--accent)">Example: A customer disputes a receipt — find their order here by date and check the items and total.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128230; Inventory</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Track stock levels for your raw materials and supplies, and add new items.</div><div style="font-size:12px;color:var(--accent)">Example: You restock 50 sacks of rice — find "Rice 25kg" here and use +Add to increase its stock count.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128194; Categories</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Organize your products and inventory items into categories.</div><div style="font-size:12px;color:var(--accent)">Example: Group all your drinks together — create a "Drinks" category, then assign it to Coke, Sprite, and Water.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#9999;&#65039; Products</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Add, edit, or remove the items you sell — set price, photo, and category.</div><div style="font-size:12px;color:var(--accent)">Example: You start selling a new flavor — click +Add Item, set its name, price, and photo; it appears instantly on the cashier.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128101; Staff</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Add your staff here — create their accounts, set name, password, and control access.</div><div style="font-size:12px;color:var(--accent)">Example: Hiring a new cashier — add their name and a password here; they use it to log in on the POS.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128203; Activity Log</div><div style="color:var(--muted);font-size:13px;margin:2px 0">See a log of staff actions and submitted receipts — view, accept, or mark as invalid.</div><div style="font-size:12px;color:var(--accent)">Example: A cashier applied a big discount — check Activity Log to see who did it and when, then approve or flag it.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128172; Messages</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Send and receive messages with your staff.</div><div style="font-size:12px;color:var(--accent)">Example: Tell your staff about today's promo — type a message here and it shows up on their cashier screen.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128202; Sales Report</div><div style="color:var(--muted);font-size:13px;margin:2px 0">View your sales totals, best sellers, and reports by day or date range.</div><div style="font-size:12px;color:var(--accent)">Example: Checking which item sold best last week — open Sales Report, pick the date range, and see your top sellers.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#9989; Daily Checklist</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Set tasks your staff must complete when opening or closing the store.</div><div style="font-size:12px;color:var(--accent)">Example: Make sure staff count the cash drawer every closing — add "Count cash drawer" as a checklist task.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128176; Other Expenses</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Record other costs like rent, bills, or supplies that are not part of your inventory.</div><div style="font-size:12px;color:var(--accent)">Example: You paid for electricity this month — log it here so it's included in your real profit calculation.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#9881;&#65039; Settings</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Update your store details, currency, tax rate, and account settings.</div><div style="font-size:12px;color:var(--accent)">Example: Your area's tax rate changed — update the Tax Rate field here so receipts calculate it correctly.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#127912; Customize POS</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Customize how your POS screen looks — colors, logo, and layout.</div><div style="font-size:12px;color:var(--accent)">Example: Want your POS to match your shop colors — pick your brand color as Accent and upload your logo.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128279; Cashier Link</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Get the store code or link your staff use to connect their POS device.</div><div style="font-size:12px;color:var(--accent)">Example: Setting up a new POS terminal — copy the Store Code here and paste it into the cashier app on first launch.</div></div>
+      <div><div style="font-weight:700;font-size:14px">&#128187; My POS</div><div style="color:var(--muted);font-size:13px;margin:2px 0">Open your store POS screen to start taking orders.</div><div style="font-size:12px;color:var(--accent)">Example: Ready to start selling — click My POS to open the live cashier screen yourself.</div></div>
+    </div>
+    <div class="m-actions" style="margin-top:16px">
+      <button class="btn btn-accent" onclick="closeModal('helpModal')">Got it</button>
     </div>
   </div>
 </div>
