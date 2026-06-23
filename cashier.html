@@ -567,6 +567,25 @@ async function checkWebDevice(storeId, register = false, terminalId = null) {
 }
 
 // ── Page init ────────────────────────────────────────────────────────────
+// Business types that use restaurant-mode features (order type tabs, table, KOT)
+const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
+  'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
+
+// Business types that track customers by chair instead of table, and skip the camera scanner
+const CHAIR_TYPES = new Set(['Salon / Barbershop']);
+
+// Business types that sell barcoded/packaged items — only these get the camera/product scanner
+const SCANNER_TYPES = new Set(['Sari-Sari Store','Drug Store','Agri Supply']);
+
+// Service businesses where a linked supply showing 0 stock means "unlimited" (labor-based, not stock-limited)
+const UNLIMITED_STOCK_TYPES = new Set(['Salon / Barbershop','Laundry','Printing / Photocopy']);
+
+let IS_RETAIL = false;
+let USES_CHAIRS = false;
+let SHOW_SCANNER = false;
+let _pingInterval = null;
+let _openScanTimer = null;
+
 (async () => {
   if (IS_DEMO) {
     document.getElementById('demoBanner').style.display = '';
@@ -651,18 +670,6 @@ async function checkWebDevice(storeId, register = false, terminalId = null) {
   setStoreUI();
 })();
 
-// Business types that use restaurant-mode features (order type tabs, table, KOT)
-const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
-  'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
-
-// Business types that track customers by chair instead of table, and skip the camera scanner
-const CHAIR_TYPES = new Set(['Salon / Barbershop']);
-
-// Business types that sell barcoded/packaged items — only these get the camera/product scanner
-const SCANNER_TYPES = new Set(['Sari-Sari Store','Drug Store','Agri Supply']);
-
-// Service businesses where a linked supply showing 0 stock means "unlimited" (labor-based, not stock-limited)
-const UNLIMITED_STOCK_TYPES = new Set(['Salon / Barbershop','Laundry','Printing / Photocopy']);
 function _resolveSupplyStock(rawStock, useQty) {
   const raw = rawStock || 0;
   if (UNLIMITED_STOCK_TYPES.has(STORE.business_type) && raw === 0) return Infinity;
@@ -681,10 +688,6 @@ function setStoreUI() {
   adaptCashierMode(STORE.business_type);
   applyPosTheme(STORE);
 }
-
-let IS_RETAIL = false;
-let USES_CHAIRS = false;
-let SHOW_SCANNER = false;
 
 function adaptCashierMode(bizType) {
   const isRestaurant = !bizType || RESTAURANT_TYPES.has(bizType);
@@ -880,7 +883,6 @@ async function doLogin() {
   }
 }
 
-let _pingInterval = null;
 function startPing() {
   if (_pingInterval) clearInterval(_pingInterval);
   if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
@@ -890,7 +892,6 @@ function startPing() {
   setInterval(checkCashierInbox, 60000);
 }
 
-let _openScanTimer = null;
 function showPOS(name) {
   CASHIER_NAME = name;
   document.getElementById('loginWrap').style.display = 'none';
@@ -915,6 +916,21 @@ async function doLogout() {
   // Show remittance popup first; actual logout happens after
   openRemitOnLogout();
 }
+
+// Auto-logout after 10 min idle — an unattended or take-home cashier
+// session shouldn't stay logged in indefinitely (e.g. a staff member's
+// kid picking up the tablet at home). Re-entering the password is
+// required to resume, same as a manual logout.
+let _cashierIdleTimer = null;
+function _resetCashierIdleTimer() {
+  if (document.getElementById('loginWrap').style.display === 'none') {
+    clearTimeout(_cashierIdleTimer);
+    _cashierIdleTimer = setTimeout(() => { doLogout(); }, 10 * 60 * 1000);
+  }
+}
+['mousemove','mousedown','keydown','touchstart','scroll'].forEach(evt =>
+  document.addEventListener(evt, _resetCashierIdleTimer, { passive: true }));
+_resetCashierIdleTimer();
 
 // ── Cashier Inbox ────────────────────────────────────────────────────────────
 async function openCashierInbox() {

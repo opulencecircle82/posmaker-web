@@ -2665,9 +2665,9 @@ function renderProfitMargin(items) {
       <th style="text-align:center;padding:8px 10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Type</th>
     </tr></thead>
     <tbody>
-      ${rows.map(r => {
+      ${rows.map((r, i) => {
         const q = quadrant(r);
-        return `<tr style="border-top:1px solid rgba(255,255,255,.04);${ri%2?'background:rgba(255,255,255,.025)':''}">
+        return `<tr style="border-top:1px solid rgba(255,255,255,.04);${i%2?'background:rgba(255,255,255,.025)':''}">
           <td style="padding:8px 10px;font-weight:600">${r.name}</td>
           <td style="padding:8px 10px;text-align:right">${r.units}</td>
           <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--accent)">${CUR}${r.revenue.toFixed(2)}</td>
