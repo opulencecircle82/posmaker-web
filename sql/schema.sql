@@ -244,7 +244,6 @@ ALTER TABLE stores ADD COLUMN IF NOT EXISTS store_code     TEXT    DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_stores_store_code ON stores(store_code);
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_name_color   TEXT DEFAULT '';
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_price_color  TEXT DEFAULT '';
-ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_font_scale   NUMERIC DEFAULT 100;
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS pos_totals_color TEXT DEFAULT '';
 
 -- Restaurant POS columns on orders
