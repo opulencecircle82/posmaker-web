@@ -242,9 +242,7 @@ async function loadPlans() {
     const price = parseFloat(r.price_usd) || 0;
     const featured = t === FEATURED_TIER;
     const label = TIER_LABELS[t] || t;
-    const cta = isFree
-      ? `location.href='signup.html'`
-      : `openCheckout('${label}', '${price}')`;
+    const cta = isFree ? '' : `openCheckout('${label}', '${price}')`;
     return `
     <div class="plan-card${featured ? ' featured' : ''}">
       ${featured ? '<div class="plan-featured-tag">MOST POPULAR</div>' : ''}
