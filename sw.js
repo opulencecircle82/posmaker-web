@@ -1,4 +1,4 @@
-const CACHE = 'posmaker-v18';
+const CACHE = 'posmaker-v19';
 const STATIC = [
   'js/supabase.js',
   'js/config.js',
@@ -108,8 +108,8 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // store-plan.js + config.js — network-first so logic/config updates are always fresh
-  if (url.includes('/js/store-plan.js') || url.includes('/js/config.js')) {
+  // store-plan.js + config.js + supabase.js — network-first so logic/config/SDK updates are always fresh
+  if (url.includes('/js/store-plan.js') || url.includes('/js/config.js') || url.includes('/js/supabase.js')) {
     e.respondWith(
       fetch(e.request, {cache:'no-cache'})
         .then(resp => {
