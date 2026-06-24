@@ -227,10 +227,18 @@ function fmtLimit(n, label) {
   return (n >= 999999 ? 'Unlimited' : n) + ' ' + label;
 }
 
-async function loadPlans() {
+async function loadPlans(attempt) {
+  attempt = attempt || 1;
   const wrap = document.getElementById('plansWrap');
   const { data, error } = await _sb.from('plan_limits').select('*');
   if (error || !data || !data.length) {
+    // The very first request right after the Supabase client is created can
+    // occasionally lose a race (client/session still settling) on a cold
+    // page load. Retry a couple of times with a short delay before giving up.
+    if (attempt < 3) {
+      setTimeout(() => loadPlans(attempt + 1), 700);
+      return;
+    }
     wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0;grid-column:1/-1">Plans are temporarily unavailable. Please check back soon.</div>';
     return;
   }
