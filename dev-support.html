@@ -1692,7 +1692,7 @@ function renderSubs(items) {
       <td style="color:var(--muted);font-size:11px">${i + 1}</td>
       <td><strong>${esc(s.store_name || '—')}</strong><div style="font-size:11px;color:var(--muted)">${esc(s.subscriber_email || '—')}</div></td>
       <td><span class="badge badge-purple">${esc(s.plan_name)}</span></td>
-      <td style="font-weight:700;color:var(--success)">&#8369;${parseFloat(s.amount).toFixed(2)}</td>
+      <td style="font-weight:700;color:var(--success)">${s.currency === 'USD' ? '$' : '&#8369;'}${parseFloat(s.amount).toFixed(2)}</td>
       <td>${badge}</td>
       <td style="color:var(--muted);font-size:12px">${started}</td>
       <td style="color:var(--muted);font-size:12px">${expires}</td>

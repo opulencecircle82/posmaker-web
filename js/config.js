@@ -10,4 +10,4 @@ const VISION_SERVER_URL = '';
 // Go to developer.paypal.com → Apps & Credentials → Create App → copy Client ID
 // Use Sandbox Client ID for testing, Live Client ID for production
 const PAYPAL_CLIENT_ID = 'AarzFDBcc5UA1eGhFfure_7nycIE9ZWwo-lHqiqiSGATv5lCz7wO3y03BbqeJEqDR3L2XbwwENFIcXKQ';
-const PAYPAL_CURRENCY  = 'PHP';
+const PAYPAL_CURRENCY  = 'USD';
