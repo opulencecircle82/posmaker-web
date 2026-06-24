@@ -2071,7 +2071,11 @@ async function setTicketStatus(status) {
 let _allContactMsgs = [];
 async function loadContactMessages() {
   const { data, error } = await _sb.rpc('dev_get_contact_messages', { p_token: _devToken });
-  if (error) { handleAuthError(error); return; }
+  if (error) {
+    handleAuthError(error);
+    document.getElementById('contactMsgsTbody').innerHTML = '<tr class="empty-row"><td colspan="8" style="color:var(--danger)">Failed to load: ' + esc(error.message) + '</td></tr>';
+    return;
+  }
   _allContactMsgs = data || [];
   renderContactMessages();
 }
@@ -2105,7 +2109,11 @@ async function resolveContactMessage(id) {
 let _allSurveys = [];
 async function loadSatisfactionSurveys() {
   const { data, error } = await _sb.rpc('dev_get_satisfaction_surveys', { p_token: _devToken });
-  if (error) { handleAuthError(error); return; }
+  if (error) {
+    handleAuthError(error);
+    document.getElementById('surveysTbody').innerHTML = '<tr class="empty-row"><td colspan="5" style="color:var(--danger)">Failed to load: ' + esc(error.message) + '</td></tr>';
+    return;
+  }
   _allSurveys = data || [];
   renderSatisfactionSurveys();
 }
