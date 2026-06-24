@@ -474,6 +474,20 @@ async function doSignup() {
     return;
   }
 
+  // Supabase doesn't return an error for an email that's already registered
+  // (anti email-enumeration behavior) — it instead returns a user object with
+  // an EMPTY identities array and no session. That's the only signal we get.
+  if (signUpData && signUpData.user && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
+    _signupSubmitting = false;
+    btn.disabled = false; btn.textContent = 'Create Account & Store →';
+    const emailField = document.getElementById('email');
+    emailField.style.borderColor = '#ef4444';
+    emailField.focus();
+    emailField.addEventListener('input', () => { emailField.style.borderColor = ''; }, { once: true });
+    errEl.innerHTML = 'This email has already been registered. Try another email, or <a href="login.html" style="color:var(--accent)">log in instead &rarr;</a>';
+    return;
+  }
+
   // If "Confirm email" is disabled in Supabase, signUp() returns an active session
   // right away — finish creating the store immediately, no email needed.
   if (signUpData && signUpData.session) {
