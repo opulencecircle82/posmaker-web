@@ -230,7 +230,14 @@ function fmtLimit(n, label) {
 async function loadPlans(attempt) {
   attempt = attempt || 1;
   const wrap = document.getElementById('plansWrap');
-  const { data, error } = await _sb.from('plan_limits').select('*');
+  let data, error;
+  try {
+    const res = await _sb.from('plan_limits').select('*');
+    data = res.data; error = res.error;
+  } catch (e) {
+    error = e;
+  }
+  if (error) console.error('loadPlans attempt', attempt, 'error:', error);
   if (error || !data || !data.length) {
     // The very first request right after the Supabase client is created can
     // occasionally lose a race (client/session still settling) on a cold
