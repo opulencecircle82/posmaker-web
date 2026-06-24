@@ -5250,7 +5250,7 @@ async function viewBarberEarnings(id) {
   const b = _barberList.find(x => x.id === id);
   if (!b) return;
   const earnName = b.nickname ? `${b.nickname} (${b.full_name})` : b.full_name;
-  document.getElementById('barberEarnTitle').textContent = `&#128176; ${earnName} — Today's Earnings`;
+  document.getElementById('barberEarnTitle').textContent = `💰 ${earnName} — Today's Earnings`;
   const body = document.getElementById('barberEarnBody');
   body.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted)">Loading...</div>';
   document.getElementById('barberEarnModal').classList.add('show');
