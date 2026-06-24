@@ -25,6 +25,19 @@ async function getStorePro(sb, storeId) {
   return !!data;
 }
 
+// Resolves the admin-configured Inventory/Product/Staff/POS-terminal limits
+// for a store's plan tier (Dev Support → Plan Limits). Falls back to the
+// original hardcoded free-tier numbers if the row is missing or the fetch
+// fails, so a store never gets MORE restrictive by accident.
+async function resolvePlanLimits(sb, tier) {
+  const fallback = { product: 3, inventory: 3, staff: 1, pos: 1 };
+  try {
+    const { data } = await sb.from('plan_limits').select('*').eq('tier', tier || 'free').maybeSingle();
+    if (!data) return fallback;
+    return { product: data.product_limit, inventory: data.inventory_limit, staff: data.staff_limit, pos: data.pos_limit };
+  } catch (e) { return fallback; }
+}
+
 // Auto-generate a SKU like "COF-001" from a category name, based on the
 // highest existing SKU number already used in that category.
 function genAutoSku(category, items) {

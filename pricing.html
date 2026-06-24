@@ -27,7 +27,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:0 24px;he
 .hero-note{font-size:12px;color:var(--muted);margin-top:8px}
 
 /* ── PLANS ── */
-.plans-wrap{max-width:900px;margin:0 auto;padding:20px 20px 60px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.plans-wrap{max-width:1300px;margin:0 auto;padding:20px 20px 60px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
 .plan-card{background:var(--s1);border:1.5px solid var(--border);border-radius:20px;padding:28px 24px;display:flex;flex-direction:column;transition:border-color .2s,transform .2s}
 .plan-card:hover{border-color:var(--accent);transform:translateY(-3px)}
 .plan-card.featured{border-color:var(--accent);background:linear-gradient(145deg,#0d1a2e,var(--s1));position:relative;overflow:hidden}
@@ -111,46 +111,8 @@ input:focus{border-color:var(--accent)}
 </div>
 
 <!-- PLANS -->
-<div class="plans-wrap">
-
-  <!-- Plan 1: Basic -->
-  <div class="plan-card">
-    <div class="plan-name">Basic</div>
-    <div class="plan-desc">Perfect for small stores just starting out.</div>
-    <div class="plan-price">
-      <div class="plan-amount"><sup>&#8369;</sup>1</div>
-      <div class="plan-period">per month &nbsp;·&nbsp; billed monthly</div>
-    </div>
-    <ul class="plan-features">
-      <li><span class="chk">✓</span><span>Up to <strong>10 products</strong></span></li>
-      <li><span class="chk">✓</span><span><strong>1 cashier</strong> account</span></li>
-      <li><span class="chk">✓</span><span>Sales reports</span></li>
-      <li><span class="chk">✓</span><span>Receipt printing</span></li>
-      <li><span class="chk">✓</span><span>Works on any device</span></li>
-    </ul>
-    <button class="plan-btn plan-btn-ghost" onclick="openCheckout('Basic','1')">Get Started</button>
-  </div>
-
-  <!-- Plan 2: Add POS (featured) -->
-  <div class="plan-card featured">
-    <div class="plan-featured-tag">MOST POPULAR</div>
-    <div class="plan-name">Add POS</div>
-    <div class="plan-desc">Unlock unlimited products and extra POS devices.</div>
-    <div class="plan-price">
-      <div class="plan-amount"><sup>&#8369;</sup>1</div>
-      <div class="plan-period">per month &nbsp;·&nbsp; billed monthly</div>
-    </div>
-    <ul class="plan-features">
-      <li><span class="chk">✓</span><span><strong>Unlimited</strong> products</span></li>
-      <li><span class="chk">✓</span><span><strong>Multiple</strong> cashier accounts</span></li>
-      <li><span class="chk">✓</span><span>Inventory management</span></li>
-      <li><span class="chk">✓</span><span>Low stock alerts</span></li>
-      <li><span class="chk">✓</span><span>Telegram notifications</span></li>
-      <li><span class="chk">✓</span><span>Manager dashboard</span></li>
-    </ul>
-    <button class="plan-btn plan-btn-accent" onclick="openCheckout('Add POS','1')">Subscribe Now</button>
-  </div>
-
+<div class="plans-wrap" id="plansWrap">
+  <div style="text-align:center;color:var(--muted);padding:40px 0;grid-column:1/-1">Loading plans&hellip;</div>
 </div>
 
 <!-- PAYMENT METHODS -->
@@ -249,6 +211,63 @@ const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let _selectedPlan = '', _selectedPrice = '', _selectedEmail = '';
 let _paypalLoaded = null; // null=pending, true=ok, false=error
+
+// ── Plans (live from Dev Support → Plan Limits) ─────────────────────────────
+const TIER_ORDER  = ['free', 'standard', 'pro', 'premium'];
+const TIER_LABELS = { free: 'Free', standard: 'Standard', pro: 'Pro', premium: 'Premium' };
+const TIER_DESC = {
+  free:     'Perfect for small stores just starting out.',
+  standard: 'For growing stores that need more room.',
+  pro:      'For busy stores running multiple registers.',
+  premium:  'Unlimited everything, for serious operations.',
+};
+const FEATURED_TIER = 'pro';
+
+function fmtLimit(n, label) {
+  return (n >= 999999 ? 'Unlimited' : n) + ' ' + label;
+}
+
+async function loadPlans() {
+  const wrap = document.getElementById('plansWrap');
+  const { data, error } = await _sb.from('plan_limits').select('*');
+  if (error || !data || !data.length) {
+    wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0;grid-column:1/-1">Plans are temporarily unavailable. Please check back soon.</div>';
+    return;
+  }
+  const byTier = {};
+  data.forEach(r => { byTier[r.tier] = r; });
+  wrap.innerHTML = TIER_ORDER.filter(t => byTier[t]).map(t => {
+    const r = byTier[t];
+    const isFree = t === 'free';
+    const price = parseFloat(r.price_usd) || 0;
+    const featured = t === FEATURED_TIER;
+    const label = TIER_LABELS[t] || t;
+    const cta = isFree
+      ? `location.href='signup.html'`
+      : `openCheckout('${label}', '${price}')`;
+    return `
+    <div class="plan-card${featured ? ' featured' : ''}">
+      ${featured ? '<div class="plan-featured-tag">MOST POPULAR</div>' : ''}
+      <div class="plan-name">${label}</div>
+      <div class="plan-desc">${TIER_DESC[t] || ''}</div>
+      <div class="plan-price">
+        ${isFree
+          ? `<div class="plan-amount">Free</div><div class="plan-period">forever</div>`
+          : `<div class="plan-amount"><sup>&#8369;</sup>${price}</div><div class="plan-period">per month &nbsp;&middot;&nbsp; billed monthly</div>`}
+      </div>
+      <ul class="plan-features">
+        <li><span class="chk">&#10003;</span><span>${fmtLimit(r.product_limit, 'products')}</span></li>
+        <li><span class="chk">&#10003;</span><span>${fmtLimit(r.staff_limit, 'cashier &amp; staff accounts')}</span></li>
+        <li><span class="chk">&#10003;</span><span>${fmtLimit(r.inventory_limit, 'inventory items')}</span></li>
+        <li><span class="chk">&#10003;</span><span>${fmtLimit(r.pos_limit, 'POS terminals')}</span></li>
+        <li><span class="chk">&#10003;</span><span>Sales reports</span></li>
+        <li><span class="chk">&#10003;</span><span>Works on any device</span></li>
+      </ul>
+      <button class="plan-btn ${featured ? 'plan-btn-accent' : 'plan-btn-ghost'}" onclick="${cta}">${isFree ? 'Get Started Free' : 'Subscribe Now'}</button>
+    </div>`;
+  }).join('');
+}
+loadPlans();
 
 // ── Load PayPal SDK ──────────────────────────────────────────────────────────
 (function() {

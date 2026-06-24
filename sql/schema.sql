@@ -778,11 +778,15 @@ END; $$;
 -- ============================================================
 --  Plan Limits (Dev Support -> Plan Limits)
 --  Admin-configurable Inventory/Product/Staff/POS-terminal limits for each
---  of the 4 plan tiers (free, standard, pro, premium). Reads are public
---  (dashboards will eventually check these to enforce limits); writes are
---  gated to a logged-in dev admin.
+--  of the 4 plan tiers (free, standard, pro, premium). Reads are public;
+--  writes are gated to a logged-in dev admin. Every store defaults to the
+--  'free' tier — dashboards/cashiers now read plan_limits by this column
+--  instead of a hardcoded 3/3/1/1, so whatever is set in Dev Support ->
+--  Plan Limits is the real, live limit (still bypassed entirely when a
+--  store is Pro via subscription or the "Free for Everyone" toggle).
 --  Run this block in Supabase -> SQL Editor (once)
 -- ============================================================
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS plan_tier TEXT DEFAULT 'free';
 CREATE TABLE IF NOT EXISTS public.plan_limits (
   tier            TEXT PRIMARY KEY,
   inventory_limit INTEGER NOT NULL DEFAULT 0,
