@@ -608,7 +608,8 @@ function bizCashierFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `
 function bizDashboardFile(bizType) { const s = BIZ_FILE_MAP[bizType]; return s ? `dashboard-${s}.html` : 'dashboard.html'; }
 
 let STORE = null, CUR = '₱', TAX = 0, CASHIER = null, CASHIER_NAME = '';
-const FREE_PROD_LIMIT = 3, FREE_STAFF_LIMIT = 1;
+const FREE_PROD_LIMIT = 999999; // unlimited — products are always free, no tier limit
+let FREE_STAFF_LIMIT = 1;
 let IS_PRO = false;
 let prods = [], cart = {}, payMeth = 'Cash';
 let storeInvItems = [], invById = {}, invByName = {};
@@ -762,6 +763,9 @@ let _openScanTimer = null;
   try { localStorage.setItem('pm_cached_store_'+STORE_ID, JSON.stringify(store)); } catch(_) {}
   IS_PRO = await getStorePro(_sb, STORE.id);
   if (navigator.onLine) { try { localStorage.setItem('pm_cached_pro_'+STORE_ID, JSON.stringify(IS_PRO)); } catch(_) {} } else { try { IS_PRO = JSON.parse(localStorage.getItem('pm_cached_pro_'+STORE_ID)||'false'); } catch(_) {} }
+  if (!IS_PRO) {
+    try { const _pl = await resolvePlanLimits(_sb, STORE.plan_tier); FREE_STAFF_LIMIT = _pl.staff; } catch (_) {}
+  }
   setStoreUI();
 })();
 

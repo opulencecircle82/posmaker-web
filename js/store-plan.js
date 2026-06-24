@@ -25,16 +25,19 @@ async function getStorePro(sb, storeId) {
   return !!data;
 }
 
-// Resolves the admin-configured Inventory/Product/Staff/POS-terminal limits
-// for a store's plan tier (Dev Support → Plan Limits). Falls back to the
-// original hardcoded free-tier numbers if the row is missing or the fetch
-// fails, so a store never gets MORE restrictive by accident.
+// Resolves the admin-configured Staff/POS-terminal limits for a store's plan
+// tier (Dev Support → Plan Limits — see pricing.html, which reads the same
+// table). Products and Inventory are always unlimited regardless of tier —
+// only added cashiers/managers and added POS terminals are ever limited or
+// billed. Falls back to the original hardcoded free-tier numbers if the row
+// is missing or the fetch fails, so a store never gets MORE restrictive by
+// accident.
 async function resolvePlanLimits(sb, tier) {
-  const fallback = { product: 3, inventory: 3, staff: 1, pos: 1 };
+  const fallback = { staff: 1, pos: 1 };
   try {
-    const { data } = await sb.from('plan_limits').select('*').eq('tier', tier || 'free').maybeSingle();
+    const { data } = await sb.from('plan_limits').select('staff_limit,pos_limit').eq('tier', tier || 'free').maybeSingle();
     if (!data) return fallback;
-    return { product: data.product_limit, inventory: data.inventory_limit, staff: data.staff_limit, pos: data.pos_limit };
+    return { staff: data.staff_limit, pos: data.pos_limit };
   } catch (e) { return fallback; }
 }
 

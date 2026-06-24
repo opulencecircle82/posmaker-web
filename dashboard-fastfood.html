@@ -1342,10 +1342,10 @@ let pInvLinks = []; // array of {id, qty} — qty = amount used per 1 order
 let dbCats = [], dbInvCats = [], catTab = 'prod'; // loaded from categories table
 let invItems = [];
 
-const FREE_PROD_LIMIT  = 3;
-const FREE_INV_LIMIT   = 3;
-const FREE_POS_LIMIT   = 1;
-const FREE_STAFF_LIMIT = 1;
+const FREE_PROD_LIMIT  = 999999; // unlimited — products are always free, no tier limit
+const FREE_INV_LIMIT   = 999999; // unlimited — inventory is always free, no tier limit
+let FREE_POS_LIMIT   = 1;
+let FREE_STAFF_LIMIT = 1;
 let IS_PRO = false;
 let allStores = [];
 
@@ -1415,6 +1415,10 @@ function _sig(ms = 25000) {
   ]);
   const _freeUntilActive = store.free_until && new Date(store.free_until) > new Date();
   IS_PRO = !!( (_subByStore && _subByStore.length > 0) || (_subByEmail && _subByEmail.length > 0) || _freeUntilActive );
+  if (!IS_PRO) {
+    const _pl = await resolvePlanLimits(_sb, store.plan_tier);
+    FREE_STAFF_LIMIT = _pl.staff; FREE_POS_LIMIT = _pl.pos;
+  }
 
   document.getElementById('loadingPage').style.display = 'none';
   const appWrap = document.getElementById('appWrap');
