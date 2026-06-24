@@ -246,7 +246,9 @@ async function loadPlans(attempt) {
       setTimeout(() => loadPlans(attempt + 1), 700);
       return;
     }
-    wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0;grid-column:1/-1">Plans are temporarily unavailable. Please check back soon.</div>';
+    const errMsg = error ? (error.message || JSON.stringify(error)) : (!data ? 'no data returned' : 'empty plan list');
+    wrap.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0;grid-column:1/-1">Plans are temporarily unavailable. Please check back soon.'
+      + '<div style="margin-top:10px;font-size:11px;color:#ef4444;font-family:monospace">Debug: ' + errMsg.replace(/</g,'&lt;') + '</div></div>';
     return;
   }
   const byTier = {};
