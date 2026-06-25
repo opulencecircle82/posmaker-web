@@ -1020,7 +1020,7 @@ function startPing() {
   if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
   _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); }, 30 * 1000);
   if (_syncRetryInterval) clearInterval(_syncRetryInterval);
-  _syncRetryInterval = setInterval(() => { if (navigator.onLine) syncOfflineQueue(); }, 30 * 1000);
+  _syncRetryInterval = setInterval(() => { if (navigator.onLine) { syncOfflineQueue(); syncRemitQueue(); } }, 30 * 1000);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
     if (!document.hidden && USES_CHAIRS) {
@@ -1041,6 +1041,7 @@ function showPOS(name) {
   redrawCart();
   updateNetStatus();
   syncOfflineQueue();
+  syncRemitQueue();
   startPing();
   // Auto-open scanner (retail: docked in left panel; restaurant: floating) — skipped for chair-based shops (no camera)
   if (!USES_CHAIRS) {
@@ -1193,28 +1194,24 @@ function remitLogBack() {
 async function confirmRemitLogout() {
   const btn = document.getElementById('remitLogConfirmBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…';
+  const name   = document.getElementById('remitLogCashier').textContent;
+  const today  = new Date().toISOString().slice(0,10);
+  const pos    = parseFloat(document.getElementById('remitCk3').textContent.replace(/[^0-9.]/g,'')) || 0;
+  const cash   = parseFloat(document.getElementById('remitCk4').textContent.replace(/[^0-9.]/g,'')) || 0;
+  const diff   = cash - pos;
+  const diffLabel = diff<0 ? `Short -${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : diff>0 ? `Over +${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : 'Balanced';
+  const remitRow = { store_id: STORE_ID, cashier_name: name, shift_date: today, pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending' };
+  const logRow = { store_id: STORE_ID, actor_name: name, actor_role: CASHIER?.role||'cashier', action: 'REMITTANCE', target_name: name, details: `POS: ${CUR||'₱'}${pos.toFixed(2)} | Cash: ${CUR||'₱'}${cash.toFixed(2)} | ${diffLabel}` };
+  try { localStorage.setItem('pm_last_remit_' + STORE_ID + '_' + name, new Date().toISOString()); } catch(_e) {}
   try {
-    const name   = document.getElementById('remitLogCashier').textContent;
-    const today  = new Date().toISOString().slice(0,10);
-    const pos    = parseFloat(document.getElementById('remitCk3').textContent.replace(/[^0-9.]/g,'')) || 0;
-    const cash   = parseFloat(document.getElementById('remitCk4').textContent.replace(/[^0-9.]/g,'')) || 0;
-    const diff   = cash - pos;
-    try { localStorage.setItem('pm_last_remit_' + STORE_ID + '_' + name, new Date().toISOString()); } catch(_e) {}
     await Promise.race([
-      _sb.from('cash_remittances').insert({
-        store_id: STORE_ID, cashier_name: name, shift_date: today,
-        pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending'
-      }),
+      _sb.from('cash_remittances').insert(remitRow),
       new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 15000))
     ]);
-    const diffLabel = diff<0 ? `Short -${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : diff>0 ? `Over +${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : 'Balanced';
-    _sb.from('activity_logs').insert({
-      store_id: STORE_ID, actor_name: name, actor_role: CASHIER?.role||'cashier',
-      action: 'REMITTANCE', target_name: name,
-      details: `POS: ${CUR||'₱'}${pos.toFixed(2)} | Cash: ${CUR||'₱'}${cash.toFixed(2)} | ${diffLabel}`
-    }).then(()=>{});
+    _sb.from('activity_logs').insert(logRow).then(()=>{});
   } catch(_) {
-    showToast('Could not save the remittance — check your internet. Logging out anyway.', true);
+    queueOfflineRemit({ remitRow, logRow });
+    showToast('Offline — remittance saved locally, will upload once back online.', true);
   }
   document.getElementById('mRemitLogout').classList.remove('show');
   _actualLogout();
@@ -2272,6 +2269,28 @@ function offlineKey(){ return `pm_offq_${STORE_ID}`; }
 function getOfflineQueue(){ try{ return JSON.parse(localStorage.getItem(offlineKey())||'[]'); }catch{ return []; } }
 function setOfflineQueue(q){ localStorage.setItem(offlineKey(), JSON.stringify(q)); }
 function queueOfflineOrder(entry){ const q=getOfflineQueue(); q.push(entry); setOfflineQueue(q); updateNetStatus(); }
+function remitOfflineKey(){ return `pm_remitq_${STORE_ID}`; }
+function getRemitQueue(){ try{ return JSON.parse(localStorage.getItem(remitOfflineKey())||'[]'); }catch{ return []; } }
+function setRemitQueue(q){ localStorage.setItem(remitOfflineKey(), JSON.stringify(q)); }
+function queueOfflineRemit(entry){ const q=getRemitQueue(); q.push(entry); setRemitQueue(q); }
+
+let _remitSyncInFlight=false;
+async function syncRemitQueue(){
+  if(_remitSyncInFlight)return;
+  const q=getRemitQueue();
+  if(!q.length||!navigator.onLine)return;
+  _remitSyncInFlight=true;
+  try{
+    const failed=[];
+    for(const entry of q){
+      try{
+        await _sb.from('cash_remittances').insert(entry.remitRow);
+        _sb.from('activity_logs').insert(entry.logRow).then(()=>{});
+      }catch(e){failed.push(entry);}
+    }
+    setRemitQueue(failed);
+  }finally{_remitSyncInFlight=false;}
+}
 
 function updateNetStatus(){
   const el=document.getElementById('netStatus');
@@ -2286,9 +2305,13 @@ function updateNetStatus(){
   }
 }
 
+let _syncInFlight=false;
 async function syncOfflineQueue(){
+  if(_syncInFlight)return;
   const q=getOfflineQueue();
   if(!q.length||!navigator.onLine)return;
+  _syncInFlight=true;
+  try{
   const bar=document.getElementById('syncBar');
   bar.style.display='block';
   bar.textContent=`⏫ Syncing ${q.length} offline order(s)…`;
@@ -2343,9 +2366,10 @@ async function syncOfflineQueue(){
     bar.style.color='#ef4444';
     bar.textContent=`⚠ ${q.length-failed.length} uploaded, ${failed.length} still pending (will retry)`;
   }
+  }finally{_syncInFlight=false;}
 }
 
-window.addEventListener('online', ()=>{ updateNetStatus(); syncOfflineQueue(); });
+window.addEventListener('online', ()=>{ updateNetStatus(); syncOfflineQueue(); syncRemitQueue(); });
 window.addEventListener('offline', ()=>{ updateNetStatus(); });
 
 // ── Confirm Order ─────────────────────────────────────────────────────────
