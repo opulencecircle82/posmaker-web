@@ -550,6 +550,7 @@ function getDevicePlatform() {
 // so a code being locked never blocks a DIFFERENT terminal's code.
 async function checkWebDevice(storeId, register = false, terminalId = null) {
   if (navigator.userAgent.includes('Electron') || navigator.userAgent.includes('POSMakerNative')) return 'ok';
+  if (!navigator.onLine) return 'ok'; // can't verify the device lock offline — same fail-open outcome as the catch below, just instant
   const devId = getBrowserDevId();
   try {
     let q = _sb.from('pos_devices').select('device_id').eq('store_id', storeId);
