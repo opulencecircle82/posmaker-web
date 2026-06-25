@@ -950,7 +950,7 @@ function startPing() {
   if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
   _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); }, 30 * 1000);
   if (_syncRetryInterval) clearInterval(_syncRetryInterval);
-  _syncRetryInterval = setInterval(() => { if (navigator.onLine) { syncOfflineQueue(); syncRemitQueue(); } }, 30 * 1000);
+  _syncRetryInterval = setInterval(() => { if (navigator.onLine) { syncOfflineQueue(); syncRemitQueue(); syncLogoutQueue(); } }, 30 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); });
   checkCashierInbox();
   setInterval(checkCashierInbox, 60000);
@@ -967,6 +967,7 @@ function showPOS(name) {
   updateNetStatus();
   syncOfflineQueue();
   syncRemitQueue();
+  syncLogoutQueue();
   startPing();
   // Auto-open scanner (retail: docked in left panel; restaurant: floating) — only for grocery/convenience/drug stores
   if (SHOW_SCANNER) {
@@ -1151,8 +1152,13 @@ function _actualLogout() {
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
   if (_syncRetryInterval) { clearInterval(_syncRetryInterval); _syncRetryInterval = null; }
   if (CASHIER?.id) {
-    _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
-    _sb.from('activity_logs').insert({ store_id: STORE_ID, actor_name: CASHIER.full_name || CASHIER.username, actor_role: CASHIER.role || 'cashier', action: 'LOGOUT', target_name: CASHIER.full_name || CASHIER.username, details: JSON.stringify({ device: getDeviceLabel() }) }).then(() => {});
+    const logoutLogRow = { store_id: STORE_ID, actor_name: CASHIER.full_name || CASHIER.username, actor_role: CASHIER.role || 'cashier', action: 'LOGOUT', target_name: CASHIER.full_name || CASHIER.username, details: JSON.stringify({ device: getDeviceLabel() }) };
+    if (!navigator.onLine) {
+      queueOfflineLogout({ staffId: CASHIER.id, logRow: logoutLogRow });
+    } else {
+      _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(({error}) => { if (error) queueOfflineLogout({ staffId: CASHIER.id, logRow: null }); }).catch(() => queueOfflineLogout({ staffId: CASHIER.id, logRow: null }));
+      _sb.from('activity_logs').insert(logoutLogRow).then(() => {});
+    }
   }
   closeScanner();
   stopSquareScanner();
@@ -1901,6 +1907,28 @@ function remitOfflineKey(){ return `pm_remitq_${STORE_ID}`; }
 function getRemitQueue(){ try{ return JSON.parse(localStorage.getItem(remitOfflineKey())||'[]'); }catch{ return []; } }
 function setRemitQueue(q){ localStorage.setItem(remitOfflineKey(), JSON.stringify(q)); }
 function queueOfflineRemit(entry){ const q=getRemitQueue(); q.push(entry); setRemitQueue(q); }
+function logoutOfflineKey(){ return `pm_logoutq_${STORE_ID}`; }
+function getLogoutQueue(){ try{ return JSON.parse(localStorage.getItem(logoutOfflineKey())||'[]'); }catch{ return []; } }
+function setLogoutQueue(q){ localStorage.setItem(logoutOfflineKey(), JSON.stringify(q)); }
+function queueOfflineLogout(entry){ const q=getLogoutQueue(); q.push(entry); setLogoutQueue(q); }
+
+let _logoutSyncInFlight=false;
+async function syncLogoutQueue(){
+  if(_logoutSyncInFlight)return;
+  const q=getLogoutQueue();
+  if(!q.length||!navigator.onLine)return;
+  _logoutSyncInFlight=true;
+  try{
+    const failed=[];
+    for(const entry of q){
+      try{
+        await _sb.rpc('log_staff_logout', { p_staff_id: entry.staffId });
+        if(entry.logRow) _sb.from('activity_logs').insert(entry.logRow).then(()=>{});
+      }catch(e){failed.push(entry);}
+    }
+    setLogoutQueue(failed);
+  }finally{_logoutSyncInFlight=false;}
+}
 
 let _remitSyncInFlight=false;
 async function syncRemitQueue(){
@@ -1997,7 +2025,7 @@ async function syncOfflineQueue(){
   }finally{_syncInFlight=false;}
 }
 
-window.addEventListener('online', ()=>{ updateNetStatus(); syncOfflineQueue(); syncRemitQueue(); });
+window.addEventListener('online', ()=>{ updateNetStatus(); syncOfflineQueue(); syncRemitQueue(); syncLogoutQueue(); });
 window.addEventListener('offline', ()=>{ updateNetStatus(); });
 
 // ── Confirm Order ─────────────────────────────────────────────────────────
