@@ -671,9 +671,13 @@ let _openScanTimer = null;
     return;
   }
 
-  const { data: _rawStore } = await _sb.from('stores').select('*').eq('id', STORE_ID).single();
-  let store = _rawStore;
-  if (!store && !navigator.onLine) { try { const _cs=localStorage.getItem('pm_cached_store_'+STORE_ID); if(_cs) store=JSON.parse(_cs); } catch(_){} }
+  let store = null;
+  if (!navigator.onLine) { try { const _cs=localStorage.getItem('pm_cached_store_'+STORE_ID); if(_cs) store=JSON.parse(_cs); } catch(_){} }
+  if (!store) {
+    const { data: _rawStore } = await _sb.from('stores').select('*').eq('id', STORE_ID).single();
+    store = _rawStore;
+    if (!store && !navigator.onLine) { try { const _cs=localStorage.getItem('pm_cached_store_'+STORE_ID); if(_cs) store=JSON.parse(_cs); } catch(_){} }
+  }
   if (!store) {
     if (!navigator.onLine) {
       document.getElementById('loginWrap').style.display = 'none';
