@@ -1094,15 +1094,21 @@ async function confirmRemitLogout() {
   const remitRow = { store_id: STORE_ID, cashier_name: name, shift_date: today, pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending' };
   const logRow = { store_id: STORE_ID, actor_name: name, actor_role: CASHIER?.role||'cashier', action: 'REMITTANCE', target_name: name, details: `POS: ${CUR||'₱'}${pos.toFixed(2)} | Cash: ${CUR||'₱'}${cash.toFixed(2)} | ${diffLabel}` };
   try { localStorage.setItem('pm_last_remit_' + STORE_ID + '_' + name, new Date().toISOString()); } catch(_e) {}
-  try {
-    await Promise.race([
-      _sb.from('cash_remittances').insert(remitRow),
-      new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 15000))
-    ]);
-    _sb.from('activity_logs').insert(logRow).then(()=>{});
-  } catch(_) {
+  if (!navigator.onLine) {
     queueOfflineRemit({ remitRow, logRow });
     showToast('Offline — remittance saved locally, will upload once back online.', true);
+  } else {
+    try {
+      const { error: rErr } = await Promise.race([
+        _sb.from('cash_remittances').insert(remitRow),
+        new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+      ]);
+      if (rErr) throw rErr;
+      _sb.from('activity_logs').insert(logRow).then(()=>{});
+    } catch(_) {
+      queueOfflineRemit({ remitRow, logRow });
+      showToast('Offline — remittance saved locally, will upload once back online.', true);
+    }
   }
   document.getElementById('mRemitLogout').classList.remove('show');
   _actualLogout();
@@ -1724,7 +1730,8 @@ async function syncLogoutQueue(){
     const failed=[];
     for(const entry of q){
       try{
-        await _sb.rpc('log_staff_logout', { p_staff_id: entry.staffId });
+        const { error: lErr } = await _sb.rpc('log_staff_logout', { p_staff_id: entry.staffId });
+        if (lErr) throw lErr;
         if(entry.logRow) _sb.from('activity_logs').insert(entry.logRow).then(()=>{});
       }catch(e){failed.push(entry);}
     }
@@ -1742,7 +1749,8 @@ async function syncRemitQueue(){
     const failed=[];
     for(const entry of q){
       try{
-        await _sb.from('cash_remittances').insert(entry.remitRow);
+        const { error: rErr } = await _sb.from('cash_remittances').insert(entry.remitRow);
+        if (rErr) throw rErr;
         _sb.from('activity_logs').insert(entry.logRow).then(()=>{});
       }catch(e){failed.push(entry);}
     }
