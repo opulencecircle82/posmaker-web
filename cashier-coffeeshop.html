@@ -1938,6 +1938,7 @@ async function loadDraftList() {
     el.innerHTML = '<div style="color:#555;text-align:center;padding:20px;font-size:12px">Drafts not available in demo mode.</div>';
     return;
   }
+  if (!navigator.onLine) { el.innerHTML = '<div style="color:#555;text-align:center;padding:20px;font-size:12px">Drafts need an internet connection to load.</div>'; return; }
   el.innerHTML = '<div style="color:#555;text-align:center;padding:12px;font-size:12px"><span class="spinner"></span> Loading...</div>';
 
   const { data, error } = await _sb.from('draft_orders')
@@ -1969,6 +1970,7 @@ async function saveDraft() {
   const items = Object.values(cart);
   if (!items.length) { alert('Cart is empty.'); return; }
   if (IS_DEMO || !STORE_ID) { alert('Drafts not available in demo mode.'); return; }
+  if (!navigator.onLine) { alert('Drafts need an internet connection to save (they sync across devices). Use Confirm Order instead — that works offline.'); return; }
 
   const { error } = await _sb.from('draft_orders').insert({
     store_id:     STORE_ID,
