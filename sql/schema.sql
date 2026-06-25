@@ -352,6 +352,7 @@ BEGIN
   END IF;
 END;
 $$;
+GRANT EXECUTE ON FUNCTION reset_pos_device(uuid, text) TO anon, authenticated;
 
 -- Staff online tracking columns
 ALTER TABLE store_users ADD COLUMN IF NOT EXISTS last_seen     TIMESTAMPTZ;

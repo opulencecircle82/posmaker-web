@@ -591,6 +591,7 @@ let IS_RETAIL = false;
 let USES_CHAIRS = false;
 let SHOW_SCANNER = false;
 let _pingInterval = null;
+let _syncRetryInterval = null;
 let _openScanTimer = null;
 
 (async () => {
@@ -917,6 +918,8 @@ function startPing() {
   if (_pingInterval) clearInterval(_pingInterval);
   if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {});
   _pingInterval = setInterval(() => { if (CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); }, 30 * 1000);
+  if (_syncRetryInterval) clearInterval(_syncRetryInterval);
+  _syncRetryInterval = setInterval(() => { if (navigator.onLine) syncOfflineQueue(); }, 30 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && CASHIER?.id) _sb.rpc('ping_staff_online', { p_staff_id: CASHIER.id }).then(() => {}); });
   checkCashierInbox();
   setInterval(checkCashierInbox, 60000);
@@ -1118,6 +1121,7 @@ function cancelRemitLogout() {
 function _actualLogout() {
   clearTimeout(_openScanTimer); _openScanTimer = null;
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
+  if (_syncRetryInterval) { clearInterval(_syncRetryInterval); _syncRetryInterval = null; }
   if (CASHIER?.id) {
     _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(() => {});
     _sb.from('activity_logs').insert({ store_id: STORE_ID, actor_name: CASHIER.full_name || CASHIER.username, actor_role: CASHIER.role || 'cashier', action: 'LOGOUT', target_name: CASHIER.full_name || CASHIER.username, details: JSON.stringify({ device: getDeviceLabel() }) }).then(() => {});
@@ -1726,7 +1730,14 @@ async function syncOfflineQueue(){
       if(oErr&&oErr.message?.toLowerCase().includes('column')){({data:ord,error:oErr}=await _sb.from('orders').insert(baseRow).select('id').single());}
       if(oErr){failed.push(entry);continue;}
       if(entry.items?.length){
-        await _sb.from('order_items').insert(entry.items.map(i=>({order_id:ord.id,product_id:i.product_id,name:i.name,price:i.price,qty:i.qty})));
+        const itemRows=entry.items.map(i=>({order_id:ord.id,product_id:i.product_id,name:i.name,price:i.price,qty:i.qty}));
+        let itemsSaved=false;
+        for(let attempt=0;attempt<3&&!itemsSaved;attempt++){
+          const{error:iErr}=await _sb.from('order_items').insert(itemRows);
+          if(!iErr){itemsSaved=true;}
+          else if(attempt<2){await new Promise(r=>setTimeout(r,1000));}
+          else console.error('Order #'+ord.id+': items failed to save after retries',iErr);
+        }
       }
       // Deduct inventory stock for synced orders
       try{
