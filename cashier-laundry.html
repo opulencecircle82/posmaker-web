@@ -634,6 +634,12 @@ let _openScanTimer = null;
   let store = _rawStore;
   if (!store && !navigator.onLine) { try { const _cs=localStorage.getItem('pm_cached_store_'+STORE_ID); if(_cs) store=JSON.parse(_cs); } catch(_){} }
   if (!store) {
+    if (!navigator.onLine) {
+      document.getElementById('loginWrap').style.display = 'none';
+      document.getElementById('activateWrap').classList.add('show');
+      document.getElementById('actErr').textContent = 'Offline — connect to the internet once to load your store, then it will work offline after that.';
+      return;
+    }
     localStorage.removeItem('pm_store_id');
     STORE_ID = null;
     document.getElementById('loginWrap').style.display = 'none';
@@ -959,6 +965,7 @@ async function openCashierInbox() {
   try {
     const un = CASHIER?.username || '';
     if (!un || !STORE_ID) { list.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px">Not logged in.</div>'; return; }
+    if (!navigator.onLine) { list.innerHTML = '<div style="text-align:center;color:#555;padding:20px;font-size:12px">Messages need an internet connection.</div>'; return; }
     const { data, error } = await _sb.from('store_messages')
       .select('*').eq('store_id', STORE_ID).eq('to_username', un)
       .order('created_at', { ascending: false }).limit(50);
