@@ -832,6 +832,12 @@ async function doLogin() {
   btn.disabled = true;
   btn.textContent = 'Logging in…';
   try {
+    // Skip the network round-trip entirely when already known offline — it can
+    // take several seconds to fail, making the UI look frozen for no reason.
+    if (!navigator.onLine) {
+      try { const _cu=JSON.parse(localStorage.getItem('pm_cached_users_'+STORE_ID)||'[]'); const _cf=_cu.find(u=>u.username===username); if(_cf&&_cf.active){const _h=await sha256(pw);if(_cf.password_hash===_h){CASHIER=_cf;if(prods.length===0){const _cpd=localStorage.getItem('pm_cached_prods_'+STORE_ID);try{if(_cpd){prods=JSON.parse(_cpd);buildCats();renderProds('All');}}catch(_){}}showPOS(_cf.full_name||_cf.username);return;}else{errEl.textContent='Wrong password.';return;}} } catch(_){}
+      errEl.textContent='Offline — log in once while online to enable offline access.'; return;
+    }
     const { data: found, error: qErr } = await _sb.from('store_users')
       .select('id,username,full_name,role,password_hash,active,last_seen')
       .eq('store_id', STORE_ID)
@@ -1136,6 +1142,11 @@ async function loadProds() {
     error = e2;
   }
   if (error) {
+    if (!navigator.onLine) {
+      document.getElementById('grid').innerHTML =
+        `<div style="color:#f59e0b;padding:20px;font-size:13px">Offline — connect to the internet once first so products can be saved for offline use.</div>`;
+      return;
+    }
     document.getElementById('grid').innerHTML =
       `<div style="color:#ef4444;padding:20px;font-size:13px">Error loading products:<br><strong>${error.message}</strong><br><br>Run the schema SQL in Supabase to fix this.</div>`;
     return;

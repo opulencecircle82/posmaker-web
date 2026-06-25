@@ -1,27 +1,30 @@
 // POSMaker AI Assistant — Supabase Edge Function
-// Calls Google Gemini's free tier so the API key never reaches the browser.
+// Calls Anthropic's Claude API so the API key never reaches the browser.
 //
 // Deploy: Supabase Dashboard → Edge Functions → Deploy a new function →
 //   Via Editor → name it "ai-assistant" → paste this file → Deploy.
-// Then: Edge Functions → Manage secrets → add GEMINI_API_KEY
-//   (get a free key at https://aistudio.google.com/apikey)
+// Then: Edge Functions → Manage secrets → add ANTHROPIC_API_KEY
+//   (get a key at https://console.anthropic.com/settings/keys)
 
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
 const SYSTEM_PROMPT = `You are the POSMaker Assistant, a friendly helper built into the Owner Dashboard of POSMaker — a point-of-sale system for small Filipino businesses (sari-sari stores, restaurants, salons, drug stores, etc.).
 
 You help store OWNERS understand how to use their dashboard. Key sections and what they do:
 - Dashboard (Home): overview of today's sales, orders count, quick stats.
 - Orders: view sales history and order details.
-- Menu/Products: add items customers buy — set name, price, photo, category, and optionally link to Raw Materials so stock auto-deducts when sold.
+- Menu/Products: add items customers buy — set name, price, photo, category, and optionally link to Raw Materials so stock auto-deducts when sold. Each product photo is also auto-analyzed by an on-device AI ("Visual Brain") so the POS can recognize the item by camera/photo even without a barcode — the "Re-index AI" button on this page recomputes that recognition data for ALL products at once (useful after bulk photo changes); normally it updates automatically whenever you save a product.
 - Raw Materials/Inventory: track ingredient/supply stock (separate from Menu items), set cost price, low-stock alerts.
 - Categories: organize Menu items and Raw Materials into groups shown as tabs in the cashier.
 - Staff: add cashiers/managers, set username/password, see who's online, view login history and per-shift cash drawer totals.
 - Activity Log: see everything staff did — sales, stock edits, logins/logouts, remittances, deposits.
-- Cash Remit / Cash on Hand: track cash handed in by cashiers and by the manager; "Short"/"Over" compares recorded sales vs counted cash.
+- Cash Remit / Manager Cash on Hand: track cash handed in by cashiers and by the manager; "Short"/"Over" compares recorded sales vs counted cash.
+- Daily Checklist: set tasks staff must complete when opening/closing the store; a task can require a photo proof before it can be marked done.
+- Other Expenses: record costs like rent, bills, or supplies that aren't part of inventory.
 - Customize POS: change the cashier screen's colors, font, logo, background image, button shape.
 - Settings: store name, address, currency, tax rate, opening hours, receipt footer.
 - My POS Terminals / Cashier Link: get the link and store code cashiers use to connect a device to this store.
+- Plans/Upgrade: POSMaker has Free/Standard/Pro/Premium tiers. Products and Inventory items are ALWAYS unlimited on every tier — only the number of Staff accounts and POS Terminals/devices is limited on the Free tier. Hitting a limit shows an "Upgrade to Pro" prompt linking to the Pricing page.
 
 IMPORTANT — there are THREE separate apps in POSMaker, don't confuse them:
 1. Owner Dashboard (this app, what you're embedded in) — full control, only the owner logs in here with email/password via Supabase Auth.
@@ -48,8 +51,8 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: 'GEMINI_API_KEY secret not set on this function.' }), {
+    if (!ANTHROPIC_API_KEY) {
+      return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY secret not set on this function.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -63,24 +66,34 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const contents = [
-      { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
-      { role: 'model', parts: [{ text: "Okay, I understand! I'm ready to help POSMaker store owners with their dashboard." }] },
-      ...(Array.isArray(history) ? history.slice(-10) : []),
-      { role: 'user', parts: [{ text: message }] },
+    // Frontend still stores history in the old Gemini {role, parts:[{text}]} shape;
+    // translate it here so dashboard-lechon.html doesn't need any changes.
+    const pastTurns = Array.isArray(history) ? history.slice(-10) : [];
+    const messages = [
+      ...pastTurns.map((h: any) => ({
+        role: h?.role === 'model' ? 'assistant' : 'user',
+        content: h?.parts?.[0]?.text || '',
+      })),
+      { role: 'user', content: message },
     ];
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents }),
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
       },
-    );
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages,
+      }),
+    });
 
     const data = await res.json();
-    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text
+    const reply = data?.content?.[0]?.text
       || data?.error?.message
       || 'Pasensya, hindi ko na-process ang sagot. Subukan ulit.';
 
