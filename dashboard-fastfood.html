@@ -4880,11 +4880,11 @@ function addTimestampWatermark(canvas) {
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fillRect(x, y, tw, th);
   ctx.shadowColor = '#39ff14';
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = 6;
   ctx.fillStyle = '#39ff14';
   ctx.fillText(ts, x + pad, y + pad + fs * 0.85);
-  ctx.fillText(ts, x + pad, y + pad + fs * 0.85);
   ctx.shadowBlur = 0;
+  ctx.fillText(ts, x + pad, y + pad + fs * 0.85);
 }
 function watermarkImageDataUrl(rawDataUrl, maxSize) {
   maxSize = maxSize || 1200;
