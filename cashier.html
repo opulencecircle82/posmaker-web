@@ -1019,6 +1019,10 @@ async function openRemitOnLogout() {
   document.getElementById('mRemitLogout').classList.add('show');
   // Fetch POS sales since last remittance (not whole day, to reset each session)
   document.getElementById('remitLogPOS').textContent = 'Loading…';
+  if (!navigator.onLine) {
+    document.getElementById('remitLogPOS').textContent = '—';
+    return;
+  }
   try {
     const to = today + 'T23:59:59';
     const { data: lastRemit } = await _sb.from('cash_remittances')
