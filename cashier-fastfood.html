@@ -225,6 +225,12 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 #camSearchInp::placeholder{color:#444466}
 .cam-sr-btn{width:100%;text-align:left;background:#16162a;border:1px solid #252540;color:#e0e0f0;border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;margin-bottom:3px;display:flex;justify-content:space-between;align-items:center}
 .cam-sr-btn:active{background:#1e1e3a}
+/* Electron silent-print path: webContents.print() prints the whole page, so
+   hide everything except the receipt text while a print is in flight. */
+@media print {
+  body > *:not(#receiptPrintArea) { display: none !important; }
+  #receiptPrintArea { display: block !important; }
+}
 </style>
 </head>
 <body>
@@ -283,6 +289,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <span class="hdr-cashier" id="hdrCashier"></span>
   <button id="btnCam" onclick="toggleScanner()" title="Camera Scanner (barcode + AI visual)" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Camera scanner">&#128247;</button>
   <button id="btnSync" onclick="syncProds()" title="Refresh products" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Refresh products">&#128260;</button>
+  <button id="btnPrinterSettings" onclick="openPrinterSettings()" title="Printer Settings" style="display:none;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Printer settings">&#128424;</button>
   <button onclick="openCashierInbox()" title="Messages" style="position:relative;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Messages">
     &#128172;<span id="cashierInboxBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:9px;border-radius:8px;padding:1px 5px;font-weight:700;min-width:16px;text-align:center"></span>
   </button>
@@ -419,6 +426,21 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="m-actions">
       <button class="btn-cancel"  onclick="newOrder()">New Order</button>
       <button class="btn-confirm" onclick="doPrint()">&#128438; Print Receipt</button>
+    </div>
+  </div>
+</div>
+
+<pre id="receiptPrintArea" style="display:none;font-family:monospace;font-size:12px;white-space:pre-wrap"></pre>
+
+<!-- ── PRINTER SETTINGS MODAL (Electron desktop app only) ── -->
+<div class="modal" id="mPrinterSettings">
+  <div class="mbox">
+    <div class="mtitle">&#128424; Printer Settings</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Pick which printer to use when printing receipts.</div>
+    <select id="printerSelect" class="inp" style="margin-bottom:14px"></select>
+    <div class="m-actions">
+      <button class="btn-cancel"  onclick="closeM('mPrinterSettings')">Cancel</button>
+      <button class="btn-confirm" onclick="savePrinterSetting()">Save</button>
     </div>
   </div>
 </div>
@@ -627,6 +649,10 @@ let _syncRetryInterval = null;
 let _openScanTimer = null;
 
 (async () => {
+  if (window.posApp && window.posApp.printReceipt) {
+    const btn = document.getElementById('btnPrinterSettings');
+    if (btn) btn.style.display = '';
+  }
   if (IS_DEMO) {
     document.getElementById('demoBanner').style.display = '';
     const dname = params.get('dname') || 'Demo Store';
@@ -2204,10 +2230,34 @@ function showReceipt(d) {
 
 function doPrint() {
   const txt = document.getElementById('receiptTxt').textContent;
-  const w = window.open('', '', 'width=300,height=500');
-  w.document.write('<pre style="font-family:monospace;font-size:12px">' + txt + '</pre>');
-  w.print(); w.close();
+  if (window.posApp && window.posApp.printReceipt) {
+    document.getElementById('receiptPrintArea').textContent = txt;
+    window.posApp.printReceipt();
+  } else {
+    const w = window.open('', '', 'width=300,height=500');
+    w.document.write('<pre style="font-family:monospace;font-size:12px">' + txt + '</pre>');
+    w.print(); w.close();
+  }
   newOrder();
+}
+
+// ── Printer Settings (Electron desktop app only) ────────────────────────────
+async function openPrinterSettings() {
+  if (!window.posApp || !window.posApp.getPrinters) return;
+  const sel = document.getElementById('printerSelect');
+  sel.innerHTML = '<option value="">Loading printers…</option>';
+  document.getElementById('mPrinterSettings').classList.add('show');
+  const [printers, current] = await Promise.all([window.posApp.getPrinters(), window.posApp.getDefaultPrinter()]);
+  sel.innerHTML = '';
+  sel.appendChild(new Option('System default', ''));
+  (printers || []).forEach(p => sel.appendChild(new Option(p.displayName || p.name, p.name)));
+  sel.value = current || '';
+}
+async function savePrinterSetting() {
+  const name = document.getElementById('printerSelect').value;
+  await window.posApp.setDefaultPrinter(name);
+  closeM('mPrinterSettings');
+  showToast('Printer setting saved.');
 }
 
 function newOrder() {
