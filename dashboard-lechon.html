@@ -3129,6 +3129,12 @@ async function saveProd(){
   if(!name||isNaN(price)||price<0){showToast('Name and price are required.',true);return;}
   if(!cat){showToast('Please select a category.',true);return;}
   if(!sku) sku=genAutoSku(cat, allProds);
+  if (sku) {
+    let dupQ = _sb.from('products').select('id,name').eq('store_id', STORE.id).eq('sku', sku);
+    if (id) dupQ = dupQ.neq('id', id);
+    const { data: dupRows } = await dupQ.limit(1);
+    if (dupRows && dupRows.length) { showToast('This barcode is already registered to "' + dupRows[0].name + '". Try another barcode.', true); return; }
+  }
   // Compress photos — skip if already small (already compressed)
   const imgs=await Promise.all(_prodPendingImgs.map(b=>b.length>15000?_compressImg(b):Promise.resolve(b)));
   let imgPayload={image_b64:imgs.length>0?JSON.stringify(imgs):null};
