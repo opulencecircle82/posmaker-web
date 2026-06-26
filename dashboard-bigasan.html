@@ -907,7 +907,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="row2" id="invStockRow">
       <div class="field">
         <label>Stock Qty (bought)</label>
-        <input id="invStock" type="number" min="0" step="0.01" placeholder="e.g. 500" value="0" oninput="qcCalc()">
+        <input id="invStock" type="number" min="0" step="0.01" placeholder="e.g. 500" value="0" oninput="qcCalc();calcPiecesTotal()">
         <div style="font-size:11px;color:var(--muted);margin-top:4px" id="invStockUnitLabel">grams, kg, pcs…</div>
       </div>
       <div class="field">
@@ -916,6 +916,11 @@ input:checked + .slider:before{transform:translateX(18px)}
           style="width:100%;padding:11px 14px;background:#09090f;border:1.5px solid #252540;border-radius:8px;color:#f0f0f8;font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s">
         <div id="invQcResult" style="margin-top:6px;font-size:13px;color:#00b4d8;font-weight:600;min-height:18px"></div>
       </div>
+    </div>
+    <div class="field" id="invPiecesPerUnitField" style="display:none;background:#081a10;border:1px solid #1a4a25;border-radius:8px;padding:10px 12px;margin-bottom:16px">
+      <label>How many pcs in 1 <span id="invPiecesPerUnitLabel">pack</span>? <span style="color:var(--dim);font-weight:400">(optional &mdash; splits stock into individual pieces)</span></label>
+      <input id="invPiecesPerUnit" type="number" min="1" step="1" placeholder="e.g. 20" oninput="calcPiecesTotal()">
+      <div id="invPiecesTotalPreview" style="font-size:12px;color:#4ade80;margin-top:6px"></div>
     </div>
     <div class="field" id="invServiceStockField" style="display:none">
       <label>Stock Qty</label>
@@ -4127,6 +4132,10 @@ async function openInvModal(item){
   document.getElementById('invUnitHint').textContent=u;
   document.getElementById('invStockUnitLabel').textContent=u;
   document.getElementById('invUsageUnit').textContent=u;
+  document.getElementById('invPiecesPerUnit').value='';
+  document.getElementById('invPiecesPerUnitField').style.display=['pc','pcs'].includes(u)?'none':'';
+  document.getElementById('invPiecesPerUnitLabel').textContent=u;
+  document.getElementById('invPiecesTotalPreview').textContent='';
   document.getElementById('invUsageQty').value=item?(item.default_usage_qty??1):1;
   document.getElementById('invUsageCost').textContent='';
   // Pre-fill purchase price = cost_per_unit × stock (best estimate when editing)
@@ -4217,7 +4226,22 @@ function qcUnitSync(){
   document.getElementById('invUnitHint').textContent=u;
   document.getElementById('invStockUnitLabel').textContent=u;
   document.getElementById('invUsageUnit').textContent=u;
+  const isContainer=!['pc','pcs'].includes(u);
+  const ppuField=document.getElementById('invPiecesPerUnitField');
+  if(ppuField){
+    ppuField.style.display=isContainer?'':'none';
+    document.getElementById('invPiecesPerUnitLabel').textContent=u;
+    if(!isContainer) document.getElementById('invPiecesPerUnit').value='';
+  }
   qcCalc();
+  calcPiecesTotal();
+}
+function calcPiecesTotal(){
+  const stock=parseFloat(document.getElementById('invStock').value)||0;
+  const ppu=parseFloat(document.getElementById('invPiecesPerUnit').value)||0;
+  const prev=document.getElementById('invPiecesTotalPreview');
+  if(!prev) return;
+  prev.textContent=(ppu>1&&stock>0)?`= ${stock*ppu} pcs total`:'';
 }
 function calcUsageCost(){
   const usage=parseFloat(document.getElementById('invUsageQty').value)||0;
@@ -4245,14 +4269,20 @@ async function saveInvItem(){
   const name=document.getElementById('invName').value.trim();
   const cat=document.getElementById('invCat').value;
   let sku=document.getElementById('invSku').value.trim();
-  const unit=document.getElementById('invUnit').value;
-  const stock=parseFloat(document.getElementById('invStock').value)||0;
-  const cost=parseFloat(document.getElementById('invCost').value)||0;
+  let unit=document.getElementById('invUnit').value;
+  let stock=parseFloat(document.getElementById('invStock').value)||0;
+  let cost=parseFloat(document.getElementById('invCost').value)||0;
   const lowStock=parseFloat(document.getElementById('invLowStock').value)||5;
   const usageQty=parseFloat(document.getElementById('invUsageQty').value)||1;
   if(!name){showToast('Item name is required.',true);return;}
   if(!cat){showToast('Please select a category.',true);return;}
   if(!sku) sku=genAutoSku(cat, invItems);
+  const piecesPerUnit=parseFloat(document.getElementById('invPiecesPerUnit').value)||0;
+  if(piecesPerUnit>1){
+    stock=stock*piecesPerUnit;
+    cost=cost/piecesPerUnit;
+    unit='pcs';
+  }
   const imgData=_invPendingImgs.length>0?JSON.stringify(_invPendingImgs):null;
   const _expiry = document.getElementById('invExpiry').value || null;
   const _onPromo = document.getElementById('invOnPromo').checked;
