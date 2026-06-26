@@ -51,6 +51,9 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC DEFAULT 0;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS inv_links   TEXT    DEFAULT '[]';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS barber_name TEXT    DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS embeddings  TEXT    DEFAULT NULL;
+-- 0/empty = sold individually only. >1 = cashier can also sell this product
+-- by the pack; pack price is always price * pcs_per_pack (no separate price).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS pcs_per_pack NUMERIC DEFAULT 0;
 
 -- Barbershop: saved chair layout (positions + assigned barber per chair), stored as JSON text
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS chair_layout TEXT DEFAULT '';

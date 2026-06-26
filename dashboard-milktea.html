@@ -819,6 +819,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       </div>
     </div>
     <div class="field"><label>Selling Price</label><input id="pPrice" type="number" min="0" step="0.01" placeholder="0.00" oninput="updateProfitPreview()"></div>
+    <div class="field"><label>Pcs per pack <span style="color:var(--dim);font-weight:400">(optional — lets the cashier also sell this by the pack)</span></label><input id="pPcsPerPack" type="number" min="0" step="1" placeholder="e.g. 20 (blank = sold individually only)"></div>
     <input type="hidden" id="pCostPrice" value="0">
     <!-- Linked inventory items (multi) -->
     <div class="field" style="margin-bottom:6px">
@@ -2930,6 +2931,7 @@ function openProdModal(p) {
   document.getElementById('pSku').value=p?(p.sku||''):'';
   document.getElementById('pPrice').value=p?p.price:'';
   document.getElementById('pCostPrice').value=p?(p.cost_price||0):0;
+  document.getElementById('pPcsPerPack').value=p?(p.pcs_per_pack||''):'';
   document.getElementById('pAvail').checked=p?p.available:true;
   document.getElementById('pAvailField').style.display=p?'flex':'none';
   document.getElementById('pUnit').value=p?(p.unit||'pc'):'pc';
@@ -3073,6 +3075,7 @@ async function saveProd(){
   const unit=document.getElementById('pUnit').value;
   const price=parseFloat(document.getElementById('pPrice').value);
   const costPrice=parseFloat(document.getElementById('pCostPrice').value)||0;
+  const pcsPerPack=parseFloat(document.getElementById('pPcsPerPack').value)||0;
   const avail=document.getElementById('pAvail').checked;
   if(!name||isNaN(price)||price<0){showToast('Name and price are required.',true);return;}
   if(!cat){showToast('Please select a category.',true);return;}
@@ -3086,7 +3089,7 @@ async function saveProd(){
   // Compress photos — skip if already small (already compressed)
   const imgs=await Promise.all(_prodPendingImgs.map(b=>b.length>15000?_compressImg(b):Promise.resolve(b)));
   let imgPayload={image_b64:imgs.length>0?JSON.stringify(imgs):null};
-  const payload={name,sku,category:cat,unit,price,cost_price:costPrice,inv_links:JSON.stringify(pInvLinks),available:avail,...imgPayload};
+  const payload={name,sku,category:cat,unit,price,cost_price:costPrice,pcs_per_pack:pcsPerPack,inv_links:JSON.stringify(pInvLinks),available:avail,...imgPayload};
   let err, savedId=id;
   if(id){({error:err}=await _sb.from('products').update(payload).eq('id',id));}
   else{
