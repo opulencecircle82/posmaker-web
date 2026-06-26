@@ -2186,6 +2186,30 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('activateWrap').classList.contains('show')) doActivateStore();
 });
 
+// ── USB/HID barcode scanner support ─────────────────────────────────────
+// These scanners act as a keyboard: they "type" the barcode's characters
+// very fast (much faster than a human) then send Enter. We buffer keys that
+// arrive within a tight window and treat a fast-typed Enter as a scan,
+// reusing the same lookup the camera scanner uses. Skipped while a real
+// input/textarea has focus so normal typing (discount, cash tendered,
+// search boxes, etc.) is never intercepted.
+let _hidScanBuffer = '';
+let _hidScanLastTime = 0;
+document.addEventListener('keydown', e => {
+  if (!SHOW_SCANNER) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+  const now = Date.now();
+  if (now - _hidScanLastTime > 100) _hidScanBuffer = '';
+  _hidScanLastTime = now;
+  if (e.key === 'Enter') {
+    if (_hidScanBuffer.length >= 4) handleBarcode(_hidScanBuffer);
+    _hidScanBuffer = '';
+  } else if (e.key.length === 1) {
+    _hidScanBuffer += e.key;
+  }
+});
+
 // ── PWA Install ───────────────────────────────────────────────────────────
 let _pwaPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
