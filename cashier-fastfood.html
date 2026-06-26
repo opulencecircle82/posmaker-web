@@ -1162,11 +1162,12 @@ function _actualLogout() {
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
   if (_syncRetryInterval) { clearInterval(_syncRetryInterval); _syncRetryInterval = null; }
   if (CASHIER?.id) {
+    const cashierId = CASHIER.id;
     const logoutLogRow = { store_id: STORE_ID, actor_name: CASHIER.full_name || CASHIER.username, actor_role: CASHIER.role || 'cashier', action: 'LOGOUT', target_name: CASHIER.full_name || CASHIER.username, details: JSON.stringify({ device: getDeviceLabel() }) };
     if (!navigator.onLine) {
-      queueOfflineLogout({ staffId: CASHIER.id, logRow: logoutLogRow });
+      queueOfflineLogout({ staffId: cashierId, logRow: logoutLogRow });
     } else {
-      _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(({error}) => { if (error) queueOfflineLogout({ staffId: CASHIER.id, logRow: null }); }).catch(() => queueOfflineLogout({ staffId: CASHIER.id, logRow: null }));
+      _sb.rpc('log_staff_logout', { p_staff_id: cashierId }).then(({error}) => { if (error) queueOfflineLogout({ staffId: cashierId, logRow: null }); }).catch(() => queueOfflineLogout({ staffId: cashierId, logRow: null }));
       _sb.from('activity_logs').insert(logoutLogRow).then(() => {});
     }
   }

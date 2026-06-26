@@ -1114,10 +1114,11 @@ function _actualLogout() {
   if (_pingInterval) { clearInterval(_pingInterval); _pingInterval = null; }
   if (_syncRetryInterval) { clearInterval(_syncRetryInterval); _syncRetryInterval = null; }
   if (CASHIER?.id) {
+    const cashierId = CASHIER.id;
     if (!navigator.onLine) {
-      queueOfflineLogout({ staffId: CASHIER.id, logRow: null });
+      queueOfflineLogout({ staffId: cashierId, logRow: null });
     } else {
-      _sb.rpc('log_staff_logout', { p_staff_id: CASHIER.id }).then(({error}) => { if (error) queueOfflineLogout({ staffId: CASHIER.id, logRow: null }); }).catch(() => queueOfflineLogout({ staffId: CASHIER.id, logRow: null }));
+      _sb.rpc('log_staff_logout', { p_staff_id: cashierId }).then(({error}) => { if (error) queueOfflineLogout({ staffId: cashierId, logRow: null }); }).catch(() => queueOfflineLogout({ staffId: cashierId, logRow: null }));
     }
   }
   closeScanner();
