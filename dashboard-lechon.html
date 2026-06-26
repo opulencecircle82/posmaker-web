@@ -2328,13 +2328,23 @@ async function loadReport(period) {
   _rptAllData = data || [];
   if(_rptAllData.length) {
     const ids = _rptAllData.map(o => o.id);
-    const { data: items } = await _sb.from('order_items').select('order_id,name,qty').in('order_id', ids);
+    const { data: items } = await _sb.from('order_items').select('order_id,name,qty,product_id').in('order_id', ids);
     const imap = {};
     (items || []).forEach(i => {
       if(!imap[i.order_id]) imap[i.order_id] = [];
       imap[i.order_id].push(i.qty > 1 ? `${i.name} x${i.qty}` : i.name);
     });
-    _rptAllData.forEach(o => { o._items = imap[o.id] || []; });
+    const pids = [...new Set((items||[]).map(i => i.product_id).filter(Boolean))];
+    let costById = {};
+    if (pids.length) {
+      const { data: prodCosts } = await _sb.from('products').select('id,cost_price').in('id', pids);
+      (prodCosts||[]).forEach(p => { costById[p.id] = parseFloat(p.cost_price) || 0; });
+    }
+    const capMap = {};
+    (items || []).forEach(i => {
+      capMap[i.order_id] = (capMap[i.order_id] || 0) + (costById[i.product_id] || 0) * (i.qty || 0);
+    });
+    _rptAllData.forEach(o => { o._items = imap[o.id] || []; o._capital = capMap[o.id] || 0; });
   }
   _rptFrom = from; _rptTo = to;
   const _cs = document.getElementById('rptCashier');
@@ -2437,6 +2447,8 @@ function renderReport(orders, from, to) {
   // Overall summary footer
   const grandSub = orders.reduce((s,o) => s + parseFloat(o.subtotal||0), 0);
   const grandVat = orders.reduce((s,o) => s + parseFloat(o.tax||0), 0);
+  const grandCapital = orders.reduce((s,o) => s + (o._capital||0), 0);
+  const grandProfit  = grandSub - grandCapital;
 
   // Order type breakdown
   const typeGroups = {};
@@ -2471,6 +2483,14 @@ function renderReport(orders, from, to) {
       <div style="background:var(--s1);border-radius:8px;padding:10px 12px">
         <div style="font-size:10px;color:var(--muted);margin-bottom:3px">VAT (${TAX}%)</div>
         <div style="font-size:14px;font-weight:800">${CUR}${grandVat.toFixed(2)}</div>
+      </div>
+      <div style="background:var(--s1);border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Capital (Cost)</div>
+        <div style="font-size:14px;font-weight:800;color:#f59e0b">${CUR}${grandCapital.toFixed(2)}</div>
+      </div>
+      <div style="background:var(--s1);border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Net Profit</div>
+        <div style="font-size:14px;font-weight:800;color:${grandProfit>=0?'#10b981':'#f87171'}">${CUR}${grandProfit.toFixed(2)}</div>
       </div>
       <div style="background:linear-gradient(135deg,#003d4d,#00263a);border:1px solid var(--accent);border-radius:8px;padding:10px 12px;grid-column:1/-1">
         <div style="font-size:10px;color:var(--accent);margin-bottom:3px">GRAND TOTAL</div>
