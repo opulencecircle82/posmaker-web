@@ -384,6 +384,11 @@ input:checked + .slider:before{transform:translateX(18px)}
           <h3>&#9988;&#65039; Barbers</h3>
           <button class="btn btn-accent btn-sm" onclick="openBarberModal()">+ Add Barber</button>
         </div>
+        <div id="barberOwnerSummary" style="display:flex;gap:24px;flex-wrap:wrap;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:14px">
+          <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase">Total Sales Today</div><div id="ownerTotalSales" style="font-size:18px;font-weight:700">—</div></div>
+          <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase">Barber Commissions Paid</div><div id="ownerTotalComm" style="font-size:18px;font-weight:700;color:#f59e0b">—</div></div>
+          <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase">Owner's Earnings Today</div><div id="ownerEarnToday" style="font-size:18px;font-weight:700;color:#10b981">—</div></div>
+        </div>
         <table>
           <thead><tr><th>Full Name</th><th>Contact</th><th>Address</th><th>Today's Earnings</th><th></th></tr></thead>
           <tbody id="barberTbody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
@@ -5216,17 +5221,28 @@ async function loadBarbers() {
     // Load earnings separately — won't break the list if it fails
     const today = new Date(); today.setHours(0,0,0,0);
     _sb.from('barber_earnings')
-      .select('barber_id, earned, product_name')
+      .select('barber_id, earned, sale_amount, product_name')
       .eq('store_id', STORE.id)
       .gte('earned_at', today.toISOString())
       .then(({ data: earns }) => {
         const commMap = {};
         const tipsMap = {};
+        let totalSales = 0, totalComm = 0;
         (earns || []).forEach(e => {
           const isTip = (e.product_name || '') === 'Tip';
           const bucket = isTip ? tipsMap : commMap;
           bucket[e.barber_id] = (bucket[e.barber_id] || 0) + parseFloat(e.earned || 0);
+          if (!isTip) {
+            totalSales += parseFloat(e.sale_amount || 0);
+            totalComm += parseFloat(e.earned || 0);
+          }
         });
+        const ownerEl = document.getElementById('ownerTotalSales');
+        if (ownerEl) {
+          document.getElementById('ownerTotalSales').textContent = `${CUR}${totalSales.toFixed(2)}`;
+          document.getElementById('ownerTotalComm').textContent = `${CUR}${totalComm.toFixed(2)}`;
+          document.getElementById('ownerEarnToday').textContent = `${CUR}${(totalSales - totalComm).toFixed(2)}`;
+        }
         _barberList.forEach(b => {
           const el = document.getElementById(`barberEarn_${b.id}`);
           if (!el) return;
