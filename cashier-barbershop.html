@@ -1297,11 +1297,20 @@ async function syncProds() {
 }
 async function loadProds() {
   if (!navigator.onLine) { try { const _cp=localStorage.getItem('pm_cached_prods_'+STORE_ID); if(_cp){prods=JSON.parse(_cp);buildCats();renderProds('All');return;} } catch(_){} }
-  const { data, error } = await _sb.from('products')
-    .select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings')
+  let { data, error } = await _sb.from('products')
+    .select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings,item_type')
     .eq('store_id', STORE_ID)
     .eq('available', true)
     .order('category').order('name');
+
+  // item_type is a newer column — retry without it specifically so stores that
+  // haven't run that migration yet still get sku/stock/inv_links/embeddings.
+  if (error && error.message && error.message.includes('item_type')) {
+    ({ data, error } = await _sb.from('products')
+      .select('id,name,price,category,image_b64,sku,unit,stock,inv_links,embeddings')
+      .eq('store_id', STORE_ID).eq('available', true)
+      .order('category').order('name'));
+  }
 
   // Retry with fewer columns if any column is missing in this store's DB
   if (error && error.message && error.message.includes('does not exist')) {
