@@ -217,6 +217,7 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input class="search-inp" id="partnerSearch" placeholder="Search store or email…" oninput="filterPartners()">
             <button class="btn btn-accent btn-sm" onclick="openNewPartnerModal()">&#43; New Partner</button>
+            <button class="btn btn-ghost btn-sm" onclick="openQuickTestModal()" title="Creates a real account instantly with a fake email and random password — no inbox needed, ready to log in right away.">&#9889; Quick Test Account</button>
           </div>
         </div>
         <div style="overflow-x:auto">
@@ -1374,6 +1375,21 @@ function openNewPartnerModal() {
   document.getElementById('npReqBox').classList.remove('show');
   document.getElementById('npSaveBtn').disabled = true;
   document.getElementById('newPartnerModal').classList.add('show');
+}
+
+// Same "create account + store" flow as New Partner, but every field is
+// auto-filled with a throwaway email and a random password that already
+// satisfies the requirements below — no real inbox needed, so you can hop
+// between business types to test without going through real signup each time.
+function openQuickTestModal() {
+  openNewPartnerModal();
+  const rand = Math.random().toString(36).substring(2, 8);
+  const pw = 'Test' + Math.random().toString(36).substring(2, 8) + '1!';
+  document.getElementById('npStore').value = 'Test Store ' + rand;
+  document.getElementById('npEmail').value = `devtest_${rand}@posmaker-test.dev`;
+  document.getElementById('npPass').value = pw;
+  document.getElementById('npPass2').value = pw;
+  npCheck();
 }
 
 function npCheck() {
