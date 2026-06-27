@@ -1406,8 +1406,14 @@ async function loadProds() {
   // below if this needs to be re-enabled later.
 }
 
+// Chairs are how barbershop sells services (picked via the barber+service
+// picker when starting a chair session) — this generic browsable list is for
+// walk-in retail items (e.g. shampoo for sale), so services are excluded here.
+function _retailItems() { return USES_CHAIRS ? prods.filter(p => p.item_type !== 'service') : prods; }
+
 function buildCats() {
-  const cats = ['All', ...new Set(prods.map(p => p.category).filter(Boolean))];
+  const items = _retailItems();
+  const cats = ['All', ...new Set(items.map(p => p.category).filter(Boolean))];
   // Restaurant: horizontal tab bar
   document.getElementById('catBar').innerHTML = cats.map(c =>
     `<button class="cat-btn${c==='All'?' active':''}" onclick="filterCat('${c.replace(/'/g,"\\'")}',this)">${c}</button>`
@@ -1415,11 +1421,11 @@ function buildCats() {
   // Retail: left panel dropdown with stock totals
   const sel = document.getElementById('retCatSel');
   if (sel) sel.innerHTML = cats.map(c => {
-    const list = c === 'All' ? prods : prods.filter(p => p.category === c);
+    const list = c === 'All' ? items : items.filter(p => p.category === c);
     const tot = list.reduce((s, p) => s + parseFloat(p.stock ?? 0), 0);
     return `<option value="${c}">${c} — ${Math.round(tot)} stk</option>`;
   }).join('');
-  _updateRlCount(prods.length);
+  _updateRlCount(items.length);
 }
 
 function _updateRlCount(n) {
@@ -1439,7 +1445,8 @@ function filterCatDrop(cat) {
   renderProds(cat);
   const si = document.getElementById('searchInp');
   if (si) si.value = '';
-  const list = cat === 'All' ? prods : prods.filter(p => p.category === cat);
+  const items = _retailItems();
+  const list = cat === 'All' ? items : items.filter(p => p.category === cat);
   _updateRlCount(list.length);
 }
 
@@ -1481,7 +1488,8 @@ function showLowStockAlert(items) {
 }
 
 function renderProds(cat) {
-  const list = (cat === 'All' ? prods : prods.filter(p => p.category === cat));
+  const items = _retailItems();
+  const list = (cat === 'All' ? items : items.filter(p => p.category === cat));
   if (IS_RETAIL) { renderRetailList(list); } else { renderPhotoGrid(list); }
 }
 
@@ -1642,9 +1650,10 @@ function showSqHit(p) {
 // Retail search
 function searchProds(q) {
   q = q.toLowerCase().trim();
+  const items = _retailItems();
   const list = q
-    ? prods.filter(p => p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q))
-    : prods;
+    ? items.filter(p => p.name.toLowerCase().includes(q) || (p.sku||'').toLowerCase().includes(q))
+    : items;
   renderRetailList(list);
   if (q) {
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
@@ -2049,7 +2058,7 @@ async function _loadBarbers() {
 }
 
 function _openChairSessionModal(chair, barbers) {
-  const services = (prods || []).filter(p => p.available !== false);
+  const services = (prods || []).filter(p => p.available !== false && p.item_type !== 'product');
   document.querySelector('#mChairSession .mtitle').innerHTML = `&#128142; ${chair.label} — Select Barber &amp; Service`;
   // Only show barbers NOT already in service at another chair
   const busyBarberIds = new Set([..._chairSessionMap.values()].map(s => s.barberId));

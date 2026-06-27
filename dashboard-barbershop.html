@@ -867,6 +867,13 @@ input:checked + .slider:before{transform:translateX(18px)}
         </select>
       </div>
     </div>
+    <div class="field" id="pItemTypeField" style="display:none">
+      <label>Item Type</label>
+      <select id="pItemType" onchange="onItemTypeChange()" style="width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none">
+        <option value="service">Service &#8212; performed by a barber (e.g. Haircut)</option>
+        <option value="product">Sell Product &#8212; retail item (e.g. Shampoo)</option>
+      </select>
+    </div>
     <div class="field"><label>Selling Price</label><input id="pPrice" type="number" min="0" step="0.01" placeholder="0.00" oninput="updateProfitPreview()"></div>
     <div class="field"><label>Pcs per pack <span style="color:var(--dim);font-weight:400">(optional — lets the cashier also sell this by the pack)</span></label><input id="pPcsPerPack" type="number" min="0" step="1" placeholder="e.g. 20 (blank = sold individually only)"></div>
     <input type="hidden" id="pCostPrice" value="0">
@@ -3110,12 +3117,14 @@ function openProdModal(p) {
   document.getElementById('pAvail').checked=p?p.available:true;
   document.getElementById('pAvailField').style.display=p?'flex':'none';
   document.getElementById('pUnit').value=p?(p.unit||'pc'):'pc';
-  document.getElementById('pBarberField').style.display = isServiceBiz ? '' : 'none';
+  document.getElementById('pItemTypeField').style.display = isServiceBiz ? '' : 'none';
+  document.getElementById('pItemType').value = p ? (p.item_type || 'service') : 'service';
   if (isServiceBiz) {
     const names = [...new Set((allProds||[]).map(x=>(x.barber_name||'').trim()).filter(Boolean))];
     document.getElementById('pBarberList').innerHTML = names.map(n=>`<option value="${n}">`).join('');
     document.getElementById('pBarber').value = p ? (p.barber_name || '') : '';
   }
+  onItemTypeChange();
   populateCatSelect(p?p.category:'');
   // image — multi-photo
   pendingProdImg=null;
@@ -3134,6 +3143,10 @@ function openProdModal(p) {
   updateProfitPreview();
   document.getElementById('prodModal').classList.add('show');
   setTimeout(()=>document.getElementById('pName').focus(),50);
+}
+function onItemTypeChange(){
+  const showBarber = document.getElementById('pItemTypeField').style.display!=='none' && document.getElementById('pItemType').value==='service';
+  document.getElementById('pBarberField').style.display = showBarber ? '' : 'none';
 }
 function renderProdThumbs(){
   const el=document.getElementById('prodImgThumbs'); if(!el) return;
@@ -3259,6 +3272,7 @@ async function saveProd(){
   const pcsPerPack=parseFloat(document.getElementById('pPcsPerPack').value)||0;
   const avail=document.getElementById('pAvail').checked;
   const barberName=document.getElementById('pBarberField').style.display!=='none' ? (document.getElementById('pBarber').value||'') : '';
+  const itemType=document.getElementById('pItemTypeField').style.display!=='none' ? document.getElementById('pItemType').value : 'service';
   if(!name||isNaN(price)||price<0){showToast('Name and price are required.',true);return;}
   if(!cat){showToast('Please select a category.',true);return;}
   if(!sku) sku=genAutoSku(cat, allProds);
@@ -3271,7 +3285,7 @@ async function saveProd(){
   // Compress photos — skip if already small (already compressed)
   const imgs=await Promise.all(_prodPendingImgs.map(b=>b.length>15000?_compressImg(b):Promise.resolve(b)));
   let imgPayload={image_b64:imgs.length>0?JSON.stringify(imgs):null};
-  const payload={name,sku,category:cat,unit,price,cost_price:costPrice,pcs_per_pack:pcsPerPack,inv_links:JSON.stringify(pInvLinks),available:avail,barber_name:barberName,...imgPayload};
+  const payload={name,sku,category:cat,unit,price,cost_price:costPrice,pcs_per_pack:pcsPerPack,inv_links:JSON.stringify(pInvLinks),available:avail,barber_name:barberName,item_type:itemType,...imgPayload};
   let err, savedId=id;
   if(id){({error:err}=await _sb.from('products').update(payload).eq('id',id));}
   else{
@@ -3291,6 +3305,18 @@ async function saveProd(){
     }
     barberNotSaved=true;
   }
+  // Fallback if item_type column doesn't exist yet
+  let itemTypeNotSaved=false;
+  if(err&&err.message&&err.message.includes('item_type')){
+    const p3={...payload}; delete p3.item_type; if(barberNotSaved) delete p3.barber_name;
+    if(id){({error:err}=await _sb.from('products').update(p3).eq('id',id));}
+    else{
+      let nr;
+      ({data:nr,error:err}=await _sb.from('products').insert({store_id:STORE.id,...p3,available:true}).select('id').single());
+      if(nr) savedId=nr.id;
+    }
+    itemTypeNotSaved=true;
+  }
   if(err){showToast(err.message,true);return;}
   // Compute + save AI embeddings in background so POS can detect without recomputing
   if(imgs.length>0&&savedId){
@@ -3303,8 +3329,9 @@ async function saveProd(){
   }
   _prodPendingImgs=[];
   closeModal('prodModal');await loadProducts();loadCategories();
-  if(barberNotSaved){
-    showToast('Service saved. To save the Barber field, run this SQL in Supabase: ALTER TABLE products ADD COLUMN IF NOT EXISTS barber_name TEXT DEFAULT \'\';',true);
+  if(barberNotSaved||itemTypeNotSaved){
+    const missing=[barberNotSaved&&"barber_name TEXT DEFAULT ''",itemTypeNotSaved&&"item_type TEXT DEFAULT 'service'"].filter(Boolean);
+    showToast('Service saved. To save all fields, run this SQL in Supabase: '+missing.map(m=>`ALTER TABLE products ADD COLUMN IF NOT EXISTS ${m};`).join(' '),true);
   }else{
     showToast('Product saved.');
   }
@@ -3329,7 +3356,10 @@ async function saveSkill(){
   const price=parseFloat(document.getElementById('skillPrice').value);
   if(!name||isNaN(price)||price<0){showToast('Skill name and price are required.',true);return;}
   await _sb.from('categories').upsert({store_id:STORE.id,name:'Skills',type:'prod'},{onConflict:'store_id,name,type',ignoreDuplicates:true});
-  const {error}=await _sb.from('products').insert({store_id:STORE.id,name,category:'Skills',unit:'pc',price,cost_price:0,available:true});
+  let {error}=await _sb.from('products').insert({store_id:STORE.id,name,category:'Skills',unit:'pc',price,cost_price:0,available:true,item_type:'service'});
+  if(error&&error.message&&error.message.includes('item_type')){
+    ({error}=await _sb.from('products').insert({store_id:STORE.id,name,category:'Skills',unit:'pc',price,cost_price:0,available:true}));
+  }
   if(error){showToast(error.message,true);return;}
   closeModal('skillModal');
   await loadProducts();await loadDbCategories();loadCategories();
