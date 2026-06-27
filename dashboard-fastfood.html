@@ -4354,7 +4354,7 @@ function switchCatTab(tab){
 function loadCategories(){
   if(catTab==='prod'){
     const cats={};
-    allProds.forEach(p=>{if(!cats[p.category])cats[p.category]={total:0,avail:0};cats[p.category].total++;if(p.available)cats[p.category].avail++;});
+    allProds.forEach(p=>{const c=p.category||'(none)';if(!cats[c])cats[c]={total:0,avail:0};cats[c].total++;if(p.available)cats[c].avail++;});
     dbCats.forEach(c=>{if(!cats[c])cats[c]={total:0,avail:0};});
     renderCats(cats,'prod');
   }else{
