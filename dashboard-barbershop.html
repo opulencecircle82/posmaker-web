@@ -398,7 +398,7 @@ input:checked + .slider:before{transform:translateX(18px)}
           <h3 id="prodSecTitle">Products</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <input class="search" id="prodSearch" placeholder="Search..." oninput="filterProds()">
-            <button class="btn btn-sm" id="btnReindexAI" onclick="bulkReindexAI()" style="background:#1a2a3a;border:1px solid #2563eb;color:#60a5fa" title="Recompute AI embeddings for all products">🤖 Re-index AI</button>
+            <button class="btn btn-ghost btn-sm" id="btnAddSkill" onclick="openSkillModal()" title="Quickly add a skill/service with just a name and price.">+ Add Skill</button>
             <button class="btn btn-accent btn-sm" id="btnAddProd" onclick="openProdModal()" title="Add a new item you sell &mdash; name, price, photo, and category.">+ Add</button>
           </div>
         </div>
@@ -870,19 +870,6 @@ input:checked + .slider:before{transform:translateX(18px)}
       <input id="pBarber" type="text" list="pBarberList" placeholder="e.g. Jonabe Uglanes" style="width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none">
       <datalist id="pBarberList"></datalist>
     </div>
-    <!-- Barber skills (multi) -->
-    <div class="field" id="pSkillField" style="display:none;margin-bottom:6px">
-      <label>Barbers with this Skill <span style="color:var(--dim);font-weight:400">(% commission they earn per cut)</span></label>
-      <div style="display:flex;gap:6px;margin-bottom:4px;align-items:center">
-        <select id="pSkillBarber" style="flex:1;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none">
-          <option value="">&#8212; Select barber &#8212;</option>
-        </select>
-        <input id="pSkillPct" type="number" min="0" max="100" step="1" placeholder="%"
-          style="width:68px;padding:10px 8px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;font-family:Inter,sans-serif;outline:none;text-align:center">
-        <button type="button" class="btn btn-accent btn-sm" style="font-size:18px;padding:0 14px;line-height:1" onclick="addProdSkill()">+</button>
-      </div>
-      <div id="prodSkillList"></div>
-    </div>
     <!-- Linked inventory items (multi) -->
     <div class="field" style="margin-bottom:6px">
       <label>Linked Inventory Items <span style="color:var(--dim);font-weight:400">(optional &#8212; for cost & income)</span></label>
@@ -914,6 +901,20 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('prodModal')">Cancel</button>
       <button class="btn btn-accent" id="saveProdBtn" onclick="saveProd()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD SKILL MODAL (quick name + price, shows up in Edit Barber's skill dropdown) -->
+<div class="modal" id="skillModal">
+  <div class="mbox">
+    <h3>Add Skill</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:18px">Quickly add a skill/service with just a name and price. You can assign barbers to it from the Barbers tab.</p>
+    <div class="field"><label>Skill Name</label><input id="skillName" type="text" placeholder="e.g. Standard Hair Cut"></div>
+    <div class="field"><label>Price</label><input id="skillPrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('skillModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveSkill()">Save</button>
     </div>
   </div>
 </div>
@@ -1458,7 +1459,6 @@ let pendingLogob64 = null;
 let pendingProdImg = null;
 let _prodPendingImgs = [];
 let pInvLinks = []; // array of {id, qty} — qty = amount used per 1 order
-let pSkills = []; // array of {barber_id, barber_name, percentage} for this service
 let dbCats = [], dbInvCats = [], catTab = 'prod'; // loaded from categories table
 let invItems = [];
 
@@ -3088,7 +3088,7 @@ function _bizPlaceholder(field) {
   };
   return field === 'inv' ? (inv[biz] || 'e.g. Item Name') : (prod[biz] || 'e.g. Product Name');
 }
-async function openProdModal(p) {
+function openProdModal(p) {
   if(typeof p === 'string') p = allProds.find(x => x.id === p) || null;
   if (!IS_PRO && !p && allProds.length >= FREE_PROD_LIMIT) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
   if (p && frozenProdIds.has(p.id)) { showUpgradeModal('product', allProds.length, FREE_PROD_LIMIT); return; }
@@ -3110,25 +3110,6 @@ async function openProdModal(p) {
     const names = [...new Set((allProds||[]).map(x=>(x.barber_name||'').trim()).filter(Boolean))];
     document.getElementById('pBarberList').innerHTML = names.map(n=>`<option value="${n}">`).join('');
     document.getElementById('pBarber').value = p ? (p.barber_name || '') : '';
-  }
-  document.getElementById('pSkillField').style.display = isServiceBiz ? '' : 'none';
-  if (isServiceBiz) {
-    if (!_barberList.length) {
-      const { data } = await _sb.from('barbers').select('*').eq('store_id', STORE.id).order('full_name');
-      _barberList = (data || []).map(b => ({
-        ...b, skills: Array.isArray(b.skills) ? b.skills : (typeof b.skills === 'string' ? JSON.parse(b.skills || '[]') : [])
-      }));
-    }
-    document.getElementById('pSkillBarber').innerHTML = '<option value="">&#8212; Select barber &#8212;</option>' +
-      _barberList.map(b => `<option value="${b.id}">${b.full_name}${b.nickname ? ' "'+b.nickname+'"' : ''}</option>`).join('');
-    pSkills = [];
-    if (p) {
-      _barberList.forEach(b => {
-        const s = (b.skills || []).find(x => x.product_id === p.id);
-        if (s) pSkills.push({ barber_id: b.id, barber_name: b.full_name, percentage: s.percentage });
-      });
-    }
-    renderProdSkillList();
   }
   populateCatSelect(p?p.category:'');
   // image — multi-photo
@@ -3242,34 +3223,6 @@ function renderInvLinkList(){
     </div>`;
   }).join('');
 }
-function addProdSkill(){
-  const sel=document.getElementById('pSkillBarber');
-  const id=sel.value;
-  if(!id)return;
-  const pct=parseFloat(document.getElementById('pSkillPct').value)||0;
-  if(pSkills.some(s=>s.barber_id===id)){showToast('Already added.',true);return;}
-  const barber=_barberList.find(b=>b.id===id);
-  pSkills.push({barber_id:id,barber_name:barber?barber.full_name:'',percentage:pct});
-  renderProdSkillList();
-  sel.value='';
-  document.getElementById('pSkillPct').value='';
-}
-function removeProdSkill(barberId){
-  pSkills=pSkills.filter(s=>s.barber_id!==barberId);
-  renderProdSkillList();
-}
-function renderProdSkillList(){
-  const el=document.getElementById('prodSkillList');
-  if(!el)return;
-  if(!pSkills.length){el.innerHTML='';return;}
-  el.innerHTML=pSkills.map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:13px">
-    <span>${s.barber_name}</span>
-    <span style="display:flex;align-items:center;gap:8px">
-      <span style="color:var(--dim)">${s.percentage}%</span>
-      <button type="button" onclick="removeProdSkill('${s.barber_id}')" style="background:#e53e3e;border:none;border-radius:4px;color:#fff;cursor:pointer;padding:1px 8px;font-size:13px;line-height:1.6">&times;</button>
-    </span>
-  </div>`).join('');
-}
 function updateProfitPreview(){
   const price=parseFloat(document.getElementById('pPrice').value)||0;
   const div=document.getElementById('profitPreview');
@@ -3334,19 +3287,6 @@ async function saveProd(){
     barberNotSaved=true;
   }
   if(err){showToast(err.message,true);return;}
-  // Sync this service's barber skill assignments into each affected barber's skills array
-  const skillFieldVisible=document.getElementById('pSkillField').style.display!=='none';
-  if(skillFieldVisible&&savedId){
-    await Promise.all(_barberList.map(async b=>{
-      const currentSkills=(b.skills||[]).filter(s=>s.product_id!==savedId);
-      const match=pSkills.find(s=>s.barber_id===b.id);
-      if(match) currentSkills.push({product_id:savedId,product_name:name,percentage:match.percentage});
-      if(JSON.stringify(currentSkills)!==JSON.stringify(b.skills||[])){
-        b.skills=currentSkills;
-        await _sb.from('barbers').update({skills:currentSkills}).eq('id',b.id);
-      }
-    }));
-  }
   // Compute + save AI embeddings in background so POS can detect without recomputing
   if(imgs.length>0&&savedId){
     _loadDashMn().then(ok=>{
@@ -3372,6 +3312,23 @@ async function deleteProd(id) {
   if (!confirm('Delete this product?')) return;
   await _sb.from('products').delete().eq('id', id);
   await loadProducts(); showToast('Product deleted.');
+}
+function openSkillModal(){
+  document.getElementById('skillName').value='';
+  document.getElementById('skillPrice').value='';
+  document.getElementById('skillModal').classList.add('show');
+  setTimeout(()=>document.getElementById('skillName').focus(),50);
+}
+async function saveSkill(){
+  const name=document.getElementById('skillName').value.trim();
+  const price=parseFloat(document.getElementById('skillPrice').value);
+  if(!name||isNaN(price)||price<0){showToast('Skill name and price are required.',true);return;}
+  await _sb.from('categories').upsert({store_id:STORE.id,name:'Skills',type:'prod'},{onConflict:'store_id,name,type',ignoreDuplicates:true});
+  const {error}=await _sb.from('products').insert({store_id:STORE.id,name,category:'Skills',unit:'pc',price,cost_price:0,available:true});
+  if(error){showToast(error.message,true);return;}
+  closeModal('skillModal');
+  await loadProducts();await loadDbCategories();loadCategories();
+  showToast(`Skill "${name}" added.`);
 }
 
 // â”€â”€ Staff â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
