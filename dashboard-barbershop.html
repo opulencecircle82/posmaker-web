@@ -3341,6 +3341,21 @@ async function toggleProd(id, val) {
   showToast(val ? 'Product enabled.' : 'Product disabled.');
 }
 async function deleteProd(id) {
+  // Block deleting a service that's sitting in an active (in-service) chair's
+  // cart — that's what was leaving chairs stuck/unclickable in the cashier app.
+  // Cancel Service in the cashier still recovers an already-stuck chair, but
+  // this stops it from happening in the first place.
+  try {
+    const { data: drafts } = await _sb.from('draft_orders').select('table_no,items_json').eq('store_id', STORE.id);
+    for (const d of (drafts || [])) {
+      let items = [];
+      try { items = JSON.parse(d.items_json || '[]'); } catch (_) {}
+      if (items.some(i => i.id === id)) {
+        showToast(`Cannot delete — this service is in Chair ${d.table_no}'s active cart. Ask the cashier to finish or "Cancel Service" on that chair first.`, true);
+        return;
+      }
+    }
+  } catch (_) {}
   if (!confirm('Delete this product?')) return;
   await _sb.from('products').delete().eq('id', id);
   await loadProducts(); showToast('Product deleted.');
