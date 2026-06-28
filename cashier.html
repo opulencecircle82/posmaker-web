@@ -1042,15 +1042,27 @@ async function openRemitOnLogout() {
   }
   try {
     const to = today + 'T23:59:59';
+    // Not scoped to today — a cashier's shift can span past midnight (e.g. a
+    // stuck/unattended session reloaded into a fresh login overnight), so the
+    // real last remittance (whatever day it happened) must still be found.
     const { data: lastRemit } = await _sb.from('cash_remittances')
       .select('created_at').eq('store_id', STORE_ID).eq('cashier_name', name)
-      .eq('shift_date', today).order('created_at', { ascending: false }).limit(1);
+      .order('created_at', { ascending: false }).limit(1);
     const _lsRemitKey = 'pm_last_remit_' + STORE_ID + '_' + name;
     const _lsRemitTime = localStorage.getItem(_lsRemitKey);
     const _dbRemitTime = lastRemit?.[0]?.created_at;
-    const from = (_lsRemitTime && _dbRemitTime)
+    let from = (_lsRemitTime && _dbRemitTime)
       ? (_lsRemitTime > _dbRemitTime ? _lsRemitTime : _dbRemitTime)
-      : (_lsRemitTime || _dbRemitTime || (today + 'T00:00:00'));
+      : (_lsRemitTime || _dbRemitTime);
+    if (!from) {
+      // Never remitted before — count every sale since this cashier's very
+      // first login, not just "since midnight today" (that silently dropped
+      // sales from a shift that started the previous day).
+      const { data: firstLogin } = await _sb.from('activity_logs')
+        .select('created_at').eq('store_id', STORE_ID).eq('actor_name', name).eq('action', 'LOGIN')
+        .order('created_at', { ascending: true }).limit(1);
+      from = firstLogin?.[0]?.created_at || (today + 'T00:00:00');
+    }
     const { data } = await _sb.from('orders').select('total')
       .eq('store_id', STORE_ID).eq('cashier_name', name)
       .gte('timestamp', from).lte('timestamp', to);
