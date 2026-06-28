@@ -2074,6 +2074,30 @@ async function selectChair(id) {
   }
 }
 
+// Manual recovery: force-clears the active chair's cart, draft, and barber
+// session. Needed because a chair can get stuck "stuck" — unclickable, status
+// not updating — if a service in its cart gets deleted from Products while
+// the chair was in service (selectChair()'s same-chair branch only clears the
+// cart if it reads as empty, which a leftover/orphaned cart entry blocks).
+async function cancelChairService() {
+  if (!tableNo) return;
+  const label = tableNo;
+  if (!confirm(`Cancel the service for Chair ${label}? This clears its cart and any saved draft, freeing it up.`)) return;
+  cart = {};
+  _chairSessionMap.delete(label);
+  _saveChairSessions();
+  if (!IS_DEMO && STORE_ID) {
+    await _sb.from('draft_orders').delete().eq('store_id', STORE_ID).eq('table_no', label);
+  }
+  tableNo = '';
+  _activeBarber = null;
+  await _loadChairUnpaidSet();
+  updateTableBtn();
+  renderChairArea();
+  redrawCart();
+  showToast(`Chair ${label} is now available.`);
+}
+
 async function _loadBarbers() {
   if (_barbersCache) return _barbersCache;
   try {
@@ -2292,7 +2316,7 @@ function redrawCart() {
     banner.style.display = 'flex';
     banner.style.background = isUnpaid ? 'rgba(239,68,68,.13)' : 'rgba(16,185,129,.13)';
     banner.style.color      = isUnpaid ? '#ef4444' : '#10b981';
-    banner.innerHTML = `<span>&#128142; Chair ${label} — ${CUR}${total.toFixed(2)}</span><span>${isUnpaid ? 'IN SERVICE' : 'Available'}</span>`;
+    banner.innerHTML = `<span>&#128142; Chair ${label} — ${CUR}${total.toFixed(2)}</span><span style="display:flex;align-items:center;gap:8px">${isUnpaid ? 'IN SERVICE' : 'Available'}<button onclick="cancelChairService()" style="background:rgba(0,0,0,.25);border:1px solid currentColor;color:inherit;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer" title="Clear this chair's cart/draft and free it up — use this if a chair gets stuck (e.g. after deleting a service that was in its cart).">Cancel Service</button></span>`;
   } else {
     banner.style.display = 'none';
   }
