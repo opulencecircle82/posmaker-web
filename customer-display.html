@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="favicon.ico">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#00b4d8">
+<title>POSMaker Customer Display</title>
+<script src="js/supabase.js"></script>
+<script src="js/config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;height:100dvh;overflow:hidden;display:flex;align-items:center;justify-content:center}
+
+/* ── Pairing / gate overlays ─────────────────────────────── */
+#activateWrap,#gateWrap{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:1000;flex-direction:column}
+#activateWrap.show,#gateWrap.show{display:flex}
+.login-box{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:32px;width:min(380px,92vw);text-align:center}
+.login-title{font-size:22px;font-weight:800}
+.login-sub{color:#9aa0c0;font-size:13px;margin-top:6px;margin-bottom:14px}
+.inp{width:100%;padding:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;outline:none;margin-bottom:10px}
+.btn-login{width:100%;padding:14px;background:var(--accent);color:#04141c;border:none;border-radius:8px;font-size:15px;font-weight:800;cursor:pointer}
+.btn-login:disabled{opacity:.6;cursor:default}
+.act-note{color:#666;font-size:12px;margin-top:14px;line-height:1.5}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.3);border-top-color:#04141c;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Main display ─────────────────────────────────────────── */
+#displayWrap{display:none;width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center}
+#displayWrap.show{display:flex}
+
+#idleView{display:flex;flex-direction:column;align-items:center;gap:18px}
+#idleLogo{width:120px;height:120px;border-radius:24px;object-fit:cover;display:none}
+#idleLogo.show{display:block}
+#idleName{font-size:42px;font-weight:800}
+#idleMsg{font-size:24px;color:#9aa0c0}
+
+#orderView{display:none;width:100%;max-width:760px;flex-direction:column}
+#orderView.show{display:flex}
+#orderStoreName{font-size:22px;font-weight:700;color:#9aa0c0;margin-bottom:18px}
+#orderList{display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;margin-bottom:18px}
+.oi{display:flex;justify-content:space-between;align-items:center;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px 20px;font-size:24px}
+.oi-name{font-weight:700;text-align:left}
+.oi-qty{color:#9aa0c0;font-size:18px;margin-left:10px}
+.oi-line{color:var(--accent);font-weight:800}
+#orderTotalRow{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;background:var(--s2);border-radius:12px;font-size:30px;font-weight:800}
+#orderTotalRow span:last-child{color:var(--accent)}
+
+#qrView{display:none;flex-direction:column;align-items:center;gap:18px}
+#qrView.show{display:flex}
+#qrImg{width:320px;height:320px;object-fit:contain;background:#fff;border-radius:16px;padding:14px}
+#qrAmountLabel{font-size:26px;color:#9aa0c0}
+#qrAmount{font-size:54px;font-weight:800;color:var(--accent)}
+#qrNote{font-size:18px;color:#666;max-width:480px}
+</style>
+</head>
+<body>
+
+<div id="activateWrap" class="show">
+  <div class="login-box">
+    <div class="login-title">🖥️ Connect Display</div>
+    <div class="login-sub">Enter your store code to pair this screen as the customer-facing display.</div>
+    <input class="inp" id="actInput" type="text" placeholder="e.g. STORE1234" autocomplete="off" style="text-transform:uppercase;letter-spacing:3px;font-weight:800;font-size:18px;text-align:center">
+    <div id="actErr" style="color:#ef4444;font-size:12px;min-height:16px;margin-bottom:6px"></div>
+    <button class="btn-login" id="actBtn" onclick="doActivateStore()">✓ Connect</button>
+    <p class="act-note">Find your code in the owner dashboard<br>under <strong style="color:#f0f0f8">My POS Terminals</strong></p>
+  </div>
+</div>
+
+<div id="gateWrap">
+  <div class="login-box">
+    <div class="login-title">🍔 Food &amp; Drink Only</div>
+    <div class="login-sub">The customer display screen is currently only available for food and drink businesses (fast food, coffee shop, bakery, milk tea, and similar).</div>
+    <button class="btn-login" onclick="disconnectDisplay()">← Use a different store code</button>
+  </div>
+</div>
+
+<div id="displayWrap">
+  <div id="idleView">
+    <img id="idleLogo">
+    <div id="idleName">Welcome!</div>
+    <div id="idleMsg">Your order will appear here.</div>
+  </div>
+
+  <div id="orderView">
+    <div id="orderStoreName"></div>
+    <div id="orderList"></div>
+    <div id="orderTotalRow"><span>Total</span><span id="orderTotalAmt">₱0.00</span></div>
+  </div>
+
+  <div id="qrView">
+    <img id="qrImg">
+    <div id="qrAmountLabel">Please pay via GCash</div>
+    <div id="qrAmount">₱0.00</div>
+    <div id="qrNote">Scan the QR code above with your GCash app, then enter the exact amount shown to complete your payment.</div>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
+  'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
+
+const params = new URLSearchParams(location.search);
+let STORE_ID = params.get('store') || localStorage.getItem('pm_display_store_id') || null;
+let STORE = null;
+let _channel = null;
+
+function showOnly(id) {
+  ['activateWrap','gateWrap','displayWrap'].forEach(w => document.getElementById(w).classList.remove('show'));
+  document.getElementById(id).classList.add('show');
+}
+
+function disconnectDisplay() {
+  localStorage.removeItem('pm_display_store_id');
+  STORE_ID = null;
+  location.replace(location.pathname);
+}
+
+async function doActivateStore() {
+  const raw = (document.getElementById('actInput').value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const btn = document.getElementById('actBtn');
+  const err = document.getElementById('actErr');
+  err.textContent = '';
+  if (!raw || raw.length < 4) { err.textContent = 'Please enter your store code.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Connecting...';
+
+  let { data: store } = await _sb.from('stores').select('id').eq('store_code', raw).maybeSingle();
+  if (!store) {
+    const { data: term } = await _sb.from('pos_terminals').select('store_id').eq('terminal_code', raw).maybeSingle();
+    if (term) store = { id: term.store_id };
+  }
+  if (!store) {
+    err.textContent = 'Store code not found. Ask your store owner for the correct code.';
+    btn.disabled = false; btn.innerHTML = '✓ Connect';
+    return;
+  }
+
+  localStorage.setItem('pm_display_store_id', store.id);
+  location.replace(location.pathname + '?store=' + store.id);
+}
+
+async function loadStoreAndSubscribe() {
+  const { data: store, error } = await _sb.from('stores').select('id,name,logo_b64,gcash_qr_b64,business_type').eq('id', STORE_ID).maybeSingle();
+  if (error || !store) {
+    localStorage.removeItem('pm_display_store_id');
+    document.getElementById('actErr').textContent = 'Store not found. Please reconnect.';
+    showOnly('activateWrap');
+    return;
+  }
+  if (!RESTAURANT_TYPES.has(store.business_type)) {
+    showOnly('gateWrap');
+    return;
+  }
+  STORE = store;
+  if (store.logo_b64) {
+    const img = document.getElementById('idleLogo');
+    img.src = 'data:image/png;base64,' + store.logo_b64;
+    img.classList.add('show');
+  }
+  document.getElementById('idleName').textContent = store.name || 'Welcome!';
+  document.getElementById('orderStoreName').textContent = store.name || '';
+  showOnly('displayWrap');
+  renderIdle();
+
+  _channel = _sb.channel('display-' + STORE_ID);
+  _channel.on('broadcast', { event: 'cart' }, ({ payload }) => render(payload)).subscribe();
+}
+
+function renderIdle() {
+  document.getElementById('idleView').style.display = 'flex';
+  document.getElementById('orderView').classList.remove('show');
+  document.getElementById('qrView').classList.remove('show');
+}
+
+function render(payload) {
+  const items = payload.items || [];
+  if (!items.length) { renderIdle(); return; }
+
+  document.getElementById('idleView').style.display = 'none';
+
+  if (payload.payMeth === 'GCash') {
+    document.getElementById('orderView').classList.remove('show');
+    document.getElementById('qrView').classList.add('show');
+    document.getElementById('qrAmount').textContent = '₱' + Number(payload.total || 0).toFixed(2);
+    const qrImg = document.getElementById('qrImg');
+    if (STORE && STORE.gcash_qr_b64) {
+      qrImg.src = 'data:image/png;base64,' + STORE.gcash_qr_b64;
+      qrImg.style.display = '';
+      document.getElementById('qrNote').style.display = '';
+    } else {
+      qrImg.style.display = 'none';
+      document.getElementById('qrNote').textContent = 'This store hasn\'t uploaded a GCash QR code yet. Please pay the cashier directly.';
+    }
+    return;
+  }
+
+  document.getElementById('qrView').classList.remove('show');
+  document.getElementById('orderView').classList.add('show');
+  document.getElementById('orderList').innerHTML = items.map(i => `<div class="oi">
+      <span class="oi-name">${i.name}<span class="oi-qty">×${i.qty}</span></span>
+      <span class="oi-line">₱${(i.price * i.qty).toFixed(2)}</span>
+    </div>`).join('');
+  document.getElementById('orderTotalAmt').textContent = '₱' + Number(payload.total || 0).toFixed(2);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('activateWrap').classList.contains('show')) doActivateStore();
+});
+
+if (!STORE_ID) {
+  showOnly('activateWrap');
+} else {
+  loadStoreAndSubscribe();
+}
+</script>
+</body>
+</html>

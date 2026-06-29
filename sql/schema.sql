@@ -975,3 +975,9 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 SELECT cron.schedule('process-inactive-stores-daily', '0 3 * * *', 'SELECT process_inactive_stores();');
+
+-- ============================================================
+--  GCash QR code for the customer-facing display (customer-display.html)
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS gcash_qr_b64 TEXT;
