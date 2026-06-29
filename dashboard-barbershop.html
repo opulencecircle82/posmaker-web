@@ -615,6 +615,19 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
       </div>
       <div class="info-card">
+        <h3>GCash QR Code</h3>
+        <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Upload your personal/business GCash QR (open GCash app &gt; Show My QR &gt; screenshot it). Shown on the Customer Display screen with the exact amount so customers can scan and pay.</p>
+        <div class="logo-drop" id="gcashQrDrop" onclick="document.getElementById('gcashQrInput').click()">
+          <img id="gcashQrPreview" style="display:none">
+          <p id="gcashQrHint">Click to upload GCash QR (PNG or JPG)</p>
+        </div>
+        <input type="file" id="gcashQrInput" accept="image/*" style="display:none" onchange="handleGcashQr(event)">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-accent" id="saveGcashQrBtn" style="display:none" onclick="saveGcashQr()">Save QR</button>
+          <button class="btn btn-ghost" id="removeGcashQrBtn" style="display:none" onclick="removeGcashQr()">Remove QR</button>
+        </div>
+      </div>
+      <div class="info-card">
         <h3>Store Information</h3>
         <div class="row2" style="margin-top:14px">
           <div class="field"><label>Store Name</label><input id="sName" type="text"></div>
@@ -748,6 +761,16 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
       </div>
       <div id="posTerminalList"><div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">Loading...</div></div>
+
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-top:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;min-width:220px">
+          <input type="checkbox" id="sDualScreen" onchange="saveDualScreenSetting()" style="width:18px;height:18px;accent-color:var(--accent)">
+          <span>
+            <div style="font-weight:700;font-size:14px">&#128421; Enable Dual Screen</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">Adds a button on the cashier screen that opens a customer-facing display in a second window — drag it to a second monitor facing the customer. Shows the live order and your GCash QR with the exact amount.</div>
+          </span>
+        </label>
+      </div>
 
       <!-- DOWNLOAD / INSTALL SECTION -->
       <div style="margin-top:24px">
@@ -1467,6 +1490,7 @@ let STORE = null, CUR = '₱', TAX = 12;
 let allProds = [], allStaff = [];
 let frozenProdIds = new Set(), frozenInvIds = new Set(), frozenStaffIds = new Set(), frozenStoreIds = new Set();
 let pendingLogob64 = null;
+let pendingGcashQrb64 = null;
 let pendingProdImg = null;
 let _prodPendingImgs = [];
 let pInvLinks = []; // array of {id, qty} — qty = amount used per 1 order
@@ -1587,6 +1611,14 @@ function _sig(ms = 25000) {
     document.getElementById('logoHint').style.display = 'none';
     document.getElementById('logoDrop').classList.add('has-img');
     document.getElementById('removeLogoBtn').style.display = 'inline-flex';
+  }
+  if (store.gcash_qr_b64) {
+    const qimg = document.getElementById('gcashQrPreview');
+    qimg.src = 'data:image/png;base64,' + store.gcash_qr_b64;
+    qimg.style.display = 'block';
+    document.getElementById('gcashQrHint').style.display = 'none';
+    document.getElementById('gcashQrDrop').classList.add('has-img');
+    document.getElementById('removeGcashQrBtn').style.display = 'inline-flex';
   }
 
   loadDashboard();
@@ -2825,7 +2857,21 @@ async function loadPOSTerminals() {
   renderPOSTerminals();
   updateAddPOSBtn();
 }
+function _loadDualScreenSetting() {
+  const cb = document.getElementById('sDualScreen');
+  if (cb && STORE) cb.checked = !!STORE.dual_screen_enabled;
+}
+async function saveDualScreenSetting() {
+  const cb = document.getElementById('sDualScreen');
+  if (!cb || !STORE) return;
+  const enabled = cb.checked;
+  const { error } = await _sb.from('stores').update({ dual_screen_enabled: enabled }).eq('id', STORE.id);
+  if (error) { showToast(error.message, true); cb.checked = !enabled; return; }
+  STORE.dual_screen_enabled = enabled;
+  showToast(enabled ? 'Dual Screen enabled.' : 'Dual Screen disabled.');
+}
 function renderPOSTerminals() {
+  _loadDualScreenSetting();
   const list = document.getElementById('posTerminalList');
   if (!list) return;
   const totalTerminals = allStores.length + posTerminals.length;
@@ -3993,6 +4039,41 @@ async function removeLogo() {
   document.getElementById('removeLogoBtn').style.display = 'none';
   pendingLogob64 = null;
   showToast('Logo removed.');
+}
+function handleGcashQr(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const b64 = ev.target.result.split(',')[1];
+    pendingGcashQrb64 = b64;
+    const img = document.getElementById('gcashQrPreview');
+    img.src = ev.target.result; img.style.display = 'block';
+    document.getElementById('gcashQrHint').style.display = 'none';
+    document.getElementById('gcashQrDrop').classList.add('has-img');
+    document.getElementById('saveGcashQrBtn').style.display = 'inline-flex';
+    document.getElementById('removeGcashQrBtn').style.display = 'inline-flex';
+  };
+  reader.readAsDataURL(file);
+}
+async function saveGcashQr() {
+  if (!pendingGcashQrb64) return;
+  await _sb.from('stores').update({ gcash_qr_b64: pendingGcashQrb64 }).eq('id', STORE.id);
+  STORE.gcash_qr_b64 = pendingGcashQrb64;
+  document.getElementById('saveGcashQrBtn').style.display = 'none';
+  pendingGcashQrb64 = null;
+  showToast('GCash QR saved.');
+}
+async function removeGcashQr() {
+  if (!confirm('Remove GCash QR?')) return;
+  await _sb.from('stores').update({ gcash_qr_b64: '' }).eq('id', STORE.id);
+  STORE.gcash_qr_b64 = '';
+  document.getElementById('gcashQrPreview').style.display = 'none';
+  document.getElementById('gcashQrHint').style.display = '';
+  document.getElementById('gcashQrDrop').classList.remove('has-img');
+  document.getElementById('saveGcashQrBtn').style.display = 'none';
+  document.getElementById('removeGcashQrBtn').style.display = 'none';
+  pendingGcashQrb64 = null;
+  showToast('GCash QR removed.');
 }
 async function sendResetEmail() {
   const email = document.getElementById('resetEmail').value.trim();

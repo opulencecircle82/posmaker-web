@@ -284,6 +284,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <span id="netStatus" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(0,0,0,.3);margin-left:8px;letter-spacing:.3px"></span>
   <span class="hdr-cashier" id="hdrCashier"></span>
   <button id="btnCam" onclick="toggleScanner()" title="Camera Scanner (barcode + AI visual)" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Camera scanner">&#128247;</button>
+  <button id="btnDualScreen" onclick="openDualScreen()" title="Open Customer Display (2nd window — drag to your second monitor)" style="display:none;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Open customer display">&#128421;</button>
   <button id="btnSync" onclick="syncProds()" title="Refresh products" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Refresh products">&#128260;</button>
   <button id="btnPrinterSettings" onclick="openPrinterSettings()" title="Printer Settings" style="display:none;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Printer settings">&#128424;</button>
   <button onclick="openCashierInbox()" title="Messages" style="position:relative;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Messages">
@@ -535,6 +536,7 @@ let FREE_STAFF_LIMIT = 1;
 let IS_PRO = false;
 let prods = [], cart = {}, payMeth = 'Cash';
 let _displayChannel = null;
+let _localDisplayChannel = null;
 let storeInvItems = [], invById = {}, invByName = {};
 let orderType = 'Dine In', tableNo = '', isKOT = false;
 let discPct = 0, discAmt = 0;
@@ -704,6 +706,8 @@ let _openScanTimer = null;
   }
   STORE = store; CUR = store.currency || '₱'; TAX = parseFloat(store.tax_rate) || 0;
   try { _displayChannel = _sb.channel('display-' + STORE.id); _displayChannel.subscribe(); } catch (_) {}
+  try { _localDisplayChannel = new BroadcastChannel('posmaker-display-' + STORE.id); } catch (_) {}
+  if (STORE.dual_screen_enabled) { const _bds = document.getElementById('btnDualScreen'); if (_bds) _bds.style.display = ''; }
   try { localStorage.setItem('pm_cached_store_'+STORE_ID, JSON.stringify(store)); } catch(_) {}
   IS_PRO = await getStorePro(_sb, STORE.id);
   if (navigator.onLine) { try { localStorage.setItem('pm_cached_pro_'+STORE_ID, JSON.stringify(IS_PRO)); } catch(_) {} } else { try { IS_PRO = JSON.parse(localStorage.getItem('pm_cached_pro_'+STORE_ID)||'false'); } catch(_) {} }
@@ -1734,14 +1738,17 @@ function redrawCart() {
   broadcastToDisplay();
 }
 function broadcastToDisplay() {
-  if (!_displayChannel) return;
   const { items, total, sub, tax, disc } = getCartTotals();
-  try {
-    _displayChannel.send({ type: 'broadcast', event: 'cart', payload: {
-      items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
-      total, sub, tax, disc, payMeth, storeName: STORE ? STORE.name : ''
-    }});
-  } catch (_) {}
+  const payload = {
+    items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+    total, sub, tax, disc, payMeth, storeName: STORE ? STORE.name : ''
+  };
+  if (_displayChannel) { try { _displayChannel.send({ type: 'broadcast', event: 'cart', payload }); } catch (_) {} }
+  if (_localDisplayChannel) { try { _localDisplayChannel.postMessage(payload); } catch (_) {} }
+}
+function openDualScreen() {
+  if (!STORE || !STORE.id) return;
+  window.open('customer-display.html?local=1&store=' + STORE.id, 'posmaker_display', 'width=1280,height=800');
 }
 
 // ── Discount ──────────────────────────────────────────────────────────────

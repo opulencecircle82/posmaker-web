@@ -71,8 +71,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 
 <div id="gateWrap">
   <div class="login-box">
-    <div class="login-title">🍔 Food &amp; Drink Only</div>
-    <div class="login-sub">The customer display screen is currently only available for food and drink businesses (fast food, coffee shop, bakery, milk tea, and similar).</div>
+    <div class="login-title">🍔 Not Available Yet</div>
+    <div class="login-sub">The customer display screen is currently only available for food &amp; drink businesses (fast food, coffee shop, bakery, milk tea, and similar) and Salon / Barbershop.</div>
     <button class="btn-login" onclick="disconnectDisplay()">← Use a different store code</button>
   </div>
 </div>
@@ -103,10 +103,11 @@ const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
-  'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
+  'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar','Salon / Barbershop']);
 
 const params = new URLSearchParams(location.search);
-let STORE_ID = params.get('store') || localStorage.getItem('pm_display_store_id') || null;
+const IS_LOCAL = params.get('local') === '1';
+let STORE_ID = params.get('store') || (IS_LOCAL ? null : localStorage.getItem('pm_display_store_id')) || null;
 let STORE = null;
 let _channel = null;
 
@@ -169,8 +170,15 @@ async function loadStoreAndSubscribe() {
   showOnly('displayWrap');
   renderIdle();
 
-  _channel = _sb.channel('display-' + STORE_ID);
-  _channel.on('broadcast', { event: 'cart' }, ({ payload }) => render(payload)).subscribe();
+  if (IS_LOCAL) {
+    // Same device as the cashier (opened via the "Dual Screen" button) —
+    // sync instantly over BroadcastChannel, no network/pairing needed.
+    _channel = new BroadcastChannel('posmaker-display-' + STORE_ID);
+    _channel.onmessage = (e) => render(e.data);
+  } else {
+    _channel = _sb.channel('display-' + STORE_ID);
+    _channel.on('broadcast', { event: 'cart' }, ({ payload }) => render(payload)).subscribe();
+  }
 }
 
 function renderIdle() {

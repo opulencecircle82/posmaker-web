@@ -981,3 +981,11 @@ SELECT cron.schedule('process-inactive-stores-daily', '0 3 * * *', 'SELECT proce
 --  Run this block in Supabase -> SQL Editor (once)
 -- ============================================================
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS gcash_qr_b64 TEXT;
+
+-- ============================================================
+--  Dual Screen toggle (My POS Terminals) — same device, second
+--  window/monitor shows the customer-facing display, synced
+--  instantly via BroadcastChannel instead of pairing a 2nd device.
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS dual_screen_enabled BOOLEAN DEFAULT FALSE;
