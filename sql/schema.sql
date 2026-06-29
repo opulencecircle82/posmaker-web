@@ -989,3 +989,27 @@ ALTER TABLE stores ADD COLUMN IF NOT EXISTS gcash_qr_b64 TEXT;
 --  Run this block in Supabase -> SQL Editor (once)
 -- ============================================================
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS dual_screen_enabled BOOLEAN DEFAULT FALSE;
+
+-- ============================================================
+--  Stock History — per-item log of sale deductions and manual
+--  stock add/adjust events, shown via "History" on the Inventory page.
+--  Run this block in Supabase -> SQL Editor (once)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS stock_history (
+  id                UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id          UUID        REFERENCES stores NOT NULL,
+  inventory_item_id UUID        NOT NULL,
+  change_type       TEXT        NOT NULL,   -- SALE | MANUAL_ADD | MANUAL_ADJUST
+  qty_change        NUMERIC     NOT NULL,   -- negative = deducted, positive = added
+  note              TEXT        DEFAULT '', -- product name(s) for SALE rows
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_stock_history_item ON stock_history(inventory_item_id, created_at DESC);
+ALTER TABLE stock_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sh_owner   ON stock_history;
+DROP POLICY IF EXISTS sh_anon_rw ON stock_history;
+CREATE POLICY sh_owner ON stock_history FOR ALL TO authenticated
+  USING     (store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()))
+  WITH CHECK(store_id IN (SELECT id FROM stores WHERE owner_id = auth.uid()));
+CREATE POLICY sh_anon_rw ON stock_history FOR ALL TO anon
+  USING (TRUE) WITH CHECK (TRUE);

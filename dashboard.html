@@ -959,6 +959,16 @@ input:checked + .slider:before{transform:translateX(18px)}
 </div>
 
 <!-- ADD STOCK MODAL -->
+<div class="modal" id="stockHistoryModal">
+  <div class="mbox" style="width:min(480px,100%)">
+    <h3 id="stockHistoryTitle">Stock History</h3>
+    <div id="stockHistoryList" style="max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin:14px 0"></div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('stockHistoryModal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="addStockModal">
   <div class="mbox" style="width:min(360px,100%)">
     <h3>Add Stock</h3>
@@ -3953,6 +3963,7 @@ function renderInv(items) {
       <td>${expiryCell}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-accent btn-sm" onclick="openAddStock('${i.id}')">+Add</button>
+        <button class="btn btn-ghost btn-sm" onclick="openStockHistory('${i.id}')">History</button>
         ${frozenInvIds.has(i.id)?`<button class="btn btn-ghost btn-sm" onclick="showUpgradeModal('inventory', invItems.length, FREE_INV_LIMIT)">Edit</button>`:`<button class="btn btn-ghost btn-sm" onclick="openInvModal(invItems.find(x=>x.id==='${i.id}'))">Edit</button>`}
         <button class="btn btn-danger btn-sm" onclick="deleteInvItem('${i.id}')">Del</button>
       </td></tr>`;
@@ -4194,6 +4205,7 @@ async function adjInvStock(id,delta){
   const item=invItems.find(x=>x.id===id);if(!item)return;
   const newVal=Math.max(0,parseFloat(item.stock??0)+delta);
   await _sb.from('inventory_items').update({stock:newVal}).eq('id',id);
+  _sb.from('stock_history').insert({ store_id: STORE.id, inventory_item_id: id, change_type: 'MANUAL_ADJUST', qty_change: delta }).then(() => {});
   item.stock=newVal;renderInv(invItems);
 }
 function openAddStock(id){
@@ -4211,8 +4223,29 @@ async function confirmAddStock(){
   const i=invItems.find(x=>x.id===id);if(!i)return;
   const newVal=parseFloat(i.stock??0)+amt;
   await _sb.from('inventory_items').update({stock:newVal}).eq('id',id);
+  _sb.from('stock_history').insert({ store_id: STORE.id, inventory_item_id: id, change_type: 'MANUAL_ADD', qty_change: amt }).then(() => {});
   i.stock=newVal;closeModal('addStockModal');renderInv(invItems);
   showToast(`Added ${amt} ${i.unit||'pc'} to ${i.name}. New: ${newVal}`);
+}
+async function openStockHistory(id) {
+  const i = invItems.find(x => x.id === id);
+  document.getElementById('stockHistoryTitle').textContent = 'Stock History' + (i ? ' — ' + i.name : '');
+  const list = document.getElementById('stockHistoryList');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Loading...</div>';
+  document.getElementById('stockHistoryModal').classList.add('show');
+  const { data } = await _sb.from('stock_history').select('*').eq('inventory_item_id', id).order('created_at', { ascending: false }).limit(200);
+  if (!data || !data.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">No stock history yet.</div>'; return; }
+  list.innerHTML = data.map(r => {
+    const when = new Date(r.created_at).toLocaleString();
+    const sign = r.qty_change >= 0 ? '+' : '';
+    const color = r.qty_change >= 0 ? '#10b981' : '#ef4444';
+    const label = r.change_type === 'SALE' ? (r.note || 'Sale') : (r.change_type === 'MANUAL_ADD' ? 'Manual stock add' : 'Manual adjustment');
+    return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px">
+      <span style="color:var(--muted)">${when}</span>
+      <span style="flex:1;margin:0 12px;text-align:center">${label}</span>
+      <strong style="color:${color}">${sign}${r.qty_change}</strong>
+    </div>`;
+  }).join('');
 }
 async function deleteInvItem(id){
   const i=invItems.find(x=>x.id===id);if(!i)return;

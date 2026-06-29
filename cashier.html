@@ -1965,6 +1965,7 @@ async function confirmOrder() {
     (prodRowsRes.data || []).forEach(p => { prodLinksMap[p.id] = p.inv_links; });
 
     const deductions = {};
+    const deductionNotes = {};
     for (const item of items) {
       let links = []; try { links = prodLinksMap[item.id] ? JSON.parse(prodLinksMap[item.id]) : []; } catch {}
       if (links.length > 0) {
@@ -1972,12 +1973,13 @@ async function confirmOrder() {
           const invId = typeof link === 'string' ? link : link.id;
           const useQty = typeof link === 'object' ? (link.qty || 1) : 1;
           deductions[invId] = (deductions[invId] || 0) + useQty * item.qty;
+          (deductionNotes[invId] = deductionNotes[invId] || new Set()).add(item.name);
         }
       } else {
         // Fallback: match inventory item by product name/SKU
         const p = prods.find(x => x.id === item.id);
         const autoId = p?._autoInvLink;
-        if (autoId) deductions[autoId] = (deductions[autoId] || 0) + item.qty;
+        if (autoId) { deductions[autoId] = (deductions[autoId] || 0) + item.qty; (deductionNotes[autoId] = deductionNotes[autoId] || new Set()).add(item.name); }
       }
     }
 
@@ -1997,6 +1999,7 @@ async function confirmOrder() {
         if (invById[invId]) invById[invId].stock = newStock;
         const mp = prods.find(x => x._autoInvLink === invId || (x._invResolved && (JSON.parse(x.inv_links||'[]').some(l=>(l.id||l)===invId))));
         if (mp) mp.stock = Math.max(0, (mp.stock || 0) - totalUse);
+        _sb.from('stock_history').insert({ store_id: STORE_ID, inventory_item_id: invId, change_type: 'SALE', qty_change: -totalUse, note: [...(deductionNotes[invId] || [])].join(', ') }).then(() => {});
         return _sb.from('inventory_items').update({ stock: newStock }).eq('id', invId);
       }));
     }
