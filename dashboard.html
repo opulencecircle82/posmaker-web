@@ -962,6 +962,10 @@ input:checked + .slider:before{transform:translateX(18px)}
 <div class="modal" id="stockHistoryModal">
   <div class="mbox" style="width:min(480px,100%)">
     <h3 id="stockHistoryTitle">Stock History</h3>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+      <input type="date" id="stockHistoryDateFilter" onchange="renderStockHistoryFiltered()" style="flex:1;padding:8px 10px;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('stockHistoryDateFilter').value='';renderStockHistoryFiltered()">All Dates</button>
+    </div>
     <div id="stockHistoryList" style="max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin:14px 0"></div>
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('stockHistoryModal')">Close</button>
@@ -4227,15 +4231,24 @@ async function confirmAddStock(){
   i.stock=newVal;closeModal('addStockModal');renderInv(invItems);
   showToast(`Added ${amt} ${i.unit||'pc'} to ${i.name}. New: ${newVal}`);
 }
+let _stockHistoryData = [];
 async function openStockHistory(id) {
   const i = invItems.find(x => x.id === id);
   document.getElementById('stockHistoryTitle').textContent = 'Stock History' + (i ? ' — ' + i.name : '');
+  document.getElementById('stockHistoryDateFilter').value = '';
   const list = document.getElementById('stockHistoryList');
   list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Loading...</div>';
   document.getElementById('stockHistoryModal').classList.add('show');
   const { data } = await _sb.from('stock_history').select('*').eq('inventory_item_id', id).order('created_at', { ascending: false }).limit(200);
-  if (!data || !data.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">No stock history yet.</div>'; return; }
-  list.innerHTML = data.map(r => {
+  _stockHistoryData = data || [];
+  renderStockHistoryFiltered();
+}
+function renderStockHistoryFiltered() {
+  const dateVal = document.getElementById('stockHistoryDateFilter').value;
+  const rows = dateVal ? _stockHistoryData.filter(r => (r.created_at || '').slice(0, 10) === dateVal) : _stockHistoryData;
+  const list = document.getElementById('stockHistoryList');
+  if (!rows.length) { list.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted)">${dateVal ? 'No stock history on this date.' : 'No stock history yet.'}</div>`; return; }
+  list.innerHTML = rows.map(r => {
     const when = new Date(r.created_at).toLocaleString();
     const sign = r.qty_change >= 0 ? '+' : '';
     const color = r.qty_change >= 0 ? '#10b981' : '#ef4444';
