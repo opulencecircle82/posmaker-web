@@ -403,7 +403,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <!-- STAFF PERFORMANCE CARD -->
       <div class="tbl-wrap" style="margin-top:16px" id="perfCard">
         <div class="tbl-head">
-          <h3>&#128200; Staff Performance <span style="font-size:11px;font-weight:400;color:var(--muted)">(Last 30 days)</span></h3>
+          <h3>&#128200; Staff Performance</h3>
           <button class="btn btn-ghost btn-sm" onclick="loadPerformance()">&#8635; Refresh</button>
         </div>
         <div id="perfContent" style="padding:16px 20px">
@@ -2214,28 +2214,39 @@ async function loadPerformance() {
   if (!STORE) return;
   const perfEl = document.getElementById('perfContent');
   if (!perfEl) return;
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
 
-  // 1. Cashier remittance accuracy
-  // Tolerance: over/short within ₱100 is treated as effectively balanced —
-  // a ₱1 difference shouldn't score the same as a ₱1000 one.
-  const REMIT_TOLERANCE = 100;
+  // 1. Cashier remittance accuracy — lifetime (since each cashier's first remittance),
+  // scored by how much their over/short discrepancy amounts to as a % of the sales they
+  // actually handled, not a raw count of incidents (a ₱50 miss on ₱50,000 sold is very
+  // different from a ₱50 miss on ₱500 sold).
   const { data: remits } = await _sb.from('cash_remittances')
     .select('cashier_name,status,difference')
     .eq('store_id', STORE.id)
-    .gte('shift_date', cutoffStr)
     .in('status', ['balanced','over','short']);
 
   const cashierMap = {};
   for (const r of (remits || [])) {
     const n = r.cashier_name || 'Unknown';
-    if (!cashierMap[n]) cashierMap[n] = { total: 0, balanced: 0, over: 0, short: 0 };
+    if (!cashierMap[n]) cashierMap[n] = { total: 0, balanced: 0, over: 0, short: 0, discrepancy: 0, sales: 0 };
     cashierMap[n].total++;
-    const withinTolerance = Math.abs(parseFloat(r.difference) || 0) <= REMIT_TOLERANCE;
-    if (r.status === 'balanced' || withinTolerance) cashierMap[n].balanced++;
-    else if (r.status === 'over') cashierMap[n].over++;
-    else if (r.status === 'short') cashierMap[n].short++;
+    if (r.status === 'balanced') cashierMap[n].balanced++;
+    else {
+      const diff = Math.abs(parseFloat(r.difference) || 0);
+      cashierMap[n].discrepancy += diff;
+      if (r.status === 'over') cashierMap[n].over++;
+      else if (r.status === 'short') cashierMap[n].short++;
+    }
+  }
+
+  // Lifetime sales per cashier — the denominator each cashier's discrepancy is judged against.
+  const cashierNames = Object.keys(cashierMap);
+  if (cashierNames.length) {
+    const { data: cashierOrders } = await _sb.from('orders')
+      .select('cashier_name,total').eq('store_id', STORE.id).in('cashier_name', cashierNames);
+    for (const o of (cashierOrders || [])) {
+      const n = o.cashier_name || 'Unknown';
+      if (cashierMap[n]) cashierMap[n].sales += parseFloat(o.total) || 0;
+    }
   }
 
   // 2. Manager checklist compliance from ops_data
@@ -2257,11 +2268,14 @@ async function loadPerformance() {
   }
 
   // Rating helpers
+  // Thresholds are % of sales lost to cash discrepancies (not % of incident count) —
+  // real-world cash handling is "good" well below double digits, so this scale runs
+  // much tighter than the old count-based one.
   function _cr(rate) {
-    if (rate === 0)  return { label: 'Perfect', color: '#10b981', bg: '#0a1f14' };
-    if (rate <= 5)   return { label: 'Excellent', color: '#10b981', bg: '#0a1f14' };
-    if (rate <= 15)  return { label: 'Good', color: '#f59e0b', bg: '#1a1200' };
-    if (rate <= 30)  return { label: 'Needs Improvement', color: '#f97316', bg: '#1a0f00' };
+    if (rate === 0)    return { label: 'Perfect', color: '#10b981', bg: '#0a1f14' };
+    if (rate <= 0.5)   return { label: 'Excellent', color: '#10b981', bg: '#0a1f14' };
+    if (rate <= 1.5)   return { label: 'Good', color: '#f59e0b', bg: '#1a1200' };
+    if (rate <= 3)     return { label: 'Needs Improvement', color: '#f97316', bg: '#1a0f00' };
     return { label: 'Poor', color: '#ef4444', bg: '#1f0a0a' };
   }
   function _ckr(rate) {
@@ -2271,29 +2285,35 @@ async function loadPerformance() {
     return { label: 'Poor', color: '#ef4444', bg: '#1f0a0a' };
   }
 
-  // Cashier section HTML
-  const _entries = Object.entries(cashierMap).sort((a, b) => {
-    return ((b[1].over + b[1].short) / b[1].total) - ((a[1].over + a[1].short) / a[1].total);
-  });
+  // Cashier section HTML — each cashier starts at a full green disk (0% error); every
+  // peso of over/short discrepancy eats into it as a growing red wedge, sized by how much
+  // that discrepancy is worth relative to the sales they've actually handled, lifetime.
+  function _cashierErrRate(s) {
+    if (s.sales > 0) return Math.min(100, Math.round(s.discrepancy / s.sales * 1000) / 10);
+    return s.discrepancy > 0 ? 100 : 0;
+  }
+  const _entries = Object.entries(cashierMap).sort((a, b) => _cashierErrRate(b[1]) - _cashierErrRate(a[1]));
   const _cashierHtml = _entries.length === 0
-    ? '<div style="color:var(--muted);font-size:12px;padding:8px 0">No confirmed remittances in the last 30 days.</div>'
+    ? '<div style="color:var(--muted);font-size:12px;padding:8px 0">No confirmed remittances yet.</div>'
     : _entries.map(([name, s]) => {
-        const errRate = s.total > 0 ? Math.round((s.over + s.short) / s.total * 100) : 0;
+        const errRate = _cashierErrRate(s);
         const r = _cr(errRate);
-        const barW = Math.min(100, errRate * 2);
-        return '<div style="background:' + r.bg + ';border:1px solid ' + r.color + '33;border-radius:8px;padding:10px 14px;margin-bottom:8px">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+        return '<div style="background:' + r.bg + ';border:1px solid ' + r.color + '33;border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:14px">' +
+          '<div style="position:relative;width:64px;height:64px;flex-shrink:0">' +
+          '<div style="width:64px;height:64px;border-radius:50%;background:conic-gradient(' + r.color + ' 0% ' + errRate + '%, #10b981 ' + errRate + '% 100%)"></div>' +
+          '<div style="position:absolute;top:6px;left:6px;width:52px;height:52px;border-radius:50%;background:' + r.bg + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:' + r.color + '">' + errRate + '%</div>' +
+          '</div>' +
+          '<div style="flex:1;min-width:0">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
           '<span style="font-weight:700;font-size:13px">' + name + '</span>' +
           '<span style="font-size:11px;font-weight:700;color:' + r.color + ';background:' + r.color + '22;padding:2px 8px;border-radius:20px">' + r.label + '</span>' +
           '</div>' +
-          '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">' + s.total + ' remittances &mdash; ' +
+          '<div style="font-size:11px;color:var(--muted)">' + s.total + ' remittances since start &mdash; ' +
           '<span style="color:#10b981">' + s.balanced + ' balanced</span> &bull; ' +
           '<span style="color:#ef4444">' + s.over + ' over</span> &bull; ' +
           '<span style="color:#f97316">' + s.short + ' short</span></div>' +
-          '<div style="display:flex;align-items:center;gap:8px">' +
-          '<div style="flex:1;height:6px;background:#ffffff15;border-radius:3px;overflow:hidden">' +
-          '<div style="height:100%;width:' + barW + '%;background:' + r.color + ';border-radius:3px"></div></div>' +
-          '<span style="font-size:12px;font-weight:700;color:' + r.color + ';min-width:42px">' + errRate + '% err</span></div></div>';
+          '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + CUR + s.discrepancy.toFixed(2) + ' discrepancy out of ' + CUR + s.sales.toFixed(2) + ' total sales handled</div>' +
+          '</div></div>';
       }).join('');
 
   // Checklist section HTML
@@ -2318,8 +2338,8 @@ async function loadPerformance() {
 
   perfEl.innerHTML =
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px">' +
-    '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">&#129532; Cashier Remittance Accuracy</div>' + _cashierHtml + '</div>' +
-    '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">&#9989; Manager Checklist Compliance</div>' + _ckHtml + '</div>' +
+    '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">&#129532; Cashier Remittance Accuracy <span style="text-transform:none;font-weight:400">(All-Time)</span></div>' + _cashierHtml + '</div>' +
+    '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">&#9989; Manager Checklist Compliance <span style="text-transform:none;font-weight:400">(Last 30 Days)</span></div>' + _ckHtml + '</div>' +
     '</div>';
 }
 
