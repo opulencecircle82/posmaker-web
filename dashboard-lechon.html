@@ -567,6 +567,9 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div class="info-card">
         <h3>GCash QR Code</h3>
         <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Upload your personal/business GCash QR (open GCash app &gt; Show My QR &gt; screenshot it). Shown on the Customer Display screen with the exact amount so customers can scan and pay.</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button type="button" class="btn btn-accent btn-sm" onclick="openImgUploadQR('gcash_qr',1)">&#128248; Scan QR to Upload</button>
+        </div>
         <div class="logo-drop" id="gcashQrDrop" onclick="document.getElementById('gcashQrInput').click()">
           <img id="gcashQrPreview" style="display:none">
           <p id="gcashQrHint">Click to upload GCash QR (PNG or JPG)</p>
@@ -4942,6 +4945,14 @@ async function openImgUploadQR(type,maxImages){
     if(_imgQRType==='inventory'){
       if(_invPendingImgs.length===0) _invPendingImgs.push(imgs[0]);
       renderInvThumbs();
+    } else if(_imgQRType==='gcash_qr'){
+      pendingGcashQrb64=imgs[0];
+      const _gimg=document.getElementById('gcashQrPreview');
+      _gimg.src='data:image/jpeg;base64,'+imgs[0]; _gimg.style.display='block';
+      document.getElementById('gcashQrHint').style.display='none';
+      document.getElementById('gcashQrDrop').classList.add('has-img');
+      document.getElementById('saveGcashQrBtn').style.display='inline-flex';
+      document.getElementById('removeGcashQrBtn').style.display='inline-flex';
     } else {
       imgs.forEach(b=>{if(_prodPendingImgs.length<4)_prodPendingImgs.push(b);});
       renderProdThumbs();
