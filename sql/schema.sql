@@ -885,6 +885,39 @@ BEGIN
   UPDATE contact_messages SET status = p_status WHERE id = p_id;
 END; $$;
 
+-- ============================================================
+-- Website Visitor Tracking (index.html landing page)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS site_visits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  country TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_site_visits_created ON site_visits(created_at DESC);
+ALTER TABLE site_visits ENABLE ROW LEVEL SECURITY;
+
+-- Public: called by index.html once per browser session, fire-and-forget. Country is
+-- resolved client-side via a free IP geolocation lookup (best-effort — null if it fails).
+-- SECURITY DEFINER bypasses RLS for the insert, same as track_referral_click above —
+-- no anon table grant/policy needed since nothing ever queries this table directly.
+CREATE OR REPLACE FUNCTION track_site_visit(p_country text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO site_visits (country) VALUES (p_country);
+END; $$;
+
+-- Admin: country breakdown of website visits + total, for dev-support.html's Visitors tab.
+CREATE OR REPLACE FUNCTION dev_get_site_visits(p_token text)
+RETURNS TABLE(country text, visits bigint)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  RETURN QUERY SELECT COALESCE(sv.country, 'Unknown') AS country, COUNT(*) AS visits
+    FROM site_visits sv GROUP BY COALESCE(sv.country, 'Unknown') ORDER BY visits DESC;
+END; $$;
+
 -- Customer name/contact on orders — used by the Laundry cashier's claim-slip
 -- receipt (customer copy + owner copy) so the owner can match a slip back
 -- to who dropped it off.

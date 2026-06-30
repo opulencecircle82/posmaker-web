@@ -465,6 +465,17 @@ footer{border-top:1px solid var(--border);padding:28px 5vw;display:flex;justify-
   }
 })();
 
+// Log this landing-page visit once per browser session (best-effort country via a free IP
+// lookup) for the dev dashboard's Visitors tab. Never blocks rendering; fails silently.
+(function() {
+  if (sessionStorage.getItem('pm_visit_tracked')) return;
+  sessionStorage.setItem('pm_visit_tracked', '1');
+  fetch('https://ipwho.is/').then(r => r.json()).then(geo => {
+    const { createClient } = supabase;
+    createClient(SUPABASE_URL, SUPABASE_ANON).rpc('track_site_visit', { p_country: geo.country || null }).then(() => {});
+  }).catch(() => {});
+})();
+
 let demoProd = [];
 
 function addDemoProd() {

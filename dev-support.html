@@ -180,6 +180,7 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
       <button class="snav" id="tabReferrals" onclick="showTab('referrals')">&#128279; Referrals</button>
       <button class="snav" id="tabSupport"  onclick="showTab('support')">&#128139; Support</button>
       <button class="snav" id="tabPlans"    onclick="showTab('plans')">&#128202; Plan Limits</button>
+      <button class="snav" id="tabVisitors" onclick="showTab('visitors')">&#127757; Visitors</button>
     </div>
     <!-- Main Panel -->
     <div class="main-panel">
@@ -415,6 +416,29 @@ select.filter-sel{padding:7px 10px;background:var(--bg);border:1.5px solid var(-
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;max-width:640px" id="planTierGrid"></div>
         <div id="planLimitRows" style="max-width:420px"></div>
         <button class="btn btn-accent btn-sm" style="margin-top:14px" onclick="saveAllPlanLimits()">&#128190; Save</button>
+      </div>
+    </div>
+
+    <!-- VISITORS -->
+    <div id="secVisitors" style="display:none">
+      <div class="card" style="margin-bottom:16px">
+        <div class="stats-row" style="grid-template-columns:repeat(2,1fr)">
+          <div class="stat-card"><div class="stat-val" id="stVisitTotal">—</div><div class="stat-lbl">Total Website Visits</div></div>
+          <div class="stat-card"><div class="stat-val" id="stVisitCountries">—</div><div class="stat-lbl">Countries Reached</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          Website Visitors by Country
+          <button class="btn btn-ghost btn-sm" onclick="loadVisitors()">&#8635; Refresh</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:-6px 0 14px">Counts landing-page (index.html) visits, resolved to a country via the visitor's IP. Best-effort — may show "Unknown" if the lookup failed.</p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>#</th><th>Country</th><th>Visits</th></tr></thead>
+            <tbody id="visitorsTbody"><tr class="empty-row"><td colspan="3">Loading…</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -2020,7 +2044,7 @@ async function doGrantReferral() {
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 function showTab(tab) {
-  const map = {stores:'Stores',staff:'Staff',accounts:'Accounts',orders:'Orders',subs:'Subs',agents:'Agents',referrals:'Referrals',support:'Support',plans:'Plans'};
+  const map = {stores:'Stores',staff:'Staff',accounts:'Accounts',orders:'Orders',subs:'Subs',agents:'Agents',referrals:'Referrals',support:'Support',plans:'Plans',visitors:'Visitors'};
   Object.keys(map).forEach(t => {
     document.getElementById('sec' + map[t]).style.display = t === tab ? '' : 'none';
     document.getElementById('tab' + map[t]).classList.toggle('active', t === tab);
@@ -2035,6 +2059,27 @@ function showTab(tab) {
   }
   if (tab === 'accounts') renderAccounts();
   if (tab === 'plans' && !_planLimits.length) loadPlanLimits();
+  if (tab === 'visitors' && !_allVisits.length) loadVisitors();
+}
+
+// ── Website Visitors ────────────────────────────────────────────────────────────
+let _allVisits = [];
+
+async function loadVisitors() {
+  const tb = document.getElementById('visitorsTbody');
+  tb.innerHTML = '<tr class="empty-row"><td colspan="3">Loading…</td></tr>';
+  const { data, error } = await _sb.rpc('dev_get_site_visits', { p_token: _devToken });
+  if (error) { handleAuthError(error); return; }
+  _allVisits = data || [];
+  const total = _allVisits.reduce((sum, v) => sum + Number(v.visits), 0);
+  document.getElementById('stVisitTotal').textContent = total.toLocaleString();
+  document.getElementById('stVisitCountries').textContent = _allVisits.length;
+  if (!_allVisits.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="3">No visits recorded yet.</td></tr>'; return; }
+  tb.innerHTML = _allVisits.map((v, i) => `<tr>
+      <td style="color:var(--muted);font-size:11px">${i + 1}</td>
+      <td><strong>${esc(v.country)}</strong></td>
+      <td style="font-weight:700;color:var(--accent)">${Number(v.visits).toLocaleString()}</td>
+    </tr>`).join('');
 }
 
 // ── Support Tickets ────────────────────────────────────────────────────────────
