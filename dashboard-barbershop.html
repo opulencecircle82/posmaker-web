@@ -1301,6 +1301,16 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="mbox" style="width:min(560px,100%)">
     <h3 id="barberModalTitle">Add Barber</h3>
     <input type="hidden" id="barberId">
+    <!-- Photo capture row -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button type="button" class="btn btn-accent btn-sm" style="flex:0 0 auto" id="btnBarberCam" onclick="openImgUploadQR('barber_photo',1)">&#128248; Scan QR to Upload</button>
+        <button type="button" class="btn btn-ghost btn-sm" style="flex:0 0 auto" id="btnBarberUpload" onclick="document.getElementById('barberImgInput').click()">&#128193; Upload from File</button>
+        <span id="barberCamHint" style="font-size:11px;color:var(--dim);flex:1">Photo of the barber's face.</span>
+      </div>
+      <div id="barberImgThumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
+      <input type="file" id="barberImgInput" accept="image/*" style="display:none" onchange="handleBarberImg(this)">
+    </div>
     <div class="row2">
       <div class="field"><label>Full Name</label><input id="brName" type="text" placeholder="e.g. Jonabe Uglanes" autocomplete="off"></div>
       <div class="field"><label>Nickname</label><input id="brNickname" type="text" placeholder="e.g. Jong" autocomplete="off"></div>
@@ -1318,7 +1328,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%" onclick="_addBarberSkillRow()">+ Add Skill</button>
     </div>
     <div class="m-actions">
-      <button class="btn btn-ghost" onclick="closeModal('barberModal')">Cancel</button>
+      <button class="btn btn-ghost" onclick="_barberPendingImgs=[];closeModal('barberModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveBarber()">Save</button>
     </div>
   </div>
@@ -5017,6 +5027,7 @@ let _dashStream = null, _dashBcLoopId = null, _dashZxing = null, _dashBarcode = 
 let _dashCamMode = 'photo'; // 'photo' | 'barcode' | 'inventory'
 let _dashBcTarget = 'pSku'; // which input to fill with barcode
 let _invPendingImgs = [];  // captured photos for inventory item (up to 4)
+let _barberPendingImgs = [];  // captured photo for barber profile (1)
 
 async function openDashCam(mode, targetField){
   _dashCamMode = mode || 'photo';
@@ -5148,6 +5159,37 @@ function removeInvImg(idx){
   _invPendingImgs.splice(idx,1);
   renderInvThumbs();
 }
+function handleBarberImg(input){
+  const file=input.files[0];if(!file)return;
+  if(_barberPendingImgs.length>=1){showToast('Remove existing photo first.',true);return;}
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const b64=ev.target.result.split(',')[1];
+    const compressed=await _compressImg(b64,300,0.75);
+    _barberPendingImgs.push(compressed);
+    renderBarberThumbs();
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+function renderBarberThumbs(){
+  const el=document.getElementById('barberImgThumbs'); if(!el) return;
+  const hint=document.getElementById('barberCamHint');
+  const camBtn=document.getElementById('btnBarberCam');
+  if(_barberPendingImgs.length===0){
+    el.innerHTML='';
+    if(hint) hint.textContent="Photo of the barber's face.";
+    if(camBtn) camBtn.style.display='';
+    return;
+  }
+  el.innerHTML=_barberPendingImgs.map((b,i)=>`<div style="position:relative"><img src="data:image/jpeg;base64,${b}" style="height:60px;width:60px;border-radius:50%;object-fit:cover;border:1px solid var(--border)"><button onclick="removeBarberImg(${i})" style="position:absolute;top:-5px;right:-5px;background:#ef4444;border:none;color:#fff;border-radius:50%;width:17px;height:17px;font-size:11px;cursor:pointer;line-height:17px;padding:0;text-align:center">×</button></div>`).join('');
+  if(hint) hint.textContent='Photo attached. Tap × to remove and retake.';
+  if(camBtn) camBtn.style.display='none';
+}
+function removeBarberImg(idx){
+  _barberPendingImgs.splice(idx,1);
+  renderBarberThumbs();
+}
 
 function useBarcodeOnly(){
   if(!_dashBarcode) return;
@@ -5176,6 +5218,9 @@ async function openImgUploadQR(type,maxImages){
     if(_imgQRType==='inventory'){
       if(_invPendingImgs.length===0) _invPendingImgs.push(imgs[0]);
       renderInvThumbs();
+    } else if(_imgQRType==='barber_photo'){
+      if(_barberPendingImgs.length===0) _barberPendingImgs.push(await _compressImg(imgs[0],300,0.75));
+      renderBarberThumbs();
     } else {
       imgs.forEach(b=>{if(_prodPendingImgs.length<4)_prodPendingImgs.push(b);});
       renderProdThumbs();
@@ -5401,8 +5446,11 @@ async function loadBarbers() {
       const nameHtml = b.nickname
         ? `${b.full_name} <span style="color:var(--accent);font-size:11px">"${b.nickname}"</span>`
         : b.full_name;
+      const avatarHtml = b.photo_b64
+        ? `<img src="data:image/jpeg;base64,${b.photo_b64}" style="height:34px;width:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex:0 0 auto">`
+        : `<div style="height:34px;width:34px;border-radius:50%;background:var(--s2);border:1px solid var(--border);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted)">&#9986;</div>`;
       return `<tr id="barberRow_${b.id}">
-        <td>${nameHtml}<br><span style="font-size:11px;color:var(--muted)">${skillStr}</span></td>
+        <td><div style="display:flex;align-items:center;gap:10px">${avatarHtml}<div>${nameHtml}<br><span style="font-size:11px;color:var(--muted)">${skillStr}</span></div></div></td>
         <td>${b.contact_number || '—'}</td>
         <td style="font-size:12px">${b.address || '—'}</td>
         <td id="barberEarn_${b.id}" style="color:var(--muted)">—</td>
@@ -5492,6 +5540,8 @@ async function openBarberModal(editId) {
     document.getElementById('brAddress').value = b ? b.address : '';
     document.getElementById('brSkillsList').innerHTML = '';
     (b?.skills || []).forEach(s => _addBarberSkillRow(s.product_id, s.product_name, s.percentage));
+    _barberPendingImgs = (b && b.photo_b64) ? [b.photo_b64] : [];
+    renderBarberThumbs();
     document.getElementById('barberModal').classList.add('show');
   } catch (err) {
     console.error('openBarberModal error:', err);
@@ -5518,7 +5568,7 @@ async function saveBarber() {
     skills.push({ product_id: opt.value, product_name: opt.dataset.name || opt.text, percentage: pct });
   });
   const editId = document.getElementById('barberId').value;
-  const row = { store_id: STORE.id, full_name: name, nickname, contact_number: contact, address, skills };
+  const row = { store_id: STORE.id, full_name: name, nickname, contact_number: contact, address, skills, photo_b64: _barberPendingImgs[0] || null };
   let dbErr;
   if (editId) {
     ({ error: dbErr } = await _sb.from('barbers').update(row).eq('id', editId));
@@ -5527,6 +5577,7 @@ async function saveBarber() {
   }
   if (dbErr) { alert('Save failed: ' + dbErr.message); return; }
   closeModal('barberModal');
+  _barberPendingImgs = [];
   await loadBarbers();
   showToast(editId ? 'Barber updated' : `Barber "${name}" added`);
 }
