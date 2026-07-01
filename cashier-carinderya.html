@@ -2119,11 +2119,13 @@ async function doPrint() {
     + 'html,body,pre,*{color:#000!important;-webkit-text-fill-color:#000!important;background:#fff!important;forced-color-adjust:none!important;color-scheme:light!important}'
     + 'body{font-family:Courier New,monospace;font-size:11pt;width:54mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     + 'pre{white-space:pre-wrap;word-break:break-word}'
-    + '</style></head><body><pre>' + escaped + '</pre></body></html>';
+    + '</style></head><body><pre>' + escaped + '</pre>'
+    + '<script>window.onload=function(){window.print();setTimeout(function(){window.close();},2000);};<\/script>'
+    + '</body></html>';
   const _blob = new Blob([_html], {type:'text/html;charset=utf-8'});
   const _url = URL.createObjectURL(_blob);
-  const w = window.open(_url, '_blank', 'width=320,height=600');
-  setTimeout(() => { w.focus(); w.print(); setTimeout(() => { URL.revokeObjectURL(_url); w.close(); }, 2000); }, 600);
+  window.open(_url, '_blank', 'width=320,height=600');
+  setTimeout(() => { URL.revokeObjectURL(_url); }, 8000);
   newOrder();
 }
 
