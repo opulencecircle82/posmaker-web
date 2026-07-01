@@ -2050,16 +2050,27 @@ function showReceipt(d) {
 // Prints two slips per order — customer copy first, then the owner's copy
 // on its own page/section (page-break-before) — so the cashier never has to
 // remember to print a second one for store records.
-function doPrint() {
+async function doPrint() {
   const d = _lastReceiptData;
   const html = '<div>' + buildReceiptHTML(d, 'CUSTOMER COPY') + '</div>'
     + '<div style="page-break-before:always">' + buildReceiptHTML(d, 'OWNER COPY') + '</div>';
   if (window.posApp && window.posApp.printReceipt) {
     document.getElementById('receiptPrintArea').innerHTML = html;
     window.posApp.printReceipt();
-  } else {
-    const w = window.open('', '_blank', 'width=320,height=600');
-    const _lhtml = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    newOrder(); return;
+  }
+  // Try local ESC/POS print server
+  if (d) {
+    try {
+      const resp = await fetch('http://localhost:7788/print', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store: STORE?.name, footer: STORE?.receipt_footer, order_id: d.order_id, cashier: d.cashier, items: d.items, sub: d.sub, disc: d.disc, tax: d.tax, total: d.total, method: d.method, tender: d.tender, change: d.change })
+      });
+      if (resp.ok) { newOrder(); return; }
+    } catch (_) {}
+  }
+  // Fallback: browser print
+  const _lhtml = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
       + '<meta name="color-scheme" content="light only">'
       + '<style>'
       + '@page{size:58mm auto;margin:2mm}'
