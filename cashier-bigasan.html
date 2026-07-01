@@ -2342,6 +2342,25 @@ function showReceipt(d) {
   document.getElementById('mConfirm').style.display = 'block';
 }
 
+function _receiptToPng(txt) {
+  const lines = txt.split('\n');
+  const FS = 15;           // font size px
+  const LH = 19;           // line height px
+  const PAD = 4;
+  const W  = 400;          // canvas width — scales to fit 58mm paper
+  const H  = lines.length * LH + PAD * 2 + LH;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = '#ffffff';
+  cx.fillRect(0, 0, W, H);
+  cx.fillStyle = '#000000';
+  cx.font = FS + 'px "Courier New", Courier, monospace';
+  cx.textBaseline = 'top';
+  lines.forEach((l, i) => cx.fillText(l, PAD, PAD + i * LH));
+  return cv.toDataURL('image/png');
+}
+
 async function doPrint() {
   const txt = document.getElementById('receiptTxt').textContent;
   // Try local ESC/POS print server first (works in browser and Electron exe)
@@ -2377,16 +2396,11 @@ async function doPrint() {
     window.posApp.printReceipt();
     newOrder(); return;
   }
-  // Fallback: browser print via Blob URL
-  const escaped = txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Fallback: render receipt to Canvas PNG — bypasses Chrome dark mode on print
+  const _png = _receiptToPng(txt);
   const _html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    + '<meta name="color-scheme" content="light only">'
-    + '<style>'
-    + '@page{size:58mm auto;margin:2mm}'
-    + 'html,body,pre,*{color:#000!important;-webkit-text-fill-color:#000!important;background:#fff!important;forced-color-adjust:none!important;color-scheme:light!important}'
-    + 'body{font-family:Courier New,monospace;font-size:11pt;width:54mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    + 'pre{white-space:pre-wrap;word-break:break-word}'
-    + '</style></head><body><pre>' + escaped + '</pre>'
+    + '<style>@page{size:58mm auto;margin:0}body{margin:0;padding:0}img{width:100%;display:block}</style>'
+    + '</head><body><img src="' + _png + '">'
     + '<script>window.onload=function(){window.print();setTimeout(function(){window.close();},2000);};<\/script>'
     + '</body></html>';
   const _blob = new Blob([_html], {type:'text/html;charset=utf-8'});
