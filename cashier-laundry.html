@@ -2059,15 +2059,17 @@ function doPrint() {
     window.posApp.printReceipt();
   } else {
     const w = window.open('', '_blank', 'width=320,height=600');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="color-scheme" content="light"><style>
-      @page { size: 58mm auto; margin: 2mm; }
-      html { color-scheme: light; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: 10pt; color: #000 !important; -webkit-text-fill-color: #000 !important; background: #fff !important; width: 54mm; }
-      div, p, span, td, th { color: #000 !important; -webkit-text-fill-color: #000 !important; background: transparent !important; }
-    </style></head><body>${html}</body></html>`);
-    w.document.close(); w.focus();
-    setTimeout(() => { w.print(); w.close(); }, 400);
+    const _lhtml = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+      + '<meta name="color-scheme" content="light only">'
+      + '<style>'
+      + '@page{size:58mm auto;margin:2mm}'
+      + 'html,body,div,p,span,td,th,*{color:#000!important;-webkit-text-fill-color:#000!important;background:#fff!important;forced-color-adjust:none!important;color-scheme:light!important}'
+      + 'body{font-family:Courier New,monospace;font-size:10pt;width:54mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+      + '</style></head><body>' + html + '</body></html>';
+    const _lblob = new Blob([_lhtml], {type:'text/html;charset=utf-8'});
+    const _lurl = URL.createObjectURL(_lblob);
+    const w = window.open(_lurl, '_blank', 'width=320,height=600');
+    setTimeout(() => { w.focus(); w.print(); setTimeout(() => { URL.revokeObjectURL(_lurl); w.close(); }, 2000); }, 600);
   }
   newOrder();
 }
