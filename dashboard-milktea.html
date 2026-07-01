@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2914,8 +2914,7 @@ function downloadCashierLauncher() {
     'if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set CHROME="%LocalAppData%\Google\Chrome\Application\chrome.exe"',
     'if "%CHROME%"=="" ( echo Chrome not found. Please install Google Chrome. & pause & exit /b )',
     'start "" %CHROME% --kiosk-printing --new-window "%URL%"',
-  ].join('
-');
+  ].join('\r\n');
   const blob = new Blob([bat], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
