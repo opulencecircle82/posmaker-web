@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>POSMaker POS Setup</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      padding: 32px;
+    }
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 12px;
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 440px;
+    }
+    .logo { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .sub  { font-size: 13px; color: #888; margin-bottom: 28px; }
+    label { display: block; font-size: 13px; color: #aaa; margin-bottom: 8px; }
+    input {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 7px;
+      border: 1px solid #333;
+      background: #0f1117;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      margin-bottom: 18px;
+    }
+    input:focus { border-color: #5c7cfa; }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #5c7cfa;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #4c6ef5; }
+    .hint {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #666;
+      line-height: 1.5;
+    }
+    .hint b { color: #888; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">&#127974; POSMaker POS</div>
+    <div class="sub">One-time setup — paste your cashier URL below</div>
+
+    <label for="urlInput">Cashier URL</label>
+    <input type="url" id="urlInput"
+      placeholder="https://posmaker.ggff.net/cashier-fastfood.html" />
+    <button onclick="save()">Open POS</button>
+
+    <div class="hint">
+      <b>Where to get your URL:</b><br>
+      POSMaker Dashboard → Windows PC App → Download Cashier Launcher<br>
+      (open the .bat file with Notepad — copy the URL after <code>set URL=</code>)
+    </div>
+  </div>
+  <script>
+    function save() {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url.startsWith('http')) { alert('Please enter a valid URL starting with https://'); return; }
+      window.electronSetup.saveConfig(url);
+    }
+    document.getElementById('urlInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') save();
+    });
+  </script>
+</body>
+</html>

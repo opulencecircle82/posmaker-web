@@ -1,0 +1,29 @@
+{
+  "name": "posmaker-pos",
+  "version": "1.0.0",
+  "description": "POSMaker POS Terminal",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "com.posmaker.pos",
+    "productName": "POSMaker POS",
+    "files": ["main.js", "preload.js", "setup.html"],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "shortcutName": "POSMaker POS",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}

@@ -745,6 +745,11 @@ input:checked + .slider:before{transform:translateX(18px)}
               &#128424;&#65039; Have a <strong style="color:var(--accent)">thermal printer</strong>? Download &amp; run <strong style="color:var(--accent)">Print Server</strong> once — auto-starts with Windows<br>
               4&#65039;&#8419; Device is locked to your store &#128274;
             </div>
+            <div id="electronSetupCard" style="display:none;background:rgba(92,124,250,.12);border:1px solid rgba(92,124,250,.35);border-radius:8px;padding:12px 14px;margin-bottom:10px">
+              <div style="font-size:12px;font-weight:700;color:#7c9ff7;margin-bottom:4px">&#10004; POSMaker POS App Detected</div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:8px">You're running the POS app. Click below to set this PC as your POS terminal.</div>
+              <button type="button" class="btn btn-accent btn-sm" style="width:100%;justify-content:center" onclick="setAsPosTerminal()">&#128241; Set as POS Terminal</button>
+            </div>
             <a class="btn btn-accent btn-sm" style="width:100%;justify-content:center;text-decoration:none;display:flex;margin-bottom:8px" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMakerSetup.exe" target="_blank">&#11015; Download Windows Setup</a>
             <a class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;text-decoration:none;display:flex;margin-bottom:8px" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/posmaker-print-server.exe" target="_blank">&#128424;&#65039; Download Print Server (thermal printer)</a>
             <button type="button" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-bottom:8px" onclick="downloadStoreConfig()">&#128196; Download Your Config File</button>
@@ -1487,6 +1492,7 @@ function _sig(ms = 25000) {
   document.getElementById('cashierLinkBox').textContent = cashierUrl;
   document.getElementById('openCashierBtn').href = cashierUrl;
   const _tpb = document.getElementById('testPosBtn'); if (_tpb) _tpb.href = cashierUrl;
+  if (window.electronSetup) { const _ec = document.getElementById('electronSetupCard'); if (_ec) _ec.style.display = ''; }
   const _cpb = document.getElementById('customizePosBtn'); if (_cpb) _cpb.href = bizCustomizeFile(store.business_type);
 
   // Fill settings form
@@ -2967,6 +2973,10 @@ function downloadCashierLauncher() {
   a.click();
   URL.revokeObjectURL(a.href);
   showToast('Launcher downloaded! Double-click POSMaker-Cashier.bat to open POS with direct printing.');
+}
+function setAsPosTerminal() {
+  if (!window.electronSetup || !STORE) return;
+  window.electronSetup.saveConfig(cashierUrlFor(STORE));
 }
 function openPWABuilder() {
   if (!allStores.length) { showToast('No POS terminal found.', true); return; }
