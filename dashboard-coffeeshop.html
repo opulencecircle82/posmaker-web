@@ -2077,7 +2077,7 @@ async function openMgrCohModal() {
   const el = document.getElementById('mgrCohModalContent');
   el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>';
   const { data } = await _sb.from('cash_remittances')
-    .select('cashier_name,cash_on_hand,status,shift_date')
+    .select('cashier_name,cash_on_hand,pos_sales,online_sales,difference,status,shift_date')
     .eq('store_id', STORE.id)
     .order('created_at', { ascending: false });
   const rows = data || [];
@@ -2115,12 +2115,19 @@ async function openMgrCohModal() {
   const breakdownHtml = confirmedRows.length
     ? confirmedRows.slice(0,15).map(r => {
         const cash = parseFloat(r.cash_on_hand||0);
-        const badge = r.status==='over' ? '<span style="color:#10b981;font-size:11px;margin-left:6px">Over</span>'
-          : r.status==='short' ? '<span style="color:#ef4444;font-size:11px;margin-left:6px">Short</span>'
-          : '<span style="color:var(--muted);font-size:11px;margin-left:6px">OK</span>';
-        return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)">'+
-          '<span>'+r.cashier_name+' <span style="color:var(--dim)">'+(r.shift_date||'')+'</span>'+badge+'</span>'+
-          '<span style="font-weight:600;color:#10b981">+'+CUR+cash.toFixed(2)+'</span></div>';
+        const cashSales = parseFloat(r.pos_sales||0);
+        const onlineSales = parseFloat(r.online_sales||0);
+        const diff = parseFloat(r.difference||0);
+        const badge = r.status==='over' ? '<span style="color:#10b981;font-size:11px;margin-left:6px">Over +'+CUR+Math.abs(diff).toFixed(2)+'</span>'
+          : r.status==='short' ? '<span style="color:#ef4444;font-size:11px;margin-left:6px">Short -'+CUR+Math.abs(diff).toFixed(2)+'</span>'
+          : '<span style="color:var(--muted);font-size:11px;margin-left:6px">Balanced</span>';
+        const onlineLine = onlineSales > 0 ? ' &nbsp;·&nbsp; Online: <span style="color:#a78bfa">'+CUR+onlineSales.toFixed(2)+'</span>' : '';
+        return '<div style="padding:7px 0;border-bottom:1px solid var(--border)">'+
+          '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'+
+          '<span><strong>'+r.cashier_name+'</strong> <span style="color:var(--dim);font-size:11px">'+(r.shift_date||'')+'</span>'+badge+'</span>'+
+          '<span style="font-weight:600;color:#10b981">COH +'+CUR+cash.toFixed(2)+'</span></div>'+
+          '<div style="font-size:11px;color:var(--muted)">Cash Sales: '+CUR+cashSales.toFixed(2)+onlineLine+'</div>'+
+          '</div>';
       }).join('')
     : '<div style="font-size:12px;color:var(--muted)">No cashier remittances yet.</div>';
 
@@ -2170,7 +2177,7 @@ async function loadManagerCash() {
   const el = document.getElementById('mgrCashContent');
   if (!el || !STORE) return;
   const { data } = await _sb.from('cash_remittances')
-    .select('cashier_name,cash_on_hand,status,shift_date')
+    .select('cashier_name,cash_on_hand,pos_sales,online_sales,difference,status,shift_date')
     .eq('store_id', STORE.id)
     .order('created_at', { ascending: false });
   const rows = data || [];

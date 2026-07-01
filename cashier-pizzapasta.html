@@ -1032,6 +1032,7 @@ async function checkCashierInbox() {
   } catch(_) {}
 }
 
+let _remitOnlineSales = 0;
 async function openRemitOnLogout() {
   const name = CASHIER?.full_name || CASHIER?.username || CASHIER_NAME || '—';
   const today = new Date().toISOString().slice(0,10);
@@ -1079,7 +1080,9 @@ async function openRemitOnLogout() {
       .gte('timestamp', from).lte('timestamp', to);
     // Compare against actual cash received only — card/GCash sales settle
     // electronically and were never in the physical drawer to count.
-    const total = (data||[]).filter(o => (o.payment_method || 'Cash') === 'Cash').reduce((s,o)=>s+(parseFloat(o.total)||0), 0);
+    const _orders = data||[];
+    const total = _orders.filter(o => (o.payment_method || 'Cash') === 'Cash').reduce((s,o)=>s+(parseFloat(o.total)||0), 0);
+    _remitOnlineSales = _orders.filter(o => (o.payment_method || 'Cash') !== 'Cash').reduce((s,o)=>s+(parseFloat(o.total)||0), 0);
     document.getElementById('remitLogPOS').textContent = (CUR||'₱') + total.toFixed(2);
   } catch(_) {
     document.getElementById('remitLogPOS').textContent = '—';
@@ -1130,7 +1133,7 @@ async function confirmRemitLogout() {
   const cash   = parseFloat(document.getElementById('remitCk4').textContent.replace(/[^0-9.]/g,'')) || 0;
   const diff   = cash - pos;
   const diffLabel = diff<0 ? `Short -${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : diff>0 ? `Over +${CUR||'₱'}${Math.abs(diff).toFixed(2)}` : 'Balanced';
-  const remitRow = { store_id: STORE_ID, cashier_name: name, shift_date: today, pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending' };
+  const remitRow = { store_id: STORE_ID, cashier_name: name, shift_date: today, pos_sales: pos, cash_on_hand: cash, difference: diff, status: 'pending', online_sales: _remitOnlineSales };
   const logRow = { store_id: STORE_ID, actor_name: name, actor_role: CASHIER?.role||'cashier', action: 'REMITTANCE', target_name: name, details: `POS: ${CUR||'₱'}${pos.toFixed(2)} | Cash: ${CUR||'₱'}${cash.toFixed(2)} | ${diffLabel}` };
   try { localStorage.setItem('pm_last_remit_' + STORE_ID + '_' + name, new Date().toISOString()); } catch(_e) {}
   if (!navigator.onLine) {
