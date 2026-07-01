@@ -179,6 +179,13 @@ async function loadStoreAndSubscribe() {
     _channel = _sb.channel('display-' + STORE_ID);
     _channel.on('broadcast', { event: 'cart' }, ({ payload }) => render(payload)).subscribe();
   }
+
+  // Refresh store settings (GCash QR, etc.) every 2 minutes so changes
+  // made in the dashboard take effect without needing a page reload.
+  setInterval(async () => {
+    const { data: s } = await _sb.from('stores').select('gcash_qr_b64,gcash_qr_payload').eq('id', STORE_ID).maybeSingle();
+    if (s) { STORE.gcash_qr_b64 = s.gcash_qr_b64; STORE.gcash_qr_payload = s.gcash_qr_payload; }
+  }, 2 * 60 * 1000);
 }
 
 function _crc16(str) {

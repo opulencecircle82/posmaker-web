@@ -3861,9 +3861,14 @@ function handleGcashQr(e) {
 }
 async function saveGcashQr() {
   if (!pendingGcashQrb64) return;
-  await _sb.from('stores').update({ gcash_qr_b64: pendingGcashQrb64, gcash_qr_payload: pendingGcashQrPayload || null }).eq('id', STORE.id);
+  // Try saving both image + payload; fallback to image-only if payload column missing
+  let { error } = await _sb.from('stores').update({ gcash_qr_b64: pendingGcashQrb64, gcash_qr_payload: pendingGcashQrPayload || null }).eq('id', STORE.id);
+  if (error) {
+    const { error: e2 } = await _sb.from('stores').update({ gcash_qr_b64: pendingGcashQrb64 }).eq('id', STORE.id);
+    if (e2) { showToast('❌ Save failed: ' + e2.message, true); return; }
+  }
   STORE.gcash_qr_b64 = pendingGcashQrb64;
-  STORE.gcash_qr_payload = pendingGcashQrPayload;
+  STORE.gcash_qr_payload = error ? null : (pendingGcashQrPayload || null);
   document.getElementById('saveGcashQrBtn').style.display = 'none';
   pendingGcashQrb64 = null; pendingGcashQrPayload = null;
   showToast(STORE.gcash_qr_payload ? 'GCash QR saved ✅ Dynamic QR active!' : 'GCash QR image saved.');
