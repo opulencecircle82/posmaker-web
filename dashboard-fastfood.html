@@ -1382,6 +1382,7 @@ let allProds = [], allStaff = [];
 let frozenProdIds = new Set(), frozenInvIds = new Set(), frozenStaffIds = new Set(), frozenStoreIds = new Set();
 let pendingLogob64 = null;
 let pendingGcashQrb64 = null;
+let pendingGcashQrPayload = null;
 let pendingProdImg = null;
 let _prodPendingImgs = [];
 let pInvLinks = []; // array of {id, qty} — qty = amount used per 1 order
@@ -3812,10 +3813,38 @@ async function removeLogo() {
   document.getElementById('removeLogoBtn').style.display = 'none';
   pendingLogob64 = null;
 }
+let _jsQrReady = false;
+function _loadJsQr() {
+  if (_jsQrReady) return Promise.resolve();
+  return new Promise(res => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    s.onload = () => { _jsQrReady = true; res(); };
+    s.onerror = () => res();
+    document.head.appendChild(s);
+  });
+}
+async function _decodeQrPayload(dataUrl) {
+  await _loadJsQr();
+  if (typeof jsQR === 'undefined') return null;
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      cv.width = img.width; cv.height = img.height;
+      cv.getContext('2d').drawImage(img, 0, 0);
+      const id = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height);
+      const code = jsQR(id.data, id.width, id.height);
+      res(code ? code.data : null);
+    };
+    img.onerror = () => res(null);
+    img.src = dataUrl;
+  });
+}
 function handleGcashQr(e) {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => {
+  reader.onload = async ev => {
     const b64 = ev.target.result.split(',')[1];
     pendingGcashQrb64 = b64;
     const img = document.getElementById('gcashQrPreview');
@@ -3824,21 +3853,25 @@ function handleGcashQr(e) {
     document.getElementById('gcashQrDrop').classList.add('has-img');
     document.getElementById('saveGcashQrBtn').style.display = 'inline-flex';
     document.getElementById('removeGcashQrBtn').style.display = 'inline-flex';
+    pendingGcashQrPayload = await _decodeQrPayload(ev.target.result);
+    if (pendingGcashQrPayload) showToast('✅ GCash QR decoded — click Save QR.');
+    else showToast('⚠️ Could not read QR from image. Try a clearer photo.', true);
   };
   reader.readAsDataURL(file);
 }
 async function saveGcashQr() {
   if (!pendingGcashQrb64) return;
-  await _sb.from('stores').update({ gcash_qr_b64: pendingGcashQrb64 }).eq('id', STORE.id);
+  await _sb.from('stores').update({ gcash_qr_b64: pendingGcashQrb64, gcash_qr_payload: pendingGcashQrPayload || null }).eq('id', STORE.id);
   STORE.gcash_qr_b64 = pendingGcashQrb64;
+  STORE.gcash_qr_payload = pendingGcashQrPayload;
   document.getElementById('saveGcashQrBtn').style.display = 'none';
-  pendingGcashQrb64 = null;
-  showToast('GCash QR saved.');
+  pendingGcashQrb64 = null; pendingGcashQrPayload = null;
+  showToast(STORE.gcash_qr_payload ? 'GCash QR saved ✅ Dynamic QR active!' : 'GCash QR image saved.');
 }
 async function removeGcashQr() {
   if (!confirm('Remove GCash QR?')) return;
-  await _sb.from('stores').update({ gcash_qr_b64: '' }).eq('id', STORE.id);
-  STORE.gcash_qr_b64 = '';
+  await _sb.from('stores').update({ gcash_qr_b64: '', gcash_qr_payload: null }).eq('id', STORE.id);
+  STORE.gcash_qr_b64 = ''; STORE.gcash_qr_payload = null;
   document.getElementById('gcashQrPreview').style.display = 'none';
   document.getElementById('gcashQrHint').style.display = '';
   document.getElementById('gcashQrDrop').classList.remove('has-img');
@@ -4894,6 +4927,8 @@ async function openImgUploadQR(type,maxImages){
       document.getElementById('gcashQrDrop').classList.add('has-img');
       document.getElementById('saveGcashQrBtn').style.display='inline-flex';
       document.getElementById('removeGcashQrBtn').style.display='inline-flex';
+      pendingGcashQrPayload=await _decodeQrPayload('data:image/jpeg;base64,'+imgs[0]);
+      if(pendingGcashQrPayload) document.getElementById('imgQRStatus').textContent='✅ QR decoded!';
     } else {
       imgs.forEach(b=>{if(_prodPendingImgs.length<4)_prodPendingImgs.push(b);});
       renderProdThumbs();

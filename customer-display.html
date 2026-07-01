@@ -148,7 +148,7 @@ async function doActivateStore() {
 }
 
 async function loadStoreAndSubscribe() {
-  const { data: store, error } = await _sb.from('stores').select('id,name,logo_b64,gcash_qr_b64,business_type').eq('id', STORE_ID).maybeSingle();
+  const { data: store, error } = await _sb.from('stores').select('id,name,logo_b64,gcash_qr_b64,gcash_qr_payload,business_type').eq('id', STORE_ID).maybeSingle();
   if (error || !store) {
     localStorage.removeItem('pm_display_store_id');
     document.getElementById('actErr').textContent = 'Store not found. Please reconnect.';
@@ -181,6 +181,44 @@ async function loadStoreAndSubscribe() {
   }
 }
 
+function _crc16(str) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+  }
+  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+}
+
+function _buildDynamicQr(staticPayload, amount) {
+  try {
+    const fields = [];
+    let i = 0;
+    while (i < staticPayload.length) {
+      const tag = staticPayload.slice(i, i + 2);
+      const len = parseInt(staticPayload.slice(i + 2, i + 4), 10);
+      if (isNaN(len) || i + 4 + len > staticPayload.length) break;
+      fields.push({ tag, value: staticPayload.slice(i + 4, i + 4 + len) });
+      i += 4 + len;
+    }
+    if (!fields.length || fields[0].tag !== '00') return null;
+
+    let working = fields.filter(f => f.tag !== '54' && f.tag !== '63');
+    const f01 = working.find(f => f.tag === '01');
+    if (f01) f01.value = '12';
+
+    const amtStr = parseFloat(amount).toFixed(2);
+    const insertIdx = working.findIndex(f => parseInt(f.tag) >= 55);
+    if (insertIdx >= 0) working.splice(insertIdx, 0, { tag: '54', value: amtStr });
+    else working.push({ tag: '54', value: amtStr });
+
+    let out = '';
+    for (const f of working) out += f.tag + String(f.value.length).padStart(2, '0') + f.value;
+    out += '6304';
+    return out + _crc16(out);
+  } catch (_) { return null; }
+}
+
 function renderIdle() {
   document.getElementById('idleView').style.display = 'flex';
   document.getElementById('orderView').classList.remove('show');
@@ -196,9 +234,21 @@ function render(payload) {
   if (payload.payMeth === 'GCash') {
     document.getElementById('orderView').classList.remove('show');
     document.getElementById('qrView').classList.add('show');
-    document.getElementById('qrAmount').textContent = '₱' + Number(payload.total || 0).toFixed(2);
+    const _total = Number(payload.total || 0).toFixed(2);
+    document.getElementById('qrAmount').textContent = '₱' + _total;
     const qrImg = document.getElementById('qrImg');
-    if (STORE && STORE.gcash_qr_b64) {
+    if (STORE && STORE.gcash_qr_payload) {
+      const _dynPayload = _buildDynamicQr(STORE.gcash_qr_payload, _total);
+      if (_dynPayload) {
+        qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(_dynPayload);
+        qrImg.style.display = '';
+        document.getElementById('qrNote').textContent = 'Scan with your GCash app — exact amount already included.';
+        document.getElementById('qrNote').style.display = '';
+      } else {
+        qrImg.style.display = 'none';
+        document.getElementById('qrNote').textContent = 'QR error. Please pay the cashier directly.';
+      }
+    } else if (STORE && STORE.gcash_qr_b64) {
       qrImg.src = 'data:image/png;base64,' + STORE.gcash_qr_b64;
       qrImg.style.display = '';
       document.getElementById('qrNote').style.display = '';
