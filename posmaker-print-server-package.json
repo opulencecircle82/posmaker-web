@@ -1,0 +1,12 @@
+{
+  "name": "posmaker-print-server",
+  "version": "1.0.0",
+  "description": "POSMaker ESC/POS Print Server — auto-detects default Windows printer",
+  "main": "posmaker-print-server.js",
+  "bin": "posmaker-print-server.js",
+  "pkg": {
+    "targets": ["node18-win-x64"],
+    "outputPath": "dist",
+    "assets": []
+  }
+}

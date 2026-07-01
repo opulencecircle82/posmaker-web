@@ -1,7 +1,8 @@
 /**
- * POSMaker Local Print Server
- * Run once on the cashier PC: node posmaker-print-server.js
- * Sends raw ESC/POS commands directly to the thermal printer.
+ * POSMaker ESC/POS Print Server
+ * Auto-detects the default Windows printer. No config needed.
+ * First run: registers itself in Windows Startup automatically.
+ *
  * Cashier page auto-detects it at http://localhost:7788
  */
 
@@ -11,14 +12,55 @@ const os   = require('os');
 const fs   = require('fs');
 const path = require('path');
 
-const PORT         = 7788;
-const PRINTER_NAME = 'POS-58 11.2.0.0';
-const LINE_WIDTH   = 32;
+const PORT       = 7788;
+const LINE_WIDTH = 32;
+
+// ── Auto-register in Windows Startup (runs once on first launch) ──────────────
+function autoRegisterStartup() {
+  var flagFile = path.join(os.homedir(), '.posmaker-ps-registered');
+  if (fs.existsSync(flagFile)) return;
+  var exePath = process.execPath;
+  var regKey  = 'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run';
+  try {
+    execSync(
+      'reg add "' + regKey + '" /v "POSMakerPrintServer" /t REG_SZ /d "' + exePath + '" /f',
+      { timeout: 5000 }
+    );
+    fs.writeFileSync(flagFile, '1');
+    console.log('  Auto-start: REGISTERED — will auto-start with Windows from now on.');
+  } catch (_) {
+    console.log('  Auto-start: Could not register (try running as Administrator).');
+  }
+}
+
+// ── Auto-detect default Windows printer ───────────────────────────────────────
+function getDefaultPrinter() {
+  try {
+    var name = execSync(
+      'powershell -NonInteractive -NoProfile -Command ' +
+      '"(Get-WmiObject Win32_Printer | Where-Object { $_.Default -eq $true }).Name"',
+      { encoding: 'utf8', timeout: 8000 }
+    ).trim();
+    return name || null;
+  } catch (_) { return null; }
+}
+
+autoRegisterStartup();
+
+var PRINTER_NAME = getDefaultPrinter();
+
+if (!PRINTER_NAME) {
+  console.log('');
+  console.log('  [ERROR] No default printer found.');
+  console.log('  Set a default printer in Windows Settings > Printers, then restart.');
+  console.log('');
+  process.exit(1);
+}
 
 // ── ESC/POS receipt builder ────────────────────────────────────────────────────
 function buildEscPos(r) {
-  const W = LINE_WIDTH;
-  const chunks = [];
+  var W = LINE_WIDTH;
+  var chunks = [];
 
   function safe(s) {
     return String(s || '').replace(/₱/g, 'P').replace(/[^\x20-\x7E]/g, '?');
@@ -27,21 +69,21 @@ function buildEscPos(r) {
   function line(s) { return Buffer.concat([enc(s), Buffer.from([0x0A])]); }
   function div()   { return line('-'.repeat(W)); }
   function pad(l, r) {
-    const g = W - l.length - r.length;
+    var g = W - l.length - r.length;
     return l + ' '.repeat(Math.max(1, g)) + r;
   }
 
-  const store  = safe(r.store  || 'POSMaker').substring(0, W);
-  const footer = safe(r.footer || 'Thank you!').substring(0, W);
-  const time   = new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
-  const date   = new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  var store  = safe(r.store  || 'POSMaker').substring(0, W);
+  var footer = safe(r.footer || 'Thank you!').substring(0, W);
+  var time   = new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
+  var date   = new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  chunks.push(Buffer.from([0x1B, 0x40]));            // Init
-  chunks.push(Buffer.from([0x1B, 0x61, 0x01]));      // Center
-  chunks.push(Buffer.from([0x1B, 0x21, 0x10]));      // Double height
+  chunks.push(Buffer.from([0x1B, 0x40]));
+  chunks.push(Buffer.from([0x1B, 0x61, 0x01]));
+  chunks.push(Buffer.from([0x1B, 0x21, 0x10]));
   chunks.push(line(store));
-  chunks.push(Buffer.from([0x1B, 0x21, 0x00]));      // Normal
-  chunks.push(Buffer.from([0x1B, 0x61, 0x00]));      // Left
+  chunks.push(Buffer.from([0x1B, 0x21, 0x00]));
+  chunks.push(Buffer.from([0x1B, 0x61, 0x00]));
   chunks.push(div());
   chunks.push(line(date + '  ' + time));
   chunks.push(line('Order #' + safe(r.order_id)));
@@ -62,9 +104,9 @@ function buildEscPos(r) {
   if (parseFloat(r.disc || 0) > 0)
     chunks.push(line(pad('Discount:', '-P' + parseFloat(r.disc).toFixed(2))));
   chunks.push(line(pad('VAT (12%):', 'P' + parseFloat(r.tax  || 0).toFixed(2))));
-  chunks.push(Buffer.from([0x1B, 0x45, 0x01]));      // Bold ON
+  chunks.push(Buffer.from([0x1B, 0x45, 0x01]));
   chunks.push(line(pad('TOTAL:', 'P' + parseFloat(r.total || 0).toFixed(2))));
-  chunks.push(Buffer.from([0x1B, 0x45, 0x00]));      // Bold OFF
+  chunks.push(Buffer.from([0x1B, 0x45, 0x00]));
 
   if (r.method === 'Cash') {
     chunks.push(line(pad('Cash:',   'P' + parseFloat(r.tender || 0).toFixed(2))));
@@ -74,16 +116,16 @@ function buildEscPos(r) {
   }
 
   chunks.push(div());
-  chunks.push(Buffer.from([0x1B, 0x61, 0x01]));      // Center
+  chunks.push(Buffer.from([0x1B, 0x61, 0x01]));
   chunks.push(line(footer));
-  chunks.push(Buffer.from([0x1B, 0x61, 0x00]));      // Left
-  chunks.push(Buffer.from([0x0A, 0x0A, 0x0A]));      // Feed 3 lines
-  chunks.push(Buffer.from([0x1D, 0x56, 0x41, 0x03]));// Full cut
+  chunks.push(Buffer.from([0x1B, 0x61, 0x00]));
+  chunks.push(Buffer.from([0x0A, 0x0A, 0x0A]));
+  chunks.push(Buffer.from([0x1D, 0x56, 0x41, 0x03]));
 
   return Buffer.concat(chunks);
 }
 
-// ── Send raw bytes via Windows Print API (writes PS1 to temp file) ─────────────
+// ── Send raw bytes via Windows Print API ──────────────────────────────────────
 function sendToPrinter(printerName, data) {
   var ts     = Date.now();
   var tmpPrn = path.join(os.tmpdir(), 'pm_' + ts + '.prn');
@@ -91,9 +133,6 @@ function sendToPrinter(printerName, data) {
 
   fs.writeFileSync(tmpPrn, data);
 
-  // Write PS1 to file to avoid here-string / quoting issues
-  // DOC_INFO_1 for StartDocPrinter level=1 has NO cbSize — just 3 LPWSTR pointers (24 bytes on 64-bit)
-  // pDatatype must be NULL (the driver rejects "RAW", "TEXT", etc.)
   var prnPath = tmpPrn.replace(/\\/g, '/');
   var ps1 = [
     "$bytes = [System.IO.File]::ReadAllBytes('" + prnPath + "')",
@@ -192,9 +231,10 @@ var server = http.createServer(function(req, res) {
 server.listen(PORT, '127.0.0.1', function() {
   console.log('');
   console.log('  POSMaker ESC/POS Print Server');
-  console.log('  ─────────────────────────────────────');
+  console.log('  ─────────────────────────────────────────');
   console.log('  Running:  http://localhost:' + PORT);
   console.log('  Printer:  ' + PRINTER_NAME);
   console.log('  Press Ctrl+C to stop.');
+  console.log('  (You can minimize this window — keep it open while using POS)');
   console.log('');
 });

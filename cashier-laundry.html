@@ -287,6 +287,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <button id="btnCam" onclick="toggleScanner()" title="Camera Scanner (barcode + AI visual)" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Camera scanner">&#128247;</button>
   <button id="btnSync" onclick="syncProds()" title="Refresh products" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Refresh products">&#128260;</button>
   <button id="btnPrinterSettings" onclick="openPrinterSettings()" title="Printer Settings" style="display:none;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Printer settings">&#128424;</button>
+  <button id="btnWebPrinter" onclick="openWebPrinterSetup()" title="Install Thermal Printer" style="display:none;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Install thermal printer">&#128424;</button>
   <button onclick="openCashierInbox()" title="Messages" style="position:relative;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Messages">
     &#128172;<span id="cashierInboxBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:9px;border-radius:8px;padding:1px 5px;font-weight:700;min-width:16px;text-align:center"></span>
   </button>
@@ -400,6 +401,24 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 </div>
 
 <div id="receiptPrintArea" style="display:none"></div>
+
+<!-- ── WEB PRINTER SETUP MODAL ── -->
+<div class="modal" id="mWebPrinter">
+  <div class="mbox" style="max-width:340px">
+    <div class="mtitle">&#128424; Thermal Printer Setup</div>
+    <div id="webPrinterStatus" style="font-size:13px;margin-bottom:14px;line-height:1.7"></div>
+    <div id="webPrinterDownload" style="display:none">
+      <a class="btn btn-accent" style="width:100%;justify-content:center;text-decoration:none;display:flex;margin-bottom:8px" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/posmaker-print-server.exe" target="_blank">&#11015; Download Print Server</a>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6">
+        1. I-set ang iyong thermal printer bilang <strong>default printer</strong> sa Windows Settings<br>
+        2. I-download at i-run ang <strong>Print Server</strong> — auto-start na sya with Windows pagkatapos
+      </div>
+    </div>
+    <div class="m-actions" style="margin-top:14px">
+      <button class="btn-cancel" onclick="closeM('mWebPrinter')">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── PRINTER SETTINGS MODAL (Electron desktop app only) ── -->
 <div class="modal" id="mPrinterSettings">
@@ -622,6 +641,9 @@ let _openScanTimer = null;
   if (window.posApp && window.posApp.printReceipt) {
     const btn = document.getElementById('btnPrinterSettings');
     if (btn) btn.style.display = '';
+  } else {
+    const wb = document.getElementById('btnWebPrinter');
+    if (wb) wb.style.display = '';
   }
   if (IS_DEMO) {
     document.getElementById('demoBanner').style.display = '';
@@ -2100,6 +2122,22 @@ async function openPrinterSettings() {
   (printers || []).forEach(p => sel.appendChild(new Option(p.displayName || p.name, p.name)));
   sel.value = current || '';
 }
+async function openWebPrinterSetup() {
+  const statusEl = document.getElementById('webPrinterStatus');
+  const dlEl     = document.getElementById('webPrinterDownload');
+  statusEl.textContent = 'Checking print server…';
+  dlEl.style.display = 'none';
+  document.getElementById('mWebPrinter').classList.add('show');
+  try {
+    const r = await fetch('http://localhost:7788/ping', { signal: AbortSignal.timeout(3000) });
+    const d = await r.json();
+    statusEl.innerHTML = '<span style="color:#10b981">&#9679;</span> Print server is running!<br><strong>' + (d.printer || '') + '</strong>';
+  } catch (_) {
+    statusEl.innerHTML = '<span style="color:#f59e0b">&#9679;</span> Print server is not running.<br>I-download at i-run ang Print Server para gumana ang thermal printer.';
+    dlEl.style.display = '';
+  }
+}
+
 async function savePrinterSetting() {
   const name = document.getElementById('printerSelect').value;
   await window.posApp.setDefaultPrinter(name);
