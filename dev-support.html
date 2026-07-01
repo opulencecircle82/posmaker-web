@@ -836,6 +836,7 @@ const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 let _devToken = null, _devUser = '';
 let _allStores = [], _allStaff = [], _allOrders = [], _allPartners = [];
 let _allAgents = [], _allReferrals = [];
+let _onlineStoreIds = new Set();
 
 // ── SHA-256 ──────────────────────────────────────────────────────────────────
 async function sha256(text) {
@@ -1114,6 +1115,14 @@ BEGIN
   IF v_user_id IS NOT NULL THEN
     DELETE FROM auth.users WHERE id = v_user_id;
   END IF;
+END; $$;
+
+CREATE OR REPLACE FUNCTION dev_get_online_stores(p_token text)
+RETURNS TABLE(store_id uuid) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
+    AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
+  RETURN QUERY SELECT DISTINCT su.store_id FROM store_users su WHERE su.last_seen > now() - interval '2 minutes';
 END; $$;`;
 
 function showSqlSetup() {
@@ -1137,8 +1146,9 @@ async function showDashboard() {
 }
 
 async function loadAll() {
-  await Promise.all([loadStores(), loadStaff(), loadOrders(), loadTicketCount()]);
+  await Promise.all([loadStores(), loadStaff(), loadOrders(), loadTicketCount(), loadOnlineStores()]);
   updateStats();
+  setInterval(loadOnlineStores, 60 * 1000);
 }
 
 async function loadTicketCount() {
@@ -1165,6 +1175,12 @@ async function loadStaff() {
   _allStaff = data || []; // keep for store detail view
   document.getElementById('stStaff').textContent = _allPartners.length;
   renderPartners();
+  renderAccounts();
+}
+
+async function loadOnlineStores() {
+  const { data } = await _sb.rpc('dev_get_online_stores', { p_token: _devToken });
+  _onlineStoreIds = new Set((data || []).map(r => r.store_id).filter(Boolean));
   renderAccounts();
 }
 
@@ -1266,9 +1282,12 @@ function renderAccounts(items) {
   if (!list.length) { tb.innerHTML = '<tr class="empty-row"><td colspan="6">No accounts yet.</td></tr>'; return; }
   tb.innerHTML = list.map((p, i) => {
     const dt = new Date(p.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const onlineDot = _onlineStoreIds.has(p.store_id)
+      ? ' <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;vertical-align:middle;margin-left:5px" title="Cashier online now"></span>'
+      : '';
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${i + 1}</td>
-      <td><strong>${esc(p.store_name)}</strong></td>
+      <td><strong>${esc(p.store_name)}</strong>${onlineDot}</td>
       <td style="color:var(--muted);font-size:12px">${esc(p.owner_email || '—')}</td>
       <td><span class="badge badge-muted">${esc(p.business_type || '—')}</span></td>
       <td style="color:var(--muted);font-size:12px">${dt}</td>
