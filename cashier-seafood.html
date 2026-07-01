@@ -2098,22 +2098,37 @@ function showReceipt(d) {
   document.getElementById('mConfirm').style.display = 'block';
 }
 
-function _receiptToPng(txt) {
+async function _receiptToPng(txt) {
   const lines = txt.split('\n');
-  const FS = 15;           // font size px
-  const LH = 19;           // line height px
-  const PAD = 4;
-  const W  = 400;          // canvas width — scales to fit 58mm paper
-  const H  = lines.length * LH + PAD * 2 + LH;
+  const FS = 15;
+  const LH = 19;
+  const PAD = 6;
+  const W   = 400;
+  // Load store logo if available
+  let logoImg = null, logoH = 0;
+  if (typeof STORE !== 'undefined' && STORE.logo_b64) {
+    logoImg = new Image();
+    logoImg.src = 'data:image/png;base64,' + STORE.logo_b64;
+    await new Promise(r => { logoImg.onload = r; logoImg.onerror = r; });
+    const maxW = 180, maxH = 80;
+    const ratio = Math.min(maxW / (logoImg.naturalWidth || 1), maxH / (logoImg.naturalHeight || 1), 1);
+    logoImg._dw = Math.round((logoImg.naturalWidth  || 0) * ratio);
+    logoImg._dh = Math.round((logoImg.naturalHeight || 0) * ratio);
+    logoH = logoImg._dh + 10;
+  }
+  const H = PAD * 2 + logoH + lines.length * LH + LH;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const cx = cv.getContext('2d');
   cx.fillStyle = '#ffffff';
   cx.fillRect(0, 0, W, H);
+  if (logoImg && logoImg._dw) {
+    cx.drawImage(logoImg, Math.round((W - logoImg._dw) / 2), PAD, logoImg._dw, logoImg._dh);
+  }
   cx.fillStyle = '#000000';
   cx.font = FS + 'px "Courier New", Courier, monospace';
   cx.textBaseline = 'top';
-  lines.forEach((l, i) => cx.fillText(l, PAD, PAD + i * LH));
+  lines.forEach((l, i) => cx.fillText(l, PAD, PAD + logoH + i * LH));
   return cv.toDataURL('image/png');
 }
 
@@ -2153,7 +2168,7 @@ async function doPrint() {
     newOrder(); return;
   }
   // Fallback: render receipt to Canvas PNG — bypasses Chrome dark mode on print
-  const _png = _receiptToPng(txt);
+  const _png = await _receiptToPng(txt);
   const _html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
     + '<style>@page{size:58mm auto;margin:0}body{margin:0;padding:0}img{width:100%;display:block}</style>'
     + '</head><body><img src="' + _png + '">'
