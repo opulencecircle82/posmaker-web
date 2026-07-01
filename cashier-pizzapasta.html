@@ -2081,9 +2081,16 @@ function doPrint() {
     document.getElementById('receiptPrintArea').textContent = txt;
     window.posApp.printReceipt();
   } else {
-    const w = window.open('', '', 'width=300,height=500');
-    w.document.write('<pre style="font-family:monospace;font-size:12px">' + txt + '</pre>');
-    w.print(); w.close();
+    const w = window.open('', '_blank', 'width=320,height=600');
+    const escaped = txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+      @page { size: 58mm auto; margin: 2mm; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Courier New', monospace; font-size: 11pt; color: #000 !important; background: #fff !important; width: 54mm; }
+      pre { white-space: pre-wrap; word-break: break-word; color: #000 !important; }
+    </style></head><body><pre>${escaped}</pre></body></html>`);
+    w.document.close(); w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 400);
   }
   newOrder();
 }

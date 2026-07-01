@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSMaker – Tutorial Script: Cashier → Manager → Owner</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0a; color: #f0f0f0; font-family: 'Segoe UI', sans-serif; }
+  .page { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  h1 { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #666; margin-bottom: 6px; }
+  .title { font-size: 30px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: #888; margin-bottom: 48px; }
+
+  /* Role headers */
+  .role-block { margin-bottom: 56px; }
+  .role-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 24px; padding-bottom: 14px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+  .role-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .cashier .role-icon  { background: #1a1a2e; }
+  .manager .role-icon  { background: #1a0e2e; }
+  .owner   .role-icon  { background: #0d1a14; }
+
+  .role-meta h2 { font-size: 20px; font-weight: 800; }
+  .cashier .role-meta h2  { color: #60a5fa; }
+  .manager .role-meta h2  { color: #a78bfa; }
+  .owner   .role-meta h2  { color: #10b981; }
+  .role-meta span { font-size: 12px; color: #555; letter-spacing: 1px; text-transform: uppercase; }
+
+  /* Steps */
+  .step { display: flex; gap: 16px; margin-bottom: 20px; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 8px;
+    font-size: 12px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .cashier .step-num  { background: #1e3a5f; color: #60a5fa; }
+  .manager .step-num  { background: #2e1a4f; color: #a78bfa; }
+  .owner   .step-num  { background: #064e3b; color: #10b981; }
+
+  .step-content {}
+  .step-content .action {
+    font-size: 15px; font-weight: 700; color: #eee; margin-bottom: 4px;
+  }
+  .step-content .vo {
+    font-size: 14px; color: #888; line-height: 1.65;
+    font-style: italic;
+  }
+  .step-content .screen {
+    margin-top: 8px; background: #0d0d0d;
+    border: 1px dashed #1e1e1e; border-radius: 8px;
+    padding: 10px 14px; font-size: 12px; color: #555; line-height: 1.6;
+  }
+  .step-content .screen strong { color: #444; font-style: normal; }
+
+  /* Transition pill */
+  .transition {
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 0 40px 0; padding: 14px 18px;
+    background: #0f0f0f; border: 1px solid #1e1e1e;
+    border-radius: 12px;
+  }
+  .transition .arrow { font-size: 20px; }
+  .transition p { font-size: 13px; color: #555; }
+  .transition p strong { color: #888; }
+
+  /* CTA */
+  .cta-block {
+    background: #0d1a14; border: 1px solid #064e3b;
+    border-radius: 14px; padding: 28px 24px;
+  }
+  .cta-block h3 { font-size: 18px; font-weight: 800; color: #10b981; margin-bottom: 6px; }
+  .cta-block p { font-size: 14px; color: #6ee7b7; line-height: 1.7; }
+  .cta-block .link { margin-top: 14px; font-size: 15px; font-weight: 700; color: #fff; }
+
+  /* Timecode bar */
+  .timecode-bar {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+  }
+  .tc { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #444; }
+  .tc-line { flex: 1; height: 1px; background: #1a1a1a; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>POSMaker Tutorial</h1>
+  <div class="title">Cashier → Manager → Owner</div>
+  <div class="subtitle">~60 seconds · English · Screen recording walkthrough</div>
+
+  <!-- ── CASHIER ── -->
+  <div class="role-block cashier">
+
+    <div class="timecode-bar"><span class="tc">0:00 – 0:20</span><div class="tc-line"></div></div>
+
+    <div class="role-header">
+      <div class="role-icon">🧾</div>
+      <div class="role-meta">
+        <span>Role 1</span>
+        <h2>The Cashier</h2>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="action">Log in with PIN</div>
+        <div class="vo">"The cashier starts their shift by logging in with their personal PIN — no shared passwords."</div>
+        <div class="screen"><strong>Screen:</strong> PIN pad, cashier name appears → dashboard loads</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="action">Add items &amp; process orders</div>
+        <div class="vo">"They select items, choose the payment method — Cash or GCash — then confirm the order."</div>
+        <div class="screen"><strong>Screen:</strong> Add items → select payment → Checkout → order confirmed</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="action">End of shift → Remit to Manager</div>
+        <div class="vo">"When the shift ends, the cashier enters their Cash on Hand — the actual cash in the drawer — then submits it to the manager."</div>
+        <div class="screen"><strong>Screen:</strong> Logout → Enter Cash on Hand → Confirm Remittance → logged out</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Transition -->
+  <div class="transition">
+    <span class="arrow">↓</span>
+    <p>Cashier's remittance is now waiting for <strong>Manager review</strong></p>
+  </div>
+
+  <!-- ── MANAGER ── -->
+  <div class="role-block manager">
+
+    <div class="timecode-bar"><span class="tc">0:20 – 0:42</span><div class="tc-line"></div></div>
+
+    <div class="role-header">
+      <div class="role-icon">📋</div>
+      <div class="role-meta">
+        <span>Role 2</span>
+        <h2>The Manager</h2>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="action">Receive &amp; confirm remittance</div>
+        <div class="vo">"The manager opens the remittance, counts the cash, and confirms it. The system automatically shows if it's Balanced, Short, or Over."</div>
+        <div class="screen"><strong>Screen:</strong> Remittance card → Cash Sales · Online Sales · COH → <span style="color:#10b981">Balanced</span> / <span style="color:#ef4444">Short</span> / <span style="color:#f97316">Over</span></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="action">Order stocks via Manager POS</div>
+        <div class="vo">"Only the manager can reorder stocks — this keeps inventory controlled. They select items that are running low and submit the order."</div>
+        <div class="screen"><strong>Screen:</strong> Manager POS → Stocks tab → select items → Order confirmed</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="action">Complete assigned tasks</div>
+        <div class="vo">"The owner assigns tasks to the manager — like restocking, cleaning, or reports. The manager marks them done when finished."</div>
+        <div class="screen"><strong>Screen:</strong> Tasks list → checkbox → marked Complete</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Transition -->
+  <div class="transition">
+    <span class="arrow">↓</span>
+    <p>Everything is recorded. Now the <strong>Owner validates</strong> from anywhere.</p>
+  </div>
+
+  <!-- ── OWNER ── -->
+  <div class="role-block owner">
+
+    <div class="timecode-bar"><span class="tc">0:42 – 1:00</span><div class="tc-line"></div></div>
+
+    <div class="role-header">
+      <div class="role-icon">📊</div>
+      <div class="role-meta">
+        <span>Role 3</span>
+        <h2>The Owner</h2>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="action">Check the Dashboard — anywhere, anytime</div>
+        <div class="vo">"The owner opens the dashboard on any device. No need to be at the store — just an internet connection."</div>
+        <div class="screen"><strong>Screen:</strong> Phone or laptop → POSMaker dashboard → overview cards (Sales today, Remittances, Active cashiers)</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="action">Review Activity Log &amp; Remittances</div>
+        <div class="vo">"Every transaction, every login, every remittance — it's all logged. The owner can see who did what and when."</div>
+        <div class="screen"><strong>Screen:</strong> Activity Log → remittance entries with Short/Over/Balanced badges · cashier name · amount</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="action">Assign new tasks &amp; monitor performance</div>
+        <div class="vo">"The owner can add tasks for the manager right from the dashboard — and track whether they're getting done. Full visibility, zero guessing."</div>
+        <div class="screen"><strong>Screen:</strong> Add task → assign to manager → task appears in manager's list</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-block">
+    <h3>Ready to take back control of your business?</h3>
+    <p>
+      Sign up for free at <strong>POSMaker</strong>.<br>
+      Cashier. Manager. Owner. — Everyone knows their role.<br>
+      You run the business. The business doesn't run you.
+    </p>
+    <div class="link">👉 posmaker.netlify.app</div>
+  </div>
+
+</div>
+</body>
+</html>

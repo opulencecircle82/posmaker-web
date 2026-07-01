@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSMaker — 2-Min Ad</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #000;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+  width: 100vw; height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── STAGE ── */
+#stage {
+  position: relative;
+  width: 1280px; height: 720px;
+  background: #000;
+  overflow: hidden;
+}
+
+/* ── SCENES ── */
+.scene {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.7s ease;
+  padding: 60px;
+}
+.scene.active { opacity: 1; pointer-events: all; }
+
+/* ── PROGRESS BAR ── */
+#progressWrap {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 4px;
+  background: rgba(255,255,255,0.08); z-index: 100;
+}
+#progressBar {
+  height: 100%; background: #10b981;
+  width: 0%; transition: width 0.25s linear;
+}
+
+/* ── CONTROLS ── */
+#controls {
+  position: absolute; bottom: 14px; right: 20px;
+  display: flex; gap: 10px; z-index: 200;
+}
+#controls button {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  color: #fff; font-size: 12px; padding: 6px 14px; border-radius: 20px;
+  cursor: pointer; letter-spacing: 1px; text-transform: uppercase;
+  transition: background 0.2s;
+}
+#controls button:hover { background: rgba(255,255,255,0.16); }
+
+/* ── SCENE COUNTER ── */
+#sceneLabel {
+  position: absolute; bottom: 18px; left: 20px;
+  font-size: 11px; color: rgba(255,255,255,0.2);
+  letter-spacing: 1px; z-index: 200;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp   { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:none; } }
+@keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+@keyframes zoomIn   { from { opacity:0; transform:scale(0.88); } to { opacity:1; transform:scale(1); } }
+@keyframes slideL   { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:none; } }
+@keyframes slideR   { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:none; } }
+@keyframes pulse    { 0%,100% { transform:scale(1); } 50% { transform:scale(1.04); } }
+
+.anim-up   { animation: fadeUp  0.7s ease both; }
+.anim-in   { animation: fadeIn  0.7s ease both; }
+.anim-zoom { animation: zoomIn  0.7s ease both; }
+.anim-l    { animation: slideL  0.6s ease both; }
+.anim-r    { animation: slideR  0.6s ease both; }
+
+/* delay helpers */
+.d1 { animation-delay: 0.2s; }
+.d2 { animation-delay: 0.55s; }
+.d3 { animation-delay: 0.9s; }
+.d4 { animation-delay: 1.3s; }
+.d5 { animation-delay: 1.7s; }
+
+/* ── TYPOGRAPHY ── */
+.tag {
+  font-size: 13px; letter-spacing: 4px; text-transform: uppercase;
+  color: rgba(255,255,255,0.3); margin-bottom: 20px;
+}
+.hero { font-size: 80px; font-weight: 900; line-height: 1.0; color: #fff; text-align: center; }
+.hero em { font-style: normal; }
+.sub  { font-size: 24px; color: rgba(255,255,255,0.55); text-align: center; margin-top: 20px; line-height: 1.5; }
+.sub strong { color: #fff; }
+
+.step-list { list-style: none; width: 100%; max-width: 700px; }
+.step-list li {
+  display: flex; align-items: flex-start; gap: 20px;
+  padding: 18px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.step-list li:last-child { border-bottom: none; }
+.step-icon {
+  width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+}
+.step-txt strong { font-size: 18px; color: #fff; display: block; margin-bottom: 4px; }
+.step-txt span   { font-size: 14px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+
+.role-title {
+  font-size: 13px; letter-spacing: 5px; text-transform: uppercase;
+  margin-bottom: 28px; display: flex; align-items: center; gap: 12px;
+}
+.role-title::before, .role-title::after {
+  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08);
+}
+
+/* ── SCENE 1: HOOK ── */
+#s1 { background: #000; }
+#s1 .hero { font-size: 86px; }
+#s1 .hero em { color: #ef4444; }
+
+/* ── SCENE 2: PROBLEM ── */
+#s2 { background: radial-gradient(ellipse at center, #0d0000 0%, #000 70%); }
+.prob-item {
+  font-size: 30px; font-weight: 700; color: rgba(255,255,255,0.15);
+  padding: 12px 0; text-align: center; line-height: 1.3;
+  transition: color 0.4s, transform 0.4s;
+}
+.prob-item.lit { color: #fff; transform: scale(1.03); }
+
+/* ── SCENE 3: REVEAL ── */
+#s3 { background: radial-gradient(ellipse at center, #001a0d 0%, #000 70%); }
+.logo-wrap {
+  font-size: 64px; font-weight: 900; letter-spacing: -2px;
+  background: linear-gradient(135deg, #10b981, #00b4d8);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: pulse 2s ease infinite;
+}
+.logo-sub { font-size: 13px; letter-spacing: 6px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-top: 10px; text-align: center; }
+
+/* ── SCENE 4: CASHIER ── */
+#s4 { background: radial-gradient(ellipse at 30% 50%, #001433 0%, #000 60%); }
+#s4 .role-title { color: #60a5fa; }
+#s4 .step-icon  { background: #0d2146; }
+#s4 .badge { background:#1e3a5f; color:#60a5fa; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:700; letter-spacing:1px; display:inline-block; margin-top:5px; }
+
+/* ── SCENE 5: MANAGER ── */
+#s5 { background: radial-gradient(ellipse at 70% 50%, #110033 0%, #000 60%); }
+#s5 .role-title { color: #a78bfa; }
+#s5 .step-icon  { background: #1e0a46; }
+.badge-green  { background:#0d2e1f; color:#10b981; font-size:12px; font-weight:800; padding:3px 10px; border-radius:20px; display:inline-block; margin: 2px 4px 0 0; }
+.badge-orange { background:#2e1a0d; color:#f97316; font-size:12px; font-weight:800; padding:3px 10px; border-radius:20px; display:inline-block; margin: 2px 4px 0 0; }
+.badge-red    { background:#2e0d0d; color:#ef4444; font-size:12px; font-weight:800; padding:3px 10px; border-radius:20px; display:inline-block; margin: 2px 4px 0 0; }
+
+/* ── SCENE 6: OWNER ── */
+#s6 { background: radial-gradient(ellipse at 50% 30%, #001a0d 0%, #000 60%); }
+#s6 .role-title { color: #10b981; }
+#s6 .step-icon  { background: #052e1a; }
+
+/* ── SCENE 7: BENEFITS GRID ── */
+#s7 { background: #000; }
+.benefit-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 16px; width: 100%; max-width: 900px;
+}
+.benefit-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px; padding: 24px 20px; text-align: center;
+}
+.benefit-card .bi { font-size: 32px; margin-bottom: 12px; display: block; }
+.benefit-card strong { font-size: 16px; color: #fff; display: block; margin-bottom: 6px; }
+.benefit-card span   { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+
+/* ── SCENE 8: CTA ── */
+#s8 { background: radial-gradient(ellipse at center, #001a0d 0%, #000 70%); }
+#s8 .hero { font-size: 72px; }
+.cta-btn {
+  margin-top: 36px; padding: 18px 52px;
+  background: linear-gradient(135deg, #10b981, #00b4d8);
+  color: #000; font-size: 20px; font-weight: 800; border-radius: 50px;
+  letter-spacing: 1px; animation: pulse 2s ease infinite;
+  display: inline-block;
+}
+.cta-url { margin-top: 18px; font-size: 16px; color: rgba(255,255,255,0.3); letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- S1: HOOK 0–7s -->
+  <div class="scene" id="s1">
+    <div class="tag anim-in">POSMaker</div>
+    <div class="hero anim-up d1">Is your business<br><em>running you?</em></div>
+    <div class="sub anim-up d2">Or are <strong>you</strong> running your business?</div>
+  </div>
+
+  <!-- S2: PROBLEM 7–20s -->
+  <div class="scene" id="s2">
+    <div id="probList">
+      <div class="prob-item">You can't leave the store.</div>
+      <div class="prob-item">You don't know if your cashier is honest.</div>
+      <div class="prob-item">Short? Over? You find out too late.</div>
+      <div class="prob-item">No system = you're the system.</div>
+    </div>
+  </div>
+
+  <!-- S3: REVEAL 20–28s -->
+  <div class="scene" id="s3">
+    <div class="logo-wrap anim-zoom">POSMaker</div>
+    <div class="logo-sub anim-up d1">Point of Sale · Built for Real Business Owners</div>
+    <div class="sub anim-up d2" style="margin-top:30px; font-size:22px;">
+      One system. Three roles.<br><strong>Total control — from anywhere.</strong>
+    </div>
+  </div>
+
+  <!-- S4: CASHIER 28–58s -->
+  <div class="scene" id="s4">
+    <div class="role-title anim-in" style="width:100%;max-width:700px">🧾 &nbsp; The Cashier</div>
+    <ul class="step-list">
+      <li class="anim-l d1">
+        <div class="step-icon">🔐</div>
+        <div class="step-txt">
+          <strong>Log in with personal PIN</strong>
+          <span>No shared passwords. Each cashier has their own secure account.</span>
+        </div>
+      </li>
+      <li class="anim-l d2">
+        <div class="step-icon">🛒</div>
+        <div class="step-txt">
+          <strong>Process orders — Cash or GCash</strong>
+          <span>Add items, pick payment method, confirm order. Fast and simple.</span>
+          <div><span class="badge">💵 Cash</span><span class="badge" style="background:#0d2e1f;color:#10b981">📱 GCash</span></div>
+        </div>
+      </li>
+      <li class="anim-l d3">
+        <div class="step-icon">💼</div>
+        <div class="step-txt">
+          <strong>End of shift → Remit to Manager</strong>
+          <span>Enter Cash on Hand, submit remittance, then log out. Done.</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- S5: MANAGER 58–90s -->
+  <div class="scene" id="s5">
+    <div class="role-title anim-in" style="width:100%;max-width:700px">📋 &nbsp; The Manager</div>
+    <ul class="step-list">
+      <li class="anim-r d1">
+        <div class="step-icon">✅</div>
+        <div class="step-txt">
+          <strong>Review &amp; confirm remittance</strong>
+          <span>System auto-calculates the result:</span>
+          <div style="margin-top:6px">
+            <span class="badge-green">✅ Balanced</span>
+            <span class="badge-orange">🟠 Over</span>
+            <span class="badge-red">❌ Short</span>
+          </div>
+        </div>
+      </li>
+      <li class="anim-r d2">
+        <div class="step-icon">📦</div>
+        <div class="step-txt">
+          <strong>Order stocks via Manager POS</strong>
+          <span>Only the manager can reorder inventory — cashiers cannot touch this.</span>
+        </div>
+      </li>
+      <li class="anim-r d3">
+        <div class="step-icon">📌</div>
+        <div class="step-txt">
+          <strong>Complete assigned tasks</strong>
+          <span>Owner assigns tasks. Manager executes. Everything is tracked.</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- S6: OWNER 90–112s -->
+  <div class="scene" id="s6">
+    <div class="role-title anim-in" style="width:100%;max-width:700px">📊 &nbsp; The Owner</div>
+    <ul class="step-list">
+      <li class="anim-l d1">
+        <div class="step-icon">🌐</div>
+        <div class="step-txt">
+          <strong>Open Dashboard — anywhere, any device</strong>
+          <span>At home, on vacation, on the road. Just open your browser.</span>
+        </div>
+      </li>
+      <li class="anim-l d2">
+        <div class="step-icon">🔍</div>
+        <div class="step-txt">
+          <strong>See every transaction &amp; remittance</strong>
+          <span>Full activity log — who did what, when, and how much. No secrets.</span>
+        </div>
+      </li>
+      <li class="anim-l d3">
+        <div class="step-icon">🎯</div>
+        <div class="step-txt">
+          <strong>Assign tasks. Monitor performance.</strong>
+          <span>Add tasks from your dashboard. Track who's doing their job — and who isn't.</span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- S7: BENEFITS 112–118s -->
+  <div class="scene" id="s7">
+    <div class="tag anim-in" style="margin-bottom:28px">Everything you need</div>
+    <div class="benefit-grid">
+      <div class="benefit-card anim-zoom d1">
+        <span class="bi">💰</span>
+        <strong>Cash + GCash</strong>
+        <span>Accept any payment. Auto-track every sale.</span>
+      </div>
+      <div class="benefit-card anim-zoom d2">
+        <span class="bi">📊</span>
+        <strong>Live Dashboard</strong>
+        <span>Sales, remittances, and logs — real time.</span>
+      </div>
+      <div class="benefit-card anim-zoom d3">
+        <span class="bi">🔐</span>
+        <strong>Role-Based Access</strong>
+        <span>Cashier, Manager, Owner — each has their lane.</span>
+      </div>
+      <div class="benefit-card anim-zoom d3">
+        <span class="bi">📦</span>
+        <strong>Stock Control</strong>
+        <span>Manager orders. Owner approves. No leakage.</span>
+      </div>
+      <div class="benefit-card anim-zoom d4">
+        <span class="bi">📋</span>
+        <strong>Task Management</strong>
+        <span>Assign from anywhere. Know what's done.</span>
+      </div>
+      <div class="benefit-card anim-zoom d5">
+        <span class="bi">🌐</span>
+        <strong>Works Anywhere</strong>
+        <span>Phone, tablet, laptop — just need internet.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- S8: CTA 118–120s -->
+  <div class="scene" id="s8">
+    <div class="tag anim-in">Start for free</div>
+    <div class="hero anim-up d1">You run<br>the business.<br><em style="color:#10b981">Not the other<br>way around.</em></div>
+    <div class="cta-btn anim-zoom d3">Sign Up — It's Free</div>
+    <div class="cta-url anim-in d4">posmaker.netlify.app</div>
+  </div>
+
+  <!-- PROGRESS + CONTROLS -->
+  <div id="progressWrap"><div id="progressBar"></div></div>
+  <div id="sceneLabel">1 / 8</div>
+  <div id="controls">
+    <button id="btnPlay">⏸ Pause</button>
+    <button id="btnRestart">↺ Restart</button>
+  </div>
+
+</div>
+
+<script>
+// Scene durations in ms
+const SCENES = [
+  { id:'s1', dur: 7000 },   // Hook
+  { id:'s2', dur:13000 },   // Problem
+  { id:'s3', dur: 8000 },   // Reveal
+  { id:'s4', dur:30000 },   // Cashier
+  { id:'s5', dur:32000 },   // Manager
+  { id:'s6', dur:22000 },   // Owner
+  { id:'s7', dur: 6000 },   // Benefits grid
+  { id:'s8', dur: 5000 },   // CTA
+];
+
+const TOTAL = SCENES.reduce((a,s) => a + s.dur, 0);
+
+let current = 0;
+let elapsed = 0;
+let paused = false;
+let rafId = null;
+let lastTs = null;
+
+// ── Problem scene light-up ──
+const probEls = document.querySelectorAll('.prob-item');
+function lightUpProblems(sceneElapsed) {
+  const interval = 3000;
+  probEls.forEach((el, i) => {
+    el.classList.toggle('lit', sceneElapsed >= i * interval);
+  });
+}
+
+function showScene(idx) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(SCENES[idx].id);
+  if (el) {
+    // Re-trigger animations by cloning children
+    el.querySelectorAll('[class*="anim-"]').forEach(c => {
+      const clone = c.cloneNode(true);
+      c.parentNode.replaceChild(clone, c);
+    });
+    el.classList.add('active');
+  }
+  document.getElementById('sceneLabel').textContent = `${idx + 1} / ${SCENES.length}`;
+}
+
+function tick(ts) {
+  if (paused) { lastTs = ts; rafId = requestAnimationFrame(tick); return; }
+  if (lastTs === null) lastTs = ts;
+  const dt = ts - lastTs;
+  lastTs = ts;
+
+  elapsed += dt;
+
+  // Progress bar
+  const pct = Math.min(100, (elapsed / TOTAL) * 100);
+  document.getElementById('progressBar').style.width = pct + '%';
+
+  // Which scene?
+  let acc = 0;
+  let sceneIdx = 0;
+  let sceneElapsed = 0;
+  for (let i = 0; i < SCENES.length; i++) {
+    if (elapsed < acc + SCENES[i].dur) { sceneIdx = i; sceneElapsed = elapsed - acc; break; }
+    acc += SCENES[i].dur;
+    sceneIdx = SCENES.length - 1;
+    sceneElapsed = elapsed - acc + SCENES[SCENES.length-1].dur;
+  }
+
+  if (sceneIdx !== current) {
+    current = sceneIdx;
+    showScene(current);
+  }
+
+  // Problem scene special
+  if (SCENES[current].id === 's2') lightUpProblems(sceneElapsed);
+
+  if (elapsed < TOTAL) {
+    rafId = requestAnimationFrame(tick);
+  } else {
+    // Hold last scene
+    document.getElementById('progressBar').style.width = '100%';
+  }
+}
+
+function start() {
+  elapsed = 0; current = 0; lastTs = null;
+  showScene(0);
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(tick);
+}
+
+document.getElementById('btnPlay').addEventListener('click', () => {
+  paused = !paused;
+  document.getElementById('btnPlay').textContent = paused ? '▶ Play' : '⏸ Pause';
+  if (!paused) lastTs = null;
+});
+
+document.getElementById('btnRestart').addEventListener('click', () => {
+  paused = false;
+  document.getElementById('btnPlay').textContent = '⏸ Pause';
+  start();
+});
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === ' ') { e.preventDefault(); document.getElementById('btnPlay').click(); }
+  if (e.key === 'r' || e.key === 'R') document.getElementById('btnRestart').click();
+});
+
+// Scale stage to window
+function scaleStage() {
+  const sw = window.innerWidth, sh = window.innerHeight;
+  const scale = Math.min(sw / 1280, sh / 720);
+  document.getElementById('stage').style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', scaleStage);
+scaleStage();
+
+start();
+</script>
+</body>
+</html>
