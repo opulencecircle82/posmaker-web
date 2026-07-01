@@ -2059,11 +2059,12 @@ function doPrint() {
     window.posApp.printReceipt();
   } else {
     const w = window.open('', '_blank', 'width=320,height=600');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="color-scheme" content="light"><style>
       @page { size: 58mm auto; margin: 2mm; }
+      html { color-scheme: light; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: 10pt; color: #000 !important; background: #fff !important; width: 54mm; }
-      div, p, span, td, th { color: #000 !important; background: transparent !important; }
+      body { font-family: 'Courier New', monospace; font-size: 10pt; color: #000 !important; -webkit-text-fill-color: #000 !important; background: #fff !important; width: 54mm; }
+      div, p, span, td, th { color: #000 !important; -webkit-text-fill-color: #000 !important; background: transparent !important; }
     </style></head><body>${html}</body></html>`);
     w.document.close(); w.focus();
     setTimeout(() => { w.print(); w.close(); }, 400);

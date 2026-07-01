@@ -2327,11 +2327,12 @@ function doPrint() {
   } else {
     const w = window.open('', '_blank', 'width=320,height=600');
     const escaped = txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="color-scheme" content="light"><style>
       @page { size: 58mm auto; margin: 2mm; }
+      html { color-scheme: light; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Courier New', monospace; font-size: 11pt; color: #000 !important; background: #fff !important; width: 54mm; }
-      pre { white-space: pre-wrap; word-break: break-word; color: #000 !important; }
+      body { font-family: 'Courier New', monospace; font-size: 11pt; color: #000 !important; -webkit-text-fill-color: #000 !important; background: #fff !important; width: 54mm; }
+      pre { white-space: pre-wrap; word-break: break-word; color: #000 !important; -webkit-text-fill-color: #000 !important; }
     </style></head><body><pre>${escaped}</pre></body></html>`);
     w.document.close(); w.focus();
     setTimeout(() => { w.print(); w.close(); }, 400);
