@@ -1137,7 +1137,7 @@ function calcRemitLogDiff() {
   if (isNaN(cash)) { el.textContent='—'; el.style.color='var(--muted)'; btn.disabled=true; btn.style.opacity='.4'; return; }
   const diff = cash - pos;
   el.textContent = (diff>=0?'+':'') + (CUR||'₱') + Math.abs(diff).toFixed(2);
-  el.style.color = diff>0 ? '#10b981' : diff<0 ? '#ef4444' : '#888';
+  el.style.color = diff>0 ? '#f97316' : diff<0 ? '#ef4444' : '#00b4d8';
   btn.disabled = false; btn.style.opacity = '1';
 }
 
@@ -1153,7 +1153,7 @@ function remitLogStep2() {
   document.getElementById('remitCk4').textContent = (CUR||'₱') + cash.toFixed(2);
   const diffEl = document.getElementById('remitCk5');
   diffEl.textContent = (diff>=0?'+':'') + (CUR||'₱') + Math.abs(diff).toFixed(2);
-  diffEl.style.color = diff>0 ? '#10b981' : diff<0 ? '#ef4444' : '#888';
+  diffEl.style.color = diff>0 ? '#f97316' : diff<0 ? '#ef4444' : '#00b4d8';
   document.getElementById('remitStep1').style.display = 'none';
   document.getElementById('remitStep2').style.display = '';
 }

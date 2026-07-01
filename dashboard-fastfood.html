@@ -2073,9 +2073,9 @@ async function openMgrCohModal() {
         const cashSales = parseFloat(r.pos_sales||0);
         const onlineSales = parseFloat(r.online_sales||0);
         const diff = parseFloat(r.difference||0);
-        const badge = r.status==='over' ? '<span style="color:#10b981;font-size:11px;margin-left:6px">Over +'+CUR+Math.abs(diff).toFixed(2)+'</span>'
+        const badge = r.status==='over' ? '<span style="color:#f97316;font-size:11px;margin-left:6px">Over +'+CUR+Math.abs(diff).toFixed(2)+'</span>'
           : r.status==='short' ? '<span style="color:#ef4444;font-size:11px;margin-left:6px">Short -'+CUR+Math.abs(diff).toFixed(2)+'</span>'
-          : '<span style="color:var(--muted);font-size:11px;margin-left:6px">Balanced</span>';
+          : '<span style="color:#00b4d8;font-size:11px;margin-left:6px">Balanced</span>';
         const onlineLine = onlineSales > 0 ? ' &nbsp;·&nbsp; Online: <span style="color:#a78bfa">'+CUR+onlineSales.toFixed(2)+'</span>' : '';
         return '<div style="padding:7px 0;border-bottom:1px solid var(--border)">'+
           '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'+
@@ -3578,7 +3578,7 @@ function renderActivityLog() {
       <td style="color:var(--muted);white-space:nowrap">${dt}</td>
       <td style="font-weight:600">${l.actor_name || '—'}</td>
       <td><span class="badge" style="${roleColor}">${l.actor_role || '—'}</span></td>
-      <td><span class="badge" style="${l.action==='REMITTANCE'?((l.details||'').includes('Short')?'background:#2e0d0d;color:#ef4444':(l.details||'').includes('Over')?'background:#0d2e1f;color:#10b981':'background:#0d1a2e;color:#00b4d8'):actionColor[l.action]||'background:#0a1a2a;color:#8888aa'}">${actionLabel[l.action] || l.action}</span></td>
+      <td><span class="badge" style="${l.action==='REMITTANCE'?((l.details||'').includes('Short')?'background:#2e0d0d;color:#ef4444':(l.details||'').includes('Over')?'background:#2e1a0d;color:#f97316':'background:#0d1a2e;color:#00b4d8'):actionColor[l.action]||'background:#0a1a2a;color:#8888aa'}">${actionLabel[l.action] || l.action}</span></td>
       <td>${l.target_name || '—'}</td>
       <td style="color:var(--muted);font-size:12px">${details}</td>
       <td>${receiptCell}</td>
