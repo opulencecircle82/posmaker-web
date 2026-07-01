@@ -21,13 +21,18 @@ function autoRegisterStartup() {
   if (fs.existsSync(flagFile)) return;
   var exePath = process.execPath;
   var regKey  = 'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run';
+  // Create a VBScript launcher next to the exe so it runs hidden on startup
+  var vbsPath = path.join(path.dirname(exePath), 'posmaker-print-server-start.vbs');
+  var vbs = 'Set WShell = CreateObject("WScript.Shell")\r\n'
+          + 'WShell.Run Chr(34) & "' + exePath + '" & Chr(34), 0, False\r\n';
   try {
+    fs.writeFileSync(vbsPath, vbs, 'utf8');
     execSync(
-      'reg add "' + regKey + '" /v "POSMakerPrintServer" /t REG_SZ /d "' + exePath + '" /f',
+      'reg add "' + regKey + '" /v "POSMakerPrintServer" /t REG_SZ /d "wscript.exe \\"' + vbsPath + '\\"" /f',
       { timeout: 5000 }
     );
     fs.writeFileSync(flagFile, '1');
-    console.log('  Auto-start: REGISTERED — will auto-start with Windows from now on.');
+    console.log('  Auto-start: REGISTERED — will run hidden with Windows from now on.');
   } catch (_) {
     console.log('  Auto-start: Could not register (try running as Administrator).');
   }

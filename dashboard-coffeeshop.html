@@ -787,7 +787,8 @@ input:checked + .slider:before{transform:translateX(18px)}
             </div>
             <a class="btn btn-accent btn-sm" style="width:100%;justify-content:center;text-decoration:none;display:flex;margin-bottom:8px" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMakerSetup.exe" target="_blank">&#11015; Download Windows Setup</a>
             <a class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;text-decoration:none;display:flex;margin-bottom:8px" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/posmaker-print-server.exe" target="_blank">&#128424;&#65039; Download Print Server (thermal printer)</a>
-            <button type="button" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="downloadStoreConfig()">&#128196; Download Your Config File</button>
+            <button type="button" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;margin-bottom:8px" onclick="downloadStoreConfig()">&#128196; Download Your Config File</button>
+            <button type="button" class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="downloadCashierLauncher()">&#9889; Download Cashier Launcher <span style="font-size:10px;opacity:.7">(direct print, no dialog)</span></button>
           </div>
 
           <!-- ANDROID -->
@@ -3134,6 +3135,30 @@ function downloadStoreConfig() {
   a.click();
   URL.revokeObjectURL(a.href);
   showToast('Config downloaded. Place it next to POSMaker.exe');
+}
+function downloadCashierLauncher() {
+  if (!STORE) return;
+  const url = cashierUrlFor(STORE);
+  const name = (STORE.name || 'POSMaker').replace(/[^a-zA-Z0-9 _-]/g, '');
+  const bat = [
+    '@echo off',
+    'title POSMaker - ' + name,
+    'set URL=' + url,
+    'set CHROME=',
+    'if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set CHROME="%ProgramFiles%\Google\Chrome\Application\chrome.exe"',
+    'if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set CHROME="%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"',
+    'if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set CHROME="%LocalAppData%\Google\Chrome\Application\chrome.exe"',
+    'if "%CHROME%"=="" ( echo Chrome not found. Please install Google Chrome. & pause & exit /b )',
+    'start "" %CHROME% --kiosk-printing --new-window "%URL%"',
+  ].join('
+');
+  const blob = new Blob([bat], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'POSMaker-Cashier.bat';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Launcher downloaded! Double-click POSMaker-Cashier.bat to open POS with direct printing.');
 }
 function openPWABuilder() {
   if (!allStores.length) { showToast('No POS terminal found.', true); return; }
