@@ -2054,12 +2054,7 @@ async function doPrint() {
   const d = _lastReceiptData;
   const html = '<div>' + buildReceiptHTML(d, 'CUSTOMER COPY') + '</div>'
     + '<div style="page-break-before:always">' + buildReceiptHTML(d, 'OWNER COPY') + '</div>';
-  if (window.posApp && window.posApp.printReceipt) {
-    document.getElementById('receiptPrintArea').innerHTML = html;
-    window.posApp.printReceipt();
-    newOrder(); return;
-  }
-  // Try local ESC/POS print server
+  // Try local ESC/POS print server first (works in browser and Electron exe)
   if (d) {
     try {
       const resp = await fetch('http://localhost:7788/print', {
@@ -2068,6 +2063,12 @@ async function doPrint() {
       });
       if (resp.ok) { newOrder(); return; }
     } catch (_) {}
+  }
+  // Electron desktop app fallback
+  if (window.posApp && window.posApp.printReceipt) {
+    document.getElementById('receiptPrintArea').innerHTML = html;
+    window.posApp.printReceipt();
+    newOrder(); return;
   }
   // Fallback: browser print
   const _lhtml = '<!DOCTYPE html><html><head><meta charset="UTF-8">'

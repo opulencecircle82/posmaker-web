@@ -2290,12 +2290,7 @@ function showReceipt(d) {
 
 async function doPrint() {
   const txt = document.getElementById('receiptTxt').textContent;
-  if (window.posApp && window.posApp.printReceipt) {
-    document.getElementById('receiptPrintArea').textContent = txt;
-    window.posApp.printReceipt();
-    newOrder(); return;
-  }
-  // Try local ESC/POS print server first (node posmaker-print-server.js)
+  // Try local ESC/POS print server first (works in browser and Electron exe)
   const d = window._lastReceiptData;
   if (d) {
     try {
@@ -2320,7 +2315,13 @@ async function doPrint() {
         })
       });
       if (resp.ok) { newOrder(); return; }
-    } catch (_) { /* server not running — fallback to browser print */ }
+    } catch (_) { /* server not running — try Electron or browser print */ }
+  }
+  // Electron desktop app fallback
+  if (window.posApp && window.posApp.printReceipt) {
+    document.getElementById('receiptPrintArea').textContent = txt;
+    window.posApp.printReceipt();
+    newOrder(); return;
   }
   // Fallback: browser print via Blob URL
   const escaped = txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
