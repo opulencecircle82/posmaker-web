@@ -13,6 +13,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>POSMaker Cashier</title>
 <script src="js/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/store-plan.js"></script>
 <style>
@@ -438,6 +439,18 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 </div>
 
 <pre id="receiptPrintArea" style="display:none;font-family:monospace;font-size:12px;white-space:pre-wrap"></pre>
+
+<!-- ── PAYMONGO PAYMENT MODAL ── -->
+<div id="mPaymongo" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;align-items:center;justify-content:center">
+  <div style="background:#111827;border-radius:16px;padding:28px 24px;max-width:380px;width:92%;text-align:center">
+    <div style="font-size:13px;color:#9aa0c0;margin-bottom:4px">Scan to pay via GCash / Maya / Card</div>
+    <div id="pmAmount" style="font-size:32px;font-weight:700;color:#fff;margin-bottom:16px"></div>
+    <div id="pmQr" style="margin:0 auto 12px;width:200px;height:200px;background:#fff;padding:6px;border-radius:8px;display:flex;align-items:center;justify-content:center"></div>
+    <a id="pmLink" href="#" target="_blank" style="color:#a78bfa;font-size:11px;word-break:break-all;display:block;margin-bottom:12px;text-decoration:none"></a>
+    <div id="pmStatus" style="color:#10b981;font-weight:600;font-size:14px;min-height:20px;margin-bottom:16px"></div>
+    <button onclick="cancelPaymongoPayment()" style="background:#374151;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px">Cancel</button>
+  </div>
+</div>
 
 <!-- ── WEB PRINTER SETUP MODAL ── -->
 <div class="modal" id="mWebPrinter">
@@ -1995,6 +2008,72 @@ function onDiscAmt() {
   redrawCart();
 }
 
+// ── PayMongo ──────────────────────────────────────────────────────────────
+let _pmPaymentApproved = false;
+let _pmPollTimer = null;
+
+async function _pmCreateLink(total) {
+  const sk = STORE?.paymongo_secret_key;
+  if (!sk) return null;
+  try {
+    const res = await fetch('https://api.paymongo.com/v1/links', {
+      method: 'POST',
+      headers: { 'Authorization': 'Basic ' + btoa(sk + ':'), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: { attributes: { amount: Math.round(total * 100), description: (STORE.name || 'POSMaker') + ' Order', currency: 'PHP' } } })
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    return { id: j.data.id, url: j.data.attributes.checkout_url };
+  } catch { return null; }
+}
+
+async function _pmGetStatus(linkId) {
+  const sk = STORE?.paymongo_secret_key;
+  if (!sk) return null;
+  try {
+    const res = await fetch('https://api.paymongo.com/v1/links/' + linkId, {
+      headers: { 'Authorization': 'Basic ' + btoa(sk + ':') }
+    });
+    if (!res.ok) return null;
+    return (await res.json()).data.attributes.status;
+  } catch { return null; }
+}
+
+function cancelPaymongoPayment() {
+  clearInterval(_pmPollTimer); _pmPollTimer = null;
+  document.getElementById('mPaymongo').style.display = 'none';
+}
+
+async function showPaymongoModal(total, onPaid) {
+  const el = document.getElementById('mPaymongo');
+  document.getElementById('pmAmount').textContent = CUR + total.toFixed(2);
+  document.getElementById('pmStatus').textContent = 'Creating payment link...';
+  document.getElementById('pmQr').innerHTML = '';
+  document.getElementById('pmLink').textContent = '';
+  el.style.display = 'flex';
+
+  const link = await _pmCreateLink(total);
+  if (!link) {
+    document.getElementById('pmStatus').textContent = 'PayMongo unavailable — proceeding manually.';
+    setTimeout(() => { cancelPaymongoPayment(); onPaid(); }, 1800);
+    return;
+  }
+
+  document.getElementById('pmLink').href = link.url;
+  document.getElementById('pmLink').textContent = link.url;
+  document.getElementById('pmStatus').textContent = 'Waiting for payment...';
+  try { new QRCode(document.getElementById('pmQr'), { text: link.url, width: 188, height: 188, colorDark: '#000000', colorLight: '#ffffff' }); } catch (_) {}
+
+  _pmPollTimer = setInterval(async () => {
+    const status = await _pmGetStatus(link.id);
+    if (status === 'paid') {
+      clearInterval(_pmPollTimer); _pmPollTimer = null;
+      document.getElementById('pmStatus').textContent = '✓ Payment confirmed!';
+      setTimeout(() => { cancelPaymongoPayment(); onPaid(); }, 1000);
+    }
+  }, 3000);
+}
+
 // ── Payment ───────────────────────────────────────────────────────────────
 function setCash(a) { document.getElementById('tendered').value = a; calcChange(); }
 
@@ -2161,6 +2240,13 @@ async function confirmOrder() {
   const receiptData = { order_id: 'DEMO', items, sub, tax, total, disc, tender, change, method: payMeth, cashier: CASHIER_NAME, orderType, tableNo, isKOT };
 
   if (IS_DEMO) { showReceipt(receiptData); return; }
+
+  // ── PayMongo auto-payment for GCash / Maya / Card ─────────────────────
+  if (payMeth !== 'Cash' && STORE?.paymongo_secret_key && !_pmPaymentApproved && navigator.onLine) {
+    showPaymongoModal(total, () => { _pmPaymentApproved = true; confirmOrder(); });
+    return;
+  }
+  _pmPaymentApproved = false;
 
   // ── Offline path ──────────────────────────────────────────────────────
   if (!navigator.onLine) {
