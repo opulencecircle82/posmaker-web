@@ -581,13 +581,35 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
       </div>
       <div class="info-card">
-        <h3>Online Payments</h3>
-        <p style="color:#9aa0c0;font-size:12px;margin-bottom:12px">Accept GCash, Maya, and cards online. <a href="https://dashboard.paymongo.com/signup" target="_blank" style="color:#a78bfa;text-decoration:none">Register your online payments here →</a></p>
-        <div class="row2">
-          <div class="field"><label>PayMongo Public Key <span style="font-size:10px;color:#9aa0c0">(pk_live_...)</span></label><input id="sPaymongoPublic" type="text" placeholder="pk_live_"></div>
-          <div class="field"><label>PayMongo Secret Key <span style="font-size:10px;color:#9aa0c0">(sk_live_...)</span></label><input id="sPaymongoSecret" type="password" placeholder="sk_live_"></div>
+        <h3>Maya Business API (QR Pay)</h3>
+        <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Add your Maya Business API keys to enable <strong style="color:#f0f0f8">QR Pay</strong> on the cashier — generates a QR Ph code per transaction accepted by GCash, Maya, BPI, BDO, and all Philippine bank apps. Payment auto-confirms without needing the customer to tap anything. Get keys at <strong style="color:#f0f0f8">business.maya.ph → Developers</strong>.</p>
+        <div class="row2" style="margin-bottom:8px">
+          <div class="field"><label>Public Key</label><input id="sMayaPubKey" type="text" class="inp" placeholder="pk-..."></div>
+          <div class="field"><label>Secret Key</label><input id="sMayaSecKey" type="password" class="inp" placeholder="sk-..."></div>
         </div>
-        <button class="btn btn-accent" onclick="savePaymongoSettings()">Save PayMongo Keys</button>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="sMayaSandbox" checked> Use Sandbox (testing) — uncheck for live payments
+          </label>
+        </div>
+        <div style="background:#111120;border:1px solid #252540;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#9aa0c0">
+          Webhook URL (paste this in Maya Business → Developers → Webhooks):<br>
+          <span id="mayaWebhookUrl" style="color:#00b4d8;font-family:monospace;user-select:all">https://djvwlwnnlldoppomhbap.supabase.co/functions/v1/maya-webhook</span>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('mayaWebhookUrl').textContent).then(()=>showToast('Copied!'))" class="btn btn-ghost btn-sm" style="margin-left:8px;padding:2px 8px;font-size:11px">Copy</button>
+        </div>
+        <button class="btn btn-accent" onclick="saveMayaApiSettings()">Save Maya API</button>
+      </div>
+      <div class="info-card">
+        <h3>PayPal.Me</h3>
+        <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Enter your PayPal.Me username. When a customer chooses PayPal on the customer display, a QR with the exact amount will be shown so they can scan and pay directly.</p>
+        <div class="field" style="margin-bottom:10px">
+          <label>PayPal.Me Username</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="color:#9aa0c0;font-size:14px;white-space:nowrap">paypal.me/</span>
+            <input id="sPaypalMe" type="text" class="inp" placeholder="yourusername" style="flex:1">
+          </div>
+        </div>
+        <button class="btn btn-accent" onclick="savePaypalMe()">Save PayPal</button>
       </div>
       <div class="info-card">
         <h3>Store Information</h3>
@@ -1505,8 +1527,6 @@ function _sig(ms = 25000) {
   if (_u) document.getElementById('resetEmail').value = _u.email || '';
   document.getElementById('sTgToken').value  = store.telegram_bot_token || '';
   document.getElementById('sTgChatId').value = store.telegram_chat_id || '';
-  document.getElementById('sPaymongoPublic').value = store.paymongo_public_key || '';
-  document.getElementById('sPaymongoSecret').value = store.paymongo_secret_key || '';
   if (store.logo_b64) {
     const img = document.getElementById('logoPreview');
     img.src = 'data:image/png;base64,' + store.logo_b64;
@@ -1523,6 +1543,10 @@ function _sig(ms = 25000) {
     document.getElementById('gcashQrDrop').classList.add('has-img');
     document.getElementById('removeGcashQrBtn').style.display = 'inline-flex';
   }
+  document.getElementById('sPaypalMe').value = store.paypal_me || '';
+  document.getElementById('sMayaPubKey').value = store.maya_public_key || '';
+  document.getElementById('sMayaSecKey').value = store.maya_secret_key || '';
+  document.getElementById('sMayaSandbox').checked = store.maya_sandbox !== false;
 
   loadDashboard();
   await Promise.race([loadDbCategories(), new Promise(r => setTimeout(r, 8000))]);
@@ -3935,6 +3959,27 @@ async function saveSettings() {
   showToast('Settings saved.');
 }
 
+async function saveMayaApiSettings() {
+  const pub = (document.getElementById('sMayaPubKey').value || '').trim();
+  const sec = (document.getElementById('sMayaSecKey').value || '').trim();
+  const sandbox = document.getElementById('sMayaSandbox').checked;
+  const { error } = await _sb.from('stores').update({ maya_public_key: pub || null, maya_secret_key: sec || null, maya_sandbox: sandbox }).eq('id', STORE.id);
+  if (error) { showToast(error.message, true); return; }
+  STORE.maya_public_key = pub || null;
+  STORE.maya_secret_key = sec || null;
+  STORE.maya_sandbox = sandbox;
+  showToast('Maya API settings saved ✅');
+}
+
+async function savePaypalMe() {
+  const raw = (document.getElementById('sPaypalMe').value || '').trim().replace(/^(https?:\/\/)?(www\.)?paypal\.me\//i, '').replace(/\/.*/g, '');
+  const { error } = await _sb.from('stores').update({ paypal_me: raw || null }).eq('id', STORE.id);
+  if (error) { showToast(error.message, true); return; }
+  STORE.paypal_me = raw || null;
+  document.getElementById('sPaypalMe').value = raw;
+  showToast('PayPal saved ✅');
+}
+
 async function saveTgSettings() {
   const token  = document.getElementById('sTgToken').value.trim();
   const chatId = document.getElementById('sTgChatId').value.trim();
@@ -3945,15 +3990,6 @@ async function saveTgSettings() {
   showToast('Telegram settings saved.');
 }
 
-async function savePaymongoSettings() {
-  const pub = document.getElementById('sPaymongoPublic').value.trim();
-  const sec = document.getElementById('sPaymongoSecret').value.trim();
-  const { error } = await _sb.from('stores').update({ paymongo_public_key: pub, paymongo_secret_key: sec }).eq('id', STORE.id).then(r => r);
-  if (error) { showToast(error.message, true); return; }
-  STORE.paymongo_public_key = pub;
-  STORE.paymongo_secret_key = sec;
-  showToast('PayMongo keys saved.');
-}
 
 async function sendTelegramMsg(token, chatId, text) {
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {

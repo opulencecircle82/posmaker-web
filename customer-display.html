@@ -54,6 +54,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 #qrAmountLabel{font-size:26px;color:#9aa0c0}
 #qrAmount{font-size:54px;font-weight:800;color:var(--accent)}
 #qrNote{font-size:18px;color:#666;max-width:480px}
+#bayadNaBtn{margin-top:10px;padding:26px 52px;background:#22c55e;color:#fff;border:none;border-radius:18px;font-size:30px;font-weight:800;cursor:pointer;box-shadow:0 4px 28px rgba(34,197,94,.5);transition:transform .12s,opacity .2s;-webkit-tap-highlight-color:transparent}
+#bayadNaBtn:active{transform:scale(.96)}
+#bayadNaBtn:disabled{opacity:.5;cursor:default}
+#bayadNaSent{display:none;color:#22c55e;font-size:24px;font-weight:800;margin-top:4px}
 </style>
 </head>
 <body>
@@ -95,6 +99,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div id="qrAmountLabel">Please pay via GCash</div>
     <div id="qrAmount">₱0.00</div>
     <div id="qrNote">Scan the QR code above with your GCash app, then enter the exact amount shown to complete your payment.</div>
+    <button id="bayadNaBtn" onclick="signalBayadNa()">✓ Bayad Na / I Already Paid</button>
+    <div id="bayadNaSent">✓ Cashier has been notified!</div>
   </div>
 </div>
 
@@ -148,7 +154,7 @@ async function doActivateStore() {
 }
 
 async function loadStoreAndSubscribe() {
-  const { data: store, error } = await _sb.from('stores').select('id,name,logo_b64,gcash_qr_b64,gcash_qr_payload,business_type').eq('id', STORE_ID).maybeSingle();
+  const { data: store, error } = await _sb.from('stores').select('id,name,logo_b64,gcash_qr_b64,gcash_qr_payload,paypal_me,business_type').eq('id', STORE_ID).maybeSingle();
   if (error || !store) {
     localStorage.removeItem('pm_display_store_id');
     document.getElementById('actErr').textContent = 'Store not found. Please reconnect.';
@@ -183,8 +189,8 @@ async function loadStoreAndSubscribe() {
   // Refresh store settings (GCash QR, etc.) every 2 minutes so changes
   // made in the dashboard take effect without needing a page reload.
   setInterval(async () => {
-    const { data: s } = await _sb.from('stores').select('gcash_qr_b64,gcash_qr_payload').eq('id', STORE_ID).maybeSingle();
-    if (s) { STORE.gcash_qr_b64 = s.gcash_qr_b64; STORE.gcash_qr_payload = s.gcash_qr_payload; }
+    const { data: s } = await _sb.from('stores').select('gcash_qr_b64,gcash_qr_payload,paypal_me').eq('id', STORE_ID).maybeSingle();
+    if (s) { STORE.gcash_qr_b64 = s.gcash_qr_b64; STORE.gcash_qr_payload = s.gcash_qr_payload; STORE.paypal_me = s.paypal_me; }
   }, 2 * 60 * 1000);
 }
 
@@ -238,23 +244,53 @@ function render(payload) {
 
   document.getElementById('idleView').style.display = 'none';
 
-  if (payload.pmCheckoutUrl) {
+  if (payload.payMeth === 'QRPay') {
     document.getElementById('orderView').classList.remove('show');
     document.getElementById('qrView').classList.add('show');
     const _total = Number(payload.total || 0).toFixed(2);
-    document.getElementById('qrAmountLabel').textContent = 'Scan to pay online';
+    document.getElementById('qrAmountLabel').textContent = 'Scan to Pay';
+    document.getElementById('qrAmount').textContent = '₱' + _total;
+    document.getElementById('bayadNaBtn').style.display = 'none';
+    document.getElementById('bayadNaSent').style.display = 'none';
+    const qrImg = document.getElementById('qrImg');
+    if (payload.qrCode) {
+      qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(payload.qrCode);
+      qrImg.style.display = '';
+      document.getElementById('qrNote').textContent = 'Scan with GCash, Maya, BPI, BDO, or any Philippine bank app. Payment confirms automatically.';
+      document.getElementById('qrNote').style.display = '';
+    } else {
+      qrImg.style.display = 'none';
+      document.getElementById('qrNote').textContent = 'Generating QR code, please wait...';
+      document.getElementById('qrNote').style.display = '';
+    }
+    return;
+  }
+
+  if (payload.payMeth === 'PayPal') {
+    document.getElementById('orderView').classList.remove('show');
+    document.getElementById('qrView').classList.add('show');
+    document.getElementById('bayadNaBtn').style.display = '';
+    const _total = Number(payload.total || 0).toFixed(2);
+    document.getElementById('qrAmountLabel').textContent = 'Please pay via PayPal';
     document.getElementById('qrAmount').textContent = '₱' + _total;
     const qrImg = document.getElementById('qrImg');
-    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(payload.pmCheckoutUrl);
-    qrImg.style.display = '';
-    document.getElementById('qrNote').textContent = 'Scan with GCash, Maya, or your bank app to complete payment.';
-    document.getElementById('qrNote').style.display = '';
+    if (STORE && STORE.paypal_me) {
+      qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent('https://paypal.me/' + STORE.paypal_me + '/' + _total);
+      qrImg.style.display = '';
+      document.getElementById('qrNote').textContent = 'Scan with PayPal app or any QR scanner — exact amount is pre-filled.';
+      document.getElementById('qrNote').style.display = '';
+    } else {
+      qrImg.style.display = 'none';
+      document.getElementById('qrNote').textContent = 'This store hasn\'t set up PayPal yet. Please pay the cashier directly.';
+      document.getElementById('qrNote').style.display = '';
+    }
     return;
   }
 
   if (payload.payMeth === 'GCash') {
     document.getElementById('orderView').classList.remove('show');
     document.getElementById('qrView').classList.add('show');
+    document.getElementById('bayadNaBtn').style.display = '';
     const _total = Number(payload.total || 0).toFixed(2);
     document.getElementById('qrAmountLabel').textContent = 'Please pay via GCash';
     document.getElementById('qrAmount').textContent = '₱' + _total;
@@ -288,6 +324,16 @@ function render(payload) {
       <span class="oi-line">₱${(i.price * i.qty).toFixed(2)}</span>
     </div>`).join('');
   document.getElementById('orderTotalAmt').textContent = '₱' + Number(payload.total || 0).toFixed(2);
+}
+
+function signalBayadNa() {
+  const btn = document.getElementById('bayadNaBtn');
+  const sent = document.getElementById('bayadNaSent');
+  btn.disabled = true;
+  sent.style.display = 'block';
+  if (IS_LOCAL && _channel) { try { _channel.postMessage({ type: 'customer_paid' }); } catch (_) {} }
+  if (!IS_LOCAL && _channel) { try { _channel.send({ type: 'broadcast', event: 'customer_paid', payload: {} }); } catch (_) {} }
+  setTimeout(() => { btn.disabled = false; sent.style.display = 'none'; }, 10000);
 }
 
 document.addEventListener('keydown', e => {
