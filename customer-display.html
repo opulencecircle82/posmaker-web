@@ -238,10 +238,25 @@ function render(payload) {
 
   document.getElementById('idleView').style.display = 'none';
 
+  if (payload.pmCheckoutUrl) {
+    document.getElementById('orderView').classList.remove('show');
+    document.getElementById('qrView').classList.add('show');
+    const _total = Number(payload.total || 0).toFixed(2);
+    document.getElementById('qrAmountLabel').textContent = 'Scan to pay online';
+    document.getElementById('qrAmount').textContent = '₱' + _total;
+    const qrImg = document.getElementById('qrImg');
+    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(payload.pmCheckoutUrl);
+    qrImg.style.display = '';
+    document.getElementById('qrNote').textContent = 'Scan with GCash, Maya, or your bank app to complete payment.';
+    document.getElementById('qrNote').style.display = '';
+    return;
+  }
+
   if (payload.payMeth === 'GCash') {
     document.getElementById('orderView').classList.remove('show');
     document.getElementById('qrView').classList.add('show');
     const _total = Number(payload.total || 0).toFixed(2);
+    document.getElementById('qrAmountLabel').textContent = 'Please pay via GCash';
     document.getElementById('qrAmount').textContent = '₱' + _total;
     const qrImg = document.getElementById('qrImg');
     if (STORE && STORE.gcash_qr_payload) {

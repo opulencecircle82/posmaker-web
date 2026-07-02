@@ -2021,10 +2021,10 @@ async function _pmCreateLink(total) {
       headers: { 'Authorization': 'Basic ' + btoa(sk + ':'), 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: { attributes: { amount: Math.round(total * 100), description: (STORE.name || 'POSMaker') + ' Order', currency: 'PHP' } } })
     });
-    if (!res.ok) return null;
+    if (!res.ok) { console.error('[PM] link err', res.status, await res.text()); return null; }
     const j = await res.json();
     return { id: j.data.id, url: j.data.attributes.checkout_url };
-  } catch { return null; }
+  } catch (e) { console.error('[PM] link exc', e); return null; }
 }
 
 async function _pmGetStatus(linkId) {
@@ -2042,6 +2042,7 @@ async function _pmGetStatus(linkId) {
 function cancelPaymongoPayment() {
   clearInterval(_pmPollTimer); _pmPollTimer = null;
   document.getElementById('mPaymongo').style.display = 'none';
+  broadcastToDisplay();
 }
 
 async function showPaymongoModal(total, onPaid) {
@@ -2063,6 +2064,16 @@ async function showPaymongoModal(total, onPaid) {
   document.getElementById('pmLink').textContent = link.url;
   document.getElementById('pmStatus').textContent = 'Waiting for payment...';
   try { new QRCode(document.getElementById('pmQr'), { text: link.url, width: 188, height: 188, colorDark: '#000000', colorLight: '#ffffff' }); } catch (_) {}
+
+  // Broadcast PayMongo QR to customer display
+  const { items: _diItems, sub: _diSub, tax: _diTax, disc: _diDisc } = getCartTotals();
+  const _diPayload = {
+    items: _diItems.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+    total, sub: _diSub, tax: _diTax, disc: _diDisc, payMeth, storeName: STORE ? STORE.name : '',
+    pmCheckoutUrl: link.url
+  };
+  if (_displayChannel) { try { _displayChannel.send({ type: 'broadcast', event: 'cart', payload: _diPayload }); } catch (_) {} }
+  if (_localDisplayChannel) { try { _localDisplayChannel.postMessage(_diPayload); } catch (_) {} }
 
   _pmPollTimer = setInterval(async () => {
     const status = await _pmGetStatus(link.id);
