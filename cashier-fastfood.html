@@ -443,12 +443,15 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 <!-- ── PAYMONGO PAYMENT MODAL ── -->
 <div id="mPaymongo" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;align-items:center;justify-content:center">
   <div style="background:#111827;border-radius:16px;padding:28px 24px;max-width:380px;width:92%;text-align:center">
-    <div style="font-size:13px;color:#9aa0c0;margin-bottom:4px">Scan to pay via GCash / Maya / Card</div>
+    <div style="font-size:13px;color:#9aa0c0;margin-bottom:4px">Online Payment — QR shown on customer display</div>
     <div id="pmAmount" style="font-size:32px;font-weight:700;color:#fff;margin-bottom:16px"></div>
     <div id="pmQr" style="margin:0 auto 12px;width:200px;height:200px;background:#fff;padding:6px;border-radius:8px;display:flex;align-items:center;justify-content:center"></div>
     <a id="pmLink" href="#" target="_blank" style="color:#a78bfa;font-size:11px;word-break:break-all;display:block;margin-bottom:12px;text-decoration:none"></a>
     <div id="pmStatus" style="color:#10b981;font-weight:600;font-size:14px;min-height:20px;margin-bottom:16px"></div>
-    <button onclick="cancelPaymongoPayment()" style="background:#374151;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px">Cancel</button>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button id="pmManualBtn" onclick="confirmPaymongoManually()" style="display:none;background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">✓ Confirm Manually</button>
+      <button onclick="cancelPaymongoPayment()" style="background:#374151;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -1984,9 +1987,12 @@ function redrawCart() {
 }
 function broadcastToDisplay() {
   const { items, total, sub, tax, disc } = getCartTotals();
+  // Don't trigger GCash QR view on customer display when PayMongo is configured —
+  // the QR will be broadcast separately once the payment link is actually created.
+  const _dispPayMeth = (payMeth !== 'Cash' && STORE?.paymongo_secret_key) ? '' : payMeth;
   const payload = {
     items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
-    total, sub, tax, disc, payMeth, storeName: STORE ? STORE.name : ''
+    total, sub, tax, disc, payMeth: _dispPayMeth, storeName: STORE ? STORE.name : ''
   };
   if (_displayChannel) { try { _displayChannel.send({ type: 'broadcast', event: 'cart', payload }); } catch (_) {} }
   if (_localDisplayChannel) { try { _localDisplayChannel.postMessage(payload); } catch (_) {} }
@@ -2011,6 +2017,7 @@ function onDiscAmt() {
 // ── PayMongo ──────────────────────────────────────────────────────────────
 let _pmPaymentApproved = false;
 let _pmPollTimer = null;
+let _pmOnPaid = null;
 
 async function _pmCreateLink(total) {
   const sk = STORE?.paymongo_secret_key;
@@ -2045,24 +2052,35 @@ function cancelPaymongoPayment() {
   broadcastToDisplay();
 }
 
+function confirmPaymongoManually() {
+  clearInterval(_pmPollTimer); _pmPollTimer = null;
+  document.getElementById('mPaymongo').style.display = 'none';
+  broadcastToDisplay();
+  if (_pmOnPaid) { const cb = _pmOnPaid; _pmOnPaid = null; cb(); }
+}
+
 async function showPaymongoModal(total, onPaid) {
+  _pmOnPaid = onPaid;
   const el = document.getElementById('mPaymongo');
   document.getElementById('pmAmount').textContent = CUR + total.toFixed(2);
   document.getElementById('pmStatus').textContent = 'Creating payment link...';
   document.getElementById('pmQr').innerHTML = '';
   document.getElementById('pmLink').textContent = '';
+  document.getElementById('pmManualBtn').style.display = 'none';
   el.style.display = 'flex';
 
   const link = await _pmCreateLink(total);
   if (!link) {
-    document.getElementById('pmStatus').textContent = 'PayMongo unavailable — proceeding manually.';
-    setTimeout(() => { cancelPaymongoPayment(); onPaid(); }, 1800);
+    document.getElementById('pmStatus').textContent = 'Could not create payment link. Verify payment received, then confirm manually.';
+    document.getElementById('pmStatus').style.color = '#f87171';
+    document.getElementById('pmManualBtn').style.display = '';
     return;
   }
 
+  document.getElementById('pmStatus').style.color = '#10b981';
   document.getElementById('pmLink').href = link.url;
   document.getElementById('pmLink').textContent = link.url;
-  document.getElementById('pmStatus').textContent = 'Waiting for payment...';
+  document.getElementById('pmStatus').textContent = 'Waiting for payment on customer screen...';
   try { new QRCode(document.getElementById('pmQr'), { text: link.url, width: 188, height: 188, colorDark: '#000000', colorLight: '#ffffff' }); } catch (_) {}
 
   // Broadcast PayMongo QR to customer display
@@ -2080,7 +2098,7 @@ async function showPaymongoModal(total, onPaid) {
     if (status === 'paid') {
       clearInterval(_pmPollTimer); _pmPollTimer = null;
       document.getElementById('pmStatus').textContent = '✓ Payment confirmed!';
-      setTimeout(() => { cancelPaymongoPayment(); onPaid(); }, 1000);
+      setTimeout(() => { cancelPaymongoPayment(); if (_pmOnPaid) { const cb = _pmOnPaid; _pmOnPaid = null; cb(); } }, 1000);
     }
   }, 3000);
 }
