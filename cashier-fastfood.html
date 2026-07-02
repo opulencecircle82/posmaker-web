@@ -395,6 +395,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
         <button class="m-btn active" onclick="setMethod('Cash',this)">Cash</button>
         <button class="m-btn"        onclick="setMethod('Card',this)">Card</button>
         <button class="m-btn"        onclick="setMethod('GCash',this)">GCash</button>
+        <button class="m-btn"        onclick="setMethod('Maya',this)">Maya</button>
       </div>
       <div id="cashSection">
         <div class="quick-row" id="quickRow"></div>
@@ -2019,31 +2020,37 @@ let _pmPaymentApproved = false;
 let _pmPollTimer = null;
 let _pmOnPaid = null;
 
-async function _pmCreateLink(total) {
+async function _pmFetch(method, urlPath, body) {
   const sk = STORE?.paymongo_secret_key;
   if (!sk) return null;
   try {
-    const res = await fetch('https://api.paymongo.com/v1/links', {
-      method: 'POST',
+    // Use Electron IPC proxy when available (avoids file:// CORS block)
+    if (window.posApp?.paymongoProxy) {
+      const r = await window.posApp.paymongoProxy({ method, path: urlPath, sk, body });
+      if (r.status < 200 || r.status >= 300) { console.error('[PM] proxy err', r.status, r.body); return null; }
+      return JSON.parse(r.body);
+    }
+    const res = await fetch('https://api.paymongo.com' + urlPath, {
+      method,
       headers: { 'Authorization': 'Basic ' + btoa(sk + ':'), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: { attributes: { amount: Math.round(total * 100), description: (STORE.name || 'POSMaker') + ' Order', currency: 'PHP' } } })
+      ...(body ? { body: JSON.stringify(body) } : {})
     });
-    if (!res.ok) { console.error('[PM] link err', res.status, await res.text()); return null; }
-    const j = await res.json();
-    return { id: j.data.id, url: j.data.attributes.checkout_url };
-  } catch (e) { console.error('[PM] link exc', e); return null; }
+    if (!res.ok) { console.error('[PM] fetch err', res.status, await res.text()); return null; }
+    return await res.json();
+  } catch (e) { console.error('[PM] exc', e); return null; }
+}
+
+async function _pmCreateLink(total) {
+  const j = await _pmFetch('POST', '/v1/links', {
+    data: { attributes: { amount: Math.round(total * 100), description: (STORE.name || 'POSMaker') + ' Order', currency: 'PHP' } }
+  });
+  if (!j) return null;
+  return { id: j.data.id, url: j.data.attributes.checkout_url };
 }
 
 async function _pmGetStatus(linkId) {
-  const sk = STORE?.paymongo_secret_key;
-  if (!sk) return null;
-  try {
-    const res = await fetch('https://api.paymongo.com/v1/links/' + linkId, {
-      headers: { 'Authorization': 'Basic ' + btoa(sk + ':') }
-    });
-    if (!res.ok) return null;
-    return (await res.json()).data.attributes.status;
-  } catch { return null; }
+  const j = await _pmFetch('GET', '/v1/links/' + linkId, null);
+  return j ? j.data.attributes.status : null;
 }
 
 function cancelPaymongoPayment() {
