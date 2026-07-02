@@ -581,6 +581,15 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
       </div>
       <div class="info-card">
+        <h3>Online Payments</h3>
+        <p style="color:#9aa0c0;font-size:12px;margin-bottom:12px">Accept GCash, Maya, and cards online. <a href="https://dashboard.paymongo.com/signup" target="_blank" style="color:#a78bfa;text-decoration:none">Register your online payments here →</a></p>
+        <div class="row2">
+          <div class="field"><label>PayMongo Public Key <span style="font-size:10px;color:#9aa0c0">(pk_live_...)</span></label><input id="sPaymongoPublic" type="text" placeholder="pk_live_"></div>
+          <div class="field"><label>PayMongo Secret Key <span style="font-size:10px;color:#9aa0c0">(sk_live_...)</span></label><input id="sPaymongoSecret" type="password" placeholder="sk_live_"></div>
+        </div>
+        <button class="btn btn-accent" onclick="savePaymongoSettings()">Save PayMongo Keys</button>
+      </div>
+      <div class="info-card">
         <h3>Store Information</h3>
         <div class="row2" style="margin-top:14px">
           <div class="field"><label>Store Name</label><input id="sName" type="text"></div>
@@ -1496,6 +1505,8 @@ function _sig(ms = 25000) {
   if (_u) document.getElementById('resetEmail').value = _u.email || '';
   document.getElementById('sTgToken').value  = store.telegram_bot_token || '';
   document.getElementById('sTgChatId').value = store.telegram_chat_id || '';
+  document.getElementById('sPaymongoPublic').value = store.paymongo_public_key || '';
+  document.getElementById('sPaymongoSecret').value = store.paymongo_secret_key || '';
   if (store.logo_b64) {
     const img = document.getElementById('logoPreview');
     img.src = 'data:image/png;base64,' + store.logo_b64;
@@ -3932,6 +3943,16 @@ async function saveTgSettings() {
   STORE.telegram_bot_token = token;
   STORE.telegram_chat_id   = chatId;
   showToast('Telegram settings saved.');
+}
+
+async function savePaymongoSettings() {
+  const pub = document.getElementById('sPaymongoPublic').value.trim();
+  const sec = document.getElementById('sPaymongoSecret').value.trim();
+  const { error } = await _sb.from('stores').update({ paymongo_public_key: pub, paymongo_secret_key: sec }).eq('id', STORE.id).then(r => r);
+  if (error) { showToast(error.message, true); return; }
+  STORE.paymongo_public_key = pub;
+  STORE.paymongo_secret_key = sec;
+  showToast('PayMongo keys saved.');
 }
 
 async function sendTelegramMsg(token, chatId, text) {
