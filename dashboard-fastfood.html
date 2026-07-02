@@ -581,23 +581,13 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
       </div>
       <div class="info-card">
-        <h3>Maya Business API (QR Pay)</h3>
-        <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Add your Maya Business API keys to enable <strong style="color:#f0f0f8">QR Pay</strong> on the cashier — generates a QR Ph code per transaction accepted by GCash, Maya, BPI, BDO, and all Philippine bank apps. Payment auto-confirms without needing the customer to tap anything. Get keys at <a href="https://business.maya.ph" target="_blank" style="color:#00b4d8">business.maya.ph</a> → Developers → API Keys.</p>
-        <div class="row2" style="margin-bottom:8px">
-          <div class="field"><label>Public Key</label><input id="sMayaPubKey" type="text" class="inp" placeholder="pk-..."></div>
-          <div class="field"><label>Secret Key</label><input id="sMayaSecKey" type="password" class="inp" placeholder="sk-..."></div>
+        <h3>Xendit QR Pay</h3>
+        <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Add your Xendit Secret Key to enable <strong style="color:#f0f0f8">QR Pay</strong> on the cashier — generates a QR Ph code per transaction accepted by GCash, Maya, BPI, BDO, and all Philippine bank apps. Payment auto-confirms without the customer needing to tap anything. Get your key at <a href="https://dashboard.xendit.co/settings/developers#api-keys" target="_blank" style="color:#00b4d8">dashboard.xendit.co</a> → Settings → API Keys → Generate (Money-in: Write).</p>
+        <div class="field" style="margin-bottom:10px">
+          <label>Secret Key</label>
+          <input id="sXenditKey" type="password" class="inp" placeholder="xnd_development_... or xnd_production_...">
         </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="sMayaSandbox" checked> Use Sandbox (testing) — uncheck for live payments
-          </label>
-        </div>
-        <div style="background:#111120;border:1px solid #252540;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#9aa0c0">
-          Webhook URL (paste this in Maya Business → Developers → Webhooks):<br>
-          <span id="mayaWebhookUrl" style="color:#00b4d8;font-family:monospace;user-select:all">https://djvwlwnnlldoppomhbap.supabase.co/functions/v1/maya-webhook</span>
-          <button onclick="navigator.clipboard.writeText(document.getElementById('mayaWebhookUrl').textContent).then(()=>showToast('Copied!'))" class="btn btn-ghost btn-sm" style="margin-left:8px;padding:2px 8px;font-size:11px">Copy</button>
-        </div>
-        <button class="btn btn-accent" onclick="saveMayaApiSettings()">Save Maya API</button>
+        <button class="btn btn-accent" onclick="saveXenditSettings()">Save Xendit Key</button>
       </div>
       <div class="info-card">
         <h3>PayPal.Me</h3>
@@ -1544,9 +1534,7 @@ function _sig(ms = 25000) {
     document.getElementById('removeGcashQrBtn').style.display = 'inline-flex';
   }
   document.getElementById('sPaypalMe').value = store.paypal_me || '';
-  document.getElementById('sMayaPubKey').value = store.maya_public_key || '';
-  document.getElementById('sMayaSecKey').value = store.maya_secret_key || '';
-  document.getElementById('sMayaSandbox').checked = store.maya_sandbox !== false;
+  document.getElementById('sXenditKey').value = store.xendit_secret_key || '';
 
   loadDashboard();
   await Promise.race([loadDbCategories(), new Promise(r => setTimeout(r, 8000))]);
@@ -3959,16 +3947,12 @@ async function saveSettings() {
   showToast('Settings saved.');
 }
 
-async function saveMayaApiSettings() {
-  const pub = (document.getElementById('sMayaPubKey').value || '').trim();
-  const sec = (document.getElementById('sMayaSecKey').value || '').trim();
-  const sandbox = document.getElementById('sMayaSandbox').checked;
-  const { error } = await _sb.from('stores').update({ maya_public_key: pub || null, maya_secret_key: sec || null, maya_sandbox: sandbox }).eq('id', STORE.id);
+async function saveXenditSettings() {
+  const key = (document.getElementById('sXenditKey').value || '').trim();
+  const { error } = await _sb.from('stores').update({ xendit_secret_key: key || null }).eq('id', STORE.id);
   if (error) { showToast(error.message, true); return; }
-  STORE.maya_public_key = pub || null;
-  STORE.maya_secret_key = sec || null;
-  STORE.maya_sandbox = sandbox;
-  showToast('Maya API settings saved ✅');
+  STORE.xendit_secret_key = key || null;
+  showToast('Xendit key saved ✅');
 }
 
 async function savePaypalMe() {
