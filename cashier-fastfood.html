@@ -2367,6 +2367,8 @@ function buildReceiptText(d) {
   const ln = '─'.repeat(32);
   const store = STORE?.name || 'POSMaker';
   let s = store + '\n';
+  if (STORE?.address) s += STORE.address + '\n';
+  if (STORE?.phone) s += STORE.phone + '\n';
   if (d.isKOT) s += '*** KITCHEN ORDER TICKET ***\n';
   s += `${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\n`;
   s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
