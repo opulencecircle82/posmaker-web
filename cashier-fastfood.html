@@ -2033,7 +2033,7 @@ async function startQrPayment() {
       body: JSON.stringify({ storeId: STORE.id, amount: total, refNo })
     });
     const data = await res.json();
-    if (!res.ok || data.error) { showToast('QR Pay: ' + (data.error || data.message || res.status), true); _pendingQrRef = null; return; }
+    if (!res.ok || data.error) { showToast('QR Pay: ' + (data.error || data.message || res.status), true); _pendingQrRef = null; _qrCode = null; broadcastToDisplay(); return; }
     _qrCode = data.qrCode;
     broadcastToDisplay(); // shows QR on customer display
     if (!_qrPayChannel) {
@@ -2048,7 +2048,7 @@ async function startQrPayment() {
           }
         ).subscribe();
     }
-  } catch (e) { showToast('QR Pay error: ' + e.message, true); _pendingQrRef = null; }
+  } catch (e) { showToast('QR Pay error: ' + e.message, true); _pendingQrRef = null; _qrCode = null; broadcastToDisplay(); }
 }
 function openDualScreen() {
   if (!STORE || !STORE.id) return;
