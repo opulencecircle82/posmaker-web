@@ -2057,10 +2057,14 @@ async function confirmOrder() {
 }
 
 function buildReceiptText(d) {
-  const ln = '─'.repeat(32);
+  const W = 32;
+  const ln = '─'.repeat(W);
+  const ctr = s => { if (!s || s.length >= W) return s || ''; return ' '.repeat(Math.floor((W - s.length) / 2)) + s; };
   const store = STORE?.name || 'POSMaker';
-  let s = store + '\n';
-  if (d.isKOT) s += '*** KITCHEN ORDER TICKET ***\n';
+  let s = ctr(store) + '\n';
+  if (STORE?.address) s += ctr(STORE.address) + '\n';
+  if (STORE?.phone) s += ctr(STORE.phone) + '\n';
+  if (d.isKOT) s += ctr('*** KITCHEN ORDER TICKET ***') + '\n';
   s += `${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\n`;
   s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
   s += `Cashier: ${d.cashier}\n${ln}\n`;
@@ -2127,6 +2131,8 @@ async function doPrint() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           store:     STORE?.name,
+          address:   STORE?.address,
+          phone:     STORE?.phone,
           footer:    STORE?.receipt_footer,
           order_id:  d.order_id,
           cashier:   d.cashier,

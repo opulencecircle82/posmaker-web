@@ -88,6 +88,8 @@ function buildEscPos(r) {
   chunks.push(Buffer.from([0x1B, 0x21, 0x10]));
   chunks.push(line(store));
   chunks.push(Buffer.from([0x1B, 0x21, 0x00]));
+  if (r.address) chunks.push(line(safe(r.address).substring(0, W)));
+  if (r.phone)   chunks.push(line(safe(r.phone).substring(0, W)));
   chunks.push(Buffer.from([0x1B, 0x61, 0x00]));
   chunks.push(div());
   chunks.push(line(date + '  ' + time));
