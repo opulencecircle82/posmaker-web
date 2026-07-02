@@ -2029,11 +2029,11 @@ async function startQrPayment() {
   try {
     const res = await fetch(SUPABASE_URL + '/functions/v1/xendit-create-qr', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + SUPABASE_ANON },
       body: JSON.stringify({ storeId: STORE.id, amount: total, refNo })
     });
     const data = await res.json();
-    if (data.error) { showToast('Maya: ' + data.error, true); _pendingQrRef = null; return; }
+    if (!res.ok || data.error) { showToast('QR Pay: ' + (data.error || data.message || res.status), true); _pendingQrRef = null; return; }
     _qrCode = data.qrCode;
     broadcastToDisplay(); // shows QR on customer display
     if (!_qrPayChannel) {
