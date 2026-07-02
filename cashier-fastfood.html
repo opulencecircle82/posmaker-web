@@ -2041,6 +2041,7 @@ async function _pmFetch(method, urlPath, body) {
 }
 
 async function _pmCreateLink(total) {
+  if (Math.round(total * 100) < 10000) return { belowMin: true };
   const j = await _pmFetch('POST', '/v1/links', {
     data: { attributes: { amount: Math.round(total * 100), description: (STORE.name || 'POSMaker') + ' Order', currency: 'PHP' } }
   });
@@ -2077,8 +2078,10 @@ async function showPaymongoModal(total, onPaid) {
   el.style.display = 'flex';
 
   const link = await _pmCreateLink(total);
-  if (!link) {
-    document.getElementById('pmStatus').textContent = 'Could not create payment link. Verify payment received, then confirm manually.';
+  if (!link || link.belowMin) {
+    document.getElementById('pmStatus').textContent = link?.belowMin
+      ? 'Order below ₱100 minimum. Ask customer to show GCash/Maya receipt, then confirm manually.'
+      : 'Could not reach PayMongo. Verify payment received, then confirm manually.';
     document.getElementById('pmStatus').style.color = '#f87171';
     document.getElementById('pmManualBtn').style.display = '';
     return;
