@@ -300,7 +300,7 @@ function render(payload) {
     document.getElementById('qrAmountLabel').textContent = 'Please pay via ' + payload.payMeth;
     document.getElementById('qrAmount').textContent = '₱' + _total;
     const qrImg = document.getElementById('qrImg');
-    const payUrl = 'https://le0n1982.github.io/posmaker-web/payment-page.html?store=' + STORE_ID + '&method=' + _method + '&amount=' + _total + '&ref=' + encodeURIComponent(_ref);
+    const payUrl = 'https://posmaker.ggff.net/payment-page.html?store=' + STORE_ID + '&method=' + _method + '&amount=' + _total + '&ref=' + encodeURIComponent(_ref);
     qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(payUrl);
     qrImg.style.display = '';
     document.getElementById('qrNote').textContent = 'Open your camera app and scan — no app needed. Follow the steps on your phone to pay and verify.';
