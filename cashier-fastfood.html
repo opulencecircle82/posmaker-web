@@ -390,11 +390,15 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <!-- Payment method -->
     <div class="pay-section" id="paySection" style="display:none">
       <div class="pay-label">Payment Method</div>
-      <div class="methods">
+      <div class="methods" id="payMethodBtns">
         <button class="m-btn active" onclick="setMethod('Cash',this)">Cash</button>
         <button class="m-btn"        onclick="setMethod('Card',this)">Card</button>
         <button class="m-btn"        onclick="setMethod('GCash',this)">GCash</button>
         <button class="m-btn"        onclick="setMethod('Maya',this)">Maya</button>
+        <button class="m-btn"        onclick="setMethod('BPI',this)" id="btnBPI" style="display:none">BPI</button>
+        <button class="m-btn"        onclick="setMethod('BDO',this)" id="btnBDO" style="display:none">BDO</button>
+        <button class="m-btn"        onclick="setMethod('UnionBank',this)" id="btnUnionBank" style="display:none">UnionBank</button>
+        <button class="m-btn"        onclick="setMethod('Metrobank',this)" id="btnMetrobank" style="display:none">Metrobank</button>
         <button class="m-btn"        onclick="setMethod('PayPal',this)">PayPal</button>
         <button class="m-btn"        onclick="setMethod('QRPay',this)">QR Pay</button>
       </div>
@@ -596,7 +600,7 @@ let IS_PRO = false;
 let prods = [], cart = {}, payMeth = 'Cash';
 let _displayChannel = null;
 let _localDisplayChannel = null;
-let _qrCode = null, _pendingQrRef = null, _qrPayAutoConfirm = false, _qrPayChannel = null;
+let _qrCode = null, _pendingQrRef = null, _qrPayAutoConfirm = false, _qrPayChannel = null, _payRef = null;
 let storeInvItems = [], invById = {}, invByName = {};
 let orderType = 'Dine In', tableNo = '', isKOT = false;
 let discPct = 0, discAmt = 0;
@@ -768,6 +772,11 @@ let _openScanTimer = null;
     }
   }
   STORE = store; CUR = store.currency || '₱'; TAX = parseFloat(store.tax_rate) || 0;
+  // Show bank payment buttons only if owner uploaded a QR for that bank
+  if (store.bpi_qr_b64)        { const b=document.getElementById('btnBPI');        if(b) b.style.display=''; }
+  if (store.bdo_qr_b64)        { const b=document.getElementById('btnBDO');        if(b) b.style.display=''; }
+  if (store.unionbank_qr_b64)  { const b=document.getElementById('btnUnionBank');  if(b) b.style.display=''; }
+  if (store.metrobank_qr_b64)  { const b=document.getElementById('btnMetrobank'); if(b) b.style.display=''; }
   try { _displayChannel = _sb.channel('display-' + STORE.id); _displayChannel.on('broadcast', { event: 'customer_paid' }, () => showBayadNaAlert()); _displayChannel.subscribe(); } catch (_) {}
   try { _localDisplayChannel = new BroadcastChannel('posmaker-display-' + STORE.id); _localDisplayChannel.onmessage = (e) => { if (e.data && e.data.type === 'customer_paid') showBayadNaAlert(); }; } catch (_) {}
   if (STORE.dual_screen_enabled) { const _bds = document.getElementById('btnDualScreen'); if (_bds) _bds.style.display = ''; }
@@ -2011,6 +2020,7 @@ function broadcastToDisplay() {
     items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
     total, sub, tax, disc, payMeth, storeName: STORE ? STORE.name : '',
     qrCode: _qrCode || undefined,
+    payRef: _payRef || undefined,
   };
   if (_displayChannel) { try { _displayChannel.send({ type: 'broadcast', event: 'cart', payload }); } catch (_) {} }
   if (_localDisplayChannel) { try { _localDisplayChannel.postMessage(payload); } catch (_) {} }
@@ -2071,8 +2081,10 @@ function onDiscAmt() {
 // ── Payment ───────────────────────────────────────────────────────────────
 function setCash(a) { document.getElementById('tendered').value = a; calcChange(); }
 
+const BANK_PAY_METHODS = new Set(['GCash','Maya','BPI','BDO','UnionBank','Metrobank']);
 function setMethod(m, btn) {
   payMeth = m;
+  _payRef = BANK_PAY_METHODS.has(m) ? ('PM-' + Date.now()) : null;
   document.querySelectorAll('.m-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('cashSection').style.display = m === 'Cash' ? '' : 'none';

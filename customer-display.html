@@ -154,7 +154,7 @@ async function doActivateStore() {
 }
 
 async function loadStoreAndSubscribe() {
-  const { data: store, error } = await _sb.from('stores').select('id,name,logo_b64,gcash_qr_b64,gcash_qr_payload,paypal_me,business_type').eq('id', STORE_ID).maybeSingle();
+  const { data: store, error } = await _sb.from('stores').select('id,name,logo_b64,gcash_qr_b64,gcash_qr_payload,paypal_me,business_type,maya_qr_b64,bpi_qr_b64,bdo_qr_b64,unionbank_qr_b64,metrobank_qr_b64').eq('id', STORE_ID).maybeSingle();
   if (error || !store) {
     localStorage.removeItem('pm_display_store_id');
     document.getElementById('actErr').textContent = 'Store not found. Please reconnect.';
@@ -287,33 +287,24 @@ function render(payload) {
     return;
   }
 
-  if (payload.payMeth === 'GCash') {
+  // Bank payment methods — show a URL QR that opens payment-page.html on customer's phone
+  const BANK_METHODS = { GCash:'gcash', Maya:'maya', BPI:'bpi', BDO:'bdo', UnionBank:'unionbank', Metrobank:'metrobank' };
+  if (BANK_METHODS[payload.payMeth]) {
     document.getElementById('orderView').classList.remove('show');
     document.getElementById('qrView').classList.add('show');
-    document.getElementById('bayadNaBtn').style.display = '';
+    document.getElementById('bayadNaBtn').style.display = 'none';
+    document.getElementById('bayadNaSent').style.display = 'none';
     const _total = Number(payload.total || 0).toFixed(2);
-    document.getElementById('qrAmountLabel').textContent = 'Please pay via GCash';
+    const _method = BANK_METHODS[payload.payMeth];
+    const _ref = payload.payRef || '';
+    document.getElementById('qrAmountLabel').textContent = 'Please pay via ' + payload.payMeth;
     document.getElementById('qrAmount').textContent = '₱' + _total;
     const qrImg = document.getElementById('qrImg');
-    if (STORE && STORE.gcash_qr_payload) {
-      const _dynPayload = _buildDynamicQr(STORE.gcash_qr_payload, _total);
-      if (_dynPayload) {
-        qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(_dynPayload);
-        qrImg.style.display = '';
-        document.getElementById('qrNote').textContent = 'Scan with your GCash app — exact amount already included.';
-        document.getElementById('qrNote').style.display = '';
-      } else {
-        qrImg.style.display = 'none';
-        document.getElementById('qrNote').textContent = 'QR error. Please pay the cashier directly.';
-      }
-    } else if (STORE && STORE.gcash_qr_b64) {
-      qrImg.src = 'data:image/png;base64,' + STORE.gcash_qr_b64;
-      qrImg.style.display = '';
-      document.getElementById('qrNote').style.display = '';
-    } else {
-      qrImg.style.display = 'none';
-      document.getElementById('qrNote').textContent = 'This store hasn\'t uploaded a GCash QR code yet. Please pay the cashier directly.';
-    }
+    const payUrl = 'https://le0n1982.github.io/posmaker-web/payment-page.html?store=' + STORE_ID + '&method=' + _method + '&amount=' + _total + '&ref=' + encodeURIComponent(_ref);
+    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(payUrl);
+    qrImg.style.display = '';
+    document.getElementById('qrNote').textContent = 'Open your camera app and scan — no app needed. Follow the steps on your phone to pay and verify.';
+    document.getElementById('qrNote').style.display = '';
     return;
   }
 

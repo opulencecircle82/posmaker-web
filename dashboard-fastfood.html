@@ -581,6 +581,70 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
       </div>
       <div class="info-card">
+        <h3>Maya QR Code</h3>
+        <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Upload your Maya QR (Maya app → Show QR → screenshot). Customers scan with their phone camera — no app switching needed. Enables the Maya button on the cashier.</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button type="button" class="btn btn-accent btn-sm" onclick="openImgUploadQR('maya_qr',1)">&#128248; Scan QR to Upload</button>
+        </div>
+        <div class="logo-drop" id="mayaQrDrop" onclick="document.getElementById('mayaQrInput').click()">
+          <img id="mayaQrPreview" style="display:none">
+          <p id="mayaQrHint">Click to upload Maya QR (PNG or JPG)</p>
+        </div>
+        <input type="file" id="mayaQrInput" accept="image/*" style="display:none" onchange="handleBankQr(event,'maya')">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-accent" id="saveMayaQrBtn" style="display:none" onclick="saveBankQr('maya')">Save QR</button>
+          <button class="btn btn-ghost" id="removeMayaQrBtn" style="display:none" onclick="removeBankQr('maya')">Remove QR</button>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>BPI QR Code</h3>
+        <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Upload your BPI QR (BPI app → QR Pay → My QR Code → screenshot). Enables the BPI button on the cashier.</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button type="button" class="btn btn-accent btn-sm" onclick="openImgUploadQR('bpi_qr',1)">&#128248; Scan QR to Upload</button>
+        </div>
+        <div class="logo-drop" id="bpiQrDrop" onclick="document.getElementById('bpiQrInput').click()">
+          <img id="bpiQrPreview" style="display:none">
+          <p id="bpiQrHint">Click to upload BPI QR (PNG or JPG)</p>
+        </div>
+        <input type="file" id="bpiQrInput" accept="image/*" style="display:none" onchange="handleBankQr(event,'bpi')">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-accent" id="saveBpiQrBtn" style="display:none" onclick="saveBankQr('bpi')">Save QR</button>
+          <button class="btn btn-ghost" id="removeBpiQrBtn" style="display:none" onclick="removeBankQr('bpi')">Remove QR</button>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>BDO QR Code</h3>
+        <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Upload your BDO QR (BDO app → Pay via QR → Show My QR → screenshot). Enables the BDO button on the cashier.</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button type="button" class="btn btn-accent btn-sm" onclick="openImgUploadQR('bdo_qr',1)">&#128248; Scan QR to Upload</button>
+        </div>
+        <div class="logo-drop" id="bdoQrDrop" onclick="document.getElementById('bdoQrInput').click()">
+          <img id="bdoQrPreview" style="display:none">
+          <p id="bdoQrHint">Click to upload BDO QR (PNG or JPG)</p>
+        </div>
+        <input type="file" id="bdoQrInput" accept="image/*" style="display:none" onchange="handleBankQr(event,'bdo')">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-accent" id="saveBdoQrBtn" style="display:none" onclick="saveBankQr('bdo')">Save QR</button>
+          <button class="btn btn-ghost" id="removeBdoQrBtn" style="display:none" onclick="removeBankQr('bdo')">Remove QR</button>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>UnionBank QR Code</h3>
+        <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Upload your UnionBank QR. Enables the UnionBank button on the cashier.</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button type="button" class="btn btn-accent btn-sm" onclick="openImgUploadQR('unionbank_qr',1)">&#128248; Scan QR to Upload</button>
+        </div>
+        <div class="logo-drop" id="unionbankQrDrop" onclick="document.getElementById('unionbankQrInput').click()">
+          <img id="unionbankQrPreview" style="display:none">
+          <p id="unionbankQrHint">Click to upload UnionBank QR (PNG or JPG)</p>
+        </div>
+        <input type="file" id="unionbankQrInput" accept="image/*" style="display:none" onchange="handleBankQr(event,'unionbank')">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-accent" id="saveUnionbankQrBtn" style="display:none" onclick="saveBankQr('unionbank')">Save QR</button>
+          <button class="btn btn-ghost" id="removeUnionbankQrBtn" style="display:none" onclick="removeBankQr('unionbank')">Remove QR</button>
+        </div>
+      </div>
+      <div class="info-card">
         <h3>Xendit QR Pay</h3>
         <p style="color:#9aa0c0;font-size:12px;margin-bottom:10px">Add your Xendit Secret Key to enable <strong style="color:#f0f0f8">QR Pay</strong> on the cashier — generates a QR Ph code per transaction accepted by GCash, Maya, BPI, BDO, and all Philippine bank apps. Payment auto-confirms without the customer needing to tap anything. Get your key at <a href="https://dashboard.xendit.co/settings/developers#api-keys" target="_blank" style="color:#00b4d8">dashboard.xendit.co</a> → Settings → API Keys → Generate (Money-in: Write).</p>
         <div class="field" style="margin-bottom:10px">
@@ -1535,6 +1599,7 @@ function _sig(ms = 25000) {
   }
   document.getElementById('sPaypalMe').value = store.paypal_me || '';
   document.getElementById('sXenditKey').value = store.xendit_secret_key || '';
+  loadBankQrPreviews(store);
 
   loadDashboard();
   await Promise.race([loadDbCategories(), new Promise(r => setTimeout(r, 8000))]);
@@ -3914,6 +3979,68 @@ async function removeGcashQr() {
   document.getElementById('removeGcashQrBtn').style.display = 'none';
   pendingGcashQrb64 = null;
   showToast('Logo removed.');
+}
+// ── Generic bank QR upload (Maya, BPI, BDO, UnionBank, Metrobank) ─────────────
+const _bankQrPending = {};
+const BANK_QR_COL = { maya:'maya_qr_b64', bpi:'bpi_qr_b64', bdo:'bdo_qr_b64', unionbank:'unionbank_qr_b64', metrobank:'metrobank_qr_b64' };
+function handleBankQr(e, bank) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const b64 = ev.target.result.split(',')[1];
+    _bankQrPending[bank] = b64;
+    const pfx = bank.charAt(0).toUpperCase() + bank.slice(1);
+    const img = document.getElementById(bank + 'QrPreview');
+    img.src = ev.target.result; img.style.display = 'block';
+    document.getElementById(bank + 'QrHint').style.display = 'none';
+    document.getElementById(bank + 'QrDrop').classList.add('has-img');
+    document.getElementById('save' + pfx + 'QrBtn').style.display = 'inline-flex';
+    document.getElementById('remove' + pfx + 'QrBtn').style.display = 'inline-flex';
+    showToast('QR image loaded — click Save QR.');
+  };
+  reader.readAsDataURL(file);
+}
+async function saveBankQr(bank) {
+  const b64 = _bankQrPending[bank]; if (!b64) return;
+  const col = BANK_QR_COL[bank];
+  const pfx = bank.charAt(0).toUpperCase() + bank.slice(1);
+  const { error } = await _sb.from('stores').update({ [col]: b64 }).eq('id', STORE.id);
+  if (error) { showToast('❌ Save failed: ' + error.message, true); return; }
+  STORE[col] = b64;
+  delete _bankQrPending[bank];
+  document.getElementById('save' + pfx + 'QrBtn').style.display = 'none';
+  showToast(pfx + ' QR saved ✅');
+}
+async function removeBankQr(bank) {
+  const pfx = bank.charAt(0).toUpperCase() + bank.slice(1);
+  if (!confirm('Remove ' + pfx + ' QR?')) return;
+  const col = BANK_QR_COL[bank];
+  await _sb.from('stores').update({ [col]: null }).eq('id', STORE.id);
+  STORE[col] = null;
+  delete _bankQrPending[bank];
+  document.getElementById(bank + 'QrPreview').style.display = 'none';
+  document.getElementById(bank + 'QrHint').style.display = '';
+  document.getElementById(bank + 'QrDrop').classList.remove('has-img');
+  document.getElementById('save' + pfx + 'QrBtn').style.display = 'none';
+  document.getElementById('remove' + pfx + 'QrBtn').style.display = 'none';
+  showToast(pfx + ' QR removed.');
+}
+// Load existing bank QRs on settings load
+function loadBankQrPreviews(store) {
+  ['maya','bpi','bdo','unionbank'].forEach(bank => {
+    const col = BANK_QR_COL[bank];
+    const pfx = bank.charAt(0).toUpperCase() + bank.slice(1);
+    if (store[col]) {
+      const img = document.getElementById(bank + 'QrPreview');
+      if (img) { img.src = 'data:image/png;base64,' + store[col]; img.style.display = 'block'; }
+      const hint = document.getElementById(bank + 'QrHint');
+      if (hint) hint.style.display = 'none';
+      const drop = document.getElementById(bank + 'QrDrop');
+      if (drop) drop.classList.add('has-img');
+      const removeBtn = document.getElementById('remove' + pfx + 'QrBtn');
+      if (removeBtn) removeBtn.style.display = 'inline-flex';
+    }
+  });
 }
 async function sendResetEmail() {
   const email = document.getElementById('resetEmail').value.trim();

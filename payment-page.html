@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pay — POSMaker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0e1120;color:#f0f0f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+.card{background:#1a1d2e;border-radius:16px;padding:24px;width:100%;max-width:420px;margin-top:12px;text-align:center}
+.amount{font-size:52px;font-weight:700;color:#00b4d8;margin:10px 0}
+.label{font-size:16px;color:#9aa0c0;margin-bottom:4px}
+.store-name{font-size:22px;font-weight:700;margin-bottom:2px}
+.qr-img{width:260px;height:260px;border-radius:12px;background:#fff;padding:8px;margin:14px auto;display:block;object-fit:contain}
+.btn{display:block;width:100%;padding:16px;border-radius:12px;border:none;font-size:17px;font-weight:700;cursor:pointer;margin-top:10px;transition:.15s}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-green{background:#22c55e;color:#fff}
+.btn-ghost{background:transparent;color:#9aa0c0;border:1px solid #2a2d45;font-size:14px;padding:10px;margin-top:8px}
+.step{display:none}
+.step.active{display:block}
+video{width:100%;border-radius:12px;max-height:260px;object-fit:cover;background:#000;margin:10px 0}
+canvas{display:none}
+.status{font-size:14px;margin-top:10px;padding:10px 14px;border-radius:10px;line-height:1.4}
+.status.checking{background:#1e3a5f;color:#60a5fa}
+.status.success{background:#14532d;color:#4ade80}
+.status.fail{background:#450a0a;color:#f87171}
+.logo{width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:block}
+.big-icon{font-size:72px;margin:16px 0}
+.confirmed-title{font-size:28px;font-weight:700;color:#4ade80;margin-bottom:8px}
+.hint{font-size:13px;color:#9aa0c0;margin-top:8px;line-height:1.5}
+.progress-bar{width:100%;height:4px;background:#2a2d45;border-radius:4px;margin-top:10px;overflow:hidden}
+.progress-fill{height:100%;background:#60a5fa;width:0%;transition:width .3s}
+</style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<div class="card">
+  <!-- Step 1: Show bank QR + amount -->
+  <div id="s1" class="step active">
+    <img id="sLogo" class="logo" style="display:none">
+    <div id="sName" class="store-name">Loading...</div>
+    <div id="sMethod" class="label">Please pay via GCash</div>
+    <div id="sAmount" class="amount">₱0.00</div>
+    <img id="bankQr" class="qr-img" style="display:none" alt="Scan to pay">
+    <p id="s1Hint" class="hint">Open your banking app, scan the QR above, and pay the exact amount shown.</p>
+    <button class="btn btn-green" id="paidBtn" onclick="toStep2()" style="margin-top:18px">✓ I've Paid — Verify Receipt</button>
+  </div>
+
+  <!-- Step 2: Camera OCR -->
+  <div id="s2" class="step">
+    <div class="label" style="margin-bottom:8px;font-size:15px">Show your payment success screen to the camera</div>
+    <video id="cam" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    <div id="ocrStatus" class="status" style="display:none"></div>
+    <div class="progress-bar" id="progressBar" style="display:none"><div class="progress-fill" id="progressFill"></div></div>
+    <button class="btn btn-green" id="snapBtn" onclick="captureVerify()">📸 Capture &amp; Verify</button>
+    <button class="btn btn-ghost" onclick="toStep1()">← Back</button>
+    <p class="hint" style="margin-top:8px">Point at the GCash / Maya / bank app "Payment Successful" screen. Make sure the amount is visible.</p>
+  </div>
+
+  <!-- Step 3: Confirmed -->
+  <div id="s3" class="step">
+    <div class="big-icon">✅</div>
+    <div class="confirmed-title">Payment Verified!</div>
+    <p class="hint" style="font-size:15px;margin-top:8px">The cashier has been notified.<br>You may now close this page.</p>
+  </div>
+</div>
+
+<script>
+const SB_URL  = 'https://djvwlwnnlldoppomhbap.supabase.co';
+const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqdndsd25ubGxkb3Bwb21oYmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MzgzNTEsImV4cCI6MjA5NTQxNDM1MX0.7uJUS1mLQGHUstuGvKMHzPj5aNluha0-Hf2wg8K1UA0';
+const _sb = supabase.createClient(SB_URL, SB_ANON);
+
+const P       = new URLSearchParams(location.search);
+const STORE_ID = P.get('store') || '';
+const METHOD   = (P.get('method') || 'gcash').toLowerCase();
+const AMOUNT   = parseFloat(P.get('amount') || '0');
+const REF      = P.get('ref') || '';
+
+const LABELS  = { gcash:'GCash', maya:'Maya', bpi:'BPI', bdo:'BDO', unionbank:'UnionBank', metrobank:'Metrobank' };
+const QR_COLS = { gcash:'gcash_qr_b64', maya:'maya_qr_b64', bpi:'bpi_qr_b64', bdo:'bdo_qr_b64', unionbank:'unionbank_qr_b64', metrobank:'metrobank_qr_b64' };
+
+// Words that indicate payment success (English + Filipino)
+const SUCCESS_W = ['successful','success','sent','completed','done','received','payment complete','transfer complete','na-transfer','naipadala','na-receive','bayad na','paid','approved','confirmed'];
+// Words that indicate failure — if any appear, reject
+const FAIL_W    = ['failed','declined','error','unsuccessful','cancelled','canceled','invalid','insufficient','rejected','timeout','expired'];
+
+let _stream = null, _confirmed = false;
+
+document.getElementById('sAmount').textContent = '₱' + AMOUNT.toFixed(2);
+document.getElementById('sMethod').textContent = 'Please pay via ' + (LABELS[METHOD] || METHOD.toUpperCase());
+
+async function init() {
+  if (!STORE_ID) { document.getElementById('sName').textContent = 'Invalid payment link'; return; }
+  const col = QR_COLS[METHOD] || 'gcash_qr_b64';
+  const { data: s } = await _sb.from('stores').select('name,logo_b64,' + col).eq('id', STORE_ID).maybeSingle();
+  if (!s) { document.getElementById('sName').textContent = 'Store not found'; return; }
+  document.getElementById('sName').textContent = s.name || 'Store';
+  if (s.logo_b64) {
+    const l = document.getElementById('sLogo');
+    l.src = 'data:image/png;base64,' + s.logo_b64;
+    l.style.display = '';
+  }
+  const qrData = s[col];
+  if (qrData) {
+    const q = document.getElementById('bankQr');
+    q.src = 'data:image/png;base64,' + qrData;
+    q.style.display = '';
+    document.getElementById('s1Hint').textContent = 'Open your ' + (LABELS[METHOD] || METHOD) + ' app, scan the QR code above, then pay exactly ₱' + AMOUNT.toFixed(2) + '.';
+  } else {
+    document.getElementById('s1Hint').textContent = 'No ' + (LABELS[METHOD] || METHOD) + ' QR uploaded yet. Please pay the cashier directly.';
+    document.getElementById('paidBtn').style.display = 'none';
+  }
+}
+
+function show(id) {
+  ['s1','s2','s3'].forEach(s => document.getElementById(s).classList.toggle('active', s === id));
+}
+function toStep1() { stopCam(); show('s1'); }
+function toStep2() { show('s2'); startCam(); }
+
+async function startCam() {
+  try {
+    _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    document.getElementById('cam').srcObject = _stream;
+  } catch (e) {
+    setStatus('Camera blocked. Please allow camera access in your browser settings and try again.', 'fail');
+  }
+}
+function stopCam() {
+  if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
+}
+
+async function captureVerify() {
+  if (_confirmed) return;
+  const btn = document.getElementById('snapBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Reading receipt...';
+  setStatus('Scanning... please hold still.', 'checking');
+  showProgress(true);
+
+  const vid = document.getElementById('cam');
+  const cnv = document.getElementById('canvas');
+  cnv.width  = vid.videoWidth  || 640;
+  cnv.height = vid.videoHeight || 480;
+  cnv.getContext('2d').drawImage(vid, 0, 0);
+
+  try {
+    animateProgress();
+    const res  = await Tesseract.recognize(cnv, 'eng+fil', { logger: () => {} });
+    showProgress(false);
+    const text = res.data.text.toLowerCase();
+
+    const fail  = FAIL_W.some(w => text.includes(w));
+    const ok    = SUCCESS_W.some(w => text.includes(w));
+    const amtOk = checkAmount(text);
+
+    if (fail || !ok) {
+      setStatus('❌ Success screen not detected. Show the full "Payment Successful" screen clearly and try again.', 'fail');
+      btn.disabled = false; btn.textContent = '📸 Try Again'; return;
+    }
+    if (!amtOk) {
+      setStatus('❌ Amount ₱' + AMOUNT.toFixed(2) + ' not detected. Make sure the amount is fully visible.', 'fail');
+      btn.disabled = false; btn.textContent = '📸 Try Again'; return;
+    }
+
+    setStatus('✅ Payment verified!', 'success');
+    _confirmed = true;
+    await signalCashier();
+    setTimeout(() => { stopCam(); show('s3'); }, 1200);
+  } catch (e) {
+    showProgress(false);
+    setStatus('Read error: ' + e.message, 'fail');
+    btn.disabled = false; btn.textContent = '📸 Try Again';
+  }
+}
+
+function checkAmount(text) {
+  // Normalize: remove currency symbols, commas, spaces
+  const clean = text.replace(/[₱,\s]/g, '');
+  const f2  = AMOUNT.toFixed(2);           // "138.00"
+  const f0  = Math.round(AMOUNT).toString(); // "138"
+  const nodot = f2.replace('.', '');        // "13800" — matches "138.00" with period stripped
+  return clean.includes(f2.replace('.','')) || text.includes(f2) || clean.includes(f0 + '00') || text.includes(f0 + '.') || text.includes(' ' + f0 + ' ') || text.endsWith(f0);
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('ocrStatus');
+  el.textContent = msg; el.className = 'status ' + type; el.style.display = '';
+}
+
+let _progTimer = null;
+function showProgress(on) {
+  document.getElementById('progressBar').style.display = on ? '' : 'none';
+  document.getElementById('progressFill').style.width = on ? '10%' : '0%';
+}
+function animateProgress() {
+  let p = 10;
+  _progTimer = setInterval(() => { p = Math.min(p + 3, 90); document.getElementById('progressFill').style.width = p + '%'; }, 400);
+  setTimeout(() => { clearInterval(_progTimer); document.getElementById('progressFill').style.width = '100%'; }, 15000);
+}
+
+async function signalCashier() {
+  if (!STORE_ID) return;
+  const ch = _sb.channel('display-' + STORE_ID);
+  return new Promise(resolve => {
+    const done = () => resolve();
+    const t = setTimeout(done, 6000);
+    ch.subscribe(st => {
+      if (st === 'SUBSCRIBED') {
+        ch.send({
+          type: 'broadcast', event: 'customer_paid',
+          payload: { method: LABELS[METHOD] || METHOD, amount: AMOUNT, ref: REF, verified: true }
+        });
+        clearTimeout(t);
+        setTimeout(done, 500);
+      }
+    });
+  });
+}
+
+init();
+</script>
+</body>
+</html>
