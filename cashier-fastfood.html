@@ -362,8 +362,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
         <input class="disc-inp" id="poDiscPct" type="number" placeholder="%" min="0" max="100" step="0.5" oninput="onPoDiscPct()">
         <input class="disc-inp" id="poDiscAmt" type="number" placeholder="Amount" min="0" step="0.01" oninput="onPoDiscAmt()">
       </div>
-      <select id="poInvItem" class="inp" onchange="addPoInvItem()" style="margin-bottom:6px"><option value="">&#8212; Add Bag / Packaging &#8212;</option></select>
-      <div id="poInvAddedList" style="font-size:11px;color:#ccc"></div>
+      <div id="poInvRow"><select id="poInvItem" class="inp" onchange="addPoInvItem()" style="margin-bottom:6px"><option value="">&#8212; Add Bag / Packaging &#8212;</option></select>
+      <div id="poInvAddedList" style="font-size:11px;color:#ccc"></div></div>
     </div>
 
     <div style="text-align:center;font-size:18px;font-weight:800;color:var(--accent);margin:8px 0;border-top:1px solid var(--border);padding-top:8px" id="poTotal">&#8369;0.00</div>
@@ -1832,6 +1832,9 @@ function onPoDiscAmt() {
 }
 function populatePoInvItems() {
   const sel = document.getElementById('poInvItem');
+  const row = document.getElementById('poInvRow');
+  if (!navigator.onLine) { if (row) row.style.display = 'none'; return; }
+  if (row) row.style.display = '';
   sel.innerHTML = '<option value="">— Add Bag / Packaging —</option>';
   const allowed = (STORE.takeout_inv_categories || '').split(',').map(s=>s.trim()).filter(Boolean);
   storeInvItems
