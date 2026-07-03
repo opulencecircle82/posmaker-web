@@ -16,6 +16,15 @@ body{background:#0e1120;color:#f0f0f8;font-family:-apple-system,BlinkMacSystemFo
 .btn:disabled{opacity:.5;cursor:default}
 .btn-green{background:#22c55e;color:#fff}
 .btn-ghost{background:transparent;color:#9aa0c0;border:1px solid #2a2d45;font-size:14px;padding:10px;margin-top:8px}
+.btn-app{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:15px;border-radius:12px;border:none;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;transition:.15s}
+.btn-gcash{background:#007AFF;color:#fff}
+.btn-maya{background:#00C2A8;color:#fff}
+.btn-bpi{background:#C41E3A;color:#fff}
+.btn-bdo{background:#003366;color:#fff}
+.btn-unionbank{background:#E31837;color:#fff}
+.btn-metrobank{background:#0032A0;color:#fff}
+.divider{display:flex;align-items:center;gap:8px;margin:12px 0;color:#4a4d6a;font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#2a2d45}
 .step{display:none}
 .step.active{display:block}
 video{width:100%;border-radius:12px;max-height:260px;object-fit:cover;background:#000;margin:10px 0}
@@ -43,6 +52,9 @@ canvas{display:none}
     <div id="sName" class="store-name">Loading...</div>
     <div id="sMethod" class="label">Please pay via GCash</div>
     <div id="sAmount" class="amount">₱0.00</div>
+    <!-- App open button (shown for supported methods) -->
+    <button id="appBtn" class="btn-app" style="display:none" onclick="openPayApp()"></button>
+    <div id="qrDivider" class="divider" style="display:none">or scan the QR below with your app</div>
     <img id="bankQr" class="qr-img" style="display:none" alt="Scan to pay">
     <p id="s1Hint" class="hint">Open your banking app, scan the QR above, and pay the exact amount shown.</p>
     <button class="btn btn-green" id="paidBtn" onclick="toStep2()" style="margin-top:18px">✓ I've Paid — Verify Receipt</button>
@@ -87,6 +99,16 @@ const SUCCESS_W = ['successful','success','sent','completed','done','received','
 // Words that indicate failure — if any appear, reject
 const FAIL_W    = ['failed','declined','error','unsuccessful','cancelled','canceled','invalid','insufficient','rejected','timeout','expired'];
 
+// App deep-link configs (Android intent + iOS scheme)
+const APP_CFG = {
+  gcash:      { label:'GCash',      icon:'💙', cls:'btn-gcash',     android:'com.globe.gcash.android', ios:'gcash://' },
+  maya:       { label:'Maya',       icon:'💚', cls:'btn-maya',      android:'ph.maya.ph',              ios:'maya://' },
+  bpi:        { label:'BPI',        icon:'🏦', cls:'btn-bpi',       android:'com.bpiexpressonline',   ios:'bpiexpressonline://' },
+  bdo:        { label:'BDO',        icon:'🏦', cls:'btn-bdo',       android:'com.bdo.bankofphil',     ios:'bdo://' },
+  unionbank:  { label:'UnionBank',  icon:'🏦', cls:'btn-unionbank', android:'com.unionbankph.online', ios:'unionbank://' },
+  metrobank:  { label:'Metrobank',  icon:'🏦', cls:'btn-metrobank', android:'com.metrobankdirect',    ios:'metrobank://' },
+};
+
 let _stream = null, _confirmed = false;
 
 document.getElementById('sAmount').textContent = '₱' + AMOUNT.toFixed(2);
@@ -104,14 +126,33 @@ async function init() {
     l.style.display = '';
   }
   const qrData = s[col];
+  const cfg = APP_CFG[METHOD];
+  if (cfg) {
+    const btn = document.getElementById('appBtn');
+    btn.className = 'btn-app ' + cfg.cls;
+    btn.innerHTML = cfg.icon + ' Open ' + cfg.label + ' App';
+    btn.style.display = 'flex';
+    document.getElementById('qrDivider').style.display = qrData ? 'flex' : 'none';
+  }
   if (qrData) {
     const q = document.getElementById('bankQr');
     q.src = 'data:image/png;base64,' + qrData;
     q.style.display = '';
-    document.getElementById('s1Hint').textContent = 'Open your ' + (LABELS[METHOD] || METHOD) + ' app, scan the QR code above, then pay exactly ₱' + AMOUNT.toFixed(2) + '.';
+    document.getElementById('s1Hint').textContent = 'Open the ' + (cfg ? cfg.label : LABELS[METHOD] || METHOD) + ' app → Scan QR → point at the QR on the store\'s customer screen. Then tap "I\'ve Paid" to verify.';
   } else {
     document.getElementById('s1Hint').textContent = 'No ' + (LABELS[METHOD] || METHOD) + ' QR uploaded yet. Please pay the cashier directly.';
-    document.getElementById('paidBtn').style.display = 'none';
+    if (!cfg) document.getElementById('paidBtn').style.display = 'none';
+  }
+}
+
+function openPayApp() {
+  const cfg = APP_CFG[METHOD];
+  if (!cfg) return;
+  const isAndroid = /android/i.test(navigator.userAgent);
+  if (isAndroid) {
+    window.location.href = 'intent://pay#Intent;scheme=' + METHOD + ';package=' + cfg.android + ';end';
+  } else {
+    window.location.href = cfg.ios;
   }
 }
 
