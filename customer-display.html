@@ -64,9 +64,10 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .bqr-main{text-align:center}
 .bqr-main img{width:380px;height:380px;object-fit:contain;background:#fff;border-radius:16px;padding:12px;display:block}
 .bqr-main .bqr-label{font-size:17px;color:#9aa0c0;margin-top:10px}
-.bqr-side{text-align:center}
-.bqr-side img{width:200px;height:200px;object-fit:contain;background:#fff;border-radius:12px;padding:8px;display:block}
-.bqr-side .bqr-label{font-size:14px;color:#666;margin-top:8px;max-width:200px;line-height:1.4}
+.bqr-side{text-align:center;border-left:1px solid #252540;padding-left:48px}
+.bqr-side img{width:180px;height:180px;object-fit:contain;background:#fff;border-radius:12px;padding:8px;display:block;margin:0 auto}
+.bqr-side .bqr-step{font-size:12px;color:#00b4d8;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.bqr-side .bqr-label{font-size:13px;color:#666;margin-top:8px;max-width:180px;line-height:1.4}
 </style>
 </head>
 <body>
@@ -113,8 +114,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
         <div class="bqr-label" id="bankStoreQrLabel">Open <span id="bankAppName">GCash</span> app → Scan QR</div>
       </div>
       <div class="bqr-side">
+        <div class="bqr-step">Step 1 — Scan first</div>
         <img id="bankVerifyQr" alt="Verify QR">
-        <div class="bqr-label">Scan with phone camera after paying to verify &amp; notify cashier</div>
+        <div class="bqr-label">Scan with your camera to open payment page, then pay via GCash. Cashier is notified automatically.</div>
       </div>
     </div>
     <div id="qrAmountLabel">Please pay via GCash</div>
@@ -210,8 +212,8 @@ async function loadStoreAndSubscribe() {
   // Refresh store settings (GCash QR, etc.) every 2 minutes so changes
   // made in the dashboard take effect without needing a page reload.
   setInterval(async () => {
-    const { data: s } = await _sb.from('stores').select('gcash_qr_b64,gcash_qr_payload,paypal_me').eq('id', STORE_ID).maybeSingle();
-    if (s) { STORE.gcash_qr_b64 = s.gcash_qr_b64; STORE.gcash_qr_payload = s.gcash_qr_payload; STORE.paypal_me = s.paypal_me; }
+    const { data: s } = await _sb.from('stores').select('gcash_qr_b64,gcash_qr_payload,paypal_me,maya_qr_b64,bpi_qr_b64,bdo_qr_b64,unionbank_qr_b64,metrobank_qr_b64').eq('id', STORE_ID).maybeSingle();
+    if (s) { Object.assign(STORE, s); }
   }, 2 * 60 * 1000);
 }
 
@@ -316,25 +318,55 @@ function render(payload) {
     return;
   }
 
-  // Bank payment methods — single URL QR that opens payment-page.html on customer's phone
+  // Bank payment methods — dual QR:
+  //   LEFT (big)  : dynamic GCash QR with amount embedded → customer scans with GCash → exact amount auto-filled
+  //   RIGHT (small): URL QR → customer scans with camera FIRST to open payment-page.html in background → auto-notifies cashier when they return
   const BANK_METHODS = { GCash:'gcash', Maya:'maya', BPI:'bpi', BDO:'bdo', UnionBank:'unionbank', Metrobank:'metrobank' };
+  const QR_COLS = { gcash:'gcash_qr_b64', maya:'maya_qr_b64', bpi:'bpi_qr_b64', bdo:'bdo_qr_b64', unionbank:'unionbank_qr_b64', metrobank:'metrobank_qr_b64' };
   if (BANK_METHODS[payload.payMeth]) {
     resetQrView();
     document.getElementById('orderView').classList.remove('show');
     document.getElementById('qrView').classList.add('show');
     document.getElementById('bayadNaBtn').style.display = 'none';
     document.getElementById('bayadNaSent').style.display = 'none';
+    document.getElementById('qrImg').style.display = 'none';
     const _total = Number(payload.total || 0).toFixed(2);
     const _method = BANK_METHODS[payload.payMeth];
     const _ref = payload.payRef || '';
-    document.getElementById('qrAmountLabel').textContent = 'Please pay via ' + payload.payMeth;
+    const _appName = payload.payMeth;
+
+    document.getElementById('qrAmountLabel').textContent = 'Please pay via ' + _appName;
     document.getElementById('qrAmount').textContent = '₱' + _total;
+    document.getElementById('qrNote').style.display = 'none';
+
+    // LEFT: dynamic payment QR with amount embedded (build from payload, fall back to static store QR)
+    const storeQrEl = document.getElementById('bankStoreQr');
+    document.getElementById('bankAppName').textContent = _appName;
+    document.getElementById('bankStoreQrLabel').innerHTML = 'Open <strong>' + _appName + '</strong> → Pay QR → Scan this';
+
+    let leftQrShown = false;
+    if (_method === 'gcash' && STORE.gcash_qr_payload) {
+      const dynPayload = buildDynamicQr(STORE.gcash_qr_payload, parseFloat(_total));
+      if (dynPayload) {
+        storeQrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=760x760&ecc=M&data=' + encodeURIComponent(dynPayload);
+        leftQrShown = true;
+      }
+    }
+    if (!leftQrShown) {
+      const col = QR_COLS[_method] || 'gcash_qr_b64';
+      const b64 = STORE[col];
+      if (b64) {
+        storeQrEl.src = 'data:image/png;base64,' + b64;
+        leftQrShown = true;
+      }
+    }
+
+    // RIGHT: URL QR → opens payment-page.html on customer's phone
     const payUrl = 'https://posmaker.ggff.net/payment-page.html?store=' + STORE_ID + '&method=' + _method + '&amount=' + _total + '&ref=' + encodeURIComponent(_ref);
-    const qrImg = document.getElementById('qrImg');
-    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(payUrl);
-    qrImg.style.display = '';
-    document.getElementById('qrNote').textContent = 'Open your camera app and scan this QR code.';
-    document.getElementById('qrNote').style.display = '';
+    const verifyQrEl = document.getElementById('bankVerifyQr');
+    verifyQrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&ecc=M&data=' + encodeURIComponent(payUrl);
+
+    document.getElementById('bankQrRow').classList.add('show');
     return;
   }
 

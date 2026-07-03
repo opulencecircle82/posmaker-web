@@ -45,25 +45,13 @@ body{background:#0e1120;color:#f0f0f8;font-family:-apple-system,BlinkMacSystemFo
     <div id="sMethod" class="label">Pay via GCash</div>
     <div id="sAmount" class="amount">₱0.00</div>
 
-    <!-- Dynamic QR (amount embedded) — primary scan target -->
-    <div id="dynQrWrap" style="display:none;margin:12px 0 4px">
-      <img id="dynQr" class="qr-img">
-      <p class="hint" style="margin-top:6px">Tap the button below — GCash opens directly to payment.<br>₱<span id="dynHintAmt"></span> is already set, just confirm.</p>
+    <!-- Waiting state: customer is about to pay in GCash using QR on store screen -->
+    <div id="waitBox" style="margin:18px 0 8px;padding:20px;background:#111827;border-radius:14px;border:1px solid #252545">
+      <div style="font-size:32px;margin-bottom:8px">📱</div>
+      <p style="font-size:16px;font-weight:700;color:#f0f0f8;margin-bottom:6px">Open <span id="appNameWait">GCash</span> → Pay QR</p>
+      <p class="hint">Scan the <strong style="color:#f0f0f8">big QR on the store screen</strong> with your <span id="appNameWait2">GCash</span> app. The exact amount is already embedded.</p>
     </div>
-
-    <!-- Open-app button (opens GCash so customer can scan) -->
-    <button id="payBtn" class="btn-pay gcash-btn" onclick="openApp()" style="display:none;margin-top:14px">
-      <span id="payIcon">💙</span>
-      <span id="payLabel">Open GCash App</span>
-    </button>
-    <p id="s1Hint" class="hint" style="display:none"></p>
-
-    <!-- Fallback: static store QR (no amount) -->
-    <button class="qr-toggle" onclick="toggleQr()" id="fallbackToggle" style="display:none">No dynamic QR? Use static QR</button>
-    <div id="qrFallback" class="qr-fallback">
-      <img id="bankQr" class="qr-img" style="display:none">
-      <p class="hint">Screenshot this QR → open GCash → Scan from Gallery</p>
-    </div>
+    <p id="s1Hint" class="hint" style="margin-top:10px;color:#4a4d6a">Once you pay and close <span id="appNameHint">GCash</span>, this page will automatically notify the cashier.</p>
   </div>
 
   <!-- Step 2: Auto-confirming (customer returned from GCash app) -->
@@ -95,55 +83,10 @@ const AMOUNT   = parseFloat(P.get('amount') || '0');
 const REF      = P.get('ref') || '';
 
 const LABELS = { gcash:'GCash', maya:'Maya', bpi:'BPI', bdo:'BDO', unionbank:'UnionBank', metrobank:'Metrobank' };
-const QR_COLS = { gcash:'gcash_qr_b64', maya:'maya_qr_b64', bpi:'bpi_qr_b64', bdo:'bdo_qr_b64', unionbank:'unionbank_qr_b64', metrobank:'metrobank_qr_b64' };
-const APP_CFG = {
-  gcash:     { icon:'💙', cls:'gcash-btn',     pkg:'com.globe.gcash.android', iosScheme:'gcash' },
-  maya:      { icon:'💚', cls:'maya-btn',      pkg:'ph.maya.ph',              iosScheme:'maya' },
-  bpi:       { icon:'❤️', cls:'bpi-btn',       pkg:'com.bpiexpressonline',    iosScheme:'bpi' },
-  bdo:       { icon:'💙', cls:'bdo-btn',       pkg:'com.bdo.bankofphil',      iosScheme:'bdo' },
-  unionbank: { icon:'❤️', cls:'unionbank-btn', pkg:'com.unionbankph.online',  iosScheme:'unionbank' },
-  metrobank: { icon:'💙', cls:'metrobank-btn', pkg:'com.metrobankdirect',     iosScheme:'metrobank' },
-};
-
-// EMVCo / InstaPay dynamic QR builder (embeds amount into QR payload)
-function _crc16(data) {
-  let crc = 0xFFFF;
-  for (let i = 0; i < data.length; i++) {
-    crc ^= data.charCodeAt(i) << 8;
-    for (let j = 0; j < 8; j++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
-  }
-  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-}
-function buildDynamicQr(staticPayload, amount) {
-  try {
-    const fields = [];
-    let i = 0;
-    while (i < staticPayload.length) {
-      const tag = staticPayload.slice(i, i + 2);
-      const len = parseInt(staticPayload.slice(i + 2, i + 4), 10);
-      if (isNaN(len) || i + 4 + len > staticPayload.length) break;
-      fields.push({ tag, value: staticPayload.slice(i + 4, i + 4 + len) });
-      i += 4 + len;
-    }
-    if (!fields.length || fields[0].tag !== '00') return null;
-    let working = fields.filter(f => f.tag !== '54' && f.tag !== '63');
-    const f01 = working.find(f => f.tag === '01');
-    if (f01) f01.value = '12';
-    const amtStr = parseFloat(amount).toFixed(2);
-    const insertIdx = working.findIndex(f => parseInt(f.tag) >= 55);
-    if (insertIdx >= 0) working.splice(insertIdx, 0, { tag: '54', value: amtStr });
-    else working.push({ tag: '54', value: amtStr });
-    let out = '';
-    for (const f of working) out += f.tag + String(f.value.length).padStart(2, '0') + f.value;
-    out += '6304';
-    return out + _crc16(out);
-  } catch (_) { return null; }
-}
 
 let _appOpenTime = 0;
 let _cdTimer = null;
 let _confirmed = false;
-let _dynamicPayload = null;
 
 document.getElementById('sAmount').textContent = '₱' + AMOUNT.toFixed(2);
 document.getElementById('sMethod').textContent = 'Pay via ' + (LABELS[METHOD] || METHOD.toUpperCase());
@@ -156,86 +99,21 @@ function show(id) {
 
 async function init() {
   if (!STORE_ID) { document.getElementById('sName').textContent = 'Invalid link'; return; }
-  const col = QR_COLS[METHOD] || 'gcash_qr_b64';
-  const extra = METHOD === 'gcash' ? ',gcash_qr_payload' : '';
-  const { data: s } = await _sb.from('stores').select('name,logo_b64,' + col + extra).eq('id', STORE_ID).maybeSingle();
+  const { data: s } = await _sb.from('stores').select('name,logo_b64').eq('id', STORE_ID).maybeSingle();
   if (!s) { document.getElementById('sName').textContent = 'Store not found'; return; }
-
   document.getElementById('sName').textContent = s.name || 'Store';
   if (s.logo_b64) {
     const l = document.getElementById('sLogo');
     l.src = 'data:image/png;base64,' + s.logo_b64;
     l.style.display = '';
   }
-
-  // Build dynamic QR with amount embedded
-  if (s.gcash_qr_payload) {
-    _dynamicPayload = buildDynamicQr(s.gcash_qr_payload, AMOUNT);
-  }
-
-  const cfg = APP_CFG[METHOD];
-
-  if (_dynamicPayload) {
-    // Show dynamic QR image (amount pre-embedded) — customer scans this inside GCash
-    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(_dynamicPayload);
-    document.getElementById('dynQr').src = qrUrl;
-    document.getElementById('dynQrWrap').style.display = '';
-    document.getElementById('dynHintAmt').textContent = AMOUNT.toFixed(2);
-    // "Open GCash App" button so customer can open GCash then scan
-    if (cfg) {
-      const btn = document.getElementById('payBtn');
-      btn.className = 'btn-pay ' + cfg.cls;
-      document.getElementById('payIcon').textContent = cfg.icon;
-      document.getElementById('payLabel').textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' to Pay';
-      btn.style.display = 'flex';
-    }
-    // Static QR fallback toggle (no amount)
-    const qrData = s[col];
-    if (qrData) {
-      const q = document.getElementById('bankQr');
-      q.src = 'data:image/png;base64,' + qrData;
-      q.style.display = '';
-      document.getElementById('fallbackToggle').style.display = '';
-    }
-  } else {
-    // No payload — show static store QR and open-app button
-    const qrData = s[col];
-    if (qrData) {
-      const q = document.getElementById('bankQr');
-      q.src = 'data:image/png;base64,' + qrData;
-      q.style.display = '';
-      document.getElementById('qrFallback').classList.add('show');
-    }
-    if (cfg) {
-      const btn = document.getElementById('payBtn');
-      btn.className = 'btn-pay ' + cfg.cls;
-      document.getElementById('payIcon').textContent = cfg.icon;
-      document.getElementById('payLabel').textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' App';
-      btn.style.display = 'flex';
-      const hint = document.getElementById('s1Hint');
-      hint.textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' → Pay QR → scan the code above. Pay ₱' + AMOUNT.toFixed(2) + ', then come back here.';
-      hint.style.display = '';
-    }
-  }
-}
-
-function openApp() {
-  const cfg = APP_CFG[METHOD];
-  if (!cfg) return;
+  const appName = LABELS[METHOD] || METHOD.toUpperCase();
+  document.querySelectorAll('#appNameWait,#appNameWait2,#appNameHint').forEach(el => el.textContent = appName);
+  // Start watching for customer to return from their payment app
   _appOpenTime = Date.now();
-  if (_dynamicPayload) {
-    // gcash://qrpay?qrcode=<payload> — opens GCash directly to payment confirm screen
-    // (no QR scan needed, amount is pre-loaded from the EMVCo payload)
-    window.location.href = `${cfg.iosScheme}://qrpay?qrcode=${encodeURIComponent(_dynamicPayload)}`;
-  } else {
-    const isAndroid = /android/i.test(navigator.userAgent);
-    window.location.href = isAndroid
-      ? `intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${cfg.pkg};end`
-      : cfg.iosScheme + '://';
-  }
 }
 
-// Customer returned from GCash — auto-notify cashier after short countdown
+// Customer switched away to GCash then came back — auto-notify cashier
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || _confirmed || _appOpenTime === 0) return;
   const elapsed = Date.now() - _appOpenTime;
@@ -281,11 +159,6 @@ async function confirmPaid() {
       });
     });
   } catch (_) {}
-}
-
-function toggleQr() {
-  const el = document.getElementById('qrFallback');
-  el.classList.toggle('show');
 }
 
 init();
