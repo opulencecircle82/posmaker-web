@@ -401,6 +401,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
         <button class="m-btn"        onclick="setMethod('Metrobank',this)" id="btnMetrobank" style="display:none">Metrobank</button>
         <button class="m-btn"        onclick="setMethod('PayPal',this)">PayPal</button>
         <button class="m-btn"        onclick="setMethod('QRPay',this)">QR Pay</button>
+        <button class="m-btn"        onclick="setMethod('Maya QRPh',this)" id="btnMayaQR" style="display:none">Maya QRPh</button>
       </div>
       <div id="cashSection">
         <div class="quick-row" id="quickRow"></div>
@@ -777,7 +778,8 @@ let _openScanTimer = null;
   if (store.bdo_qr_b64)        { const b=document.getElementById('btnBDO');        if(b) b.style.display=''; }
   if (store.unionbank_qr_b64)  { const b=document.getElementById('btnUnionBank');  if(b) b.style.display=''; }
   if (store.metrobank_qr_b64)  { const b=document.getElementById('btnMetrobank'); if(b) b.style.display=''; }
-  try { _displayChannel = _sb.channel('display-' + STORE.id); _displayChannel.on('broadcast', { event: 'customer_paid' }, () => showBayadNaAlert()); _displayChannel.subscribe(); } catch (_) {}
+  if (store.maya_public_key)   { const b=document.getElementById('btnMayaQR');    if(b) b.style.display=''; }
+  try { _displayChannel = _sb.channel('display-' + STORE.id); _displayChannel.on('broadcast', { event: 'customer_paid' }, () => { showBayadNaAlert(); if (payMeth === 'Maya QRPh') { setTimeout(() => { _qrPayAutoConfirm = true; confirmOrder(); }, 1000); } }); _displayChannel.subscribe(); } catch (_) {}
   try { _localDisplayChannel = new BroadcastChannel('posmaker-display-' + STORE.id); _localDisplayChannel.onmessage = (e) => { if (e.data && e.data.type === 'customer_paid') showBayadNaAlert(); }; } catch (_) {}
   if (STORE.dual_screen_enabled) { const _bds = document.getElementById('btnDualScreen'); if (_bds) _bds.style.display = ''; }
   try { localStorage.setItem('pm_cached_store_'+STORE_ID, JSON.stringify(store)); } catch(_) {}
@@ -2018,7 +2020,7 @@ function broadcastToDisplay() {
   const { items, total, sub, tax, disc } = getCartTotals();
   const payload = {
     items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
-    total, sub, tax, disc, payMeth, storeName: STORE ? STORE.name : '',
+    total, sub, tax, disc, payMeth: payMeth === 'Maya QRPh' ? 'QRPay' : payMeth, storeName: STORE ? STORE.name : '',
     qrCode: _qrCode || undefined,
     payRef: _payRef || undefined,
   };
@@ -2060,6 +2062,30 @@ async function startQrPayment() {
     }
   } catch (e) { showToast('QR Pay error: ' + e.message, true); _pendingQrRef = null; _qrCode = null; broadcastToDisplay(); }
 }
+
+async function startMayaQrPayment() {
+  const { items, total } = getCartTotals();
+  if (!items.length) return;
+  if (!STORE.maya_public_key) {
+    showToast('Maya QRPh not set up. Go to Dashboard → Settings → Maya API.', true); return;
+  }
+  const refNo = 'PM-' + STORE.id.replace(/-/g, '') + '-' + Date.now();
+  _pendingQrRef = refNo;
+  _qrCode = null;
+  broadcastToDisplay();
+  try {
+    const res = await fetch(SUPABASE_URL + '/functions/v1/maya-create-qr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + SUPABASE_ANON },
+      body: JSON.stringify({ storeId: STORE.id, amount: total, refNo })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) { showToast('Maya QRPh: ' + (data.error || res.status), true); _pendingQrRef = null; _qrCode = null; broadcastToDisplay(); return; }
+    _qrCode = data.qrCode;
+    broadcastToDisplay();
+  } catch (e) { showToast('Maya QRPh error: ' + e.message, true); _pendingQrRef = null; _qrCode = null; broadcastToDisplay(); }
+}
+
 function openDualScreen() {
   if (!STORE || !STORE.id) return;
   window.open('customer-display.html?local=1&store=' + STORE.id, 'posmaker_display', 'width=1280,height=800');
@@ -2237,6 +2263,7 @@ window.addEventListener('offline', ()=>{ updateNetStatus(); });
 // ── Confirm Order ─────────────────────────────────────────────────────────
 async function confirmOrder() {
   if (payMeth === 'QRPay' && !_qrPayAutoConfirm) { startQrPayment(); return; }
+  if (payMeth === 'Maya QRPh' && !_qrPayAutoConfirm) { startMayaQrPayment(); return; }
   _qrPayAutoConfirm = false;
 
   const { items, raw, disc, total, tax, sub } = getCartTotals();
