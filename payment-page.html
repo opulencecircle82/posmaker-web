@@ -38,22 +38,31 @@ body{background:#0e1120;color:#f0f0f8;font-family:-apple-system,BlinkMacSystemFo
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
 <div class="card">
-  <!-- Step 1: Pay button -->
+  <!-- Step 1: Pay -->
   <div id="s1" class="step active">
     <img id="sLogo" class="logo" style="display:none">
     <div id="sName" class="store-name">Loading...</div>
     <div id="sMethod" class="label">Pay via GCash</div>
     <div id="sAmount" class="amount">₱0.00</div>
-    <button id="payBtn" class="btn-pay gcash-btn" onclick="openApp()" style="display:none">
+
+    <!-- Dynamic QR (amount embedded) — primary scan target -->
+    <div id="dynQrWrap" style="display:none;margin:12px 0 4px">
+      <img id="dynQr" class="qr-img">
+      <p class="hint" style="margin-top:6px">Open GCash → <strong style="color:#f0f0f8">Pay QR</strong> → scan this code.<br>Amount is already set — just confirm.</p>
+    </div>
+
+    <!-- Open-app button (opens GCash so customer can scan) -->
+    <button id="payBtn" class="btn-pay gcash-btn" onclick="openApp()" style="display:none;margin-top:14px">
       <span id="payIcon">💙</span>
       <span id="payLabel">Open GCash App</span>
     </button>
-    <p id="s1Hint" class="hint">Tap to open the app, pay the amount above, then come back here to confirm.</p>
-    <!-- QR fallback (hidden by default) -->
-    <button class="qr-toggle" onclick="toggleQr()">No app? Show QR code instead</button>
+    <p id="s1Hint" class="hint" style="display:none"></p>
+
+    <!-- Fallback: static store QR (no amount) -->
+    <button class="qr-toggle" onclick="toggleQr()" id="fallbackToggle" style="display:none">No dynamic QR? Use static QR</button>
     <div id="qrFallback" class="qr-fallback">
       <img id="bankQr" class="qr-img" style="display:none">
-      <p class="hint">Screenshot this QR → open your app → Scan from Gallery</p>
+      <p class="hint">Screenshot this QR → open GCash → Scan from Gallery</p>
     </div>
   </div>
 
@@ -160,30 +169,53 @@ async function init() {
     l.style.display = '';
   }
 
-  // Build deep-link payload
-  if (METHOD === 'gcash' && s.gcash_qr_payload) {
+  // Build dynamic QR with amount embedded
+  if (s.gcash_qr_payload) {
     _dynamicPayload = buildDynamicQr(s.gcash_qr_payload, AMOUNT);
   }
 
-  // Show QR fallback image
-  const qrData = s[col];
-  if (qrData) {
-    const q = document.getElementById('bankQr');
-    q.src = 'data:image/png;base64,' + qrData;
-    q.style.display = '';
-  }
-
-  // Setup pay button
   const cfg = APP_CFG[METHOD];
-  if (cfg) {
-    const btn = document.getElementById('payBtn');
-    btn.className = 'btn-pay ' + cfg.cls;
-    document.getElementById('payIcon').textContent = cfg.icon;
-    document.getElementById('payLabel').textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' App';
-    btn.style.display = 'flex';
-    document.getElementById('s1Hint').textContent = 'Tap to open ' + (LABELS[METHOD] || METHOD) + ' app, pay ₱' + AMOUNT.toFixed(2) + ', then come back here to confirm.';
+
+  if (_dynamicPayload) {
+    // Show dynamic QR image (amount pre-embedded) — customer scans this inside GCash
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(_dynamicPayload);
+    document.getElementById('dynQr').src = qrUrl;
+    document.getElementById('dynQrWrap').style.display = '';
+    // "Open GCash App" button so customer can open GCash then scan
+    if (cfg) {
+      const btn = document.getElementById('payBtn');
+      btn.className = 'btn-pay ' + cfg.cls;
+      document.getElementById('payIcon').textContent = cfg.icon;
+      document.getElementById('payLabel').textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' App';
+      btn.style.display = 'flex';
+    }
+    // Static QR fallback toggle (no amount)
+    const qrData = s[col];
+    if (qrData) {
+      const q = document.getElementById('bankQr');
+      q.src = 'data:image/png;base64,' + qrData;
+      q.style.display = '';
+      document.getElementById('fallbackToggle').style.display = '';
+    }
   } else {
-    document.getElementById('s1Hint').textContent = 'Please pay ₱' + AMOUNT.toFixed(2) + ' via ' + (LABELS[METHOD] || METHOD) + '.';
+    // No payload — show static store QR and open-app button
+    const qrData = s[col];
+    if (qrData) {
+      const q = document.getElementById('bankQr');
+      q.src = 'data:image/png;base64,' + qrData;
+      q.style.display = '';
+      document.getElementById('qrFallback').classList.add('show');
+    }
+    if (cfg) {
+      const btn = document.getElementById('payBtn');
+      btn.className = 'btn-pay ' + cfg.cls;
+      document.getElementById('payIcon').textContent = cfg.icon;
+      document.getElementById('payLabel').textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' App';
+      btn.style.display = 'flex';
+      const hint = document.getElementById('s1Hint');
+      hint.textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' → Pay QR → scan the code above. Pay ₱' + AMOUNT.toFixed(2) + ', then come back here.';
+      hint.style.display = '';
+    }
   }
 }
 
@@ -192,12 +224,10 @@ function openApp() {
   if (!cfg) return;
   _appOpenTime = Date.now();
   const isAndroid = /android/i.test(navigator.userAgent);
-  if (isAndroid) {
-    // Launch app via MAIN/LAUNCHER intent — works even if GCash has no deep-link scheme registered
-    window.location.href = `intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${cfg.pkg};end`;
-  } else {
-    window.location.href = cfg.iosScheme + '://';
-  }
+  // Open the app so customer can use Pay QR to scan the dynamic QR on screen
+  window.location.href = isAndroid
+    ? `intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${cfg.pkg};end`
+    : cfg.iosScheme + '://';
 }
 
 // When customer returns from bank app, show confirmation
