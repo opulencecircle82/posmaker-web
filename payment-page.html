@@ -48,7 +48,7 @@ body{background:#0e1120;color:#f0f0f8;font-family:-apple-system,BlinkMacSystemFo
     <!-- Dynamic QR (amount embedded) — primary scan target -->
     <div id="dynQrWrap" style="display:none;margin:12px 0 4px">
       <img id="dynQr" class="qr-img">
-      <p class="hint" style="margin-top:6px">Open GCash → <strong style="color:#f0f0f8">Pay QR</strong> → scan this code.<br>Amount is already set — just confirm.</p>
+      <p class="hint" style="margin-top:6px">Tap the button below — GCash opens directly to payment.<br>₱<span id="dynHintAmt"></span> is already set, just confirm.</p>
     </div>
 
     <!-- Open-app button (opens GCash so customer can scan) -->
@@ -181,12 +181,13 @@ async function init() {
     const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(_dynamicPayload);
     document.getElementById('dynQr').src = qrUrl;
     document.getElementById('dynQrWrap').style.display = '';
+    document.getElementById('dynHintAmt').textContent = AMOUNT.toFixed(2);
     // "Open GCash App" button so customer can open GCash then scan
     if (cfg) {
       const btn = document.getElementById('payBtn');
       btn.className = 'btn-pay ' + cfg.cls;
       document.getElementById('payIcon').textContent = cfg.icon;
-      document.getElementById('payLabel').textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' App';
+      document.getElementById('payLabel').textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' to Pay';
       btn.style.display = 'flex';
     }
     // Static QR fallback toggle (no amount)
@@ -223,11 +224,16 @@ function openApp() {
   const cfg = APP_CFG[METHOD];
   if (!cfg) return;
   _appOpenTime = Date.now();
-  const isAndroid = /android/i.test(navigator.userAgent);
-  // Open the app so customer can use Pay QR to scan the dynamic QR on screen
-  window.location.href = isAndroid
-    ? `intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${cfg.pkg};end`
-    : cfg.iosScheme + '://';
+  if (_dynamicPayload) {
+    // gcash://qrpay?qrcode=<payload> — opens GCash directly to payment confirm screen
+    // (no QR scan needed, amount is pre-loaded from the EMVCo payload)
+    window.location.href = `${cfg.iosScheme}://qrpay?qrcode=${encodeURIComponent(_dynamicPayload)}`;
+  } else {
+    const isAndroid = /android/i.test(navigator.userAgent);
+    window.location.href = isAndroid
+      ? `intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${cfg.pkg};end`
+      : cfg.iosScheme + '://';
+  }
 }
 
 // When customer returns from bank app, show confirmation
