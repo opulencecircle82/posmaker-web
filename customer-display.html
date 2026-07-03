@@ -316,11 +316,10 @@ function render(payload) {
     return;
   }
 
-  // Bank payment methods — show store QR (for GCash scanning) + URL QR (for phone verification)
+  // Bank payment methods — single URL QR that opens payment-page.html on customer's phone
   const BANK_METHODS = { GCash:'gcash', Maya:'maya', BPI:'bpi', BDO:'bdo', UnionBank:'unionbank', Metrobank:'metrobank' };
-  const BANK_QR_FIELD  = { gcash:'gcash_qr_b64',      maya:'maya_qr_b64', bpi:'bpi_qr_b64', bdo:'bdo_qr_b64', unionbank:'unionbank_qr_b64', metrobank:'metrobank_qr_b64' };
-  const BANK_PAYLOAD_F = { gcash:'gcash_qr_payload',   maya:null,          bpi:null,         bdo:null,         unionbank:null,              metrobank:null };
   if (BANK_METHODS[payload.payMeth]) {
+    resetQrView();
     document.getElementById('orderView').classList.remove('show');
     document.getElementById('qrView').classList.add('show');
     document.getElementById('bayadNaBtn').style.display = 'none';
@@ -331,35 +330,10 @@ function render(payload) {
     document.getElementById('qrAmountLabel').textContent = 'Please pay via ' + payload.payMeth;
     document.getElementById('qrAmount').textContent = '₱' + _total;
     const payUrl = 'https://posmaker.ggff.net/payment-page.html?store=' + STORE_ID + '&method=' + _method + '&amount=' + _total + '&ref=' + encodeURIComponent(_ref);
-    const verifyQrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&ecc=M&data=' + encodeURIComponent(payUrl);
-    const storeQrData   = STORE && STORE[BANK_QR_FIELD[_method]];
-    const payloadField  = BANK_PAYLOAD_F[_method];
-    const rawPayload    = payloadField && STORE && STORE[payloadField];
-    // Build dynamic QR with amount embedded (e.g. GCash InstaPay payload)
-    const dynamicPayload = rawPayload ? _buildDynamicQr(rawPayload, _total) : null;
-    if (storeQrData || dynamicPayload) {
-      // Dual-QR: big payment QR (amount pre-filled) + small URL QR (verify on phone)
-      document.getElementById('qrImg').style.display = 'none';
-      document.getElementById('bankQrRow').classList.add('show');
-      document.getElementById('bankAppName').textContent = payload.payMeth;
-      if (dynamicPayload) {
-        // Use generated QR with exact amount embedded — customer scans, amount is pre-filled
-        document.getElementById('bankStoreQr').src = 'https://api.qrserver.com/v1/create-qr-code/?size=760x760&ecc=M&data=' + encodeURIComponent(dynamicPayload);
-      } else {
-        // Static uploaded image (no amount pre-fill, customer enters manually)
-        document.getElementById('bankStoreQr').src = 'data:image/png;base64,' + storeQrData;
-      }
-      document.getElementById('bankVerifyQr').src = verifyQrSrc;
-      const amtNote = dynamicPayload ? ' — ₱' + _total + ' is pre-filled' : ' then enter ₱' + _total;
-      document.getElementById('qrNote').textContent = '1. Open ' + payload.payMeth + ' app → Scan QR' + amtNote + ' → Confirm payment.   2. After paying, scan the small QR with your phone to notify the cashier.';
-    } else {
-      // No store QR uploaded — URL QR only
-      document.getElementById('bankQrRow').classList.remove('show');
-      const qrImg = document.getElementById('qrImg');
-      qrImg.src = verifyQrSrc;
-      qrImg.style.display = '';
-      document.getElementById('qrNote').textContent = 'Open your camera app and scan — follow the steps on your phone to pay and verify.';
-    }
+    const qrImg = document.getElementById('qrImg');
+    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(payUrl);
+    qrImg.style.display = '';
+    document.getElementById('qrNote').textContent = 'Open your camera app and scan this QR code.';
     document.getElementById('qrNote').style.display = '';
     return;
   }
