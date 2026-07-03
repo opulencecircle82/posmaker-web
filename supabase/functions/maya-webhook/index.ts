@@ -1,48 +1,51 @@
-// POSMaker — Maya Payment Webhook Receiver
-// Maya calls this URL when a QR Ph payment is completed.
-// Inserts a row into maya_payments → triggers cashier's realtime subscription → auto-confirms order.
-//
-// Deploy: Supabase Dashboard → Edge Functions → New Function → "maya-webhook" → paste this file
-// Webhook URL to enter in Maya Business portal:
-//   https://djvwlwnnlldoppomhbap.supabase.co/functions/v1/maya-webhook
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*' } })
+  }
+
   try {
     const body = await req.json()
+    const status = body.status ?? body.paymentStatus ?? ''
+    const isPaid = body.isPaid === true || status === 'PAYMENT_SUCCESS' || status === 'completed'
 
-    // Maya sends various events; only act on successful payment
-    if (body.status !== 'PAYMENT_SUCCESS') {
-      return new Response('ignored', { status: 200 })
+    if (!isPaid) {
+      return new Response(JSON.stringify({ received: true }), { status: 200 })
     }
 
-    const refNo: string = body.requestReferenceNumber || ''
-    // refNo format: PM-{storeId-no-dashes-32chars}-{timestamp}
-    // e.g. PM-550e8400e29b41d4a7164466140000001234567890
-    const match = refNo.match(/^PM-([0-9a-f]{32})-\d+$/i)
-    let storeId: string | null = null
-    if (match) {
-      const r = match[1]
-      storeId = `${r.slice(0,8)}-${r.slice(8,12)}-${r.slice(12,16)}-${r.slice(16,20)}-${r.slice(20)}`
+    const ref = body.requestReferenceNumber ?? body.referenceNumber ?? ''
+    const storeId = ref.split('-')[1] ?? null
+
+    if (!storeId) {
+      return new Response(JSON.stringify({ error: 'no storeId' }), { status: 400 })
     }
 
-    const sb = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    await sb.from('maya_payments').insert({
-      store_id: storeId,
-      ref_no: refNo,
-      payment_id: body.id,
-      amount: body.totalAmount?.value ?? null,
-    }).then(() => {})
+    const channel = supabase.channel('display-' + storeId)
+    await new Promise<void>(resolve => {
+      channel.subscribe(st => {
+        if (st === 'SUBSCRIBED') {
+          channel.send({
+            type: 'broadcast',
+            event: 'customer_paid',
+            payload: {
+              method: 'Maya QRPh',
+              amount: body.totalAmount?.value ?? body.amount ?? 0,
+              ref,
+              verified: true
+            }
+          }).then(() => resolve())
+        }
+      })
+    })
 
-    return new Response('ok', { status: 200 })
-
-  } catch (e: any) {
-    console.error('maya-webhook error:', e.message)
-    return new Response(e.message, { status: 500 })
+    return new Response(JSON.stringify({ success: true }), { status: 200 })
+  } catch (err) {
+    return new Response(JSON.stringify({ error: String(err) }), { status: 500 })
   }
 })
