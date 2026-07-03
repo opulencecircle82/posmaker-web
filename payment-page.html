@@ -66,14 +66,13 @@ body{background:#0e1120;color:#f0f0f8;font-family:-apple-system,BlinkMacSystemFo
     </div>
   </div>
 
-  <!-- Step 2: Confirm after returning from app -->
+  <!-- Step 2: Auto-confirming (customer returned from GCash app) -->
   <div id="s2" class="step">
-    <div class="big-icon">💸</div>
-    <div class="confirmed-title" style="color:#f0f0f8">Payment Done?</div>
-    <p class="hint" style="font-size:15px;margin-top:4px">Did you successfully pay <strong style="color:#00b4d8" id="s2Amount"></strong> in <span id="s2Method">GCash</span>?</p>
-    <button class="btn-confirm" onclick="confirmPaid()">✅ Yes — Notify Cashier</button>
-    <button class="btn-back" onclick="backToApp()">← No, go back</button>
-    <p id="cdText" class="countdown"></p>
+    <div class="big-icon">⏳</div>
+    <div class="confirmed-title" style="color:#00b4d8;font-size:22px">Notifying cashier...</div>
+    <p class="hint" style="font-size:15px;margin-top:8px">Payment of <strong style="color:#00b4d8" id="s2Amount"></strong> via <span id="s2Method">GCash</span> detected.</p>
+    <p id="cdText" class="countdown" style="font-size:16px;margin-top:14px;color:#f0f0f8"></p>
+    <button class="btn-back" style="margin-top:16px" onclick="cancelConfirm()">✕ I did not pay — cancel</button>
   </div>
 
   <!-- Step 3: Done -->
@@ -236,28 +235,28 @@ function openApp() {
   }
 }
 
-// When customer returns from bank app, show confirmation
+// Customer returned from GCash — auto-notify cashier after short countdown
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || _confirmed || _appOpenTime === 0) return;
   const elapsed = Date.now() - _appOpenTime;
   if (elapsed < 2000) return; // too fast — probably didn't open app
   _appOpenTime = 0;
   show('s2');
-  startCountdown(10);
+  startCountdown(5);
 });
 
 function startCountdown(secs) {
   clearInterval(_cdTimer);
   const el = document.getElementById('cdText');
-  el.textContent = 'Auto-confirming in ' + secs + 's...';
+  el.textContent = 'Notifying cashier in ' + secs + 's...';
   _cdTimer = setInterval(() => {
     secs--;
     if (secs <= 0) { clearInterval(_cdTimer); el.textContent = ''; confirmPaid(); }
-    else el.textContent = 'Auto-confirming in ' + secs + 's...';
+    else el.textContent = 'Notifying cashier in ' + secs + 's...';
   }, 1000);
 }
 
-function backToApp() {
+function cancelConfirm() {
   clearInterval(_cdTimer);
   document.getElementById('cdText').textContent = '';
   _appOpenTime = 0;
