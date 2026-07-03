@@ -48,7 +48,7 @@ body{background:#0e1120;color:#f0f0f8;font-family:-apple-system,BlinkMacSystemFo
       <span id="payIcon">💙</span>
       <span id="payLabel">Open GCash App</span>
     </button>
-    <p id="s1Hint" class="hint">Tap the button to open the app. The amount is pre-filled — just confirm payment.</p>
+    <p id="s1Hint" class="hint">Tap to open the app, pay the amount above, then come back here to confirm.</p>
     <!-- QR fallback (hidden by default) -->
     <button class="qr-toggle" onclick="toggleQr()">No app? Show QR code instead</button>
     <div id="qrFallback" class="qr-fallback">
@@ -181,9 +181,7 @@ async function init() {
     document.getElementById('payIcon').textContent = cfg.icon;
     document.getElementById('payLabel').textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' App';
     btn.style.display = 'flex';
-    document.getElementById('s1Hint').textContent = _dynamicPayload
-      ? 'Tap to open ' + (LABELS[METHOD] || METHOD) + '. ₱' + AMOUNT.toFixed(2) + ' is pre-filled — just confirm.'
-      : 'Tap to open ' + (LABELS[METHOD] || METHOD) + ' app, then pay ₱' + AMOUNT.toFixed(2) + '.';
+    document.getElementById('s1Hint').textContent = 'Tap to open ' + (LABELS[METHOD] || METHOD) + ' app, pay ₱' + AMOUNT.toFixed(2) + ', then come back here to confirm.';
   } else {
     document.getElementById('s1Hint').textContent = 'Please pay ₱' + AMOUNT.toFixed(2) + ' via ' + (LABELS[METHOD] || METHOD) + '.';
   }
@@ -193,19 +191,8 @@ function openApp() {
   const cfg = APP_CFG[METHOD];
   if (!cfg) return;
   _appOpenTime = Date.now();
-  const isAndroid = /android/i.test(navigator.userAgent);
-  let url;
-  if (_dynamicPayload) {
-    const encoded = encodeURIComponent(_dynamicPayload);
-    url = isAndroid
-      ? `intent://qrpay?qrcode=${encoded}#Intent;scheme=gcash;package=${cfg.pkg};end`
-      : `${cfg.iosScheme}://qrpay?qrcode=${encoded}`;
-  } else {
-    url = isAndroid
-      ? `intent://pay#Intent;scheme=${cfg.iosScheme};package=${cfg.pkg};end`
-      : `${cfg.iosScheme}://`;
-  }
-  window.location.href = url;
+  // Plain scheme URL — reliable cross-platform app launcher
+  window.location.href = cfg.iosScheme + '://';
 }
 
 // When customer returns from bank app, show confirmation
