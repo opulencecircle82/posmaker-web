@@ -14,8 +14,8 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ received: true }), { status: 200 })
     }
 
-    const ref = body.requestReferenceNumber ?? body.referenceNumber ?? ''
-    const storeId = ref.split('-')[1] ?? null
+    // storeId is embedded in metadata by maya-create-qr Edge Function
+    const storeId: string | null = body.metadata?.storeId ?? null
 
     if (!storeId) {
       return new Response(JSON.stringify({ error: 'no storeId' }), { status: 400 })

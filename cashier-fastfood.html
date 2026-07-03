@@ -2069,7 +2069,7 @@ async function startMayaQrPayment() {
   if (!STORE.maya_public_key) {
     showToast('Maya QRPh not set up. Go to Dashboard → Settings → Maya API.', true); return;
   }
-  const refNo = 'PM-' + STORE.id.replace(/-/g, '') + '-' + Date.now();
+  const refNo = 'PM' + Date.now().toString(36).toUpperCase() + STORE.id.replace(/-/g,'').substring(0,6);
   _pendingQrRef = refNo;
   _qrCode = null;
   broadcastToDisplay();
