@@ -181,9 +181,7 @@ async function init() {
     document.getElementById('payIcon').textContent = cfg.icon;
     document.getElementById('payLabel').textContent = 'Open ' + (LABELS[METHOD] || METHOD) + ' App';
     btn.style.display = 'flex';
-    document.getElementById('s1Hint').textContent = _dynamicPayload
-      ? 'Tap to open ' + (LABELS[METHOD] || METHOD) + '. ₱' + AMOUNT.toFixed(2) + ' is pre-filled — just confirm payment.'
-      : 'Tap to open ' + (LABELS[METHOD] || METHOD) + ' app, pay ₱' + AMOUNT.toFixed(2) + ', then come back here.';
+    document.getElementById('s1Hint').textContent = 'Tap to open ' + (LABELS[METHOD] || METHOD) + ' app, pay ₱' + AMOUNT.toFixed(2) + ', then come back here to confirm.';
   } else {
     document.getElementById('s1Hint').textContent = 'Please pay ₱' + AMOUNT.toFixed(2) + ' via ' + (LABELS[METHOD] || METHOD) + '.';
   }
@@ -193,12 +191,11 @@ function openApp() {
   const cfg = APP_CFG[METHOD];
   if (!cfg) return;
   _appOpenTime = Date.now();
-  if (_dynamicPayload) {
-    // Pass EMVCo payload to GCash QR-pay deep link — pre-fills amount automatically
-    const encoded = encodeURIComponent(_dynamicPayload);
-    window.location.href = `${cfg.iosScheme}://qrpay?qrcode=${encoded}`;
+  const isAndroid = /android/i.test(navigator.userAgent);
+  if (isAndroid) {
+    // Launch app via MAIN/LAUNCHER intent — works even if GCash has no deep-link scheme registered
+    window.location.href = `intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${cfg.pkg};end`;
   } else {
-    // No payload stored — just open the app
     window.location.href = cfg.iosScheme + '://';
   }
 }
