@@ -286,7 +286,7 @@ function render(payload) {
     if (payload.qrCode) {
       qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=480x480&ecc=M&data=' + encodeURIComponent(payload.qrCode);
       qrImg.style.display = '';
-      document.getElementById('qrNote').textContent = 'Scan with GCash, Maya, BPI, BDO, or any Philippine bank app. Payment confirms automatically.';
+      document.getElementById('qrNote').textContent = 'Scan with your phone CAMERA (not GCash). Opens Maya payment page — pay with GCash, Maya, or any bank. Cashier is notified automatically.';
       document.getElementById('qrNote').style.display = '';
     } else {
       qrImg.style.display = 'none';
