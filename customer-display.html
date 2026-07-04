@@ -37,16 +37,34 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 #idleName{font-size:42px;font-weight:800}
 #idleMsg{font-size:24px;color:#9aa0c0}
 
-#orderView{display:none;width:100%;max-width:760px;flex-direction:column}
+#orderView{display:none;width:100%;max-width:820px;flex-direction:column}
 #orderView.show{display:flex}
 #orderStoreName{font-size:22px;font-weight:700;color:#9aa0c0;margin-bottom:18px}
 #orderList{display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;margin-bottom:18px}
-.oi{display:flex;justify-content:space-between;align-items:center;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px 20px;font-size:24px}
-.oi-name{font-weight:700;text-align:left}
-.oi-qty{color:#9aa0c0;font-size:18px;margin-left:10px}
-.oi-line{color:var(--accent);font-weight:800}
+.oi{display:flex;align-items:center;gap:16px;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px 20px 12px 12px;font-size:22px}
+.oi-thumb{width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0}
+.oi-no-thumb{width:72px;height:72px;border-radius:8px;background:var(--s2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--border)}
+.oi-mid{flex:1;text-align:left}
+.oi-name{font-weight:700}
+.oi-qty{color:#9aa0c0;font-size:16px;margin-left:8px}
+.oi-line{color:var(--accent);font-weight:800;white-space:nowrap}
 #orderTotalRow{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;background:var(--s2);border-radius:12px;font-size:30px;font-weight:800}
 #orderTotalRow span:last-child{color:var(--accent)}
+
+/* ── Screensaver ──────────────────────────────────────────── */
+#ssView{
+  display:none;position:fixed;inset:0;z-index:40;
+  background:#000 center/cover no-repeat;
+  flex-direction:column;justify-content:flex-end;padding:48px;
+}
+#ssView.show{display:flex}
+.ss-grad{position:absolute;inset:0;background:linear-gradient(transparent 25%,rgba(0,0,0,.88))}
+#ssInfo{position:relative;z-index:1}
+#ssName{font-size:clamp(28px,5vw,58px);font-weight:800;color:#fff;line-height:1.1;margin-bottom:10px;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+#ssPrice{font-size:clamp(22px,3.5vw,44px);font-weight:700;color:var(--accent)}
+#ssDots{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);display:flex;gap:7px;z-index:2}
+.ss-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.35);transition:.4s;border:none;padding:0;cursor:default}
+.ss-dot.active{background:#fff;width:20px;border-radius:3px}
 
 #qrView{display:none;flex-direction:column;align-items:center;gap:18px}
 #qrView.show{display:flex}
@@ -89,6 +107,16 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="login-sub">The customer display screen is currently only available for food &amp; drink businesses (fast food, coffee shop, bakery, milk tea, and similar) and Salon / Barbershop.</div>
     <button class="btn-login" onclick="disconnectDisplay()">← Use a different store code</button>
   </div>
+</div>
+
+<!-- Screensaver overlay -->
+<div id="ssView">
+  <div class="ss-grad"></div>
+  <div id="ssInfo">
+    <div id="ssName"></div>
+    <div id="ssPrice"></div>
+  </div>
+  <div id="ssDots"></div>
 </div>
 
 <div id="displayWrap">
@@ -140,6 +168,81 @@ let STORE_ID = params.get('store') || (IS_LOCAL ? null : localStorage.getItem('p
 let STORE = null;
 let _channel = null;
 
+// Product cache (id → product) for showing photos in order items
+let _prodCache = {};
+
+// Screensaver state
+let _ssSlides = [], _ssIdx = 0, _ssTimer = null, _ssDelay = null, _ssEnabled = false;
+
+function _firstImgSrc(b64) {
+  if (!b64) return '';
+  try { const a = JSON.parse(b64); if (Array.isArray(a) && a[0]) return a[0]; } catch(_) {}
+  return b64;
+}
+
+async function loadProducts() {
+  const { data } = await _sb.from('products')
+    .select('id,name,price,image_b64')
+    .eq('store_id', STORE_ID)
+    .eq('available', true);
+  if (!data) return;
+  _prodCache = {};
+  data.forEach(p => { _prodCache[p.id] = p; });
+  buildSsSlides(data);
+}
+
+function buildSsSlides(prods) {
+  _ssSlides = [];
+  // Product photos with prices
+  (prods || Object.values(_prodCache)).forEach(p => {
+    const img = _firstImgSrc(p.image_b64);
+    if (img) _ssSlides.push({ img, name: p.name, price: p.price });
+  });
+  // Custom screensaver images uploaded by owner (no price)
+  if (STORE && STORE.screensaver_images) {
+    try {
+      const arr = JSON.parse(STORE.screensaver_images);
+      if (Array.isArray(arr)) arr.forEach(img => { if (img) _ssSlides.push({ img, name: '', price: null }); });
+    } catch(_) {}
+  }
+  // Shuffle for variety
+  for (let i = _ssSlides.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [_ssSlides[i], _ssSlides[j]] = [_ssSlides[j], _ssSlides[i]];
+  }
+  // Build dot indicators
+  document.getElementById('ssDots').innerHTML = _ssSlides.map((_, i) =>
+    `<div class="ss-dot${i === 0 ? ' active' : ''}"></div>`).join('');
+}
+
+function showSsSlide(idx) {
+  if (!_ssSlides.length) return;
+  const s = _ssSlides[idx];
+  document.getElementById('ssView').style.backgroundImage = `url(data:image/jpeg;base64,${s.img})`;
+  document.getElementById('ssName').textContent = s.name;
+  document.getElementById('ssPrice').textContent = s.price != null ? '₱' + Number(s.price).toFixed(2) : '';
+  document.querySelectorAll('.ss-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+}
+
+function startScreensaver() {
+  if (!_ssEnabled || !_ssSlides.length) return;
+  _ssIdx = 0;
+  showSsSlide(0);
+  document.getElementById('ssView').classList.add('show');
+  clearInterval(_ssTimer);
+  _ssTimer = setInterval(() => {
+    _ssIdx = (_ssIdx + 1) % _ssSlides.length;
+    showSsSlide(_ssIdx);
+  }, 5000);
+}
+
+function stopScreensaver() {
+  clearInterval(_ssTimer);
+  clearTimeout(_ssDelay);
+  _ssTimer = null; _ssDelay = null;
+  document.getElementById('ssView').classList.remove('show');
+}
+
 function showOnly(id) {
   ['activateWrap','gateWrap','displayWrap'].forEach(w => document.getElementById(w).classList.remove('show'));
   document.getElementById(id).classList.add('show');
@@ -177,7 +280,7 @@ async function doActivateStore() {
 }
 
 async function loadStoreAndSubscribe() {
-  const { data: store, error } = await _sb.from('stores').select('id,name,logo_b64,gcash_qr_b64,gcash_qr_payload,paypal_me,business_type,maya_qr_b64,bpi_qr_b64,bdo_qr_b64,unionbank_qr_b64,metrobank_qr_b64').eq('id', STORE_ID).maybeSingle();
+  const { data: store, error } = await _sb.from('stores').select('id,name,logo_b64,gcash_qr_b64,gcash_qr_payload,paypal_me,business_type,maya_qr_b64,bpi_qr_b64,bdo_qr_b64,unionbank_qr_b64,metrobank_qr_b64,screensaver_enabled,screensaver_images').eq('id', STORE_ID).maybeSingle();
   if (error || !store) {
     localStorage.removeItem('pm_display_store_id');
     document.getElementById('actErr').textContent = 'Store not found. Please reconnect.';
@@ -189,6 +292,7 @@ async function loadStoreAndSubscribe() {
     return;
   }
   STORE = store;
+  _ssEnabled = !!store.screensaver_enabled;
   if (store.logo_b64) {
     const img = document.getElementById('idleLogo');
     img.src = 'data:image/png;base64,' + store.logo_b64;
@@ -197,6 +301,8 @@ async function loadStoreAndSubscribe() {
   document.getElementById('idleName').textContent = store.name || 'Welcome!';
   document.getElementById('orderStoreName').textContent = store.name || '';
   showOnly('displayWrap');
+  // Load products (for order photos + screensaver)
+  loadProducts();
   renderIdle();
 
   if (IS_LOCAL) {
@@ -209,11 +315,16 @@ async function loadStoreAndSubscribe() {
     _channel.on('broadcast', { event: 'cart' }, ({ payload }) => render(payload)).subscribe();
   }
 
-  // Refresh store settings (GCash QR, etc.) every 2 minutes so changes
-  // made in the dashboard take effect without needing a page reload.
+  // Refresh store settings every 2 minutes so changes take effect without a reload.
   setInterval(async () => {
-    const { data: s } = await _sb.from('stores').select('gcash_qr_b64,gcash_qr_payload,paypal_me,maya_qr_b64,bpi_qr_b64,bdo_qr_b64,unionbank_qr_b64,metrobank_qr_b64').eq('id', STORE_ID).maybeSingle();
-    if (s) { Object.assign(STORE, s); }
+    const { data: s } = await _sb.from('stores').select('gcash_qr_b64,gcash_qr_payload,paypal_me,maya_qr_b64,bpi_qr_b64,bdo_qr_b64,unionbank_qr_b64,metrobank_qr_b64,screensaver_enabled,screensaver_images').eq('id', STORE_ID).maybeSingle();
+    if (s) {
+      const prevEnabled = _ssEnabled;
+      Object.assign(STORE, s);
+      _ssEnabled = !!s.screensaver_enabled;
+      // Re-build slides if screensaver images changed
+      if (s.screensaver_images !== undefined) buildSsSlides(null);
+    }
   }, 2 * 60 * 1000);
 }
 
@@ -262,15 +373,21 @@ function resetQrView() {
 
 function renderIdle() {
   resetQrView();
+  stopScreensaver();
   document.getElementById('idleView').style.display = 'flex';
   document.getElementById('orderView').classList.remove('show');
   document.getElementById('qrView').classList.remove('show');
+  // Start screensaver after 15 seconds of idle (if enabled and slides exist)
+  if (_ssEnabled && _ssSlides.length > 0) {
+    _ssDelay = setTimeout(startScreensaver, 15000);
+  }
 }
 
 function render(payload) {
   const items = payload.items || [];
   if (!items.length) { renderIdle(); return; }
 
+  stopScreensaver();
   document.getElementById('idleView').style.display = 'none';
 
   if (payload.payMeth === 'QRPay') {
@@ -372,10 +489,18 @@ function render(payload) {
 
   document.getElementById('qrView').classList.remove('show');
   document.getElementById('orderView').classList.add('show');
-  document.getElementById('orderList').innerHTML = items.map(i => `<div class="oi">
-      <span class="oi-name">${i.name}<span class="oi-qty">×${i.qty}</span></span>
+  document.getElementById('orderList').innerHTML = items.map(i => {
+    const prod = _prodCache[i.id];
+    const imgSrc = prod ? _firstImgSrc(prod.image_b64) : '';
+    const thumb = imgSrc
+      ? `<img class="oi-thumb" src="data:image/jpeg;base64,${imgSrc}" alt="">`
+      : `<div class="oi-no-thumb">🍽</div>`;
+    return `<div class="oi">
+      ${thumb}
+      <div class="oi-mid"><span class="oi-name">${i.name}</span><span class="oi-qty">×${i.qty}</span></div>
       <span class="oi-line">₱${(i.price * i.qty).toFixed(2)}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   document.getElementById('orderTotalAmt').textContent = '₱' + Number(payload.total || 0).toFixed(2);
 }
 

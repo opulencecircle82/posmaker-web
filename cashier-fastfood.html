@@ -2019,7 +2019,7 @@ function redrawCart() {
 function broadcastToDisplay() {
   const { items, total, sub, tax, disc } = getCartTotals();
   const payload = {
-    items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+    items: items.map(i => ({ id: i.id, name: i.name, qty: i.qty, price: i.price })),
     total, sub, tax, disc, payMeth: payMeth === 'Maya QRPh' ? 'QRPay' : payMeth, storeName: STORE ? STORE.name : '',
     qrCode: _qrCode || undefined,
     payRef: _payRef || undefined,

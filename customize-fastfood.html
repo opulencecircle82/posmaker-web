@@ -81,6 +81,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
 .img-drop:hover{border-color:var(--accent);color:var(--text)}
 .img-thumb{width:100%;height:54px;object-fit:cover;border-radius:5px;margin-top:6px;display:none}
 
+/* SCREENSAVER */
+.ss-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);padding:4px 0}
+.ss-toggle input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+.ss-img-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.ss-img-card{position:relative;border-radius:7px;overflow:hidden;aspect-ratio:1;background:var(--s2);border:1px solid var(--border)}
+.ss-img-card img{width:100%;height:100%;object-fit:cover;display:block}
+.ss-img-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.ss-img-add{display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--dim);cursor:pointer;aspect-ratio:1;background:var(--bg);border:1.5px dashed var(--border);border-radius:7px;transition:border-color .2s}
+.ss-img-add:hover{border-color:var(--accent);color:var(--text)}
+
 /* BUTTONS */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:opacity .15s;white-space:nowrap}
 .btn:hover{opacity:.85}
@@ -475,6 +485,26 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
       </div>
     </div>
 
+    <!-- CUSTOMER DISPLAY -->
+    <div class="cz-sec">
+      <div class="cz-sec-title">&#128250; Customer Display</div>
+      <div class="cz-field">
+        <label class="ss-toggle">
+          <input type="checkbox" id="czScreensaver" onchange="updateSsField()">
+          Enable screensaver when idle
+        </label>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5">Cycles through product photos on the customer screen when no order is active.</div>
+      </div>
+      <div id="ssImgsSection" style="display:none">
+        <div class="cz-field">
+          <label>Custom screensaver images <span style="font-weight:400;color:var(--dim)">(optional, up to 5)</span></label>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">These show alongside your product photos. Leave empty to use product photos only.</div>
+          <div class="ss-img-grid" id="ssImgGrid"></div>
+          <input type="file" id="ssImgFile" accept="image/*" style="display:none" onchange="addSsImg(this)">
+        </div>
+      </div>
+    </div>
+
     <!-- CASHIER LINK -->
     <div class="cz-sec">
       <div class="cz-sec-title">&#128279; Cashier Link</div>
@@ -554,6 +584,52 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;heigh
 const { createClient } = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 let STORE = null, bgImgData = '', bgScale = 'cover', btnStyle = 'default';
+let ssImages = []; // array of base64 strings for custom screensaver images
+
+function updateSsField() {
+  const on = document.getElementById('czScreensaver').checked;
+  document.getElementById('ssImgsSection').style.display = on ? '' : 'none';
+}
+
+function renderSsGrid() {
+  const grid = document.getElementById('ssImgGrid');
+  const cells = ssImages.map((img, i) => `
+    <div class="ss-img-card">
+      <img src="data:image/jpeg;base64,${img}" alt="">
+      <button class="ss-img-del" onclick="removeSsImg(${i})">×</button>
+    </div>`).join('');
+  const addBtn = ssImages.length < 5
+    ? `<div class="ss-img-add" onclick="document.getElementById('ssImgFile').click()">+</div>` : '';
+  grid.innerHTML = cells + addBtn;
+}
+
+function removeSsImg(idx) {
+  ssImages.splice(idx, 1);
+  renderSsGrid();
+}
+
+function addSsImg(input) {
+  if (!input.files || !input.files[0] || ssImages.length >= 5) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    // Compress to JPEG, max 600px wide, 80% quality
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 600;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const b64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+      ssImages.push(b64);
+      renderSsGrid();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(input.files[0]);
+  input.value = '';
+}
 
 // ── Per-business-type cashier routing (matches dashboard.html) ────────────────
 const BIZ_FILE_MAP = {
@@ -845,6 +921,16 @@ function setScale(id) {
   if (store.pos_bg_opacity != null) document.getElementById('czBgOpacity').value = store.pos_bg_opacity;
   if (store.pos_bg_img) { bgImgData = 'data:image/jpeg;base64,' + store.pos_bg_img; showThumb(); }
 
+  // Screensaver settings
+  if (store.screensaver_enabled) {
+    document.getElementById('czScreensaver').checked = true;
+    document.getElementById('ssImgsSection').style.display = '';
+  }
+  if (store.screensaver_images) {
+    try { const arr = JSON.parse(store.screensaver_images); if (Array.isArray(arr)) ssImages = arr; } catch(_) {}
+  }
+  renderSsGrid();
+
   applyPreview();
   adaptPreviewToStore(store);
 })();
@@ -984,12 +1070,16 @@ async function saveTheme() {
   const opacity = parseInt(document.getElementById('czBgOpacity').value);
   const fontScale = parseInt(document.getElementById('czFontScale').value);
 
+  const screensaverEnabled = document.getElementById('czScreensaver').checked;
+  const screensaverImagesVal = JSON.stringify(ssImages);
+
   // Try progressively simpler payloads until one succeeds
   // (handles databases where new columns haven't been added yet)
   const tries = [
     { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
       pos_name_color:nameColor, pos_price_color:priceColor, pos_totals_color:totalsColor, pos_font_scale:fontScale,
-      pos_btn_style:btnStyle, pos_bg_scale:bgScale, pos_bg_opacity:opacity, pos_bg_img:imgVal, receipt_footer:footer },
+      pos_btn_style:btnStyle, pos_bg_scale:bgScale, pos_bg_opacity:opacity, pos_bg_img:imgVal, receipt_footer:footer,
+      screensaver_enabled:screensaverEnabled, screensaver_images:screensaverImagesVal },
     { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
       pos_bg_img:imgVal, receipt_footer:footer },
     { pos_font:font, pos_accent:accent, pos_bg:bg, pos_card:card, pos_text:text, pos_radius:radius,
