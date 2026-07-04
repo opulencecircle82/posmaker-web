@@ -1036,6 +1036,7 @@ async function doLogin() {
     showPOS(found.full_name || found.username);
     loadDeliveryOrders();
     subscribeDeliveryOrders();
+    setInterval(loadDeliveryOrders, 5000);
   } catch(e) {
     errEl.textContent = 'Login error: ' + (e.message || 'Check your internet connection.');
   } finally {
