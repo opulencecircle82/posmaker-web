@@ -1776,10 +1776,11 @@ function toggleInbox(btn) {
 
 async function loadDeliveryOrders() {
   if (!STORE_ID) return;
-  const { data } = await _sb.from('delivery_orders')
+  const { data, error: _dlErr } = await _sb.from('delivery_orders')
     .select('*').eq('store_id', STORE_ID)
-    .in('status', ['pending', 'preparing'])
+    .in('status', ['pending', 'preparing', 'rider_assigned'])
     .order('created_at', { ascending: false });
+  if (_dlErr) console.error('[delivery_orders SELECT error]', _dlErr);
   _dlOrders = data || [];
   const badge = document.getElementById('inboxBadge');
   const pending = _dlOrders.filter(o => o.status === 'pending').length;
@@ -1793,19 +1794,24 @@ function renderInbox() {
   if (!_dlOrders.length) { box.innerHTML = '<div class="di-empty">&#128230; No incoming delivery orders</div>'; return; }
   box.innerHTML = _dlOrders.map(o => {
     const items = (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ');
-    const isPending = o.status === 'pending';
+    const statusLabel = o.status === 'pending' ? '⏳ Pending' : o.status === 'preparing' ? '👨‍🍳 Preparing' : '🛵 Rider Coming';
+    let actions = '';
+    if (o.status === 'pending') {
+      actions = `<div class="di-actions"><button class="di-btn-prepare" onclick="prepareOrder('${o.id}')">&#128168; Prepare Now</button><button class="di-btn-cancel" onclick="cancelOrder('${o.id}')">✕</button></div>`;
+    } else if (o.status === 'preparing' && !o.rider_id) {
+      actions = `<div class="di-actions"><button class="di-btn-prepare" style="background:#6b7280;cursor:default" disabled>&#128340; Waiting for rider…</button></div>`;
+    } else if (o.status === 'rider_assigned') {
+      actions = `<div class="di-actions"><button class="di-btn-prepare" style="background:#22c55e" onclick="readyOrder('${o.id}')">&#9989; Order is Ready</button></div>`;
+    }
     return `<div class="di-card ${o.status}">
       <div class="di-header">
         <span class="di-name">&#128100; ${o.shopper_name}</span>
-        <span class="di-status ${o.status}">${o.status === 'pending' ? '⏳ Pending' : '👨‍🍳 Preparing'}</span>
+        <span class="di-status ${o.status}">${statusLabel}</span>
       </div>
       <div class="di-addr">&#128205; ${o.shopper_address || 'No address'} &nbsp;·&nbsp; &#128222; ${o.shopper_phone || '—'}</div>
       <div class="di-items">${items}</div>
       <div class="di-total">Total: &#8369;${parseFloat(o.total).toFixed(2)}</div>
-      ${isPending ? `<div class="di-actions">
-        <button class="di-btn-prepare" onclick="prepareOrder('${o.id}')">&#128168; Prepare Now</button>
-        <button class="di-btn-cancel" onclick="cancelOrder('${o.id}')">✕</button>
-      </div>` : `<div class="di-actions"><button class="di-btn-prepare" style="background:#22c55e" onclick="readyOrder('${o.id}')">&#9989; Order is Ready</button><button class="di-btn-cancel" onclick="cancelOrder('${o.id}')">✕</button></div>`}
+      ${actions}
     </div>`;
   }).join('');
 }
