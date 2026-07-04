@@ -20,6 +20,23 @@
 :root{--accent:#00b4d8;--bg:#09090f;--s1:#111120;--s2:#191929;--border:#252540;--text:#f0f0f8;--radius:8px}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
 
+/* ── DELIVERY INBOX ─────────────────────────────────────── */
+#deliveryInbox{display:none;flex:1;overflow-y:auto;padding:14px;gap:12px;flex-direction:column}
+.di-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.di-card.pending{border-left:3px solid #f59e0b}
+.di-card.preparing{border-left:3px solid var(--accent)}
+.di-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.di-name{font-weight:800;font-size:15px;color:var(--text)}
+.di-status{font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.di-status.pending{background:rgba(245,158,11,.15);color:#f59e0b}
+.di-status.preparing{background:rgba(0,180,216,.15);color:var(--accent)}
+.di-addr{font-size:12px;color:#8888aa}
+.di-items{font-size:13px;color:var(--text);line-height:1.6;border-top:1px solid var(--border);padding-top:8px}
+.di-total{font-size:15px;font-weight:800;color:var(--accent)}
+.di-actions{display:flex;gap:8px;margin-top:2px}
+.di-btn-prepare{flex:1;padding:10px;background:var(--accent);border:none;color:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.di-btn-cancel{padding:10px 14px;background:var(--s2);border:1px solid var(--border);color:#ef4444;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.di-empty{text-align:center;padding:48px 0;color:#8888aa;font-size:14px}
 /* ── LOGIN ─────────────────────────────────────────────── */
 #loginWrap{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column}
 .login-box{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:32px;width:min(360px,92vw)}
@@ -310,6 +327,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <button class="ot-btn active" data-type="Dine In"   onclick="setOrderType(this)">&#127869; Dine In</button>
   <button class="ot-btn"        data-type="Take Away"  onclick="setOrderType(this)">&#128101; Take Away</button>
   <button class="ot-btn"        data-type="Delivery"   onclick="setOrderType(this)">&#128666; Delivery</button>
+  <button class="ot-btn" id="inboxTab" onclick="toggleInbox(this)">&#128241; Incoming <span id="inboxBadge" style="display:none;background:#ef4444;color:#fff;border-radius:9px;padding:1px 6px;font-size:10px;margin-left:3px">0</span></button>
 </div>
 
 <!-- Category tabs -->
@@ -375,6 +393,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 
   <!-- Product grid (restaurant) -->
   <div class="products" id="grid"></div>
+
+  <!-- Delivery Inbox Panel -->
+  <div id="deliveryInbox" style="display:none;flex:1;overflow-y:auto;padding:14px;gap:12px;flex-direction:column"></div>
 
   <!-- Cart right panel: totals + payment + confirm -->
   <div class="cart" id="cartPanel">
@@ -1013,6 +1034,8 @@ async function doLogin() {
       loadProds().catch(() => {}); // re-login — show POS instantly, refresh products in background
     }
     showPOS(found.full_name || found.username);
+    loadDeliveryOrders();
+    subscribeDeliveryOrders();
   } catch(e) {
     errEl.textContent = 'Login error: ' + (e.message || 'Check your internet connection.');
   } finally {
@@ -1721,9 +1744,88 @@ function setOrderType(btn) {
   orderType = btn.dataset.type;
   document.querySelectorAll('.ot-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  // Clear table when switching away from Dine In
   if (orderType !== 'Dine In' && tableNo) { tableNo = ''; updateTableBtn(); }
   updatePoPackagingAvailability();
+  // hide inbox if open
+  if (_inboxOpen) { _inboxOpen = false; document.getElementById('deliveryInbox').style.display = 'none'; document.getElementById('grid').style.display = ''; document.getElementById('cartPanel').style.display = ''; }
+}
+
+// ── Delivery Inbox ────────────────────────────────────────────────────────
+let _inboxOpen = false, _dlOrders = [], _dlChannel = null;
+
+function toggleInbox(btn) {
+  _inboxOpen = !_inboxOpen;
+  document.querySelectorAll('.ot-btn').forEach(b => b.classList.remove('active'));
+  const inbox = document.getElementById('deliveryInbox');
+  const grid = document.getElementById('grid');
+  const cart = document.getElementById('cartPanel');
+  if (_inboxOpen) {
+    btn.classList.add('active');
+    inbox.style.display = 'flex';
+    grid.style.display = 'none';
+    cart.style.display = 'none';
+    renderInbox();
+  } else {
+    inbox.style.display = 'none';
+    grid.style.display = '';
+    cart.style.display = '';
+    document.querySelector('.ot-btn[data-type="Dine In"]').classList.add('active');
+  }
+}
+
+async function loadDeliveryOrders() {
+  if (!STORE_ID) return;
+  const { data } = await _sb.from('delivery_orders')
+    .select('*').eq('store_id', STORE_ID)
+    .in('status', ['pending', 'preparing'])
+    .order('created_at', { ascending: false });
+  _dlOrders = data || [];
+  const badge = document.getElementById('inboxBadge');
+  const pending = _dlOrders.filter(o => o.status === 'pending').length;
+  badge.style.display = pending > 0 ? '' : 'none';
+  badge.textContent = pending;
+  if (_inboxOpen) renderInbox();
+}
+
+function renderInbox() {
+  const box = document.getElementById('deliveryInbox');
+  if (!_dlOrders.length) { box.innerHTML = '<div class="di-empty">&#128230; No incoming delivery orders</div>'; return; }
+  box.innerHTML = _dlOrders.map(o => {
+    const items = (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ');
+    const isPending = o.status === 'pending';
+    return `<div class="di-card ${o.status}">
+      <div class="di-header">
+        <span class="di-name">&#128100; ${o.shopper_name}</span>
+        <span class="di-status ${o.status}">${o.status === 'pending' ? '⏳ Pending' : '👨‍🍳 Preparing'}</span>
+      </div>
+      <div class="di-addr">&#128205; ${o.shopper_address || 'No address'} &nbsp;·&nbsp; &#128222; ${o.shopper_phone || '—'}</div>
+      <div class="di-items">${items}</div>
+      <div class="di-total">Total: &#8369;${parseFloat(o.total).toFixed(2)}</div>
+      ${isPending ? `<div class="di-actions">
+        <button class="di-btn-prepare" onclick="prepareOrder('${o.id}')">&#128168; Prepare Now</button>
+        <button class="di-btn-cancel" onclick="cancelOrder('${o.id}')">✕</button>
+      </div>` : `<div style="font-size:12px;color:var(--accent);margin-top:2px">&#10003; Marked as preparing — waiting for rider</div>`}
+    </div>`;
+  }).join('');
+}
+
+async function prepareOrder(id) {
+  await _sb.from('delivery_orders').update({ status: 'preparing' }).eq('id', id).then(() => {});
+  await loadDeliveryOrders();
+}
+
+async function cancelOrder(id) {
+  if (!confirm('Cancel this delivery order?')) return;
+  await _sb.from('delivery_orders').update({ status: 'cancelled' }).eq('id', id).then(() => {});
+  await loadDeliveryOrders();
+}
+
+function subscribeDeliveryOrders() {
+  if (!STORE_ID) return;
+  _dlChannel = _sb.channel('dl-inbox-' + STORE_ID)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_orders', filter: 'store_id=eq.' + STORE_ID },
+      () => loadDeliveryOrders())
+    .subscribe();
 }
 
 // ── Table / Chair management ──────────────────────────────────────────────
