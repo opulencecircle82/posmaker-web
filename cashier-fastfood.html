@@ -1819,6 +1819,63 @@ function renderInbox() {
 async function prepareOrder(id) {
   await _sb.from('delivery_orders').update({ status: 'preparing' }).eq('id', id).then(() => {});
   await loadDeliveryOrders();
+
+  // Auto-print receipt for this delivery order
+  const o = _dlOrders.find(x => x.id === id);
+  if (!o) return;
+  const dlTotal = parseFloat(o.total) || 0;
+  const dlSub   = parseFloat((dlTotal / 1.12).toFixed(2));
+  const dlTax   = parseFloat((dlTotal - dlSub).toFixed(2));
+  const dlItems = (o.items || []).map(i => ({ name: i.name, qty: Number(i.qty), price: parseFloat(i.price) || 0 }));
+  const cashierName = CASHIER?.full_name || CASHIER?.username || 'Cashier';
+
+  let dlOrdId = o.id.slice(0, 8).toUpperCase();
+  try {
+    const { data: dlOrd } = await _sb.from('orders').insert({
+      store_id: STORE_ID, cashier_name: cashierName,
+      subtotal: dlSub, tax: dlTax, total: dlTotal,
+      payment_method: 'Cash on Delivery', amount_tendered: 0, change_given: 0,
+      discount_pct: 0, order_type: 'Delivery',
+    }).select('id').single();
+    if (dlOrd) {
+      dlOrdId = dlOrd.id;
+      _sb.from('order_items').insert(
+        dlItems.map(i => ({ order_id: dlOrd.id, product_id: i.id || null, name: i.name, price: i.price, qty: i.qty }))
+      ).then(() => {});
+    }
+  } catch (_) {}
+
+  await _doPrintSilent({
+    order_id: dlOrdId, items: dlItems, sub: dlSub, tax: dlTax, total: dlTotal,
+    disc: 0, tender: 0, change: 0, method: 'Cash on Delivery',
+    cashier: cashierName, orderType: 'Delivery', tableNo: null, isKOT: false,
+  });
+}
+
+async function _doPrintSilent(d) {
+  const txt = buildReceiptText(d);
+  try {
+    const resp = await fetch('http://localhost:7788/print', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        store: STORE?.name, address: STORE?.address, phone: STORE?.phone, footer: STORE?.receipt_footer,
+        order_id: d.order_id, cashier: d.cashier, orderType: d.orderType, tableNo: d.tableNo,
+        items: d.items, sub: d.sub, disc: d.disc, tax: d.tax, total: d.total,
+        method: d.method, tender: d.tender, change: d.change,
+      })
+    });
+    if (resp.ok) return;
+  } catch (_) {}
+  if (window.posApp && window.posApp.printReceipt) {
+    document.getElementById('receiptPrintArea').textContent = txt;
+    window.posApp.printReceipt(); return;
+  }
+  const _png = await _receiptToPng(txt);
+  const _html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page{size:58mm auto;margin:0}body{margin:0;padding:0}img{width:100%;display:block}</style></head><body><img src="' + _png + '"><script>window.onload=function(){window.print();setTimeout(function(){window.close();},2000);};<\/script></body></html>';
+  const _blob = new Blob([_html], { type: 'text/html;charset=utf-8' });
+  const _url = URL.createObjectURL(_blob);
+  window.open(_url, '_blank', 'width=320,height=600');
+  setTimeout(() => { URL.revokeObjectURL(_url); }, 8000);
 }
 
 async function readyOrder(id) {
