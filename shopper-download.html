@@ -1,0 +1,441 @@
+<title>POSMaker Delivery — Download</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Order from nearby stores directly on your Android phone. Download POSMaker Delivery APK.">
+<style>
+:root {
+  --bg: #08090e;
+  --s1: #111218;
+  --s2: #1a1b24;
+  --border: #2a2b38;
+  --text: #f0f1f5;
+  --dim: #8a8b9a;
+  --accent: #10c4e8;
+  --cta: #f5631a;
+  --cta-deep: #c9450e;
+  --glow-c: rgba(16,196,232,.15);
+  --glow-o: rgba(245,99,26,.18);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 20px 48px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── header ── */
+header {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0 0;
+}
+.wordmark {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.wordmark span { color: var(--accent); }
+
+/* ── phone illustration ── */
+.phone-wrap {
+  position: relative;
+  margin: 44px auto 0;
+  width: 120px;
+  height: 200px;
+}
+.phone {
+  width: 120px;
+  height: 200px;
+  border: 2.5px solid var(--accent);
+  border-radius: 22px;
+  position: relative;
+  overflow: hidden;
+  background: var(--s1);
+  box-shadow: 0 0 0 1px rgba(16,196,232,.1);
+}
+.phone::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+}
+.phone-screen {
+  position: absolute;
+  inset: 28px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ps-bar {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--s2);
+}
+.ps-bar.accent { background: rgba(16,196,232,.35); width: 60%; }
+.ps-card {
+  height: 24px;
+  border-radius: 5px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  gap: 5px;
+}
+.ps-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(16,196,232,.5);
+  flex-shrink: 0;
+}
+.ps-line {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+.ps-btn {
+  height: 16px;
+  border-radius: 4px;
+  background: rgba(245,99,26,.6);
+  margin-top: auto;
+}
+
+/* pulsing glow ring */
+.phone-glow {
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-c) 0%, transparent 70%);
+  animation: pulse 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes pulse {
+  0%, 100% { opacity: .6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+/* ── main copy ── */
+.main {
+  width: 100%;
+  max-width: 480px;
+  text-align: center;
+  margin-top: 32px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+h1 {
+  font-size: clamp(30px, 8vw, 44px);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+  margin-bottom: 14px;
+}
+h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+.sub {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--dim);
+  max-width: 340px;
+  margin: 0 auto 32px;
+}
+
+/* ── download button ── */
+.dl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--cta);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+  text-decoration: none;
+  border-radius: 16px;
+  padding: 18px 28px;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  box-shadow: 0 4px 0 var(--cta-deep), 0 8px 32px rgba(245,99,26,.3);
+  transition: transform .12s, box-shadow .12s;
+  position: relative;
+  overflow: hidden;
+  letter-spacing: -.01em;
+}
+.dl-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+.dl-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--cta-deep), 0 12px 40px rgba(245,99,26,.4); }
+.dl-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--cta-deep), 0 4px 16px rgba(245,99,26,.2); }
+
+.dl-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+.dl-text { display: flex; flex-direction: column; align-items: flex-start; }
+.dl-label { font-size: 11px; font-weight: 600; opacity: .8; letter-spacing: .04em; line-height: 1; }
+.dl-action { font-size: 18px; font-weight: 800; line-height: 1.2; }
+
+.dl-meta {
+  font-size: 12px;
+  color: var(--dim);
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* ── features ── */
+.features {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 36px;
+}
+.feat {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.feat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--s2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+}
+.feat-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+.feat-desc {
+  font-size: 10px;
+  color: var(--dim);
+  line-height: 1.4;
+}
+
+/* ── steps ── */
+.steps {
+  width: 100%;
+  max-width: 480px;
+  margin-top: 32px;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.steps-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 2px;
+}
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(16,196,232,.15);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.step-text { font-size: 13px; line-height: 1.5; color: var(--dim); }
+.step-text strong { color: var(--text); font-weight: 600; }
+
+/* ── footer ── */
+footer {
+  width: 100%;
+  max-width: 480px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.footer-brand { font-size: 12px; color: var(--dim); }
+.footer-brand strong { color: var(--text); }
+.footer-link {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.footer-link:hover { text-decoration: underline; }
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f4f8;
+    --s1: #ffffff;
+    --s2: #eeeef5;
+    --border: #dddde8;
+    --text: #0d0e14;
+    --dim: #6b6c7e;
+    --glow-c: rgba(16,196,232,.1);
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f4f4f8;
+  --s1: #ffffff;
+  --s2: #eeeef5;
+  --border: #dddde8;
+  --text: #0d0e14;
+  --dim: #6b6c7e;
+  --glow-c: rgba(16,196,232,.1);
+}
+:root[data-theme="dark"] {
+  --bg: #08090e;
+  --s1: #111218;
+  --s2: #1a1b24;
+  --border: #2a2b38;
+  --text: #f0f1f5;
+  --dim: #8a8b9a;
+  --glow-c: rgba(16,196,232,.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone-glow { animation: none; }
+  .dl-btn { transition: none; }
+}
+</style>
+
+<header>
+  <div class="wordmark"><span>POS</span>Maker</div>
+  <a class="footer-link" href="https://posmaker.vercel.app">Back to site</a>
+</header>
+
+<div class="phone-wrap">
+  <div class="phone-glow"></div>
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="ps-bar accent"></div>
+      <div class="ps-bar" style="width:80%"></div>
+      <div style="height:6px"></div>
+      <div class="ps-card"><div class="ps-dot"></div><div class="ps-line"></div></div>
+      <div class="ps-card"><div class="ps-dot" style="opacity:.5"></div><div class="ps-line" style="width:70%"></div></div>
+      <div class="ps-card"><div class="ps-dot" style="opacity:.3"></div><div class="ps-line" style="width:85%"></div></div>
+      <div class="ps-btn"></div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="eyebrow">Android App · Free Download</div>
+  <h1>Order from stores <em>near you</em></h1>
+  <p class="sub">Browse products, add to cart, and track your delivery in real time — all from one app built for local stores running POSMaker POS.</p>
+
+  <a class="dl-btn" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/POSMakerShopper.apk" download>
+    <svg class="dl-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15V3m0 12-4-4m4 4 4-4"/>
+      <path d="M2 17v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2"/>
+    </svg>
+    <div class="dl-text">
+      <span class="dl-label">Download APK</span>
+      <span class="dl-action">POSMaker Delivery</span>
+    </div>
+  </a>
+  <div class="dl-meta">Android 8.0+ &nbsp;·&nbsp; ~25 MB &nbsp;·&nbsp; Free</div>
+</div>
+
+<div class="features">
+  <div class="feat">
+    <div class="feat-icon">📍</div>
+    <div class="feat-name">Nearby Stores</div>
+    <div class="feat-desc">Finds stores within 5 km</div>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">🛵</div>
+    <div class="feat-name">Live Tracking</div>
+    <div class="feat-desc">Real-time order status</div>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">🛒</div>
+    <div class="feat-name">Easy Order</div>
+    <div class="feat-desc">Browse, cart, checkout</div>
+  </div>
+</div>
+
+<div class="steps">
+  <div class="steps-title">How to install</div>
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-text">Tap the button above to <strong>download the APK</strong> file to your phone.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-text">Open your <strong>Files app</strong> → Downloads → tap <strong>POSMakerShopper.apk</strong></div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-text">Allow <strong>"Install unknown apps"</strong> when prompted, then tap Install.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-text"><strong>Open the app</strong>, allow location access, and start ordering!</div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-brand">by <strong>POSMaker</strong> · Free &amp; open source</div>
+  <a class="footer-link" href="https://github.com/le0n1982/posmaker-web">GitHub ↗</a>
+</footer>
