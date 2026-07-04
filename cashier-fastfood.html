@@ -1825,11 +1825,28 @@ async function cancelOrder(id) {
   await loadDeliveryOrders();
 }
 
+function _playBell() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.15, 0.3].forEach(function(t) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880; o.type = 'sine';
+      g.gain.setValueAtTime(0.4, ctx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.6);
+      o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.6);
+    });
+  } catch(e) {}
+}
+
+var _dlPrevCount = 0;
 function subscribeDeliveryOrders() {
   if (!STORE_ID) return;
   _dlChannel = _sb.channel('dl-inbox-' + STORE_ID)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_orders', filter: 'store_id=eq.' + STORE_ID },
-      () => loadDeliveryOrders())
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'delivery_orders', filter: 'store_id=eq.' + STORE_ID },
+      function() { _playBell(); loadDeliveryOrders(); })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'delivery_orders', filter: 'store_id=eq.' + STORE_ID },
+      function() { loadDeliveryOrders(); })
     .subscribe();
 }
 
