@@ -1804,13 +1804,18 @@ function renderInbox() {
       ${isPending ? `<div class="di-actions">
         <button class="di-btn-prepare" onclick="prepareOrder('${o.id}')">&#128168; Prepare Now</button>
         <button class="di-btn-cancel" onclick="cancelOrder('${o.id}')">✕</button>
-      </div>` : `<div style="font-size:12px;color:var(--accent);margin-top:2px">&#10003; Marked as preparing — waiting for rider</div>`}
+      </div>` : `<div class="di-actions"><button class="di-btn-prepare" style="background:#22c55e" onclick="readyOrder('${o.id}')">&#9989; Order is Ready</button><button class="di-btn-cancel" onclick="cancelOrder('${o.id}')">✕</button></div>`}
     </div>`;
   }).join('');
 }
 
 async function prepareOrder(id) {
   await _sb.from('delivery_orders').update({ status: 'preparing' }).eq('id', id).then(() => {});
+  await loadDeliveryOrders();
+}
+
+async function readyOrder(id) {
+  await _sb.from('delivery_orders').update({ status: 'on_the_way' }).eq('id', id).then(() => {});
   await loadDeliveryOrders();
 }
 
