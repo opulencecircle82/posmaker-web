@@ -1037,6 +1037,7 @@ async function doLogin() {
     loadDeliveryOrders();
     subscribeDeliveryOrders();
     setInterval(loadDeliveryOrders, 5000);
+    _sb.from('stores').update({ pos_online: true }).eq('id', STORE_ID).then(() => {});
   } catch(e) {
     errEl.textContent = 'Login error: ' + (e.message || 'Check your internet connection.');
   } finally {
@@ -1271,6 +1272,7 @@ function _actualLogout() {
       _sb.from('activity_logs').insert(logoutLogRow).then(() => {});
     }
   }
+  if (STORE_ID) _sb.from('stores').update({ pos_online: false }).eq('id', STORE_ID).then(() => {});
   closeScanner();
   stopSquareScanner();
   stopCamera();
@@ -2447,6 +2449,7 @@ async function syncOfflineQueue(){
 
 window.addEventListener('online', ()=>{ updateNetStatus(); syncOfflineQueue(); syncRemitQueue(); syncLogoutQueue(); });
 window.addEventListener('offline', ()=>{ updateNetStatus(); });
+window.addEventListener('beforeunload', ()=>{ if (STORE_ID && CASHIER) _sb.from('stores').update({ pos_online: false }).eq('id', STORE_ID).then(() => {}); });
 
 // ── Confirm Order ─────────────────────────────────────────────────────────
 async function confirmOrder() {
