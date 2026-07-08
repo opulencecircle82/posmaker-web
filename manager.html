@@ -242,7 +242,7 @@ button{cursor:pointer}
           <div id="remitTotalCOH" style="font-size:20px;font-weight:800;color:#22c55e">&#8369;0.00</div>
         </div>
         <div style="flex:1;min-width:160px;background:var(--s2);border-radius:10px;padding:12px 16px">
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Online Payments</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Non-Cash (Card/GCash)</div>
           <div id="remitTotalOnline" style="font-size:20px;font-weight:800;color:#a78bfa">&#8369;0.00</div>
         </div>
       </div>
@@ -541,7 +541,7 @@ button{cursor:pointer}
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Date</span><span id="crmDate">—</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">POS Sales</span><strong id="crmPOS" style="color:var(--accent)">—</strong></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Cash on Hand</span><strong id="crmCash">—</strong></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Online (GCash, etc.)</span><strong id="crmOnline" style="color:#a78bfa">—</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Non-Cash (Card/GCash)</span><strong id="crmOnline" style="color:#a78bfa">—</strong></div>
       <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--muted)">Difference</span>
         <span id="crmDiff" style="font-size:22px;font-weight:800">—</span>
@@ -1673,7 +1673,13 @@ async function saveConfirmRemit() {
   const { error: crErr } = await _sb.from('cash_remittances').update({ status, description: desc||null }).eq('id', id);
   if (crErr) { showToast('Error: ' + crErr.message, true); btn.disabled=false; btn.textContent='✓ Confirm Receipt'; return; }
   const diffLabel = status==='short' ? `Short -₱${Math.abs(diff).toFixed(2)}` : status==='over' ? `Over +₱${Math.abs(diff).toFixed(2)}` : 'Balanced';
-  await logAction('RECEIVED_COH', r?.cashier_name || '', { result: diffLabel, received: true, ...(desc ? { note: desc } : {}) });
+  await logAction('RECEIVED_COH', r?.cashier_name || '', {
+    result: diffLabel, received: true,
+    cash_sales: r ? parseFloat(r.pos_sales)||0 : 0,
+    non_cash_sales: r ? parseFloat(r.online_sales)||0 : 0,
+    cash_on_hand: r ? parseFloat(r.cash_on_hand)||0 : 0,
+    ...(desc ? { note: desc } : {})
+  });
   closeModal('confirmRemitModal');
   await loadRemit();
   loadCashSummary();

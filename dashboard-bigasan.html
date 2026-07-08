@@ -1239,6 +1239,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <button class="btn btn-ghost" onclick="closeModal('receiptModal')">Close</button>
       <button class="btn btn-danger btn-sm" id="receiptInvalidBtn" onclick="invalidateReceipt()">&#10007; Invalid</button>
       <button class="btn btn-accent btn-sm" id="receiptAcceptBtn" onclick="acceptReceipt()">&#10003; Accept</button>
+      <button class="btn btn-accent btn-sm" id="receiptDownloadBtn" style="display:none">&#8595; Download</button>
     </div>
   </div>
 </div>
@@ -2160,7 +2161,7 @@ async function openMgrCohModal() {
         const badge = r.status==='over' ? '<span style="color:#f97316;font-size:11px;margin-left:6px">Over +'+CUR+Math.abs(diff).toFixed(2)+'</span>'
           : r.status==='short' ? '<span style="color:#ef4444;font-size:11px;margin-left:6px">Short -'+CUR+Math.abs(diff).toFixed(2)+'</span>'
           : '<span style="color:#00b4d8;font-size:11px;margin-left:6px">Balanced</span>';
-        const onlineLine = onlineSales > 0 ? ' &nbsp;·&nbsp; Online: <span style="color:#a78bfa">'+CUR+onlineSales.toFixed(2)+'</span>' : '';
+        const onlineLine = onlineSales > 0 ? ' &nbsp;·&nbsp; Non-Cash: <span style="color:#a78bfa">'+CUR+onlineSales.toFixed(2)+'</span>' : '';
         return '<div style="padding:7px 0;border-bottom:1px solid var(--border)">'+
           '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'+
           '<span><strong>'+r.cashier_name+'</strong> <span style="color:var(--dim);font-size:11px">'+(r.shift_date||'')+'</span>'+badge+'</span>'+
@@ -3644,6 +3645,10 @@ function renderActivityLog() {
             if (k === 'category') return '<span style="color:var(--muted);font-size:11px">' + v + '</span>';
             return k + ': ' + v;
           }).join(' &bull; ');
+        } else if (l.action === 'RECEIVED_COH') {
+          // Full cash/non-cash breakdown lives in the generated receipt (View
+          // button) — keep this cell to just the outcome so the table stays scannable.
+          details = filtered.filter(([k]) => ['result','note'].includes(k)).map(([k,v]) => k+': '+v).join(', ');
         } else {
           details = filtered.map(([k,v]) => `${k}: ${v}`).join(', ');
         }
@@ -3653,6 +3658,8 @@ function renderActivityLog() {
     const roleColor = l.actor_role === 'manager' ? 'background:#1a1a3a;color:#818cf8' : 'background:#0a2a1a;color:#10b981';
     const receiptCell = receiptB64
       ? `<button class="btn btn-ghost btn-sm" onclick="viewReceipt('${l.id}')" style="font-size:12px">&#129534; View</button>`
+      : l.action === 'RECEIVED_COH'
+      ? `<button class="btn btn-ghost btn-sm" onclick="viewCohReceipt('${l.id}')" style="font-size:12px">&#129534; View</button>`
       : '<span style="color:var(--dim)">—</span>';
     return `<tr>
       <td style="color:var(--muted);white-space:nowrap">${dt}</td>
@@ -3709,6 +3716,7 @@ function viewReceipt(logId) {
   const img       = document.getElementById('receiptImg');
   const invalidBtn = document.getElementById('receiptInvalidBtn');
   const acceptBtn  = document.getElementById('receiptAcceptBtn');
+  document.getElementById('receiptDownloadBtn').style.display = 'none';
   document.getElementById('receiptMeta').textContent = 'Uploaded by: ' + (r.actorName || '—');
 
   banner.style.display = 'none';
@@ -3755,6 +3763,71 @@ function viewReceipt(logId) {
 function acceptReceipt() {
   showToast('Receipt accepted.');
   closeModal('receiptModal');
+}
+
+// ── COH Receipt (generated summary for "Received COH" log entries) ─────────
+// These entries have no photo — the manager just confirms a cash count — so
+// build a printable-style receipt image on the fly from the numbers already
+// stored in the log, instead of leaving the RECEIPT column empty.
+async function _cohReceiptToPng(d, cashierName, dateStr, confirmedBy) {
+  const ln = '─'.repeat(30);
+  const lines = [
+    'CASH REMITTANCE RECEIVED',
+    ln,
+    'Cashier: ' + cashierName,
+    'Date: ' + dateStr,
+    ln,
+    'Cash Sales:    ' + (CUR||'₱') + (parseFloat(d.cash_sales)||0).toFixed(2),
+    'Non-Cash:      ' + (CUR||'₱') + (parseFloat(d.non_cash_sales)||0).toFixed(2),
+    'Cash on Hand:  ' + (CUR||'₱') + (parseFloat(d.cash_on_hand)||0).toFixed(2),
+    ln,
+    'Status: ' + (d.result || '—'),
+    ...(d.note ? ['Note: ' + d.note] : []),
+    ln,
+    'Confirmed by: ' + (confirmedBy || '—'),
+  ];
+  const FS = 15, LH = 20, PAD = 16, W = 360;
+  const H = PAD * 2 + lines.length * LH;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = '#ffffff';
+  cx.fillRect(0, 0, W, H);
+  cx.fillStyle = '#000000';
+  cx.font = FS + 'px "Courier New", Courier, monospace';
+  cx.textBaseline = 'top';
+  lines.forEach((l, i) => cx.fillText(l, PAD, PAD + i * LH));
+  return cv.toDataURL('image/png');
+}
+async function viewCohReceipt(logId) {
+  const log = _activityLogs.find(l => l.id === logId);
+  if (!log) return;
+  let d = {};
+  try { d = log.details ? JSON.parse(log.details) : {}; } catch(_) { d = {}; }
+  const dateStr = new Date(log.created_at).toLocaleString('en-PH', {month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const png = await _cohReceiptToPng(d, log.target_name || '—', dateStr, log.actor_name || '—');
+
+  const banner     = document.getElementById('receiptStatusBanner');
+  const imgWrap    = document.getElementById('receiptImgWrap');
+  const img        = document.getElementById('receiptImg');
+  const invalidBtn = document.getElementById('receiptInvalidBtn');
+  const acceptBtn  = document.getElementById('receiptAcceptBtn');
+  const downloadBtn = document.getElementById('receiptDownloadBtn');
+
+  banner.style.display = 'none';
+  imgWrap.style.display = '';
+  invalidBtn.style.display = 'none';
+  acceptBtn.style.display = 'none';
+  downloadBtn.style.display = '';
+  downloadBtn.onclick = () => {
+    const a = document.createElement('a');
+    a.href = png;
+    a.download = 'COH_' + (log.target_name || 'cashier').replace(/\s+/g, '_') + '_' + (log.created_at || '').slice(0, 10) + '.png';
+    a.click();
+  };
+  img.src = png;
+  document.getElementById('receiptMeta').textContent = 'Confirmed by: ' + (log.actor_name || '—');
+  document.getElementById('receiptModal').classList.add('show');
 }
 async function confirmReceiptValid() {
   const log = _activityLogs.find(l => l.id === _currentReceiptLogId);
