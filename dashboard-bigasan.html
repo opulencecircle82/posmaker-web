@@ -3774,17 +3774,17 @@ async function _cohReceiptToPng(d, cashierName, dateStr, confirmedBy) {
   const lines = [
     'CASH REMITTANCE RECEIVED',
     ln,
-    'Cashier: ' + cashierName,
+    'Remitted by: ' + cashierName,
+    'Received by: ' + (confirmedBy || '—'),
     'Date: ' + dateStr,
     ln,
+    'SALES REPORT',
     'Cash Sales:    ' + (CUR||'₱') + (parseFloat(d.cash_sales)||0).toFixed(2),
     'Non-Cash:      ' + (CUR||'₱') + (parseFloat(d.non_cash_sales)||0).toFixed(2),
     'Cash on Hand:  ' + (CUR||'₱') + (parseFloat(d.cash_on_hand)||0).toFixed(2),
     ln,
     'Status: ' + (d.result || '—'),
     ...(d.note ? ['Note: ' + d.note] : []),
-    ln,
-    'Confirmed by: ' + (confirmedBy || '—'),
   ];
   const FS = 15, LH = 20, PAD = 16, W = 360;
   const H = PAD * 2 + lines.length * LH;
@@ -3826,7 +3826,7 @@ async function viewCohReceipt(logId) {
     a.click();
   };
   img.src = png;
-  document.getElementById('receiptMeta').textContent = 'Confirmed by: ' + (log.actor_name || '—');
+  document.getElementById('receiptMeta').textContent = '';
   document.getElementById('receiptModal').classList.add('show');
 }
 async function confirmReceiptValid() {
