@@ -1973,7 +1973,21 @@ function redrawCart() {
   if (hasItems) {
     const denoms = [50, 100, 200, 500, 1000];
     const higher = denoms.filter(a => a >= total);
-    const qAmounts = higher.length ? higher.slice(0, 3) : denoms.slice(-3);
+    // Always offer 3 quick-cash amounts that actually cover the total. When
+    // fewer than 3 standard bills are big enough (e.g. total is ₱4,200, past
+    // every fixed denom, or ₱750, past only ₱1000), fill the rest with
+    // amounts rounded up to the nearest ₱500 instead of falling back to
+    // bills smaller than the total — those can't cover the bill and used to
+    // show up as quick-cash options anyway.
+    let qAmounts;
+    if (higher.length >= 3) {
+      qAmounts = higher.slice(0, 3);
+    } else {
+      const extra = [];
+      let r = Math.ceil(((higher.length ? higher[higher.length - 1] : total) + 1) / 500) * 500;
+      while (higher.length + extra.length < 3) { extra.push(r); r += 500; }
+      qAmounts = [...higher, ...extra];
+    }
     document.getElementById('quickRow').innerHTML = qAmounts.map(a =>
       `<button class="q-cash" onclick="setCash(${a})">${CUR}${a}</button>`
     ).join('');
