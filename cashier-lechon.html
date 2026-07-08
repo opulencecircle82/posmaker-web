@@ -406,8 +406,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div id="webPrinterDownload" style="display:none">
       <a class="btn btn-accent" style="width:100%;justify-content:center;text-decoration:none;display:flex;margin-bottom:8px" href="https://github.com/le0n1982/posmaker-web/releases/latest/download/posmaker-print-server.exe" target="_blank">&#11015; Download Print Server</a>
       <div style="font-size:11px;color:var(--muted);line-height:1.6">
-        1. I-set ang iyong thermal printer bilang <strong>default printer</strong> sa Windows Settings<br>
-        2. I-download at i-run ang <strong>Print Server</strong> — auto-start na sya with Windows pagkatapos
+        1. Set your thermal printer as the <strong>default printer</strong> in Windows Settings<br>
+        2. Download and run the <strong>Print Server</strong> — it will auto-start with Windows afterward
       </div>
     </div>
     <div class="m-actions" style="margin-top:14px">
@@ -484,13 +484,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <span id="remitLogDiff" style="display:none">—</span>
       <div class="m-actions" style="margin-top:14px">
         <button class="btn-cancel" onclick="cancelRemitLogout()">Cancel</button>
-        <button class="btn-confirm" id="remitLogCheckBtn" onclick="remitLogStep2()" disabled style="opacity:.4">I-submit &#10003;</button>
+        <button class="btn-confirm" id="remitLogCheckBtn" onclick="remitLogStep2()" disabled style="opacity:.4">Submit &#10003;</button>
       </div>
     </div>
 
     <!-- STEP 2: Confirm (Double Check) -->
     <div id="remitStep2" style="display:none">
-      <div class="mtitle" style="color:#f59e0b">&#9888; I-confirm</div>
+      <div class="mtitle" style="color:#f59e0b">&#9888; Confirm</div>
       <div style="font-size:13px;color:#888;margin-bottom:14px">Is the amount correct? Confirm before logging out.</div>
       <div style="background:var(--s2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:14px;display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;justify-content:space-between"><span style="color:#888">Cashier</span><strong id="remitCk1">—</strong></div>
@@ -1211,6 +1211,13 @@ function calcRemitLogDiff() {
 }
 
 function remitLogStep2() {
+  // Reset the confirm button back to normal — without this, a stray
+  // "Saving…" disabled state left over from a previous logout this session
+  // (see confirmRemitLogout) would make this screen look permanently stuck
+  // on the very next logout attempt.
+  const confirmBtn = document.getElementById('remitLogConfirmBtn');
+  confirmBtn.disabled = false;
+  confirmBtn.innerHTML = '&#10003; Confirm &amp; Logout';
   const posText = document.getElementById('remitLogPOS').textContent;
   const pos  = parseFloat(posText.replace(/[^0-9.]/g,'')) || 0;
   const cash = parseFloat(document.getElementById('remitLogCOH').value) || 0;
@@ -2365,7 +2372,7 @@ async function openWebPrinterSetup() {
     const d = await r.json();
     statusEl.innerHTML = '<span style="color:#10b981">&#9679;</span> Print server is running!<br><strong>' + (d.printer || '') + '</strong>';
   } catch (_) {
-    statusEl.innerHTML = '<span style="color:#f59e0b">&#9679;</span> Print server is not running.<br>I-download at i-run ang Print Server para gumana ang thermal printer.';
+    statusEl.innerHTML = '<span style="color:#f59e0b">&#9679;</span> Print server is not running.<br>Download and run the Print Server for the thermal printer to work.';
     dlEl.style.display = '';
   }
 }
