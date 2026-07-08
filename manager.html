@@ -541,6 +541,7 @@ button{cursor:pointer}
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Date</span><span id="crmDate">—</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">POS Sales</span><strong id="crmPOS" style="color:var(--accent)">—</strong></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Cash on Hand</span><strong id="crmCash">—</strong></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Online (GCash, etc.)</span><strong id="crmOnline" style="color:#a78bfa">—</strong></div>
       <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--muted)">Difference</span>
         <span id="crmDiff" style="font-size:22px;font-weight:800">—</span>
@@ -1651,6 +1652,7 @@ function openConfirmRemit(id) {
   document.getElementById('crmDate').textContent = new Date(r.shift_date + 'T00:00:00').toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
   document.getElementById('crmPOS').textContent = '₱' + parseFloat(r.pos_sales).toFixed(2);
   document.getElementById('crmCash').textContent = '₱' + parseFloat(r.cash_on_hand).toFixed(2);
+  document.getElementById('crmOnline').textContent = '₱' + (parseFloat(r.online_sales) || 0).toFixed(2);
   const diffEl = document.getElementById('crmDiff');
   diffEl.textContent = (diff>=0?'+':'') + '₱' + Math.abs(diff).toFixed(2);
   diffEl.style.color = diff>0 ? '#10b981' : diff<0 ? '#ef4444' : '#888';
