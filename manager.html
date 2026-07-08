@@ -120,6 +120,7 @@ button{cursor:pointer}
     <div class="sb-item" onclick="nav('log')" title="See all past actions — add stock, edit item, etc."><span class="ico">&#128203;</span> Activity Log</div>
     <div class="sb-item" onclick="nav('sales')" title="View store sales — daily, weekly, or monthly."><span class="ico">&#128200;</span> Sales</div>
     <div class="sb-item" onclick="nav('remit')" title="View cash remittances from cashiers. Red = awaiting confirmation."><span class="ico">&#128176;</span> Cash Remit <span id="remitBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:auto"></span></div>
+    <div class="sb-item" onclick="nav('staff')" title="See your fellow staff — who's online now and their login history. View only, no editing."><span class="ico">&#128101;</span> Staff</div>
     <div class="sb-item" onclick="nav('checklist')" title="Tasks before opening and closing the store — with photo proof."><span class="ico">&#9989;</span> Daily Checklist</div>
     <div class="sb-item" onclick="nav('funds')" title="Money sent by owner to staff — salary, advance, allowance."><span class="ico">&#128176;</span> Staff Funds</div>
     <div class="sb-item" onclick="nav('helpers')" title="Non-account staff — utility, maintenance, helper. Clock in/out and assign tasks."><span class="ico">&#128119;</span> Helpers</div>
@@ -250,6 +251,20 @@ button{cursor:pointer}
         <table>
           <thead><tr><th>Date</th><th>Cashier</th><th>POS Sales</th><th>Cash on Hand</th><th>Difference</th><th>Status</th><th>Description</th></tr></thead>
           <tbody id="remitTbody"><tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted)">No remittances yet.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAFF (view only for managers — no edit or delete) -->
+  <div class="section" id="sec-staff">
+    <div class="card">
+      <div class="card-title">Staff</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px">See who's online now and check login history. Managers cannot edit or delete staff accounts — contact the owner for that.</p>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Username</th><th>Full Name</th><th>Role</th><th>Status</th><th></th></tr></thead>
+          <tbody id="mgrStaffTbody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1133,7 +1148,7 @@ function downloadSalesCSV(){
 }
 
 // ── UI Helpers ─────────────────────────────────────────────────────────────
-const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', checklist:'Daily Checklist', funds:'Staff Funds', helpers:'Helpers'};
+const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', staff:'Staff', checklist:'Daily Checklist', funds:'Staff Funds', helpers:'Helpers'};
 function nav(id){
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
@@ -1146,6 +1161,7 @@ function nav(id){
   if(id==='log')       loadLog();
   if(id==='sales')     loadSales();
   if(id==='remit')     { loadRemit(); checkPendingRemits(); }
+  if(id==='staff')     loadMgrStaff();
   if(id==='checklist') loadChecklist();
   if(id==='funds')     loadPayments();
   if(id==='helpers')   loadHelpers();
@@ -1154,6 +1170,139 @@ function openSidebar()  { document.getElementById('sidebar').classList.add('open
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbOverlay').classList.remove('show'); }
 
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+// ── Staff (view only for managers) ───────────────────────────────────────
+let _mgrAllStaff = [];
+async function loadMgrStaff() {
+  const tbody = document.getElementById('mgrStaffTbody');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr>';
+  const { data, error } = await _sb.from('store_users')
+    .select('id,username,full_name,role,active,last_seen,last_login_at').eq('store_id', MGR.store_id).order('role').order('username');
+  if (error) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px"><div style="color:#ef4444;margin-bottom:8px">'+error.message+'</div><button class="btn btn-accent btn-sm" onclick="loadMgrStaff()">&#8635; Retry</button></td></tr>';
+    return;
+  }
+  _mgrAllStaff = data || [];
+  renderMgrStaff(_mgrAllStaff);
+}
+function renderMgrStaff(staff) {
+  const tbody = document.getElementById('mgrStaffTbody');
+  if (!staff.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">No staff yet.</td></tr>'; return; }
+  tbody.innerHTML = staff.map(s => {
+    const _ll = s.last_login_at ? new Date(s.last_login_at) : null;
+    const _isOnline = s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 5 * 60 * 1000;
+    const lastLogin = _isOnline
+      ? '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;box-shadow:0 0 6px #22c55e"></span><span style="color:#22c55e;font-weight:600">Online</span></span>'
+      : _ll
+        ? new Date(_ll).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})
+        : '<span style="color:var(--dim)">Never</span>';
+    return `<tr>
+      <td style="font-weight:600;font-family:monospace">${s.username}</td>
+      <td>${s.full_name || '&#8212;'}</td>
+      <td><span class="badge" style="${s.role==='manager'?'background:#1a1a3a;color:#818cf8':'background:rgba(0,180,216,.15);color:#00b4d8'}">${s.role}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${lastLogin}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="viewMgrStaffLogs('${s.id}','${(s.full_name||s.username).replace(/'/g,"\\'")}','${s.role}')">Logs</button>
+        ${(_isOnline && s.role!=='manager')?`<button class="btn btn-sm" style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)" onclick="forceLogoutMgrStaff('${s.id}','${(s.full_name||s.username).replace(/'/g,"\\'")}')">&#128274; Force Logout</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+async function forceLogoutMgrStaff(id, name) {
+  if (!confirm(`Force logout "${name}"? Use this if they're stuck "Online" after a crash or power outage and can't log back in.`)) return;
+  await _sb.from('store_users').update({ last_seen: null }).eq('id', id);
+  await loadMgrStaff();
+  showToast(`"${name}" logged out.`);
+}
+let _mgrStaffLogsPoll = null;
+function closeMgrStaffLogsModal() {
+  closeModal('mgrStaffLogsModal');
+  clearInterval(_mgrStaffLogsPoll); _mgrStaffLogsPoll = null;
+}
+async function viewMgrStaffLogs(staffId, displayName, role) {
+  document.getElementById('mgrStaffLogsTitle').textContent = displayName + ' — Login History';
+  document.getElementById('mgrStaffLogsBody').innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Loading...</div>';
+  document.getElementById('mgrStaffLogsModal').classList.add('show');
+  await renderMgrStaffLogsBody(staffId, displayName, role);
+  clearInterval(_mgrStaffLogsPoll);
+  if (role !== 'manager') _mgrStaffLogsPoll = setInterval(() => renderMgrStaffLogsBody(staffId, displayName, role), 20000);
+}
+async function renderMgrStaffLogsBody(staffId, displayName, role) {
+  const body = document.getElementById('mgrStaffLogsBody');
+  const { data: logins, error } = await _sb.from('staff_logs')
+    .select('login_at').eq('staff_id', staffId).order('login_at', { ascending: true }).limit(100);
+  if (error || !logins?.length) {
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">No login records found.</div>';
+    return;
+  }
+  const isCashier = role !== 'manager';
+  let logoutTimes = [], remits = [];
+  const { data: logoutData } = await _sb.from('activity_logs')
+    .select('created_at').eq('store_id', MGR.store_id).eq('actor_name', displayName).eq('action', 'LOGOUT')
+    .order('created_at', { ascending: true }).limit(100);
+  logoutTimes = (logoutData||[]).map(l => l.created_at);
+  if (isCashier) {
+    const { data: remitData } = await _sb.from('cash_remittances')
+      .select('created_at,cash_on_hand').eq('store_id', MGR.store_id).eq('cashier_name', displayName)
+      .order('created_at', { ascending: true }).limit(200);
+    remits = remitData || [];
+  }
+  const loginTimes = logins.map(l => l.login_at);
+  // Group logins into shifts: a NEW shift only starts after an ACTUAL
+  // logout — same merging rule as the owner dashboard's version of this view.
+  const shiftsAsc = [];
+  let curStart = null;
+  for (let i = 0; i < loginTimes.length; i++) {
+    const loginAt = loginTimes[i];
+    if (curStart === null) curStart = loginAt;
+    const nextLoginAt = loginTimes[i+1] || null;
+    const logoutAt = logoutTimes.find(t => t > loginAt && (!nextLoginAt || t < nextLoginAt)) || null;
+    if (logoutAt) {
+      shiftsAsc.push({ loginAt: curStart, logoutAt, isOpen: false });
+      curStart = null;
+    } else if (!nextLoginAt) {
+      shiftsAsc.push({ loginAt: curStart, logoutAt: null, isOpen: true });
+      curStart = null;
+    }
+  }
+  const shifts = shiftsAsc.slice().reverse(); // newest first
+
+  if (isCashier) {
+    await Promise.all(shifts.filter(s => !s.logoutAt).map(async s => {
+      const { data: ord } = await _sb.from('orders').select('total,payment_method')
+        .eq('store_id', MGR.store_id).eq('cashier_name', displayName)
+        .gte('timestamp', s.loginAt);
+      s._total = (ord||[]).filter(o => (o.payment_method || 'Cash') === 'Cash').reduce((sum,o) => sum + (parseFloat(o.total)||0), 0);
+    }));
+  }
+
+  body.innerHTML = `
+    <table style="width:100%">
+      <thead><tr><th>#</th><th>Login</th><th>Logout</th>${isCashier?'<th>Cash Drawer</th>':''}</tr></thead>
+      <tbody>${shifts.map((s,i) => {
+        const loginStr = new Date(s.loginAt).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'});
+        const logoutStr = s.logoutAt
+          ? new Date(s.logoutAt).toLocaleString('en-PH',{dateStyle:'medium',timeStyle:'short'})
+          : '<span style="color:#22c55e;font-weight:600">&#128994; Active</span>';
+        let cashCell = '—';
+        if (isCashier) {
+          if (s.logoutAt) {
+            const r = remits.filter(r => new Date(r.created_at).getTime() >= new Date(s.loginAt).getTime() && new Date(r.created_at).getTime() <= new Date(s.logoutAt).getTime() + 5000)
+              .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0];
+            cashCell = r ? `₱${parseFloat(r.cash_on_hand).toFixed(2)} <span style="color:var(--muted);font-size:11px">remitted</span>` : '<span style="color:var(--dim)">no remit</span>';
+          } else {
+            cashCell = s._total != null ? `<span style="color:#22c55e;font-weight:600">₱${s._total.toFixed(2)}</span> <span style="color:var(--muted);font-size:11px">live</span>` : '—';
+          }
+        }
+        return `<tr>
+        <td style="color:var(--dim);font-size:12px">${i+1}</td>
+        <td>${loginStr}</td>
+        <td>${logoutStr}</td>
+        ${isCashier?`<td>${cashCell}</td>`:''}
+      </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
 
 let _toastT;
 function showToast(msg, isErr){
@@ -2590,6 +2739,19 @@ function closeRuReceiptQR() {
     <div class="m-actions">
       <button class="btn btn-ghost" onclick="closeModal('helperModal')">Cancel</button>
       <button class="btn btn-accent" onclick="saveHelper()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- STAFF LOGS MODAL (view only) -->
+<div class="modal" id="mgrStaffLogsModal">
+  <div class="mbox" style="width:min(520px,100%)">
+    <h3 id="mgrStaffLogsTitle">Login History</h3>
+    <div id="mgrStaffLogsBody" style="max-height:360px;overflow-y:auto">
+      <div style="text-align:center;padding:20px;color:var(--muted)">Loading...</div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeMgrStaffLogsModal()">Close</button>
     </div>
   </div>
 </div>
