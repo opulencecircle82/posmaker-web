@@ -1175,6 +1175,7 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="mbox">
     <h3 id="staffModalTitle">Add Staff</h3>
     <input type="hidden" id="staffId">
+    <input type="hidden" id="staffOrigName">
     <div class="row2">
       <div class="field"><label>Username</label><input id="sfUser" type="text" placeholder="e.g. cashier1" autocomplete="off"></div>
       <div class="field"><label>Full Name</label><input id="sfName" type="text" placeholder="e.g. Maria Santos" autocomplete="off"></div>
@@ -3457,6 +3458,7 @@ function openStaffModal(s) {
   if (s && frozenStaffIds.has(s.id)) { showUpgradeModal('staff', allStaff.length, FREE_STAFF_LIMIT); return; }
   document.getElementById('staffModalTitle').textContent = s ? 'Edit Staff' : 'Add Staff';
   document.getElementById('staffId').value   = s ? s.id : '';
+  document.getElementById('staffOrigName').value = s ? (s.full_name || s.username || '') : '';
   document.getElementById('sfUser').value    = s ? s.username : '';
   document.getElementById('sfName').value    = s ? (s.full_name || '') : '';
   document.getElementById('sfPw').value      = '';
@@ -3470,6 +3472,7 @@ function openStaffModal(s) {
 }
 async function saveStaff() {
   const id   = document.getElementById('staffId').value;
+  const origName = document.getElementById('staffOrigName').value.trim();
   const user = document.getElementById('sfUser').value.trim().toLowerCase();
   const name = document.getElementById('sfName').value.trim();
   const pw   = document.getElementById('sfPw').value;
@@ -3483,6 +3486,18 @@ async function saveStaff() {
   if (pw) payload.password_hash = await sha256(pw);
   if (id) {
     await _sb.from('store_users').update(payload).eq('id', id);
+    // Renaming a staff member splits their history in every report that
+    // groups by name (Cashier Remittance Accuracy, Sales Report, etc.),
+    // since orders/remittances/logs store a name snapshot, not a staff_id.
+    // Cascade the rename into that history so it stays one continuous record.
+    if (name && origName && name !== origName) {
+      await Promise.all([
+        _sb.from('cash_remittances').update({ cashier_name: name }).eq('store_id', STORE.id).eq('cashier_name', origName),
+        _sb.from('orders').update({ cashier_name: name }).eq('store_id', STORE.id).eq('cashier_name', origName),
+        _sb.from('activity_logs').update({ actor_name: name }).eq('store_id', STORE.id).eq('actor_name', origName),
+        _sb.from('activity_logs').update({ target_name: name }).eq('store_id', STORE.id).eq('target_name', origName),
+      ]);
+    }
   } else {
     await _sb.from('store_users').insert({ store_id: STORE.id, username: user, ...payload });
   }
