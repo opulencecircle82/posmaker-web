@@ -2603,6 +2603,13 @@ async function loadPerformance() {
   // Checklist section HTML — same pie-disk style as Cashier Remittance
   // Accuracy above: a full ring in the tier color, with the incomplete
   // portion left as a dim gap. One combined score, not separate open/close bars.
+  // The checklist log itself has no per-item attribution (just which item
+  // indices got checked off on which date), so show whichever manager
+  // account(s) exist for the store rather than claiming to know who
+  // specifically completed each item.
+  const { data: _ckMgrs } = await _sb.from('store_users')
+    .select('full_name,username').eq('store_id', STORE.id).eq('role', 'manager');
+  const _ckMgrNames = (_ckMgrs || []).map(m => m.full_name || m.username).join(', ') || 'No manager assigned';
   const _ckHtml = (_ckDays === 0 || _ckRate === null)
     ? '<div style="color:var(--muted);font-size:12px;padding:8px 0">No checklist data for the last 30 days.</div>'
     : (() => {
@@ -2617,6 +2624,7 @@ async function loadPerformance() {
           '<span style="font-weight:700;font-size:13px">&#9989; Opening &amp; Closing Checklist</span>' +
           '<span style="font-size:11px;font-weight:700;color:' + r.color + ';background:' + r.color + '22;padding:2px 8px;border-radius:20px">' + r.label + '</span>' +
           '</div>' +
+          '<div style="font-size:11px;color:var(--accent);font-weight:600;margin-bottom:2px">' + _ckMgrNames + '</div>' +
           '<div style="font-size:11px;color:var(--muted)">' + _ckOk + ' of ' + _ckPossible + ' checklist runs completed over ' + _ckDays + ' day' + (_ckDays !== 1 ? 's' : '') + ' tracked</div>' +
           '</div></div>';
       })();
