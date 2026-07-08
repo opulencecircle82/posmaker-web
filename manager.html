@@ -1030,7 +1030,7 @@ async function loadLog(){
     const dt = new Date(l.created_at);
     const ds = dt.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})+' '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     const cls = l.action==='ADD_STOCK'?'act-add':l.action==='EDIT_ITEM'?'act-edit':l.action==='REMITTANCE'?'act-remit':l.action==='MGR_REMIT'?'act-deposit':l.action==='OWNER_SEND'?'act-send':'';
-    const actionLabel = {ADD_STOCK:'+ Add Stock',EDIT_ITEM:'Edit Item',REMITTANCE:'🪙 Remittance',MGR_REMIT:'⬆ Deposit',OWNER_SEND:'💸 Sent'};
+    const actionLabel = {ADD_STOCK:'+ Add Stock',EDIT_ITEM:'Edit Item',REMITTANCE:'🪙 Remittance',RECEIVED_COH:'✅ Received COH',MGR_REMIT:'⬆ Deposit',OWNER_SEND:'💸 Sent'};
     const actionChip = actionLabel[l.action] || l.action.replace('_',' ');
     let det='';
     try{
@@ -1673,7 +1673,7 @@ async function saveConfirmRemit() {
   const { error: crErr } = await _sb.from('cash_remittances').update({ status, description: desc||null }).eq('id', id);
   if (crErr) { showToast('Error: ' + crErr.message, true); btn.disabled=false; btn.textContent='✓ Confirm Receipt'; return; }
   const diffLabel = status==='short' ? `Short -₱${Math.abs(diff).toFixed(2)}` : status==='over' ? `Over +₱${Math.abs(diff).toFixed(2)}` : 'Balanced';
-  await logAction('REMITTANCE', r?.cashier_name || '', { result: diffLabel, received: true, ...(desc ? { note: desc } : {}) });
+  await logAction('RECEIVED_COH', r?.cashier_name || '', { result: diffLabel, received: true, ...(desc ? { note: desc } : {}) });
   closeModal('confirmRemitModal');
   await loadRemit();
   loadCashSummary();
