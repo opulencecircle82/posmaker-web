@@ -143,8 +143,6 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:16px 2
 .bar-track{height:10px; background:var(--s2); border-radius:6px; overflow:hidden; display:flex}
 .bar-seg{height:100%}
 .bar-legend{display:flex; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--dim)}
-.bar-legend span:first-child{color:var(--accent)}
-.bar-legend span:last-child{color:var(--red)}
 
 .breakeven-note{
   margin-top:16px; background:var(--s2); border:1px solid var(--border); border-radius:10px;
@@ -195,6 +193,17 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
       </div>
       <div class="row2">
         <div class="field">
+          <label>Capital / Cost ng Paninda <span class="hint">(% ng benta)</span></label>
+          <input type="number" id="capitalPct" min="0" max="100" step="1" placeholder="e.g. 70" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label>Gross Margin <span class="hint">(natitira, auto)</span></label>
+          <input type="text" id="marginDisplay" readonly disabled placeholder="0%" style="opacity:.7;cursor:not-allowed">
+        </div>
+      </div>
+      <div class="hint" style="margin-top:-6px;margin-bottom:2px">Halimbawa: kung ₱70 sa bawat ₱100 na benta ay kapital (cost ng paninda), i-type ang <strong style="color:var(--text)">70</strong> — ang ₱30 na natitira ang gross profit bago pa ang expenses.</div>
+      <div class="row2">
+        <div class="field">
           <label>Opening Time <span class="hint">(optional)</span></label>
           <input type="time" id="openTime" value="08:00">
         </div>
@@ -227,17 +236,20 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
       <div class="card" style="margin-top:16px">
         <div class="card-title">📅 Monthly View</div>
         <div class="sum-grid">
-          <div class="sum-row"><span class="lbl">Monthly Revenue</span><span class="val" id="sumRevenue">₱0.00</span></div>
-          <div class="sum-row"><span class="lbl">Monthly Expenses</span><span class="val" id="sumExpenses" style="color:var(--red)">₱0.00</span></div>
+          <div class="sum-row"><span class="lbl">Gross Sales</span><span class="val" id="sumSales">₱0.00</span></div>
+          <div class="sum-row"><span class="lbl">Less: Capital / Cost (<span id="sumCapPct">0</span>%)</span><span class="val" id="sumCapital" style="color:var(--amber)">−₱0.00</span></div>
+          <div class="sum-row"><span class="lbl">Gross Profit</span><span class="val" id="sumGrossProfit">₱0.00</span></div>
+          <div class="sum-row"><span class="lbl">Less: Operating Expenses</span><span class="val" id="sumExpenses" style="color:var(--red)">−₱0.00</span></div>
           <div class="sum-row total"><span class="lbl">Net Profit / Loss</span><span class="val" id="sumNet">₱0.00</span></div>
           <div class="sum-row"><span class="lbl">Profit Margin</span><span class="val" id="sumMargin">0%</span></div>
         </div>
         <div class="bar-wrap">
           <div class="bar-track">
+            <div class="bar-seg" id="barCap" style="background:var(--amber);width:0%"></div>
             <div class="bar-seg" id="barExp" style="background:var(--red);width:0%"></div>
             <div class="bar-seg" id="barProfit" style="background:var(--green);width:0%"></div>
           </div>
-          <div class="bar-legend"><span>expenses</span><span>profit</span></div>
+          <div class="bar-legend"><span style="color:var(--amber)">capital</span><span style="color:var(--red)">expenses</span><span style="color:var(--green)">profit</span></div>
         </div>
         <div class="breakeven-note" id="breakevenNote"></div>
       </div>
@@ -251,21 +263,21 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
 const CUR = '₱';
 
 const BIZ_PRESETS = {
-  'Fast Food':        { icon:'🍔', exp:[['Rent',8000,'monthly'],['Ingredients / Supplies',300,'daily'],['Staff Salary',12000,'monthly'],['Gas / LPG',150,'weekly'],['Electricity',3500,'monthly']] },
-  'Carinderya':        { icon:'🍚', exp:[['Rent',6000,'monthly'],['Raw Ingredients',350,'daily'],['Helper Salary',9000,'monthly'],['Gas / LPG',150,'weekly'],['Electricity',2500,'monthly']] },
-  'Coffee Shop':       { icon:'☕', exp:[['Rent',10000,'monthly'],['Coffee Beans / Supplies',250,'daily'],['Barista Salary',13000,'monthly'],['Electricity',4000,'monthly'],['Internet / Wifi',1800,'monthly']] },
-  'Bakery':            { icon:'🍞', exp:[['Rent',7000,'monthly'],['Flour / Baking Supplies',400,'daily'],['Baker Salary',12000,'monthly'],['Gas / LPG (Oven)',300,'weekly'],['Electricity',3000,'monthly']] },
-  'Milk Tea / Drinks': { icon:'🧋', exp:[['Rent',7500,'monthly'],['Tea / Toppings Supplies',280,'daily'],['Staff Salary',11000,'monthly'],['Electricity',3200,'monthly'],['Cups / Packaging',150,'daily']] },
-  'Buffet':            { icon:'🍱', exp:[['Rent',9000,'monthly'],['Raw Ingredients',500,'daily'],['Kitchen Staff',15000,'monthly'],['Gas / LPG',250,'weekly'],['Electricity',4000,'monthly']] },
-  'Sari-Sari Store':   { icon:'🏪', exp:[['Rent',4000,'monthly'],['Restocking Capital',400,'daily'],['Helper Salary',7000,'monthly'],['Electricity',1500,'monthly']] },
-  'Bigasan / Rice Store': { icon:'🌾', exp:[['Rent',5000,'monthly'],['Rice Stock Capital',3000,'daily'],['Helper Salary',8000,'monthly'],['Electricity',1200,'monthly']] },
-  'Hardware Store':    { icon:'🔧', exp:[['Rent',8000,'monthly'],['Restocking Capital',2000,'daily'],['Staff Salary',10000,'monthly'],['Electricity',2500,'monthly']] },
-  'Drug Store':        { icon:'💊', exp:[['Rent',9000,'monthly'],['Medicine Stock Capital',3000,'daily'],['Pharmacist Salary',15000,'monthly'],['Electricity',2800,'monthly']] },
-  'Clothing':          { icon:'👕', exp:[['Rent',9000,'monthly'],['Inventory Restocking',1500,'daily'],['Staff Salary',9000,'monthly'],['Electricity',2000,'monthly']] },
-  'Laundry':           { icon:'🧺', exp:[['Rent',7000,'monthly'],['Detergent / Supplies',200,'daily'],['Staff Salary',9000,'monthly'],['Electricity (Machines)',6000,'monthly'],['Water',2500,'monthly']] },
-  'Salon / Barbershop':{ icon:'💈', exp:[['Rent',7000,'monthly'],['Supplies (shampoo, etc.)',150,'daily'],['Staff Commission',8000,'monthly'],['Electricity',2200,'monthly']] },
-  'Printing / Photocopy': { icon:'🖨️', exp:[['Rent',6000,'monthly'],['Ink / Paper Supplies',300,'daily'],['Staff Salary',8000,'monthly'],['Electricity',2000,'monthly']] },
-  'Other':             { icon:'🏢', exp:[['Rent',6000,'monthly'],['Supplies',300,'daily'],['Staff Salary',10000,'monthly'],['Electricity',2500,'monthly']] },
+  'Fast Food':        { icon:'🍔', cap:40, exp:[['Rent',8000,'monthly'],['Ingredients / Supplies',300,'daily'],['Staff Salary',12000,'monthly'],['Gas / LPG',150,'weekly'],['Electricity',3500,'monthly']] },
+  'Carinderya':        { icon:'🍚', cap:45, exp:[['Rent',6000,'monthly'],['Raw Ingredients',350,'daily'],['Helper Salary',9000,'monthly'],['Gas / LPG',150,'weekly'],['Electricity',2500,'monthly']] },
+  'Coffee Shop':       { icon:'☕', cap:30, exp:[['Rent',10000,'monthly'],['Coffee Beans / Supplies',250,'daily'],['Barista Salary',13000,'monthly'],['Electricity',4000,'monthly'],['Internet / Wifi',1800,'monthly']] },
+  'Bakery':            { icon:'🍞', cap:35, exp:[['Rent',7000,'monthly'],['Flour / Baking Supplies',400,'daily'],['Baker Salary',12000,'monthly'],['Gas / LPG (Oven)',300,'weekly'],['Electricity',3000,'monthly']] },
+  'Milk Tea / Drinks': { icon:'🧋', cap:30, exp:[['Rent',7500,'monthly'],['Tea / Toppings Supplies',280,'daily'],['Staff Salary',11000,'monthly'],['Electricity',3200,'monthly'],['Cups / Packaging',150,'daily']] },
+  'Buffet':            { icon:'🍱', cap:45, exp:[['Rent',9000,'monthly'],['Raw Ingredients',500,'daily'],['Kitchen Staff',15000,'monthly'],['Gas / LPG',250,'weekly'],['Electricity',4000,'monthly']] },
+  'Sari-Sari Store':   { icon:'🏪', cap:75, exp:[['Rent',4000,'monthly'],['Restocking Capital',400,'daily'],['Helper Salary',7000,'monthly'],['Electricity',1500,'monthly']] },
+  'Bigasan / Rice Store': { icon:'🌾', cap:85, exp:[['Rent',5000,'monthly'],['Rice Stock Capital',3000,'daily'],['Helper Salary',8000,'monthly'],['Electricity',1200,'monthly']] },
+  'Hardware Store':    { icon:'🔧', cap:70, exp:[['Rent',8000,'monthly'],['Restocking Capital',2000,'daily'],['Staff Salary',10000,'monthly'],['Electricity',2500,'monthly']] },
+  'Drug Store':        { icon:'💊', cap:65, exp:[['Rent',9000,'monthly'],['Medicine Stock Capital',3000,'daily'],['Pharmacist Salary',15000,'monthly'],['Electricity',2800,'monthly']] },
+  'Clothing':          { icon:'👕', cap:50, exp:[['Rent',9000,'monthly'],['Inventory Restocking',1500,'daily'],['Staff Salary',9000,'monthly'],['Electricity',2000,'monthly']] },
+  'Laundry':           { icon:'🧺', cap:15, exp:[['Rent',7000,'monthly'],['Detergent / Supplies',200,'daily'],['Staff Salary',9000,'monthly'],['Electricity (Machines)',6000,'monthly'],['Water',2500,'monthly']] },
+  'Salon / Barbershop':{ icon:'💈', cap:10, exp:[['Rent',7000,'monthly'],['Supplies (shampoo, etc.)',150,'daily'],['Staff Commission',8000,'monthly'],['Electricity',2200,'monthly']] },
+  'Printing / Photocopy': { icon:'🖨️', cap:30, exp:[['Rent',6000,'monthly'],['Ink / Paper Supplies',300,'daily'],['Staff Salary',8000,'monthly'],['Electricity',2000,'monthly']] },
+  'Other':             { icon:'🏢', cap:50, exp:[['Rent',6000,'monthly'],['Supplies',300,'daily'],['Staff Salary',10000,'monthly'],['Electricity',2500,'monthly']] },
 };
 
 function populateBizType() {
@@ -322,8 +334,13 @@ function renderPresets() {
     preset.exp.map(([name, amt, freq]) =>
       `<button class="preset-btn" onclick="addExpenseRow('${name.replace(/'/g,"\\'")}', ${amt}, '${freq}')">+ ${name}</button>`
     ).join('');
+  // Suggest a typical capital % for this business type — only if the field
+  // hasn't been touched yet, so it doesn't clobber a manual entry.
+  const capField = document.getElementById('capitalPct');
+  if (!capField.dataset.touched && preset.cap != null) capField.value = preset.cap;
 }
 document.getElementById('bizType').addEventListener('change', renderPresets);
+document.getElementById('capitalPct').addEventListener('input', function() { this.dataset.touched = '1'; });
 
 function monthlyEquivalent(amount, freq, opDays) {
   const a = parseFloat(amount) || 0;
@@ -358,22 +375,33 @@ function calculate() {
     hoursNote.textContent = '';
   }
 
-  const monthlyRevenue = dailySales * opDays;
-  const monthlyExpenses = expenses.reduce((sum, e) => sum + monthlyEquivalent(e.amount, e.freq, opDays), 0);
-  const netProfit = monthlyRevenue - monthlyExpenses;
-  const margin = monthlyRevenue > 0 ? (netProfit / monthlyRevenue * 100) : 0;
+  const capitalPct = Math.min(100, Math.max(0, parseFloat(document.getElementById('capitalPct').value) || 0));
+  const marginPct = 100 - capitalPct;
+  document.getElementById('marginDisplay').value = marginPct + '%';
 
-  document.getElementById('sumRevenue').textContent = fmt(monthlyRevenue);
-  document.getElementById('sumExpenses').textContent = fmt(monthlyExpenses);
+  const monthlySales    = dailySales * opDays;
+  const monthlyCapital  = monthlySales * (capitalPct / 100);
+  const grossProfit     = monthlySales - monthlyCapital;
+  const monthlyExpenses = expenses.reduce((sum, e) => sum + monthlyEquivalent(e.amount, e.freq, opDays), 0);
+  const netProfit       = grossProfit - monthlyExpenses;
+  const margin          = monthlySales > 0 ? (netProfit / monthlySales * 100) : 0;
+
+  document.getElementById('sumSales').textContent = fmt(monthlySales);
+  document.getElementById('sumCapPct').textContent = capitalPct;
+  document.getElementById('sumCapital').textContent = '−' + fmt(monthlyCapital);
+  document.getElementById('sumGrossProfit').textContent = fmt(grossProfit);
+  document.getElementById('sumExpenses').textContent = '−' + fmt(monthlyExpenses);
   const netEl = document.getElementById('sumNet');
   netEl.textContent = fmt(netProfit);
   netEl.style.color = netProfit >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('sumMargin').textContent = margin.toFixed(1) + '%';
 
-  // Bar
-  const total = monthlyRevenue > 0 ? monthlyRevenue : 1;
-  const expPct = Math.min(100, (monthlyExpenses / total) * 100);
-  const profitPct = Math.max(0, 100 - expPct);
+  // Bar — capital, expenses, and what's left as profit, all as a share of gross sales
+  const total = monthlySales > 0 ? monthlySales : 1;
+  const capPct = Math.min(100, (monthlyCapital / total) * 100);
+  const expPct = Math.min(100 - capPct, (monthlyExpenses / total) * 100);
+  const profitPct = Math.max(0, 100 - capPct - expPct);
+  document.getElementById('barCap').style.width = capPct + '%';
   document.getElementById('barExp').style.width = expPct + '%';
   document.getElementById('barProfit').style.width = profitPct + '%';
 
@@ -388,7 +416,7 @@ function calculate() {
     box.style.background = 'var(--s1)'; box.style.borderColor = 'var(--border)';
     icon.textContent = '🤔'; label.textContent = 'Input mo muna ang datos'; label.style.color = 'var(--text)';
     sub.textContent = 'Punan ang sales at expenses sa kaliwa';
-  } else if (netProfit > monthlyRevenue * 0.05 || (monthlyRevenue > 0 && netProfit > 0 && margin > 15)) {
+  } else if (netProfit > monthlySales * 0.05 && margin > 15) {
     box.style.background = 'var(--green-glow)'; box.style.borderColor = 'var(--green)';
     icon.textContent = '✅'; label.textContent = 'Kikita ang negosyo'; label.style.color = 'var(--green)';
     sub.textContent = fmt(netProfit) + ' net profit kada buwan';
@@ -402,22 +430,28 @@ function calculate() {
     sub.textContent = fmt(Math.abs(netProfit)) + ' loss kada buwan sa ganitong setup';
   }
 
-  // Break-even note
+  // Break-even note — daily sales needed so that gross profit (after capital
+  // is set aside) covers the operating expenses for the month.
   const beNote = document.getElementById('breakevenNote');
   if (monthlyExpenses > 0) {
-    const breakEvenDaily = monthlyExpenses / opDays;
-    const gap = breakEvenDaily - dailySales;
-    if (gap > 0) {
-      beNote.innerHTML = `Kailangan mo ng <strong>${fmt(breakEvenDaily)}</strong> na benta kada araw para mag-break-even — <strong>${fmt(gap)}</strong> pa ang kulang sa kasalukuyang estimate mo.`;
+    const grossProfitRate = marginPct / 100;
+    if (grossProfitRate <= 0) {
+      beNote.innerHTML = `100% capital ang na-set mo — walang gross profit na makokontra sa expenses kahit gaano karami ang benta. Bawasan ang Capital %.`;
     } else {
-      beNote.innerHTML = `Ang break-even ay <strong>${fmt(breakEvenDaily)}</strong> kada araw — lampas ka na dito ng <strong>${fmt(dailySales - breakEvenDaily)}</strong>.`;
+      const breakEvenDaily = (monthlyExpenses / grossProfitRate) / opDays;
+      const gap = breakEvenDaily - dailySales;
+      if (gap > 0) {
+        beNote.innerHTML = `Kailangan mo ng <strong>${fmt(breakEvenDaily)}</strong> na gross sales kada araw para mag-break-even — <strong>${fmt(gap)}</strong> pa ang kulang sa kasalukuyang estimate mo.`;
+      } else {
+        beNote.innerHTML = `Ang break-even ay <strong>${fmt(breakEvenDaily)}</strong> na benta kada araw — lampas ka na dito ng <strong>${fmt(dailySales - breakEvenDaily)}</strong>.`;
+      }
     }
   } else {
     beNote.textContent = 'Magdagdag ng expenses para makita ang break-even point.';
   }
 }
 
-['dailySales','opDays','openTime','closeTime'].forEach(id => {
+['dailySales','opDays','capitalPct','openTime','closeTime'].forEach(id => {
   document.getElementById(id).addEventListener('input', calculate);
 });
 
