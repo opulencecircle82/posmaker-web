@@ -220,10 +220,6 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div id="lowStockAlert" style="display:none;background:#2a1a00;border:1px solid #f59e0b;border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;cursor:pointer" onclick="nav('inventory')">
         <strong style="color:#f59e0b">&#9888; Low Stock / Out of Stock</strong> &#8212; <span id="lowStockList" style="color:#ccc"></span> <span style="color:#f59e0b;text-decoration:underline">View Inventory &#8594;</span>
       </div>
-      <!-- Unremitted cash alert -->
-      <div id="unremittedAlert" style="display:none;background:#2a0a0a;border:1px solid #ef4444;border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;cursor:pointer" onclick="nav('staff')">
-        <strong style="color:#ef4444">&#128181; Unremitted Cash</strong> &#8212; <span id="unremittedList" style="color:#ccc"></span> <span style="color:#ef4444;text-decoration:underline">View Staff &#8594;</span>
-      </div>
       <!-- Late remittance alert (already remitted, but took too long) -->
       <div id="lateRemitAlert" style="display:none;background:#1a1230;border:1px solid #a78bfa;border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;cursor:pointer" onclick="nav('activitylog')">
         <strong style="color:#a78bfa">&#8987; Late Remittance</strong> &#8212; <span id="lateRemitList" style="color:#ccc"></span> <span style="color:#a78bfa;text-decoration:underline">View Activity Log &#8594;</span>
@@ -439,6 +435,19 @@ input:checked + .slider:before{transform:translateX(18px)}
         <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Share this link with your managers and staff. They use their username &amp; password to sign in.</p>
         <div class="link-box" id="mgrLoginLink" style="cursor:pointer" onclick="copyMgrLink()" title="Click to copy">Loading...</div>
         <button class="btn btn-ghost btn-sm" onclick="copyMgrLink()">&#128203; Copy Link</button>
+      </div>
+
+      <!-- Remittance Status Today -->
+      <div class="tbl-wrap" style="margin-top:16px" id="remitStatusCard">
+        <div class="tbl-head">
+          <h3>&#128181; Remittance Status Today</h3>
+          <button class="btn btn-ghost btn-sm" onclick="checkUnremittedCash()">&#8635; Refresh</button>
+        </div>
+        <div style="padding:16px 20px">
+          <div style="font-size:22px;font-weight:800" id="remitStatusRatio">&#8212;</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">cashiers remitted today</div>
+          <div id="remitStatusPending" style="font-size:12px"></div>
+        </div>
       </div>
 
       <!-- STAFF PERFORMANCE CARD -->
@@ -2040,40 +2049,53 @@ function dashTab(tab) {
 // no mid-shift "remit now" flow), so any cashier whose most recent login has
 // no matching LOGOUT yet is, by definition, holding cash with nothing
 // remitted for that shift. Flag it here the same way low stock is flagged.
+// Shows, for cashiers who actually worked today, how many have already
+// remitted vs how many still haven't — e.g. "2 / 10". Cashiers who didn't
+// log in today aren't counted (nothing for them to remit), and this never
+// fires while a shift is still in progress with no remittance due yet —
+// only day-old totals matter here, so nothing alarms an owner mid-shift.
 async function checkUnremittedCash() {
-  const alertEl = document.getElementById('unremittedAlert');
-  if (!alertEl || !STORE?.id) return;
+  const ratioEl = document.getElementById('remitStatusRatio');
+  const pendingEl = document.getElementById('remitStatusPending');
+  if (!ratioEl || !STORE?.id) return;
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
+
   const { data: cashiers } = await _sb.from('store_users')
     .select('id,username,full_name').eq('store_id', STORE.id).eq('role', 'cashier');
-  if (!cashiers?.length) { alertEl.style.display = 'none'; return; }
+  if (!cashiers?.length) {
+    ratioEl.textContent = '—';
+    pendingEl.textContent = 'No cashiers registered yet.';
+    pendingEl.style.color = 'var(--muted)';
+    return;
+  }
 
-  const flagged = [];
-  await Promise.all(cashiers.map(async c => {
-    const name = c.full_name || c.username;
-    const { data: lastLogin } = await _sb.from('staff_logs')
-      .select('login_at').eq('staff_id', c.id).order('login_at', { ascending: false }).limit(1);
-    if (!lastLogin?.length) return;
-    const loginAt = lastLogin[0].login_at;
-    const { data: logoutAfter } = await _sb.from('activity_logs')
-      .select('id').eq('store_id', STORE.id).eq('actor_name', name).eq('action', 'LOGOUT')
-      .gt('created_at', loginAt).limit(1);
-    if (logoutAfter?.length) return; // already logged out — nothing open
+  const { data: logins } = await _sb.from('staff_logs')
+    .select('staff_id').eq('store_id', STORE.id).gte('login_at', todayStart);
+  const workedTodayIds = new Set((logins || []).map(l => l.staff_id));
+  const workingToday = cashiers.filter(c => workedTodayIds.has(c.id));
 
-    const { data: ord } = await _sb.from('orders').select('total,payment_method')
-      .eq('store_id', STORE.id).eq('cashier_name', name).gte('timestamp', loginAt);
-    const cashTotal = (ord || []).filter(o => (o.payment_method || 'Cash') === 'Cash')
-      .reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
-    if (cashTotal > 0) flagged.push({ name, amount: cashTotal, since: loginAt });
-  }));
+  if (!workingToday.length) {
+    ratioEl.textContent = '—';
+    pendingEl.textContent = 'No cashiers have logged in today yet.';
+    pendingEl.style.color = 'var(--muted)';
+    return;
+  }
 
-  if (flagged.length) {
-    const list = flagged.map(f =>
-      `${f.name} (${CUR}${f.amount.toFixed(2)} since ${new Date(f.since).toLocaleDateString('en-PH',{month:'short',day:'numeric'})})`
-    ).join(', ');
-    document.getElementById('unremittedList').textContent = list;
-    alertEl.style.display = 'block';
+  const { data: remits } = await _sb.from('cash_remittances')
+    .select('cashier_name').eq('store_id', STORE.id).gte('created_at', todayStart);
+  const remittedNames = new Set((remits || []).map(r => r.cashier_name));
+
+  const pending = workingToday.filter(c => !remittedNames.has(c.full_name || c.username));
+  const remittedCount = workingToday.length - pending.length;
+
+  ratioEl.textContent = `${remittedCount} / ${workingToday.length}`;
+  if (pending.length) {
+    pendingEl.textContent = 'Not yet remitted: ' + pending.map(c => c.full_name || c.username).join(', ');
+    pendingEl.style.color = '#ef4444';
   } else {
-    alertEl.style.display = 'none';
+    pendingEl.textContent = 'All cashiers who worked today have remitted. ✓';
+    pendingEl.style.color = '#10b981';
   }
 }
 
