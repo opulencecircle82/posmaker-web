@@ -327,6 +327,10 @@ button{cursor:pointer}
       <div class="tbl-wrap" style="margin-bottom:16px">
         <div class="tbl-head"><h3>&#128179; Request Cash Advance</h3></div>
         <div style="padding:16px 20px">
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Staff</label>
+          <select id="caStaffSelect" onchange="onCaStaffChange()" style="width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;margin-bottom:8px;font-family:inherit">
+            <option value="">Select staff...</option>
+          </select>
           <div id="caLimitInfo" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
           <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Amount</label>
           <input type="number" id="caAmount" min="1" step="0.01" placeholder="0.00" style="width:100%;padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;margin-bottom:10px;font-family:inherit">
@@ -336,7 +340,7 @@ button{cursor:pointer}
         </div>
       </div>
       <div class="tbl-wrap">
-        <div class="tbl-head"><h3>My Requests</h3></div>
+        <div class="tbl-head"><h3>Requests I've Submitted</h3></div>
         <div id="caHistoryList" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
           <div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Loading...</div>
         </div>
@@ -2043,29 +2047,30 @@ async function loadPayments() {
   </div>`;
 }
 
-// ── Cash Advance (staff-requested, owner-approved) ────────────────────────
-let _caMaxAmt = null, _caMaxPerMonth = null, _caThisMonthCount = 0;
+// ── Cash Advance (any staff — manager submits on their behalf, incl. self) ─
+let _caMaxAmt = null, _caMaxPerMonth = null, _caThisMonthCount = 0, _caAllStaff = [];
 async function loadCashAdvance() {
   const CUR = '₱';
   const list = document.getElementById('caHistoryList');
-  const infoEl = document.getElementById('caLimitInfo');
   list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Loading...</div>';
 
   const { data: storeRow } = await _sb.from('stores').select('ca_max_amount,ca_max_per_month').eq('id', MGR.store_id).maybeSingle();
   _caMaxAmt = storeRow?.ca_max_amount || null;
   _caMaxPerMonth = storeRow?.ca_max_per_month || null;
 
+  const { data: staffRows } = await _sb.from('store_users')
+    .select('id,username,full_name,role').eq('store_id', MGR.store_id).eq('active', true).order('username');
+  _caAllStaff = staffRows || [];
+  const sel = document.getElementById('caStaffSelect');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Select staff...</option>' +
+    _caAllStaff.map(s => `<option value="${s.id}">${s.full_name || s.username}${s.id === MGR.staff_id ? ' (You)' : ''}${s.role === 'manager' ? ' — Manager' : ''}</option>`).join('');
+  sel.value = current;
+  onCaStaffChange();
+
   const { data: mine } = await _sb.from('cash_advances')
-    .select('*').eq('store_id', MGR.store_id).eq('staff_id', MGR.staff_id)
+    .select('*').eq('store_id', MGR.store_id).eq('requested_by_id', MGR.staff_id)
     .order('created_at', { ascending: false });
-
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
-  _caThisMonthCount = (mine||[]).filter(a => new Date(a.created_at) >= monthStart).length;
-
-  const infoParts = [];
-  if (_caMaxAmt) infoParts.push(`Max ${CUR}${parseFloat(_caMaxAmt).toFixed(2)} per request`);
-  if (_caMaxPerMonth) infoParts.push(`${_caThisMonthCount}/${_caMaxPerMonth} requests used this month`);
-  infoEl.textContent = infoParts.join(' &middot; ') ? infoParts.join(' · ') : '';
 
   if (!mine?.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">No requests yet.</div>'; return; }
 
@@ -2077,7 +2082,10 @@ async function loadCashAdvance() {
       : 'Approved' + (a.disbursement_method ? ' via ' + a.disbursement_method : '');
     return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <strong style="font-size:15px">${CUR}${parseFloat(a.amount).toFixed(2)}</strong>
+        <div>
+          <strong style="font-size:15px">${CUR}${parseFloat(a.amount).toFixed(2)}</strong>
+          ${a.staff_id !== MGR.staff_id ? `<span style="font-size:11px;color:var(--muted);margin-left:6px">for ${a.staff_name}</span>` : ''}
+        </div>
         <span style="font-size:11px;font-weight:700;color:${statusColor};white-space:nowrap">${statusLabel}</span>
       </div>
       ${a.reason ? `<div style="font-size:12px;color:var(--muted);margin-top:4px">${a.reason}</div>` : ''}
@@ -2087,18 +2095,43 @@ async function loadCashAdvance() {
   }).join('');
 }
 
+// Limits apply per RECEIVING staff (whoever's salary the advance comes out
+// of), not per requester — so this refreshes whenever the dropdown changes.
+async function onCaStaffChange() {
+  const CUR = '₱';
+  const infoEl = document.getElementById('caLimitInfo');
+  const staffId = document.getElementById('caStaffSelect').value;
+  _caThisMonthCount = 0;
+  if (!staffId) { infoEl.textContent = ''; return; }
+
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const { data: theirs } = await _sb.from('cash_advances')
+    .select('created_at').eq('store_id', MGR.store_id).eq('staff_id', staffId)
+    .gte('created_at', monthStart.toISOString());
+  _caThisMonthCount = theirs?.length || 0;
+
+  const infoParts = [];
+  if (_caMaxAmt) infoParts.push(`Max ${CUR}${parseFloat(_caMaxAmt).toFixed(2)} per request`);
+  if (_caMaxPerMonth) infoParts.push(`${_caThisMonthCount}/${_caMaxPerMonth} requests used this month`);
+  infoEl.textContent = infoParts.join(' · ');
+}
+
 async function submitCashAdvance() {
   const CUR = '₱';
   const btn = document.getElementById('caSubmitBtn');
+  const staffId = document.getElementById('caStaffSelect').value;
+  const staff = _caAllStaff.find(s => s.id === staffId);
   const amount = parseFloat(document.getElementById('caAmount').value);
   const reason = document.getElementById('caReason').value.trim();
+  if (!staff) { showToast('Select a staff member.', true); return; }
   if (!amount || amount <= 0) { showToast('Enter a valid amount.', true); return; }
   if (_caMaxAmt && amount > parseFloat(_caMaxAmt)) { showToast(`Amount exceeds the max allowed (${CUR}${parseFloat(_caMaxAmt).toFixed(2)}).`, true); return; }
-  if (_caMaxPerMonth && _caThisMonthCount >= _caMaxPerMonth) { showToast(`You've reached the max of ${_caMaxPerMonth} request(s) this month.`, true); return; }
+  if (_caMaxPerMonth && _caThisMonthCount >= _caMaxPerMonth) { showToast(`${staff.full_name || staff.username} already reached the max of ${_caMaxPerMonth} request(s) this month.`, true); return; }
 
   btn.disabled = true; btn.textContent = 'Submitting...';
   const { error } = await _sb.from('cash_advances').insert({
-    store_id: MGR.store_id, staff_id: MGR.staff_id, staff_name: MGR.name,
+    store_id: MGR.store_id, staff_id: staff.id, staff_name: staff.full_name || staff.username,
+    requested_by_id: MGR.staff_id, requested_by_name: MGR.name,
     amount, reason: reason || null, status: 'pending'
   });
   btn.disabled = false; btn.textContent = 'Submit Request';
