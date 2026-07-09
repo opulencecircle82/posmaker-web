@@ -794,16 +794,10 @@ function adaptCashierMode(bizType) {
   const btnCam  = document.getElementById('btnCam');
   const showScanner = SCANNER_TYPES.has(bizType); // only stores that sell scannable packaged items
   SHOW_SCANNER = showScanner;
-  if (!showScanner) {
-    // Only grocery/convenience and drug stores sell scannable packaged items — drop the camera for everyone else
-    if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('retail-docked'); }
-    if (btnCam)  btnCam.style.display = 'none';
-  } else {
-    if (overlay) overlay.style.display = '';
-    if (overlay) overlay.classList.toggle('retail-docked', IS_RETAIL);
-    // Hide camera button from header in retail (camera is always docked)
-    if (btnCam) btnCam.style.display = IS_RETAIL ? 'none' : '';
-  }
+  // Camera scanner disabled store-wide — USB/HID barcode scanners cover this need instead (see the
+  // keydown listener below). Kept as dormant code rather than deleted in case it's needed again.
+  if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('retail-docked'); }
+  if (btnCam)  btnCam.style.display = 'none';
 
   // Push retail-left product list below the docked camera
   const rlEl = document.getElementById('retailLeft');

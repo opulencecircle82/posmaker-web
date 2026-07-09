@@ -791,16 +791,10 @@ function adaptCashierMode(bizType) {
   const btnCam  = document.getElementById('btnCam');
   const showScanner = SCANNER_TYPES.has(bizType); // only stores that sell scannable packaged items
   SHOW_SCANNER = showScanner;
-  if (!showScanner) {
-    // Only grocery/convenience and drug stores sell scannable packaged items — drop the camera for everyone else
-    if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('retail-docked'); }
-    if (btnCam)  btnCam.style.display = 'none';
-  } else {
-    if (overlay) overlay.style.display = '';
-    if (overlay) overlay.classList.toggle('retail-docked', IS_RETAIL);
-    // Hide camera button from header in retail (camera is always docked)
-    if (btnCam) btnCam.style.display = IS_RETAIL ? 'none' : '';
-  }
+  // Camera scanner disabled store-wide — USB/HID barcode scanners cover this need instead (see the
+  // keydown listener below). Kept as dormant code rather than deleted in case it's needed again.
+  if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('retail-docked'); }
+  if (btnCam)  btnCam.style.display = 'none';
 
   // Push retail-left product list below the docked camera
   const rlEl = document.getElementById('retailLeft');
@@ -2750,6 +2744,30 @@ function startBcLoop(video){
   }
   setTimeout(loop, 250);
 }
+
+// ── USB/HID barcode scanner support ─────────────────────────────────────
+// These scanners act as a keyboard: they "type" the barcode's characters
+// very fast (much faster than a human) then send Enter. We buffer keys that
+// arrive within a tight window and treat a fast-typed Enter as a scan,
+// reusing the same lookup the camera scanner uses. Skipped while a real
+// input/textarea has focus so normal typing (discount, cash tendered,
+// search boxes, etc.) is never intercepted.
+let _hidScanBuffer = '';
+let _hidScanLastTime = 0;
+document.addEventListener('keydown', e => {
+  if (!SHOW_SCANNER) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+  const now = Date.now();
+  if (now - _hidScanLastTime > 100) _hidScanBuffer = '';
+  _hidScanLastTime = now;
+  if (e.key === 'Enter') {
+    if (_hidScanBuffer.length >= 4) handleBarcode(_hidScanBuffer);
+    _hidScanBuffer = '';
+  } else if (e.key.length === 1) {
+    _hidScanBuffer += e.key;
+  }
+});
 
 function handleBarcode(code){
   if(!code) return;
