@@ -1887,9 +1887,12 @@ async function checkUnremittedCash() {
   }
 
   const { data: logins } = await _sb.from('staff_logs')
-    .select('staff_id').eq('store_id', STORE.id).gte('login_at', todayStart);
-  const workedTodayIds = new Set((logins || []).map(l => l.staff_id));
-  const workingToday = cashiers.filter(c => workedTodayIds.has(c.id));
+    .select('staff_id,login_at').eq('store_id', STORE.id).gte('login_at', todayStart);
+  const latestLoginByStaff = {};
+  (logins || []).forEach(l => {
+    if (!latestLoginByStaff[l.staff_id] || l.login_at > latestLoginByStaff[l.staff_id]) latestLoginByStaff[l.staff_id] = l.login_at;
+  });
+  const workingToday = cashiers.filter(c => latestLoginByStaff[c.id]);
 
   if (!workingToday.length) {
     ratioEl.textContent = '—';
@@ -1899,10 +1902,16 @@ async function checkUnremittedCash() {
   }
 
   const { data: remits } = await _sb.from('cash_remittances')
-    .select('cashier_name').eq('store_id', STORE.id).gte('created_at', todayStart);
-  const remittedNames = new Set((remits || []).map(r => r.cashier_name));
+    .select('cashier_name,created_at').eq('store_id', STORE.id).gte('created_at', todayStart);
+  const latestRemitByName = {};
+  (remits || []).forEach(r => {
+    if (!latestRemitByName[r.cashier_name] || r.created_at > latestRemitByName[r.cashier_name]) latestRemitByName[r.cashier_name] = r.created_at;
+  });
 
-  const pending = workingToday.filter(c => !remittedNames.has(c.full_name || c.username));
+  const pending = workingToday.filter(c => {
+    const lastRemit = latestRemitByName[c.full_name || c.username];
+    return !lastRemit || lastRemit < latestLoginByStaff[c.id];
+  });
   const remittedCount = workingToday.length - pending.length;
 
   ratioEl.textContent = `${remittedCount} / ${workingToday.length}`;

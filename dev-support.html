@@ -1122,6 +1122,14 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM dev_admins WHERE session_token = p_token
     AND session_expires_at > now()) THEN RAISE EXCEPTION 'Unauthorized'; END IF;
   RETURN QUERY SELECT DISTINCT su.store_id FROM store_users su WHERE su.last_seen > now() - interval '2 minutes';
+END; $$;
+
+-- Called by the cashier app every 30s while a session is active — powers the
+-- online dot above. Without this, no store will ever show as online.
+CREATE OR REPLACE FUNCTION ping_staff_online(p_staff_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE store_users SET last_seen = now() WHERE id = p_staff_id;
 END; $$;`;
 
 function showSqlSetup() {
