@@ -630,8 +630,11 @@ const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery
 // Business types that track customers by chair instead of table, and skip the camera scanner
 const CHAIR_TYPES = new Set(['Salon / Barbershop']);
 
-// Business types that sell barcoded/packaged items — only these get the camera/product scanner
-const SCANNER_TYPES = new Set(['Sari-Sari Store','Drug Store','Agri Supply']);
+// Business types that sell barcoded/packaged items — every business type
+// gets the camera/product scanner except restaurant/eatery types (Fast
+// Food, Carinderya, Buffet, etc.), where food is prepared to order rather
+// than scanned off a shelf.
+const SCANNER_TYPES = new Set(Object.keys(BIZ_FILE_MAP).filter(t => !RESTAURANT_TYPES.has(t)));
 
 // Service businesses where a linked supply showing 0 stock means "unlimited" (labor-based, not stock-limited)
 const UNLIMITED_STOCK_TYPES = new Set(['Salon / Barbershop','Laundry','Printing / Photocopy']);

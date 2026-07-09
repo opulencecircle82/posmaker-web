@@ -741,6 +741,15 @@ const RESTAURANT_TYPES = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery
 // Business types that track customers by chair instead of table, and skip the camera scanner
 const CHAIR_TYPES = new Set(['Salon / Barbershop']);
 
+// Business types that sell barcoded/packaged items — every business type
+// gets barcode scanning except restaurant/eatery types (Fast Food,
+// Carinderya, Buffet, etc.), where food is prepared to order rather than
+// scanned off a shelf. Chair-based shops like this one skip the camera UI
+// (see adaptCashierMode) but still support a USB/HID barcode scanner for
+// retail add-ons (shampoo, styling products, etc.) — see below.
+const SCANNER_TYPES = new Set(Object.keys(BIZ_FILE_MAP).filter(t => !RESTAURANT_TYPES.has(t)));
+let SHOW_SCANNER = false;
+
 // Service businesses where a linked supply showing 0 stock means "unlimited" (labor-based, not stock-limited)
 const UNLIMITED_STOCK_TYPES = new Set(['Salon / Barbershop','Laundry','Printing / Photocopy']);
 
@@ -890,6 +899,7 @@ function adaptCashierMode(bizType) {
   const usesChairs   = CHAIR_TYPES.has(bizType);
   IS_RETAIL   = !isRestaurant;
   USES_CHAIRS = usesChairs;
+  SHOW_SCANNER = SCANNER_TYPES.has(bizType);
 
   // Hide order type tabs / KOT for non-restaurant; Table/Chair button shown for restaurants and chair-based shops
   document.querySelector('.ot-bar').style.display   = isRestaurant ? '' : 'none';
@@ -2338,6 +2348,47 @@ function addItem(id) {
   cart[id].qty++;
   redrawCart();
   _autoSelectChairForProduct(p);
+}
+
+// ── USB/HID barcode scanner support (standalone) ────────────────────────
+// Chair-based shops keep the camera/AI scanner hidden (services, not shelf
+// goods — see adaptCashierMode), but still sell retail add-ons (shampoo,
+// styling products, etc.) that can carry a barcode, so a plug-in USB
+// scanner is supported here on its own — deliberately namespaced (_hid*)
+// and fully independent from the dormant camera/AI scanner code further
+// below in this file, to avoid colliding with it or waking it up.
+// USB scanners act as a keyboard: they "type" the barcode's characters
+// very fast (much faster than a human) then send Enter. We buffer keys
+// that arrive within a tight window and treat a fast-typed Enter as a
+// scan. Skipped while a real input/textarea has focus so normal typing
+// (discount, cash tendered, search boxes, etc.) is never intercepted.
+let _hidScanBuffer = '';
+let _hidScanLastTime = 0;
+let _hidCooldown = {};
+const HID_SCAN_COOLDOWN = 1500;
+document.addEventListener('keydown', e => {
+  if (!SHOW_SCANNER) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+  const now = Date.now();
+  if (now - _hidScanLastTime > 100) _hidScanBuffer = '';
+  _hidScanLastTime = now;
+  if (e.key === 'Enter') {
+    if (_hidScanBuffer.length >= 4) handleHidBarcode(_hidScanBuffer);
+    _hidScanBuffer = '';
+  } else if (e.key.length === 1) {
+    _hidScanBuffer += e.key;
+  }
+});
+function handleHidBarcode(code) {
+  const norm = code.trim().toLowerCase();
+  const p = prods.find(x => x.sku && (x.sku === code || x.sku.trim().toLowerCase() === norm));
+  if (!p) { showToast('Barcode ' + code + ' — no product found', true); return; }
+  if (_hidCooldown[p.id] && Date.now() - _hidCooldown[p.id] < HID_SCAN_COOLDOWN) return;
+  _hidCooldown[p.id] = Date.now();
+  addItem(p.id);
+  if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+  showToast('🔖 Added: ' + p.name);
 }
 
 function adjQty(id, d) {
