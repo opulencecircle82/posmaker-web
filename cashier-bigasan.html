@@ -1684,11 +1684,8 @@ function confirmQty() {
 
 function addItemWithQty(id, qty, packQty) {
   const p = prods.find(x => x.id == id); if (!p) return;
-  const key = id + '_' + qty + (packQty ? '_pack' : '');
-  const label = packQty
-    ? `${p.name} (${packQty} pack${packQty>1?'s':''} = ${qty} ${p.unit||'pc'})`
-    : `${p.name} (${qty} ${p.unit||'pc'})`;
-  cart[key] = { id: p.id, name: label, price: parseFloat(p.price) * qty, qty: 1, _base: p };
+  if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
+  cart[id].qty += qty;
   redrawCart();
 }
 
@@ -2341,7 +2338,7 @@ function buildReceiptText(d) {
   if (STORE?.phone) s += ctr(STORE.phone) + '\n';
   if (d.isKOT) s += ctr('*** KITCHEN ORDER TICKET ***') + '\n';
   s += `${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\n`;
-  s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
+  if (!IS_RETAIL) s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
   s += `Cashier: ${d.cashier}\n${ln}\n`;
   d.items.forEach(i => {
     s += `${i.name}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`;

@@ -147,6 +147,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
 .disc-inputs{display:flex;gap:5px}
 .disc-inp{flex:1;padding:5px 7px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:calc(12px * var(--font-scale,1));outline:none;font-family:inherit;min-width:0}
 .disc-inp:focus{border-color:var(--accent)}
+.disc-trigger{width:100%;padding:6px 8px;border:1px solid var(--border);background:var(--s2);color:#999;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;text-align:center;font-family:inherit}
+.disc-trigger.active{border-color:var(--accent);color:var(--accent)}
 
 /* Totals */
 .totals{padding:7px 9px;border-top:1px solid var(--border);font-size:calc(11px * var(--font-scale,1));flex-shrink:0}
@@ -329,12 +331,17 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <button class="act-btn" id="btnKOT"   onclick="toggleKOT()">&#128104;&#8205;&#127859; KOT</button>
     </div>
     <div class="cart-list" id="cartList"><div class="cart-empty">Cart is empty</div></div>
-    <div class="disc-section" id="discSection">
-      <div class="disc-label">Discount</div>
-      <div class="disc-inputs">
-        <input class="disc-inp" id="discPct" type="number" placeholder="%" min="0" max="100" step="0.5" oninput="onDiscPct()">
-        <input class="disc-inp" id="discAmt" type="number" placeholder="Amount" min="0" step="0.01" oninput="onDiscAmt()">
-      </div>
+  </div>
+
+  <!-- Discount floating widget — opens near the Discount trigger button -->
+  <div id="discPanel" style="display:none;position:fixed;z-index:600;background:var(--s1);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);padding:12px;width:200px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong style="font-size:12px;color:var(--muted)">Discount</strong>
+      <span style="cursor:pointer;color:var(--muted);font-size:14px" onclick="toggleDiscPanel()">&#10005;</span>
+    </div>
+    <div class="disc-inputs">
+      <input class="disc-inp" id="discPct" type="number" placeholder="%" min="0" max="100" step="0.5" oninput="onDiscPct()">
+      <input class="disc-inp" id="discAmt" type="number" placeholder="Amount" min="0" step="0.01" oninput="onDiscAmt()">
     </div>
   </div>
   <!-- Product grid (restaurant) -->
@@ -346,6 +353,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <!-- Totals -->
     <div class="totals">
       <div class="t-row"><span>Subtotal (ex-VAT)</span><span id="tSub">&#8212;</span></div>
+      <div class="disc-section" id="discSection">
+        <button type="button" class="disc-trigger" id="discTrigger" onclick="toggleDiscPanel()">&#127991;&#65039; <span id="discTriggerLabel">Discount</span></button>
+      </div>
       <div class="t-row disc-line" id="tDiscRow" style="display:none"><span>Discount</span><span id="tDisc"></span></div>
       <div class="t-row"><span id="taxLabel">VAT (12%)</span><span id="tTax">&#8212;</span></div>
       <div class="t-row big"><span>TOTAL</span><span id="tTot">&#8212;</span></div>
@@ -780,7 +790,7 @@ function adaptCashierMode(bizType) {
   if (!IS_RETAIL) {
     const cartPanel = document.getElementById('cartPanel');
     const totalsEl  = cartPanel.querySelector('.totals');
-    ['cartActs','discSection','cartList'].forEach(id => {
+    ['cartActs','cartList'].forEach(id => {
       const el = document.getElementById(id);
       if (el && cartPanel) cartPanel.insertBefore(el, totalsEl);
     });
@@ -1654,11 +1664,8 @@ function confirmQty() {
 
 function addItemWithQty(id, qty, packQty) {
   const p = prods.find(x => x.id == id); if (!p) return;
-  const key = id + '_' + qty + (packQty ? '_pack' : '');
-  const label = packQty
-    ? `${p.name} (${packQty} pack${packQty>1?'s':''} = ${qty} ${p.unit||'pc'})`
-    : `${p.name} (${qty} ${p.unit||'pc'})`;
-  cart[key] = { id: p.id, name: label, price: parseFloat(p.price) * qty, qty: 1, _base: p };
+  if (!cart[id]) cart[id] = { id: p.id, name: p.name, price: parseFloat(p.price), qty: 0 };
+  cart[id].qty += qty;
   redrawCart();
 }
 
@@ -1811,14 +1818,42 @@ function redrawCart() {
 }
 
 // ── Discount ──────────────────────────────────────────────────────────────
+// ── Discount ──────────────────────────────────────────────────────────────
+function toggleDiscPanel() {
+  const panel = document.getElementById('discPanel');
+  const opening = panel.style.display !== 'block';
+  panel.style.display = opening ? 'block' : 'none';
+  if (opening) { positionDiscPanel(); setTimeout(() => document.getElementById('discPct').focus(), 50); }
+}
+function positionDiscPanel() {
+  const btn = document.getElementById('discTrigger');
+  const panel = document.getElementById('discPanel');
+  const r = btn.getBoundingClientRect();
+  const pw = panel.offsetWidth || 200;
+  const ph = panel.offsetHeight || 120;
+  let top = r.top - ph - 8;
+  if (top < 8) top = Math.min(r.bottom + 8, window.innerHeight - ph - 8);
+  panel.style.top  = Math.max(8, top) + 'px';
+  panel.style.left = Math.max(8, Math.min(window.innerWidth - pw - 8, r.left)) + 'px';
+}
+function updateDiscTriggerLabel() {
+  const label = document.getElementById('discTriggerLabel');
+  const btn   = document.getElementById('discTrigger');
+  if (discPct > 0)      label.textContent = 'Discount: ' + discPct + '%';
+  else if (discAmt > 0) label.textContent = 'Discount: ' + CUR + discAmt.toFixed(2);
+  else                   label.textContent = 'Discount';
+  btn.classList.toggle('active', discPct > 0 || discAmt > 0);
+}
 function onDiscPct() {
   discPct = parseFloat(document.getElementById('discPct').value) || 0;
   discAmt = 0; document.getElementById('discAmt').value = '';
+  updateDiscTriggerLabel();
   redrawCart();
 }
 function onDiscAmt() {
   discAmt = parseFloat(document.getElementById('discAmt').value) || 0;
   discPct = 0; document.getElementById('discPct').value = '';
+  updateDiscTriggerLabel();
   redrawCart();
 }
 
@@ -2114,7 +2149,7 @@ function buildReceiptText(d) {
   if (STORE?.phone) s += ctr(STORE.phone) + '\n';
   if (d.isKOT) s += ctr('*** KITCHEN ORDER TICKET ***') + '\n';
   s += `${ln}\nOrder #${d.order_id}  ${new Date().toLocaleTimeString()}\n`;
-  s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
+  if (!IS_RETAIL) s += `Type: ${d.orderType}${d.tableNo ? ' | ' + d.tableNo : ''}\n`;
   s += `Cashier: ${d.cashier}\n${ln}\n`;
   d.items.forEach(i => s += `${i.name}\n  ${i.qty} x ${CUR}${i.price.toFixed(2)} = ${CUR}${(i.price*i.qty).toFixed(2)}\n`);
   s += `${ln}\nSubtotal: ${CUR}${d.sub.toFixed(2)}\n`;
@@ -2268,6 +2303,8 @@ function newOrder() {
   document.getElementById('chgDisp').textContent = '';
   document.getElementById('discPct').value = '';
   document.getElementById('discAmt').value = '';
+  document.getElementById('discPanel').style.display = 'none';
+  updateDiscTriggerLabel();
   document.querySelectorAll('.m-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
   isKOT = false;
   document.getElementById('btnKOT').classList.remove('on');
