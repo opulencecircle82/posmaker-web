@@ -165,7 +165,7 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
 
 <section class="hero">
   <h1>Will your business make money?</h1>
-  <p>I-type ang inaasahang benta at gastusin — makikita mo agad kung kikita o lulugi ang negosyo bago ka pa mag-umpisa.</p>
+  <p>Enter your expected sales and expenses — see instantly whether the business will be profitable or not, before you even start.</p>
 </section>
 
 <div class="wrap">
@@ -175,7 +175,7 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
       <div class="card-title">🏪 Business Type</div>
       <div class="field">
         <select id="bizType"></select>
-        <span class="hint">Pipili ng type para awtomatikong mag-suggest ng common expenses.</span>
+        <span class="hint">Pick a type to auto-suggest common expenses.</span>
       </div>
     </div>
 
@@ -193,15 +193,15 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
       </div>
       <div class="row2">
         <div class="field">
-          <label>Capital / Cost ng Paninda <span class="hint">(% ng benta)</span></label>
+          <label>Capital / Cost of Goods <span class="hint">(% of sales)</span></label>
           <input type="number" id="capitalPct" min="0" max="100" step="1" placeholder="e.g. 70" inputmode="decimal">
         </div>
         <div class="field">
-          <label>Gross Margin <span class="hint">(natitira, auto)</span></label>
+          <label>Gross Margin <span class="hint">(remainder, auto)</span></label>
           <input type="text" id="marginDisplay" readonly disabled placeholder="0%" style="opacity:.7;cursor:not-allowed">
         </div>
       </div>
-      <div class="hint" style="margin-top:-6px;margin-bottom:2px">Halimbawa: kung ₱70 sa bawat ₱100 na benta ay kapital (cost ng paninda), i-type ang <strong style="color:var(--text)">70</strong> — ang ₱30 na natitira ang gross profit bago pa ang expenses.</div>
+      <div class="hint" style="margin-top:-6px;margin-bottom:2px">Example: if ₱70 out of every ₱100 in sales is capital (cost of goods), enter <strong style="color:var(--text)">70</strong> — the remaining ₱30 is your gross profit before expenses.</div>
       <div class="row2">
         <div class="field">
           <label>Opening Time <span class="hint">(optional)</span></label>
@@ -218,7 +218,7 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
     <div class="card">
       <div class="card-title">🧾 Monthly Expenses</div>
       <div id="expList" class="exp-list"></div>
-      <div id="expEmpty" class="empty-exp">Wala pang expense. Mag-dagdag sa ibaba o pumili ng quick-add.</div>
+      <div id="expEmpty" class="empty-exp">No expenses yet. Add one below or pick a quick-add.</div>
       <button class="add-exp-btn" onclick="addExpenseRow()">+ Add Expense</button>
       <div class="preset-row" id="presetRow"></div>
     </div>
@@ -229,8 +229,8 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
     <div class="summary">
       <div class="verdict" id="verdictBox">
         <div class="verdict-icon" id="verdictIcon">🤔</div>
-        <div class="verdict-label" id="verdictLabel">Input mo muna ang datos</div>
-        <div class="verdict-sub" id="verdictSub">Punan ang sales at expenses sa kaliwa</div>
+        <div class="verdict-label" id="verdictLabel">Enter your numbers to begin</div>
+        <div class="verdict-sub" id="verdictSub">Fill in sales and expenses on the left</div>
       </div>
 
       <div class="card" style="margin-top:16px">
@@ -257,7 +257,7 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
   </div>
 </div>
 
-<footer>Simulation lang ito — planning tool, hindi guaranteed na resulta. Gamitin bilang gabay, hindi bilang katiyakan.</footer>
+<footer>This is a simulation — a planning tool, not a guaranteed outcome. Use it as a guide, not a certainty.</footer>
 
 <script>
 const CUR = '₱';
@@ -414,20 +414,20 @@ function calculate() {
 
   if (!hasInput) {
     box.style.background = 'var(--s1)'; box.style.borderColor = 'var(--border)';
-    icon.textContent = '🤔'; label.textContent = 'Input mo muna ang datos'; label.style.color = 'var(--text)';
-    sub.textContent = 'Punan ang sales at expenses sa kaliwa';
+    icon.textContent = '🤔'; label.textContent = 'Enter your numbers to begin'; label.style.color = 'var(--text)';
+    sub.textContent = 'Fill in sales and expenses on the left';
   } else if (netProfit > monthlySales * 0.05 && margin > 15) {
     box.style.background = 'var(--green-glow)'; box.style.borderColor = 'var(--green)';
-    icon.textContent = '✅'; label.textContent = 'Kikita ang negosyo'; label.style.color = 'var(--green)';
-    sub.textContent = fmt(netProfit) + ' net profit kada buwan';
+    icon.textContent = '✅'; label.textContent = 'This business is profitable'; label.style.color = 'var(--green)';
+    sub.textContent = fmt(netProfit) + ' net profit per month';
   } else if (netProfit >= 0) {
     box.style.background = 'var(--amber-glow)'; box.style.borderColor = 'var(--amber)';
-    icon.textContent = '⚠️'; label.textContent = 'Manipis ang kita'; label.style.color = 'var(--amber)';
-    sub.textContent = 'Kikita pero maliit ang margin (' + margin.toFixed(1) + '%) — konting pagbaba lang, malulugi na';
+    icon.textContent = '⚠️'; label.textContent = 'Thin margin'; label.style.color = 'var(--amber)';
+    sub.textContent = 'Profitable, but margin is small (' + margin.toFixed(1) + '%) — a small dip could push it into a loss';
   } else {
     box.style.background = 'var(--red-glow)'; box.style.borderColor = 'var(--red)';
-    icon.textContent = '❌'; label.textContent = 'Lulugi ang negosyo'; label.style.color = 'var(--red)';
-    sub.textContent = fmt(Math.abs(netProfit)) + ' loss kada buwan sa ganitong setup';
+    icon.textContent = '❌'; label.textContent = 'This business is losing money'; label.style.color = 'var(--red)';
+    sub.textContent = fmt(Math.abs(netProfit)) + ' loss per month at this setup';
   }
 
   // Break-even note — daily sales needed so that gross profit (after capital
@@ -436,18 +436,18 @@ function calculate() {
   if (monthlyExpenses > 0) {
     const grossProfitRate = marginPct / 100;
     if (grossProfitRate <= 0) {
-      beNote.innerHTML = `100% capital ang na-set mo — walang gross profit na makokontra sa expenses kahit gaano karami ang benta. Bawasan ang Capital %.`;
+      beNote.innerHTML = `Capital is set to 100% — there's no gross profit left to cover expenses no matter how much you sell. Lower the Capital %.`;
     } else {
       const breakEvenDaily = (monthlyExpenses / grossProfitRate) / opDays;
       const gap = breakEvenDaily - dailySales;
       if (gap > 0) {
-        beNote.innerHTML = `Kailangan mo ng <strong>${fmt(breakEvenDaily)}</strong> na gross sales kada araw para mag-break-even — <strong>${fmt(gap)}</strong> pa ang kulang sa kasalukuyang estimate mo.`;
+        beNote.innerHTML = `You need <strong>${fmt(breakEvenDaily)}</strong> in gross sales per day to break even — <strong>${fmt(gap)}</strong> more than your current estimate.`;
       } else {
-        beNote.innerHTML = `Ang break-even ay <strong>${fmt(breakEvenDaily)}</strong> na benta kada araw — lampas ka na dito ng <strong>${fmt(dailySales - breakEvenDaily)}</strong>.`;
+        beNote.innerHTML = `Break-even is <strong>${fmt(breakEvenDaily)}</strong> in sales per day — you're already <strong>${fmt(dailySales - breakEvenDaily)}</strong> above that.`;
       }
     }
   } else {
-    beNote.textContent = 'Magdagdag ng expenses para makita ang break-even point.';
+    beNote.textContent = 'Add expenses to see your break-even point.';
   }
 }
 
