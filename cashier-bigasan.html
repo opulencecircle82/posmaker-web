@@ -866,6 +866,17 @@ function _blendHex(hex1, hex2, ratio) {
   const c=x=>Math.max(0,Math.min(255,Math.round(x))).toString(16).padStart(2,'0');
   return '#'+c(r1*ratio+r2*(1-ratio))+c(g1*ratio+g2*(1-ratio))+c(b1*ratio+b2*(1-ratio));
 }
+// If the store picked a background but never picked a matching text color,
+// the default (near-white, meant for the dark theme) can end up invisible
+// against a light custom background — pick black or white based on the
+// background's brightness instead of assuming dark mode.
+function _autoTextColor(bgHex) {
+  const hex = (bgHex || '').replace('#', '');
+  if (hex.length !== 6) return null;
+  const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? '#1a1a2e' : '#f0f0f8';
+}
 function applyPosTheme(s) {
   const r = document.documentElement;
   r.style.setProperty('--totals-color', s.pos_totals_color || _blendHex(s.pos_text || '#f0f0f8', s.pos_bg || '#09090f', .40));
@@ -873,6 +884,10 @@ function applyPosTheme(s) {
   if (s.pos_bg)     r.style.setProperty('--bg', s.pos_bg);
   if (s.pos_card)   { r.style.setProperty('--s1', s.pos_card); r.style.setProperty('--s2', s.pos_card + 'cc'); }
   if (s.pos_text)        { r.style.setProperty('--text', s.pos_text); document.body.style.color = s.pos_text; }
+  else if (s.pos_bg) {
+    const auto = _autoTextColor(s.pos_bg);
+    if (auto) { r.style.setProperty('--text', auto); document.body.style.color = auto; }
+  }
   if (s.pos_radius)      r.style.setProperty('--radius', s.pos_radius + 'px');
   if (s.pos_font_scale)  r.style.setProperty('--font-scale', s.pos_font_scale / 100);
   if (s.pos_name_color)  r.style.setProperty('--name-color', s.pos_name_color);
