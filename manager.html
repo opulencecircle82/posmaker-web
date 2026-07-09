@@ -2075,11 +2075,13 @@ async function loadCashAdvance() {
   if (!mine?.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">No requests yet.</div>'; return; }
 
   list.innerHTML = mine.map(a => {
-    const statusColor = a.status === 'pending' ? '#f59e0b' : a.status === 'declined' ? '#ef4444' : '#10b981';
+    const statusColor = a.status === 'pending' ? '#f59e0b' : a.status === 'declined' ? '#ef4444' : a.status === 'disbursed' ? '#00b4d8' : '#10b981';
     const statusLabel = a.status === 'pending' ? 'Pending'
       : a.status === 'declined' ? 'Declined'
+      : a.status === 'disbursed' ? 'Received — pending settlement'
       : a.status === 'settled' ? 'Settled — deducted from salary'
       : 'Approved' + (a.disbursement_method ? ' via ' + a.disbursement_method : '');
+    const needsConfirm = a.status === 'approved' && a.disbursement_method === 'COH';
     return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div>
@@ -2090,6 +2092,7 @@ async function loadCashAdvance() {
       </div>
       ${a.reason ? `<div style="font-size:12px;color:var(--muted);margin-top:4px">${a.reason}</div>` : ''}
       ${a.status === 'declined' && a.decline_note ? `<div style="font-size:12px;color:#ef4444;margin-top:6px">&#128172; ${a.decline_note}</div>` : ''}
+      ${needsConfirm ? `<button class="btn btn-accent btn-sm" style="margin-top:8px" onclick="openCaDisbModal('${a.id}','${(a.staff_name||'').replace(/'/g,"\\'")}',${a.amount})">&#128247; Confirm Received from COH</button>` : ''}
       <div style="font-size:10px;color:var(--dim);margin-top:6px">${new Date(a.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
     </div>`;
   }).join('');
@@ -2140,6 +2143,94 @@ async function submitCashAdvance() {
   document.getElementById('caAmount').value = '';
   document.getElementById('caReason').value = '';
   showToast('Cash advance request submitted.');
+  loadCashAdvance();
+}
+
+// Confirming an approved-via-COH cash advance: the manager took the cash out
+// of what they're already holding, so we ask for a timestamped photo (same
+// pattern as Staff Funds disbursements) as proof before marking it received.
+let _caDisbId = null, _caDisbQRPoll = null, _caDisbQRToken = null;
+function openCaDisbModal(advanceId, staffName, amount) {
+  const CUR = '₱';
+  _caDisbId = advanceId;
+  document.getElementById('caDisbInfo').textContent = `${staffName} — ${CUR}${parseFloat(amount).toFixed(2)}`;
+  document.getElementById('caDisbFile').value = '';
+  document.getElementById('caDisbFileCam').value = '';
+  document.getElementById('caDisbPreview').style.display = 'none';
+  const btn = document.getElementById('caDisbBtn');
+  btn.disabled = false; btn.textContent = 'Confirm Received';
+  document.getElementById('caDisbModal').classList.add('show');
+}
+function handleCaDisbFile(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200, cv = document.createElement('canvas');
+      const sc = Math.min(1, MAX / Math.max(img.width, img.height));
+      cv.width = img.width * sc; cv.height = img.height * sc;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      addTimestampWatermark(cv);
+      document.getElementById('caDisbProofImg').src = cv.toDataURL('image/jpeg', 0.65);
+      document.getElementById('caDisbPreview').style.display = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+async function openCaDisbQR() {
+  if (!_opsData) await loadOpsData();
+  _caDisbQRToken = await createImgUploadToken('ca_disb_proof', 1);
+  const url = 'https://posmaker.ggff.net/image-upload.html?sid=' + MGR.store_id + '&token=' + _caDisbQRToken + '&max=1';
+  document.getElementById('caDisbQRCode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=' + encodeURIComponent(url);
+  document.getElementById('caDisbQRStatus').textContent = 'Waiting for photo…';
+  document.getElementById('caDisbQRModal').classList.add('show');
+  if (_caDisbQRPoll) clearInterval(_caDisbQRPoll);
+  _caDisbQRPoll = setInterval(async () => {
+    await refreshOpsData();
+    const sess = (_opsData && _opsData.imgUploadSessions && _opsData.imgUploadSessions[_caDisbQRToken]) || null;
+    if (!sess || !sess.images || sess.images.length === 0) return;
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200, cv = document.createElement('canvas');
+      const sc = Math.min(1, MAX / Math.max(img.width, img.height));
+      cv.width = img.width * sc; cv.height = img.height * sc;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      addTimestampWatermark(cv);
+      document.getElementById('caDisbProofImg').src = cv.toDataURL('image/jpeg', 0.65);
+      document.getElementById('caDisbPreview').style.display = '';
+    };
+    img.src = 'data:image/jpeg;base64,' + sess.images[0];
+    document.getElementById('caDisbQRStatus').textContent = '✅ Photo received!';
+    await clearImgUploadSession(_caDisbQRToken); _caDisbQRToken = null;
+    setTimeout(() => closeCaDisbQR(), 1200);
+  }, 2500);
+}
+function closeCaDisbQR() {
+  if (_caDisbQRPoll) { clearInterval(_caDisbQRPoll); _caDisbQRPoll = null; }
+  if (_caDisbQRToken) { clearImgUploadSession(_caDisbQRToken); _caDisbQRToken = null; }
+  document.getElementById('caDisbQRModal').classList.remove('show');
+}
+async function saveCaDisburse() {
+  if (!_caDisbId) return;
+  const proofImg = document.getElementById('caDisbProofImg');
+  const proof = proofImg.src && proofImg.src.startsWith('data:') ? proofImg.src : null;
+  const btn = document.getElementById('caDisbBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const { error } = await _sb.from('cash_advances').update({
+    status: 'disbursed', proof_b64: proof, received_at: new Date().toISOString()
+  }).eq('id', _caDisbId);
+  if (error) { showToast('Error: ' + error.message, true); btn.disabled = false; btn.textContent = 'Confirm Received'; return; }
+  _sb.from('activity_logs').insert({
+    store_id: MGR.store_id, actor_name: MGR.name, actor_role: 'manager',
+    action: 'CASH_ADVANCE_GIVEN', target_name: document.getElementById('caDisbInfo').textContent,
+    details: JSON.stringify({ advance_id: _caDisbId, receipt_b64: proof })
+  }).then(() => {});
+  document.getElementById('caDisbModal').classList.remove('show');
+  showToast('Cash advance disbursement recorded.');
+  _caDisbId = null;
   loadCashAdvance();
 }
 
@@ -2875,6 +2966,42 @@ function closeRuReceiptQR() {
     <img id="disbQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:8px auto;display:block">
     <div id="disbQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
     <button class="btn btn-ghost" onclick="closeDisburseQR()">Close</button>
+  </div>
+</div>
+
+<!-- Cash Advance — confirm COH handover with photo proof -->
+<div class="modal" id="caDisbModal">
+  <div class="mbox">
+    <h3 style="margin-bottom:8px">&#128181; Confirm Cash Advance Disbursement</h3>
+    <p id="caDisbInfo" style="font-size:13px;color:var(--muted);margin-bottom:12px"></p>
+    <div class="field">
+      <label>Photo Proof <span style="color:var(--muted);font-size:11px">(date &amp; time auto-stamped)</span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <label class="btn btn-ghost" for="caDisbFileCam" style="flex:1;text-align:center;cursor:pointer;font-size:12px;margin-bottom:0">&#128247; Take Photo</label>
+        <input id="caDisbFileCam" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleCaDisbFile(this)">
+        <label class="btn btn-ghost" for="caDisbFile" style="flex:1;text-align:center;cursor:pointer;font-size:12px;margin-bottom:0">&#128193; Upload Photo</label>
+        <input id="caDisbFile" type="file" accept="image/*" style="display:none" onchange="handleCaDisbFile(this)">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openCaDisbQR()" style="white-space:nowrap;font-size:12px">&#128248; Scan QR</button>
+      </div>
+      <div id="caDisbPreview" style="display:none;margin-top:10px;text-align:center">
+        <img id="caDisbProofImg" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid var(--border);display:block">
+        <div style="font-size:11px;color:#10b981;margin-top:4px">&#10003; Timestamp added</div>
+      </div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="document.getElementById('caDisbModal').classList.remove('show')">Cancel</button>
+      <button class="btn btn-accent" id="caDisbBtn" onclick="saveCaDisburse()">Confirm Received</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="caDisbQRModal">
+  <div class="mbox" style="text-align:center;max-width:300px">
+    <h3 style="margin-bottom:8px">&#128247; Upload from Phone</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Scan the QR code — choose a photo from gallery or take a new one.</p>
+    <img id="caDisbQRCode" style="width:190px;height:190px;border-radius:8px;background:#fff;padding:6px;margin:8px auto;display:block">
+    <div id="caDisbQRStatus" style="font-size:12px;color:var(--muted);margin-bottom:14px">Waiting for photo&#8230;</div>
+    <button class="btn btn-ghost" onclick="closeCaDisbQR()">Close</button>
   </div>
 </div>
 
