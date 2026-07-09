@@ -1854,7 +1854,7 @@ async function onExpStaffChange() {
   // the advance already left the business earlier, so paying the full salary
   // again now would pay the staff twice for the same money.
   const { data: advances } = await _sb.from('cash_advances')
-    .select('id,amount').eq('store_id', STORE.id).eq('staff_id', staff.id).eq('status', 'approved');
+    .select('id,amount').eq('store_id', STORE.id).eq('staff_id', staff.id).in('status', ['approved', 'disbursed']);
   const advanceTotal = (advances || []).reduce((s, a) => s + parseFloat(a.amount || 0), 0);
   _pendingSettleAdvanceIds = (advances || []).map(a => a.id);
 
