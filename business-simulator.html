@@ -194,7 +194,7 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 48px;text-align:center;colo
       <div class="row2">
         <div class="field">
           <label>Capital / Cost of Goods <span class="hint">(% of sales)</span></label>
-          <input type="number" id="capitalPct" min="0" max="100" step="1" placeholder="e.g. 70" inputmode="decimal">
+          <input type="number" id="capitalPct" min="0" max="100" step="1" value="70" placeholder="e.g. 70" inputmode="decimal">
         </div>
         <div class="field">
           <label>Gross Margin <span class="hint">(remainder, auto)</span></label>
@@ -325,6 +325,7 @@ function renderExpenses() {
   `).join('');
 }
 
+let _bizTypeInitialized = false;
 function renderPresets() {
   const biz = document.getElementById('bizType').value;
   const preset = BIZ_PRESETS[biz];
@@ -334,10 +335,16 @@ function renderPresets() {
     preset.exp.map(([name, amt, freq]) =>
       `<button class="preset-btn" onclick="addExpenseRow('${name.replace(/'/g,"\\'")}', ${amt}, '${freq}')">+ ${name}</button>`
     ).join('');
-  // Suggest a typical capital % for this business type — only if the field
-  // hasn't been touched yet, so it doesn't clobber a manual entry.
-  const capField = document.getElementById('capitalPct');
-  if (!capField.dataset.touched && preset.cap != null) capField.value = preset.cap;
+  // Suggest a typical capital % for this business type — but only on an
+  // actual business-type change made by the user, not the initial page
+  // load (which defaults to a flat 70/30 regardless of business type), and
+  // only if the field hasn't been manually touched, so it never clobbers a
+  // manual entry.
+  if (_bizTypeInitialized) {
+    const capField = document.getElementById('capitalPct');
+    if (!capField.dataset.touched && preset.cap != null) capField.value = preset.cap;
+  }
+  _bizTypeInitialized = true;
 }
 document.getElementById('bizType').addEventListener('change', renderPresets);
 document.getElementById('capitalPct').addEventListener('input', function() { this.dataset.touched = '1'; });
