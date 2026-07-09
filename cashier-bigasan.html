@@ -335,9 +335,6 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
       <button class="act-btn" id="btnKOT"   onclick="toggleKOT()">&#128104;&#8205;&#127859; KOT</button>
     </div>
     <div class="cart-list" id="cartList"><div class="cart-empty">Cart is empty</div></div>
-    <div class="disc-section" id="discSection">
-      <button type="button" class="disc-trigger" id="discTrigger" onclick="toggleDiscPanel()">&#127991;&#65039; <span id="discTriggerLabel">Discount</span></button>
-    </div>
   </div>
 
   <!-- Discount floating widget — opens near the Discount trigger button -->
@@ -391,6 +388,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <!-- Totals -->
     <div class="totals">
       <div class="t-row"><span>Subtotal (ex-VAT)</span><span id="tSub">&#8212;</span></div>
+      <div class="disc-section" id="discSection">
+        <button type="button" class="disc-trigger" id="discTrigger" onclick="toggleDiscPanel()">&#127991;&#65039; <span id="discTriggerLabel">Discount</span></button>
+      </div>
       <div class="t-row disc-line" id="tDiscRow" style="display:none"><span>Discount</span><span id="tDisc"></span></div>
       <div class="t-row"><span id="taxLabel">VAT (12%)</span><span id="tTax">&#8212;</span></div>
       <div class="t-row big"><span>TOTAL</span><span id="tTot">&#8212;</span></div>
@@ -818,11 +818,13 @@ function adaptCashierMode(bizType) {
   document.getElementById('retailMid').style.display  = IS_RETAIL ? 'flex' : 'none';
   document.getElementById('cartPanel').classList.toggle('retail-pay', IS_RETAIL);
 
-  // Restaurant mode: move cart items/actions back into cart panel
+  // Restaurant mode: move cart items/actions back into cart panel. Discount
+  // stays put inside .totals (next to Subtotal) regardless of mode — moving
+  // it out here would undo the relocation next to the totals it affects.
   if (!IS_RETAIL) {
     const cartPanel = document.getElementById('cartPanel');
     const totalsEl  = cartPanel.querySelector('.totals');
-    ['cartActs','discSection','cartList'].forEach(id => {
+    ['cartActs','cartList'].forEach(id => {
       const el = document.getElementById(id);
       if (el && cartPanel) cartPanel.insertBefore(el, totalsEl);
     });
