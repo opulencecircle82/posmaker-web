@@ -1958,12 +1958,12 @@ async function loadPayments() {
     payments.forEach(p => { if (!window._fundsReceiptMap[p.id]) window._fundsReceiptMap[p.id] = allRcptSrcs[0]; });
   }
 
-  // Fetch sub-items: salary + expenses
+  // Fetch sub-items: salary + expenses + cash advances given
   const { data: subLogs } = await _sb.from('activity_logs')
     .select('id,action,details,created_at').eq('store_id', MGR.store_id)
-    .in('action',['SALARY_GIVEN','EXPENSE_PAID'])
+    .in('action',['SALARY_GIVEN','EXPENSE_PAID','CASH_ADVANCE_GIVEN'])
     .order('created_at', { ascending: true });
-  const salaryMap = {}, expenseMap = {};
+  const salaryMap = {}, expenseMap = {}, advanceMap = {};
   window._fundsDisbProofMap = {};
   (subLogs||[]).forEach(l => {
     try {
@@ -1972,6 +1972,7 @@ async function loadPayments() {
       if (d.receipt_b64) window._fundsDisbProofMap[l.id] = d.receipt_b64.startsWith('data:') ? d.receipt_b64 : 'data:image/jpeg;base64,'+d.receipt_b64;
       const item = { ...d, _id: l.id, _at: l.created_at };
       if (l.action === 'SALARY_GIVEN') { if (!salaryMap[d.cr_id]) salaryMap[d.cr_id]=[]; salaryMap[d.cr_id].push(item); }
+      else if (l.action === 'CASH_ADVANCE_GIVEN') { if (!advanceMap[d.cr_id]) advanceMap[d.cr_id]=[]; advanceMap[d.cr_id].push(item); }
       else { if (!expenseMap[d.cr_id]) expenseMap[d.cr_id]=[]; expenseMap[d.cr_id].push(item); }
     } catch(_) {}
   });
@@ -1979,10 +1980,12 @@ async function loadPayments() {
   // Combine all payments into one pool
   const allSals = Object.values(salaryMap).flat();
   const allExps = Object.values(expenseMap).flat();
+  const allAdvs = Object.values(advanceMap).flat();
   const totalReceived = payments.reduce((s,p)=>s+parseFloat(p.cash_on_hand||0),0);
   const totalSal = allSals.reduce((s,x)=>s+parseFloat(x.amount||0),0);
   const totalExp = allExps.reduce((s,x)=>s+parseFloat(x.amount||0),0);
-  const totalLeft = totalReceived - totalSal - totalExp;
+  const totalAdv = allAdvs.reduce((s,x)=>s+parseFloat(x.amount||0),0);
+  const totalLeft = totalReceived - totalSal - totalExp - totalAdv;
   // Use the newest payment's id for new disbursements
   const latestCrId = payments[0].id;
 
@@ -2009,7 +2012,7 @@ async function loadPayments() {
       <div style="font-size:26px;font-weight:800;color:${totalLeft>=0?'#10b981':'#ef4444'}">&#8369;${totalLeft.toFixed(2)}</div>
       <div style="display:flex;gap:16px;margin-top:6px;font-size:12px">
         <span>Received: <strong style="color:#10b981">&#8369;${totalReceived.toFixed(2)}</strong></span>
-        <span>Spent: <strong style="color:#ef4444">&#8369;${(totalSal+totalExp).toFixed(2)}</strong></span>
+        <span>Spent: <strong style="color:#ef4444">&#8369;${(totalSal+totalExp+totalAdv).toFixed(2)}</strong></span>
       </div>
     </div>
     <div style="padding:10px 16px;border-bottom:1px solid var(--border)">
@@ -2043,6 +2046,17 @@ async function loadPayments() {
             ${window._fundsDisbProofMap[e._id] ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="showDisbProof('${e._id}')">&#128247;</button>` : ''}
           </div>
         </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">No expense records yet.</div>'}
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-bottom:8px">&#128179; CASH ADVANCES GIVEN</div>
+      ${allAdvs.length ? allAdvs.map(a=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span style="color:var(--text)">${a.name||'Staff'}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:700;color:#ef4444">&#8369;${parseFloat(a.amount||0).toFixed(2)}</span>
+            ${window._fundsDisbProofMap[a._id] ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px" onclick="showDisbProof('${a._id}')">&#128247;</button>` : ''}
+          </div>
+        </div>`).join('') : '<div style="font-size:12px;color:var(--dim);text-align:center;padding:8px 0">None yet — confirmed from the Cash Advance tab.</div>'}
     </div>
   </div>`;
 }
@@ -2149,10 +2163,12 @@ async function submitCashAdvance() {
 // Confirming an approved-via-COH cash advance: the manager took the cash out
 // of what they're already holding, so we ask for a timestamped photo (same
 // pattern as Staff Funds disbursements) as proof before marking it received.
-let _caDisbId = null, _caDisbQRPoll = null, _caDisbQRToken = null;
+let _caDisbId = null, _caDisbQRPoll = null, _caDisbQRToken = null, _caDisbStaffName = '', _caDisbAmount = 0;
 function openCaDisbModal(advanceId, staffName, amount) {
   const CUR = '₱';
   _caDisbId = advanceId;
+  _caDisbStaffName = staffName;
+  _caDisbAmount = parseFloat(amount);
   document.getElementById('caDisbInfo').textContent = `${staffName} — ${CUR}${parseFloat(amount).toFixed(2)}`;
   document.getElementById('caDisbFile').value = '';
   document.getElementById('caDisbFileCam').value = '';
@@ -2223,10 +2239,18 @@ async function saveCaDisburse() {
     status: 'disbursed', proof_b64: proof, received_at: new Date().toISOString()
   }).eq('id', _caDisbId);
   if (error) { showToast('Error: ' + error.message, true); btn.disabled = false; btn.textContent = 'Confirm Received'; return; }
+
+  // Deduct from "Net Cash with Manager" the same way a salary/expense
+  // disbursement does — needs a cr_id tying it to the pool of cash the
+  // manager is currently holding (their latest confirmed owner payment).
+  const { data: latestPayment } = await _sb.from('cash_remittances')
+    .select('id').eq('store_id', MGR.store_id).in('status', ['owner_payment', 'payment_confirmed'])
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
   _sb.from('activity_logs').insert({
     store_id: MGR.store_id, actor_name: MGR.name, actor_role: 'manager',
-    action: 'CASH_ADVANCE_GIVEN', target_name: document.getElementById('caDisbInfo').textContent,
-    details: JSON.stringify({ advance_id: _caDisbId, receipt_b64: proof })
+    action: 'CASH_ADVANCE_GIVEN', target_name: _caDisbStaffName,
+    details: JSON.stringify({ cr_id: latestPayment?.id || null, name: _caDisbStaffName, amount: _caDisbAmount, advance_id: _caDisbId, receipt_b64: proof })
   }).then(() => {});
   document.getElementById('caDisbModal').classList.remove('show');
   showToast('Cash advance disbursement recorded.');
