@@ -2781,7 +2781,7 @@ function renderReport(orders, from, to) {
           <th style=”text-align:right;padding:6px 10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px”>Sub</th>
           <th style=”text-align:right;padding:6px 10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px”>VAT</th>
           <th style=”text-align:right;padding:6px 10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px”>Total</th>
-          <th style=”text-align:center;padding:6px 10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px”>Type</th>
+          ${RESTAURANT_BIZ.has(STORE.business_type) ? `<th style=”text-align:center;padding:6px 10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px”>Type</th>` : ''}
           <th style=”text-align:center;padding:6px 10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px”>Method</th>
         </tr></thead>
         <tbody>
@@ -2797,7 +2797,7 @@ function renderReport(orders, from, to) {
             <td style="padding:5px 10px;text-align:right;color:var(--muted);font-size:12px">${CUR}${parseFloat(o.subtotal||0).toFixed(2)}</td>
             <td style="padding:5px 10px;text-align:right;color:var(--muted);font-size:12px">${CUR}${parseFloat(o.tax||0).toFixed(2)}</td>
             <td style="padding:5px 10px;text-align:right;font-weight:700;color:var(--accent)">${CUR}${parseFloat(o.total||0).toFixed(2)}</td>
-            <td style="padding:5px 10px;text-align:center"><span style="background:${otBg};color:${otColor};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">${otype}</span></td>
+            ${RESTAURANT_BIZ.has(STORE.business_type) ? `<td style="padding:5px 10px;text-align:center"><span style="background:${otBg};color:${otColor};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">${otype}</span></td>` : ''}
             <td style="padding:5px 10px;text-align:center"><span style="background:${payBg(o.payment_method)};color:#fff;padding:2px 7px;border-radius:4px;font-size:10px">${o.payment_method||'Cash'}</span></td>
           </tr>`;}).join('')}
         </tbody>
