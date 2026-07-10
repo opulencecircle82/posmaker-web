@@ -2369,6 +2369,7 @@ async function loadCashAdvanceAdmin() {
             <strong>${a.staff_name}</strong> <span style="color:var(--muted)">${CUR}${parseFloat(a.amount).toFixed(2)}</span>
             ${a.status === 'declined' && a.decline_note ? `<div style="font-size:11px;color:#ef4444;margin-top:2px">${a.decline_note}</div>` : ''}
             ${a.status === 'disbursed' && a.proof_b64 ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;margin-top:4px" onclick="viewCaProof('${a.id}')">&#128247; View Proof</button>` : ''}
+            ${(a.status === 'approved' || a.status === 'disbursed') ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;margin-top:4px" onclick="markCaSettled('${a.id}')" title="Use this if you already deducted it manually in an expense entry, so it doesn't get deducted again.">&#10003; Mark Settled</button>` : ''}
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-weight:700;color:${color}">${label}</div>
@@ -2383,6 +2384,19 @@ function viewCaProof(id) {
   if (!adv || !adv.proof_b64) return;
   document.getElementById('caProofImg').src = adv.proof_b64;
   document.getElementById('caProofModal').classList.add('show');
+}
+
+// Manual escape hatch for when the salary expense was already added/edited
+// by hand (bypassing onExpStaffChange's auto-deduction) — marks the advance
+// as settled so it doesn't get deducted again on the next payroll run.
+async function markCaSettled(id) {
+  if (!confirm('Mark this cash advance as settled? Only do this if you already deducted it manually.')) return;
+  const { error } = await _sb.from('cash_advances').update({
+    status: 'settled', settled_at: new Date().toISOString()
+  }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  showToast('Cash advance marked as settled.');
+  loadCashAdvanceAdmin();
 }
 
 async function saveCaSettings() {
