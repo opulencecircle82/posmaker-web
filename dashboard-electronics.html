@@ -165,6 +165,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="sb-item" onclick="nav('salesreport')" title="View your sales totals, best sellers, and reports by day or date range."><span class="ico">&#128202;</span> Sales Report</div>
     <div class="sb-item" onclick="nav('checklist')" title="Set tasks your staff must complete when opening or closing the store."><span class="ico">&#9989;</span> Daily Checklist</div>
     <div class="sb-item" onclick="nav('expenses')" title="Record other costs like rent, bills, or supplies that are not part of your inventory."><span class="ico">&#128176;</span> Other Expenses</div>
+    <div class="sb-item" onclick="nav('payroll')" title="Pay all staff at once &mdash; salary auto-adjusts for any unsettled cash advance."><span class="ico">&#128181;</span> Payroll</div>
     <div class="sb-item" onclick="location.href=bizCustomizeFile(STORE.business_type)" title="Customize how your POS screen looks &mdash; colors, logo, and layout."><span class="ico">&#127912;</span> Customize POS</div>
     <div class="sb-item" onclick="nav('pos')" title="Open your store POS screen to start taking orders."><span class="ico">&#128187;</span> My POS <span id="posNavBadge" style="margin-left:auto;font-size:10px;background:rgba(0,180,216,.2);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
     <div class="sb-item" onclick="nav('settings')" title="Update your store details, currency, tax rate, and account settings."><span class="ico">&#9881;</span> Settings</div>
@@ -590,6 +591,26 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div id="expContent" style="padding:16px;color:var(--muted);text-align:center;font-size:13px">Select a period to view expenses.</div>
       </div>
       <div id="expProfitSummary" style="margin-top:16px"></div>
+    </div>
+
+    <!-- PAYROLL -->
+    <div class="section" id="sec-payroll">
+      <div class="tbl-wrap">
+        <div class="tbl-head">
+          <h3>&#128181; Payroll — This Month</h3>
+          <button class="btn btn-accent btn-sm" id="runPayrollBtn" onclick="runPayroll()">&#9654; Run Payroll</button>
+        </div>
+        <div id="payrollStaffList" style="padding:16px 20px">
+          <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="margin-top:16px">
+        <div class="tbl-head"><h3>Payroll History</h3></div>
+        <table>
+          <thead><tr><th>Date</th><th>Staff</th><th style="text-align:right">Amount</th><th>Notes</th></tr></thead>
+          <tbody id="payrollHistoryTbody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- SETTINGS -->
@@ -1555,7 +1576,7 @@ function _sig(ms = 25000) {
 })();
 
 // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',activitylog:'Activity Log',messages:'Staff Messages',salesreport:'Sales Report',checklist:'Daily Checklist',expenses:'Other Expenses',settings:'Settings',access:'Cashier Link',pos:'My POS Terminals'};
+const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',activitylog:'Activity Log',messages:'Staff Messages',salesreport:'Sales Report',checklist:'Daily Checklist',expenses:'Other Expenses',payroll:'Payroll',settings:'Settings',access:'Cashier Link',pos:'My POS Terminals'};
 // ── Business-type adaptation ───────────────────────────────────────────────────
 const RESTAURANT_BIZ = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
   'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
@@ -1635,6 +1656,7 @@ function nav(id) {
   if (id === 'categories') { loadDbCategories().then(() => loadProducts().then(loadCategories)); switchCatTab(catTab); }
   if (id === 'checklist')  loadChecklist();
   if (id === 'expenses')   loadExpenses('monthly');
+  if (id === 'payroll')    loadPayroll();
   if (id === 'settings')   populatePriceCatFilter();
   if (id === 'pos')        loadPOSTerminals();
 }
@@ -1902,6 +1924,105 @@ async function deleteExpense(id) {
   if (error) { showToast('Error: ' + error.message, true); return; }
   showToast('Expense deleted.');
   loadExpenses(_expPeriod);
+}
+
+// ── Payroll ──────────────────────────────────────────────────────────────
+// Bulk version of "Add Expense → Salaries": pays every active staff member
+// (managers and cashiers alike) who has a monthly_salary set, in one go,
+// instead of adding them one at a time. Same net-of-cash-advance logic as
+// the single-staff flow in onExpStaffChange().
+let _payrollStaffCache = [];
+async function loadPayroll() {
+  const listEl = document.getElementById('payrollStaffList');
+  listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>';
+
+  const { data: staff } = await _sb.from('store_users')
+    .select('id,username,full_name,role,monthly_salary').eq('store_id', STORE.id).eq('active', true)
+    .not('monthly_salary', 'is', null).order('role').order('username');
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+  const { data: paidThisMonth } = await _sb.from('expenses')
+    .select('name').eq('store_id', STORE.id).eq('category', 'Salaries')
+    .gte('expense_date', monthStart).lte('expense_date', monthEnd);
+  const paidNames = new Set((paidThisMonth || []).map(e => e.name.replace(/^Salary - /, '')));
+
+  const { data: advances } = await _sb.from('cash_advances')
+    .select('staff_id,amount').eq('store_id', STORE.id).in('status', ['approved', 'disbursed']);
+  const advByStaff = {};
+  (advances || []).forEach(a => { advByStaff[a.staff_id] = (advByStaff[a.staff_id] || 0) + parseFloat(a.amount || 0); });
+
+  _payrollStaffCache = (staff || []).map(s => {
+    const name = s.full_name || s.username;
+    const base = parseFloat(s.monthly_salary) || 0;
+    const advance = advByStaff[s.id] || 0;
+    const net = Math.max(0, base - advance);
+    return { id: s.id, name, role: s.role, base, advance, net, alreadyPaid: paidNames.has(name) };
+  });
+
+  if (!_payrollStaffCache.length) {
+    listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">No staff with a monthly salary set yet. Set one in Staff &rarr; Edit.</div>';
+  } else {
+    listEl.innerHTML = _payrollStaffCache.map(s => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <strong>${s.name}</strong> <span style="font-size:10px;color:var(--muted);text-transform:capitalize">${s.role}</span>
+          ${s.advance > 0 ? `<div style="font-size:11px;color:#f59e0b;margin-top:2px">Base ${CUR}${s.base.toFixed(2)} &minus; ${CUR}${s.advance.toFixed(2)} cash advance</div>` : ''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700">${CUR}${s.net.toFixed(2)}</div>
+          <div style="font-size:10px;color:${s.alreadyPaid ? '#10b981' : 'var(--muted)'}">${s.alreadyPaid ? '&#10003; Paid this month' : 'Pending'}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  loadPayrollHistory();
+}
+
+async function runPayroll() {
+  const pending = _payrollStaffCache.filter(s => !s.alreadyPaid && s.net > 0);
+  if (!pending.length) { showToast('No pending payroll to run — everyone is already paid this month.', true); return; }
+  const total = pending.reduce((s, x) => s + x.net, 0);
+  if (!confirm(`Run payroll for ${pending.length} staff, total ${CUR}${total.toFixed(2)}?`)) return;
+
+  const btn = document.getElementById('runPayrollBtn');
+  btn.disabled = true; btn.textContent = 'Running...';
+  const today = new Date().toISOString().split('T')[0];
+  const advanceIdsToSettle = [];
+
+  for (const s of pending) {
+    await _sb.from('expenses').insert({
+      store_id: STORE.id, name: 'Salary - ' + s.name, amount: s.net, billing_cycle: 'monthly',
+      category: 'Salaries', expense_date: today,
+      notes: s.advance > 0 ? `Base ${CUR}${s.base.toFixed(2)} − ${CUR}${s.advance.toFixed(2)} cash advance` : ''
+    });
+    const { data: advRows } = await _sb.from('cash_advances')
+      .select('id').eq('store_id', STORE.id).eq('staff_id', s.id).in('status', ['approved', 'disbursed']);
+    (advRows || []).forEach(r => advanceIdsToSettle.push(r.id));
+  }
+  if (advanceIdsToSettle.length) {
+    await _sb.from('cash_advances').update({ status: 'settled', settled_at: new Date().toISOString() }).in('id', advanceIdsToSettle);
+  }
+
+  btn.disabled = false; btn.textContent = '▶ Run Payroll';
+  showToast(`Payroll run for ${pending.length} staff.`);
+  loadPayroll();
+  loadExpenses(_expPeriod);
+}
+
+async function loadPayrollHistory() {
+  const tbody = document.getElementById('payrollHistoryTbody');
+  const { data } = await _sb.from('expenses').select('*').eq('store_id', STORE.id).eq('category', 'Salaries')
+    .order('expense_date', { ascending: false }).limit(100);
+  if (!data?.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No payroll history yet.</td></tr>'; return; }
+  tbody.innerHTML = data.map(e => `<tr>
+    <td>${e.expense_date}</td>
+    <td>${e.name.replace(/^Salary - /, '')}</td>
+    <td style="text-align:right;font-weight:700">${CUR}${parseFloat(e.amount).toFixed(2)}</td>
+    <td style="color:var(--muted);font-size:12px">${e.notes || ''}</td>
+  </tr>`).join('');
 }
 
 // â”€â”€ Logout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

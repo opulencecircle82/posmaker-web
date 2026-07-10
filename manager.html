@@ -124,6 +124,7 @@ button{cursor:pointer}
     <div class="sb-item" onclick="nav('checklist')" title="Tasks before opening and closing the store — with photo proof."><span class="ico">&#9989;</span> Daily Checklist</div>
     <div class="sb-item" onclick="nav('funds')" title="Money sent by owner to staff — salary, advance, allowance."><span class="ico">&#128176;</span> Staff Funds</div>
     <div class="sb-item" onclick="nav('cashadvance')" title="Request a cash advance — deducted from your next salary."><span class="ico">&#128179;</span> Cash Advance</div>
+    <div class="sb-item" onclick="nav('payroll')" title="View salary status for all staff — view only, the owner runs payroll."><span class="ico">&#128181;</span> Payroll</div>
     <div class="sb-item" onclick="nav('helpers')" title="Non-account staff — utility, maintenance, helper. Clock in/out and assign tasks."><span class="ico">&#128119;</span> Helpers</div>
   </div>
   <div class="sb-bottom">
@@ -345,6 +346,23 @@ button{cursor:pointer}
           <div style="text-align:center;padding:20px;color:var(--muted);font-size:12px">Loading...</div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- PAYROLL (view-only — owner runs payroll from their dashboard) -->
+  <div class="section" id="sec-payroll">
+    <div class="tbl-wrap">
+      <div class="tbl-head"><h3>&#128181; Payroll — This Month</h3></div>
+      <div id="mgrPayrollList" style="padding:16px 20px">
+        <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
+      </div>
+    </div>
+    <div class="tbl-wrap" style="margin-top:16px">
+      <div class="tbl-head"><h3>Payroll History</h3></div>
+      <table>
+        <thead><tr><th>Date</th><th>Staff</th><th style="text-align:right">Amount</th><th>Notes</th></tr></thead>
+        <tbody id="mgrPayrollHistoryTbody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
+      </table>
     </div>
   </div>
 
@@ -1188,7 +1206,7 @@ function downloadSalesCSV(){
 }
 
 // ── UI Helpers ─────────────────────────────────────────────────────────────
-const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', staff:'Staff', checklist:'Daily Checklist', funds:'Staff Funds', cashadvance:'Cash Advance', helpers:'Helpers'};
+const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', staff:'Staff', checklist:'Daily Checklist', funds:'Staff Funds', cashadvance:'Cash Advance', payroll:'Payroll', helpers:'Helpers'};
 function nav(id){
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
@@ -1205,6 +1223,7 @@ function nav(id){
   if(id==='checklist') loadChecklist();
   if(id==='funds')     loadPayments();
   if(id==='cashadvance') loadCashAdvance();
+  if(id==='payroll')     loadMgrPayroll();
   if(id==='helpers')   loadHelpers();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbOverlay').classList.add('show'); }
@@ -2248,6 +2267,65 @@ async function saveCaDisburse() {
   _caDisbId = null;
   loadCashAdvance();
   loadCashSummary();
+}
+
+// ── Payroll (view-only — the owner runs payroll from their dashboard) ─────
+async function loadMgrPayroll() {
+  const CUR = '₱';
+  const listEl = document.getElementById('mgrPayrollList');
+  const histEl = document.getElementById('mgrPayrollHistoryTbody');
+  listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>';
+
+  const { data: staff } = await _sb.from('store_users')
+    .select('id,username,full_name,role,monthly_salary').eq('store_id', MGR.store_id).eq('active', true)
+    .not('monthly_salary', 'is', null).order('role').order('username');
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+  const { data: paidThisMonth } = await _sb.from('expenses')
+    .select('name').eq('store_id', MGR.store_id).eq('category', 'Salaries')
+    .gte('expense_date', monthStart).lte('expense_date', monthEnd);
+  const paidNames = new Set((paidThisMonth || []).map(e => e.name.replace(/^Salary - /, '')));
+
+  const { data: advances } = await _sb.from('cash_advances')
+    .select('staff_id,amount').eq('store_id', MGR.store_id).in('status', ['approved', 'disbursed']);
+  const advByStaff = {};
+  (advances || []).forEach(a => { advByStaff[a.staff_id] = (advByStaff[a.staff_id] || 0) + parseFloat(a.amount || 0); });
+
+  const rows = (staff || []).map(s => {
+    const name = s.full_name || s.username;
+    const base = parseFloat(s.monthly_salary) || 0;
+    const advance = advByStaff[s.id] || 0;
+    const net = Math.max(0, base - advance);
+    return { name, role: s.role, base, advance, net, alreadyPaid: paidNames.has(name) };
+  });
+
+  listEl.innerHTML = !rows.length
+    ? '<div style="text-align:center;color:var(--muted);padding:20px">No staff with a monthly salary set yet.</div>'
+    : rows.map(s => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <strong>${s.name}</strong> <span style="font-size:10px;color:var(--muted);text-transform:capitalize">${s.role}</span>
+          ${s.advance > 0 ? `<div style="font-size:11px;color:#f59e0b;margin-top:2px">Base ${CUR}${s.base.toFixed(2)} &minus; ${CUR}${s.advance.toFixed(2)} cash advance</div>` : ''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700">${CUR}${s.net.toFixed(2)}</div>
+          <div style="font-size:10px;color:${s.alreadyPaid ? '#10b981' : 'var(--muted)'}">${s.alreadyPaid ? '&#10003; Paid this month' : 'Pending'}</div>
+        </div>
+      </div>`).join('');
+
+  const { data: history } = await _sb.from('expenses').select('*').eq('store_id', MGR.store_id).eq('category', 'Salaries')
+    .order('expense_date', { ascending: false }).limit(100);
+  histEl.innerHTML = !history?.length
+    ? '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No payroll history yet.</td></tr>'
+    : history.map(e => `<tr>
+        <td>${e.expense_date}</td>
+        <td>${e.name.replace(/^Salary - /, '')}</td>
+        <td style="text-align:right;font-weight:700">${CUR}${parseFloat(e.amount).toFixed(2)}</td>
+        <td style="color:var(--muted);font-size:12px">${e.notes || ''}</td>
+      </tr>`).join('');
 }
 
 function openReceiptViewer(crId) {
