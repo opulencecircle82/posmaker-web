@@ -223,6 +223,10 @@ input:checked + .slider:before{transform:translateX(18px)}
       <div id="lateRemitAlert" style="display:none;background:#1a1230;border:1px solid #a78bfa;border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;cursor:pointer" onclick="nav('activitylog')">
         <strong style="color:#a78bfa">&#8987; Late Remittance</strong> &#8212; <span id="lateRemitList" style="color:#ccc"></span> <span style="color:#a78bfa;text-decoration:underline">View Activity Log &#8594;</span>
       </div>
+      <!-- Pending cash advance requests -->
+      <div id="caPendingAlert" style="display:none;background:#0a1a2a;border:1px solid #00b4d8;border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;cursor:pointer" onclick="nav('staff')">
+        <strong style="color:#00b4d8">&#128181; Pending Cash Advance</strong> &#8212; <span id="caPendingList" style="color:#ccc"></span> <span style="color:#00b4d8;text-decoration:underline">View Staff &#8594;</span>
+      </div>
       <div class="stat-grid">
         <div class="stat-card"><div class="sc-label">Today's Orders</div><div class="sc-val" id="tdOrders">&#8212;</div><div class="sc-sub">orders today</div></div>
         <div class="stat-card"><div class="sc-label">Today's Revenue</div><div class="sc-val" id="tdRev">&#8212;</div><div class="sc-sub">gross sales</div></div>
@@ -420,7 +424,7 @@ input:checked + .slider:before{transform:translateX(18px)}
             </div>
             <button class="btn btn-accent btn-sm" onclick="saveCaSettings()">Save Limits</button>
           </div>
-          <div id="caPendingList" style="margin-bottom:16px"></div>
+          <div id="caPendingReqList" style="margin-bottom:16px"></div>
           <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-bottom:8px">RECENT RECORDS</div>
           <div id="caRecordsList"><div style="text-align:center;color:var(--muted);padding:16px;font-size:12px">Loading...</div></div>
         </div>
@@ -2108,10 +2112,26 @@ async function checkUnremittedCash() {
   }
 }
 
+// Dashboard banner so a new request doesn't sit unnoticed until the owner
+// happens to open Staff — mirrors the Low Stock / Late Remittance alerts.
+async function checkPendingCashAdvance() {
+  const alertEl = document.getElementById('caPendingAlert');
+  if (!alertEl || !STORE?.id) return;
+  const { data: pending } = await _sb.from('cash_advances')
+    .select('staff_name,amount').eq('store_id', STORE.id).eq('status', 'pending');
+  if (pending && pending.length) {
+    document.getElementById('caPendingList').textContent = pending
+      .map(a => `${a.staff_name} (${CUR}${parseFloat(a.amount).toFixed(2)})`).join(', ');
+    alertEl.style.display = 'block';
+  } else {
+    alertEl.style.display = 'none';
+  }
+}
+
 // ── Cash Advance (staff-requested, owner-approved) ────────────────────────
 let _caAdvancesCache = [];
 async function loadCashAdvanceAdmin() {
-  const pendingEl = document.getElementById('caPendingList');
+  const pendingEl = document.getElementById('caPendingReqList');
   const recordsEl = document.getElementById('caRecordsList');
   if (!pendingEl || !STORE?.id) return;
 
@@ -2351,6 +2371,7 @@ async function loadDashboard() {
 
     checkUnremittedCash();
     checkLateRemittances();
+    checkPendingCashAdvance();
 
     // Auto-send Telegram low stock alert once per day
     if (lowItems.length && STORE.telegram_bot_token && STORE.telegram_chat_id) {

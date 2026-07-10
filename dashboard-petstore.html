@@ -165,6 +165,7 @@ input:checked + .slider:before{transform:translateX(18px)}
     <div class="sb-item" onclick="nav('salesreport')" title="View your sales totals, best sellers, and reports by day or date range."><span class="ico">&#128202;</span> Sales Report</div>
     <div class="sb-item" onclick="nav('checklist')" title="Set tasks your staff must complete when opening or closing the store."><span class="ico">&#9989;</span> Daily Checklist</div>
     <div class="sb-item" onclick="nav('expenses')" title="Record other costs like rent, bills, or supplies that are not part of your inventory."><span class="ico">&#128176;</span> Other Expenses</div>
+    <div class="sb-item" onclick="nav('payroll')" title="Pay all staff at once &mdash; salary auto-adjusts for any unsettled cash advance."><span class="ico">&#128181;</span> Payroll</div>
     <div class="sb-item" onclick="location.href=bizCustomizeFile(STORE.business_type)" title="Customize how your POS screen looks &mdash; colors, logo, and layout."><span class="ico">&#127912;</span> Customize POS</div>
     <div class="sb-item" onclick="nav('pos')" title="Open your store POS screen to start taking orders."><span class="ico">&#128187;</span> My POS <span id="posNavBadge" style="margin-left:auto;font-size:10px;background:rgba(0,180,216,.2);color:var(--accent);padding:1px 7px;border-radius:8px;font-weight:700"></span></div>
     <div class="sb-item" onclick="nav('settings')" title="Update your store details, currency, tax rate, and account settings."><span class="ico">&#9881;</span> Settings</div>
@@ -221,6 +222,10 @@ input:checked + .slider:before{transform:translateX(18px)}
       <!-- Late remittance alert (already remitted, but took too long) -->
       <div id="lateRemitAlert" style="display:none;background:#1a1230;border:1px solid #a78bfa;border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;cursor:pointer" onclick="nav('activitylog')">
         <strong style="color:#a78bfa">&#8987; Late Remittance</strong> &#8212; <span id="lateRemitList" style="color:#ccc"></span> <span style="color:#a78bfa;text-decoration:underline">View Activity Log &#8594;</span>
+      </div>
+      <!-- Pending cash advance requests -->
+      <div id="caPendingAlert" style="display:none;background:#0a1a2a;border:1px solid #00b4d8;border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;cursor:pointer" onclick="nav('staff')">
+        <strong style="color:#00b4d8">&#128181; Pending Cash Advance</strong> &#8212; <span id="caPendingList" style="color:#ccc"></span> <span style="color:#00b4d8;text-decoration:underline">View Staff &#8594;</span>
       </div>
       <div class="stat-grid">
         <div class="stat-card"><div class="sc-label">Today's Orders</div><div class="sc-val" id="tdOrders">&#8212;</div><div class="sc-sub">orders today</div></div>
@@ -401,6 +406,30 @@ input:checked + .slider:before{transform:translateX(18px)}
         </div>
       </div>
 
+      <!-- Cash Advance -->
+      <div class="tbl-wrap" style="margin-top:16px" id="caAdminCard">
+        <div class="tbl-head">
+          <h3>&#128179; Cash Advance</h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadCashAdvanceAdmin()">&#8635; Refresh</button>
+        </div>
+        <div style="padding:16px 20px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+            <div>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px">Max Amount per Request</label>
+              <input type="number" id="caSetMaxAmt" min="0" step="0.01" placeholder="No limit" style="padding:8px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;width:140px">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px">Max Requests / Month</label>
+              <input type="number" id="caSetMaxPerMonth" min="0" step="1" placeholder="No limit" style="padding:8px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;width:140px">
+            </div>
+            <button class="btn btn-accent btn-sm" onclick="saveCaSettings()">Save Limits</button>
+          </div>
+          <div id="caPendingReqList" style="margin-bottom:16px"></div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-bottom:8px">RECENT RECORDS</div>
+          <div id="caRecordsList"><div style="text-align:center;color:var(--muted);padding:16px;font-size:12px">Loading...</div></div>
+        </div>
+      </div>
+
       <!-- STAFF PERFORMANCE CARD -->
       <div class="tbl-wrap" style="margin-top:16px" id="perfCard">
         <div class="tbl-head">
@@ -566,6 +595,26 @@ input:checked + .slider:before{transform:translateX(18px)}
         <div id="expContent" style="padding:16px;color:var(--muted);text-align:center;font-size:13px">Select a period to view expenses.</div>
       </div>
       <div id="expProfitSummary" style="margin-top:16px"></div>
+    </div>
+
+    <!-- PAYROLL -->
+    <div class="section" id="sec-payroll">
+      <div class="tbl-wrap">
+        <div class="tbl-head">
+          <h3>&#128181; Payroll — This Month</h3>
+          <button class="btn btn-accent btn-sm" id="runPayrollBtn" onclick="runPayroll()">&#9654; Run Payroll</button>
+        </div>
+        <div id="payrollStaffList" style="padding:16px 20px">
+          <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
+        </div>
+      </div>
+      <div class="tbl-wrap" style="margin-top:16px">
+        <div class="tbl-head"><h3>Payroll History</h3></div>
+        <table>
+          <thead><tr><th>Date</th><th>Staff</th><th style="text-align:right">Amount</th><th>Notes</th></tr></thead>
+          <tbody id="payrollHistoryTbody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- SETTINGS -->
@@ -1148,6 +1197,7 @@ input:checked + .slider:before{transform:translateX(18px)}
       <select id="expStaffSelect" onchange="onExpStaffChange()" style="padding:10px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;color:var(--text);font-size:14px;width:100%;outline:none">
         <option value="">Select staff...</option>
       </select>
+      <div id="expAdvanceNote" style="display:none;font-size:11px;color:#f59e0b;margin-top:6px"></div>
     </div>
     <div class="field"><label>Notes <span style="color:var(--dim);font-weight:400">(optional)</span></label><input id="expNotes" type="text" placeholder="Optional details"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
@@ -1254,6 +1304,18 @@ input:checked + .slider:before{transform:translateX(18px)}
       <button class="btn btn-danger btn-sm" id="receiptInvalidBtn" onclick="invalidateReceipt()">&#10007; Invalid</button>
       <button class="btn btn-accent btn-sm" id="receiptAcceptBtn" onclick="acceptReceipt()">&#10003; Accept</button>
       <button class="btn btn-accent btn-sm" id="receiptDownloadBtn" style="display:none">&#8595; Download</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="caProofModal">
+  <div class="mbox" style="width:min(420px,100%)">
+    <h3>&#128247; Cash Advance Proof</h3>
+    <div style="text-align:center;margin:12px 0;background:var(--bg);border-radius:8px;padding:8px">
+      <img id="caProofImg" src="" style="max-width:100%;max-height:60vh;object-fit:contain;border-radius:6px">
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-ghost" onclick="closeModal('caProofModal')">Close</button>
     </div>
   </div>
 </div>
@@ -1518,7 +1580,7 @@ function _sig(ms = 25000) {
 })();
 
 // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',activitylog:'Activity Log',messages:'Staff Messages',salesreport:'Sales Report',checklist:'Daily Checklist',expenses:'Other Expenses',settings:'Settings',access:'Cashier Link',pos:'My POS Terminals'};
+const SECTION_TITLES = {dashboard:'Dashboard',orders:'Orders',inventory:'Inventory',categories:'Categories',products:'Products',staff:'Staff',activitylog:'Activity Log',messages:'Staff Messages',salesreport:'Sales Report',checklist:'Daily Checklist',expenses:'Other Expenses',payroll:'Payroll',settings:'Settings',access:'Cashier Link',pos:'My POS Terminals'};
 // ── Business-type adaptation ───────────────────────────────────────────────────
 const RESTAURANT_BIZ = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
   'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
@@ -1592,12 +1654,13 @@ function nav(id) {
   if (id === 'orders')     loadOrders();
   if (id === 'salesreport') loadReport('daily');
   if (id === 'inventory')  loadInventory();
-  if (id === 'staff')        { loadStaff(); updateMgrLink(); loadPerformance(); loadHelperStaff(); loadManagerCash(); }
+  if (id === 'staff')        { loadStaff(); updateMgrLink(); loadPerformance(); loadHelperStaff(); loadManagerCash(); loadCashAdvanceAdmin(); }
   if (id === 'activitylog')  loadActivityLog();
   if (id === 'messages')     loadMessages();
   if (id === 'categories') { loadDbCategories().then(() => loadProducts().then(loadCategories)); switchCatTab(catTab); }
   if (id === 'checklist')  loadChecklist();
   if (id === 'expenses')   loadExpenses('monthly');
+  if (id === 'payroll')    loadPayroll();
   if (id === 'settings')   populatePriceCatFilter();
   if (id === 'pos')        loadPOSTerminals();
 }
@@ -1761,6 +1824,8 @@ function openExpenseModal(id) {
   document.getElementById('expNotes').value    = '';
   document.getElementById('expStaffWrap').style.display = 'none';
   document.getElementById('expStaffSelect').value = '';
+  document.getElementById('expAdvanceNote').style.display = 'none';
+  _pendingSettleAdvanceIds = [];
   if (id) {
     _sb.from('expenses').select('*').eq('id', id).single().then(({ data: e }) => {
       if (!e) return;
@@ -1776,6 +1841,7 @@ function openExpenseModal(id) {
   document.getElementById('expModal').classList.add('show');
 }
 let _expStaffCache = null;
+let _pendingSettleAdvanceIds = [];
 async function onExpCategoryChange() {
   const cat = document.getElementById('expCategory').value;
   const wrap = document.getElementById('expStaffWrap');
@@ -1799,13 +1865,36 @@ async function onExpCategoryChange() {
     document.getElementById('expStaffSelect').value = '';
   }
 }
-function onExpStaffChange() {
+async function onExpStaffChange() {
   const sel = document.getElementById('expStaffSelect');
   const staff = (_expStaffCache || []).find(s => s.id === sel.value);
+  const noteEl = document.getElementById('expAdvanceNote');
+  _pendingSettleAdvanceIds = [];
+  noteEl.style.display = 'none';
   if (!staff) return;
   document.getElementById('expName').value = 'Salary - ' + (staff.full_name || staff.username);
-  if (staff.monthly_salary != null) document.getElementById('expAmount').value = staff.monthly_salary;
   document.getElementById('expCycle').value = 'monthly';
+  const baseSalary = staff.monthly_salary != null ? parseFloat(staff.monthly_salary) : null;
+
+  // Approved-but-unsettled cash advances get deducted from this salary run —
+  // the advance already left the business earlier, so paying the full salary
+  // again now would pay the staff twice for the same money.
+  const { data: advances } = await _sb.from('cash_advances')
+    .select('id,amount').eq('store_id', STORE.id).eq('staff_id', staff.id).in('status', ['approved', 'disbursed']);
+  const advanceTotal = (advances || []).reduce((s, a) => s + parseFloat(a.amount || 0), 0);
+  _pendingSettleAdvanceIds = (advances || []).map(a => a.id);
+
+  if (baseSalary != null) {
+    const net = Math.max(0, baseSalary - advanceTotal);
+    document.getElementById('expAmount').value = net;
+    if (advanceTotal > 0) {
+      noteEl.textContent = `⚠ ${CUR}${advanceTotal.toFixed(2)} in unsettled cash advance deducted (base salary: ${CUR}${baseSalary.toFixed(2)}).`;
+      noteEl.style.display = '';
+    }
+  } else if (advanceTotal > 0) {
+    noteEl.textContent = `⚠ This staff has ${CUR}${advanceTotal.toFixed(2)} in unsettled cash advance, but no base salary is set — enter the amount manually.`;
+    noteEl.style.display = '';
+  }
 }
 
 async function saveExpense() {
@@ -1824,6 +1913,10 @@ async function saveExpense() {
     ? await _sb.from('expenses').update(row).eq('id', id)
     : await _sb.from('expenses').insert(row);
   if (error) { showToast('Error: ' + error.message, true); return; }
+  if (!id && _pendingSettleAdvanceIds.length) {
+    await _sb.from('cash_advances').update({ status: 'settled', settled_at: new Date().toISOString() }).in('id', _pendingSettleAdvanceIds);
+    _pendingSettleAdvanceIds = [];
+  }
   closeModal('expModal');
   showToast(id ? 'Expense updated.' : 'Expense added.');
   loadExpenses(_expPeriod);
@@ -1835,6 +1928,105 @@ async function deleteExpense(id) {
   if (error) { showToast('Error: ' + error.message, true); return; }
   showToast('Expense deleted.');
   loadExpenses(_expPeriod);
+}
+
+// ── Payroll ──────────────────────────────────────────────────────────────
+// Bulk version of "Add Expense → Salaries": pays every active staff member
+// (managers and cashiers alike) who has a monthly_salary set, in one go,
+// instead of adding them one at a time. Same net-of-cash-advance logic as
+// the single-staff flow in onExpStaffChange().
+let _payrollStaffCache = [];
+async function loadPayroll() {
+  const listEl = document.getElementById('payrollStaffList');
+  listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>';
+
+  const { data: staff } = await _sb.from('store_users')
+    .select('id,username,full_name,role,monthly_salary').eq('store_id', STORE.id).eq('active', true)
+    .not('monthly_salary', 'is', null).order('role').order('username');
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+  const { data: paidThisMonth } = await _sb.from('expenses')
+    .select('name').eq('store_id', STORE.id).eq('category', 'Salaries')
+    .gte('expense_date', monthStart).lte('expense_date', monthEnd);
+  const paidNames = new Set((paidThisMonth || []).map(e => e.name.replace(/^Salary - /, '')));
+
+  const { data: advances } = await _sb.from('cash_advances')
+    .select('staff_id,amount').eq('store_id', STORE.id).in('status', ['approved', 'disbursed']);
+  const advByStaff = {};
+  (advances || []).forEach(a => { advByStaff[a.staff_id] = (advByStaff[a.staff_id] || 0) + parseFloat(a.amount || 0); });
+
+  _payrollStaffCache = (staff || []).map(s => {
+    const name = s.full_name || s.username;
+    const base = parseFloat(s.monthly_salary) || 0;
+    const advance = advByStaff[s.id] || 0;
+    const net = Math.max(0, base - advance);
+    return { id: s.id, name, role: s.role, base, advance, net, alreadyPaid: paidNames.has(name) };
+  });
+
+  if (!_payrollStaffCache.length) {
+    listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">No staff with a monthly salary set yet. Set one in Staff &rarr; Edit.</div>';
+  } else {
+    listEl.innerHTML = _payrollStaffCache.map(s => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <strong>${s.name}</strong> <span style="font-size:10px;color:var(--muted);text-transform:capitalize">${s.role}</span>
+          ${s.advance > 0 ? `<div style="font-size:11px;color:#f59e0b;margin-top:2px">Base ${CUR}${s.base.toFixed(2)} &minus; ${CUR}${s.advance.toFixed(2)} cash advance</div>` : ''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700">${CUR}${s.net.toFixed(2)}</div>
+          <div style="font-size:10px;color:${s.alreadyPaid ? '#10b981' : 'var(--muted)'}">${s.alreadyPaid ? '&#10003; Paid this month' : 'Pending'}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  loadPayrollHistory();
+}
+
+async function runPayroll() {
+  const pending = _payrollStaffCache.filter(s => !s.alreadyPaid && s.net > 0);
+  if (!pending.length) { showToast('No pending payroll to run — everyone is already paid this month.', true); return; }
+  const total = pending.reduce((s, x) => s + x.net, 0);
+  if (!confirm(`Run payroll for ${pending.length} staff, total ${CUR}${total.toFixed(2)}?`)) return;
+
+  const btn = document.getElementById('runPayrollBtn');
+  btn.disabled = true; btn.textContent = 'Running...';
+  const today = new Date().toISOString().split('T')[0];
+  const advanceIdsToSettle = [];
+
+  for (const s of pending) {
+    await _sb.from('expenses').insert({
+      store_id: STORE.id, name: 'Salary - ' + s.name, amount: s.net, billing_cycle: 'monthly',
+      category: 'Salaries', expense_date: today,
+      notes: s.advance > 0 ? `Base ${CUR}${s.base.toFixed(2)} − ${CUR}${s.advance.toFixed(2)} cash advance` : ''
+    });
+    const { data: advRows } = await _sb.from('cash_advances')
+      .select('id').eq('store_id', STORE.id).eq('staff_id', s.id).in('status', ['approved', 'disbursed']);
+    (advRows || []).forEach(r => advanceIdsToSettle.push(r.id));
+  }
+  if (advanceIdsToSettle.length) {
+    await _sb.from('cash_advances').update({ status: 'settled', settled_at: new Date().toISOString() }).in('id', advanceIdsToSettle);
+  }
+
+  btn.disabled = false; btn.textContent = '▶ Run Payroll';
+  showToast(`Payroll run for ${pending.length} staff.`);
+  loadPayroll();
+  loadExpenses(_expPeriod);
+}
+
+async function loadPayrollHistory() {
+  const tbody = document.getElementById('payrollHistoryTbody');
+  const { data } = await _sb.from('expenses').select('*').eq('store_id', STORE.id).eq('category', 'Salaries')
+    .order('expense_date', { ascending: false }).limit(100);
+  if (!data?.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">No payroll history yet.</td></tr>'; return; }
+  tbody.innerHTML = data.map(e => `<tr>
+    <td>${e.expense_date}</td>
+    <td>${e.name.replace(/^Salary - /, '')}</td>
+    <td style="text-align:right;font-weight:700">${CUR}${parseFloat(e.amount).toFixed(2)}</td>
+    <td style="color:var(--muted);font-size:12px">${e.notes || ''}</td>
+  </tr>`).join('');
 }
 
 // â”€â”€ Logout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1917,6 +2109,129 @@ async function checkUnremittedCash() {
     pendingEl.textContent = 'All cashiers who worked today have remitted. ✓';
     pendingEl.style.color = '#10b981';
   }
+}
+
+// ── Late remittance alert ────────────────────────────────────────────────
+// Complements the Unremitted Cash alert above: that one covers shifts still
+// open right now. This one is the after-the-fact record — a remittance DID
+// come in, but the gap between when the cashier's shift started and when
+// they finally submitted it was unusually long (>24h), meaning cash sat
+// with them far longer than a same-day remit should. Looks back 30 days.
+// Dashboard banner so a new request doesn't sit unnoticed until the owner
+// happens to open Staff — mirrors the Low Stock / Late Remittance alerts.
+async function checkPendingCashAdvance() {
+  const alertEl = document.getElementById('caPendingAlert');
+  if (!alertEl || !STORE?.id) return;
+  const { data: pending } = await _sb.from('cash_advances')
+    .select('staff_name,amount').eq('store_id', STORE.id).eq('status', 'pending');
+  if (pending && pending.length) {
+    document.getElementById('caPendingList').textContent = pending
+      .map(a => `${a.staff_name} (${CUR}${parseFloat(a.amount).toFixed(2)})`).join(', ');
+    alertEl.style.display = 'block';
+  } else {
+    alertEl.style.display = 'none';
+  }
+}
+
+// ── Cash Advance (staff-requested, owner-approved) ────────────────────────
+let _caAdvancesCache = [];
+async function loadCashAdvanceAdmin() {
+  const pendingEl = document.getElementById('caPendingReqList');
+  const recordsEl = document.getElementById('caRecordsList');
+  if (!pendingEl || !STORE?.id) return;
+
+  const { data: storeRow } = await _sb.from('stores').select('ca_max_amount,ca_max_per_month').eq('id', STORE.id).maybeSingle();
+  document.getElementById('caSetMaxAmt').value = storeRow?.ca_max_amount ?? '';
+  document.getElementById('caSetMaxPerMonth').value = storeRow?.ca_max_per_month ?? '';
+
+  const { data: advances } = await _sb.from('cash_advances')
+    .select('*').eq('store_id', STORE.id).order('created_at', { ascending: false }).limit(100);
+  _caAdvancesCache = advances || [];
+
+  const pending = (advances || []).filter(a => a.status === 'pending');
+  pendingEl.innerHTML = !pending.length
+    ? '<div style="font-size:12px;color:var(--muted)">No pending requests.</div>'
+    : pending.map(a => `<div style="border:1px solid #f59e0b55;background:#2a1a0022;border-radius:10px;padding:12px 14px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <div>
+            <strong>${a.staff_name}</strong> — <strong style="color:#f59e0b">${CUR}${parseFloat(a.amount).toFixed(2)}</strong>
+            ${a.requested_by_name && a.requested_by_name !== a.staff_name ? `<span style="font-size:11px;color:var(--muted)"> · requested by ${a.requested_by_name}</span>` : ''}
+            ${a.reason ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${a.reason}</div>` : ''}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-accent btn-sm" onclick="approveCashAdvance('${a.id}','Online')">&#10003; Approve (Online)</button>
+            <button class="btn btn-accent btn-sm" onclick="approveCashAdvance('${a.id}','COH')">&#10003; Approve (COH)</button>
+            <button class="btn btn-ghost btn-sm" style="color:#ef4444" onclick="declineCashAdvance('${a.id}')">&#10005; Decline</button>
+          </div>
+        </div>
+      </div>`).join('');
+
+  const rest = (advances || []).filter(a => a.status !== 'pending');
+  recordsEl.innerHTML = !rest.length
+    ? '<div style="text-align:center;color:var(--muted);padding:16px;font-size:12px">No records yet.</div>'
+    : rest.map(a => {
+        const color = a.status === 'declined' ? '#ef4444' : a.status === 'settled' ? '#10b981' : a.status === 'disbursed' ? '#00b4d8' : '#f59e0b';
+        const label = a.status === 'declined' ? 'Declined'
+          : a.status === 'settled' ? 'Settled'
+          : a.status === 'disbursed' ? 'Received — pending settlement'
+          : 'Approved' + (a.disbursement_method ? ' · ' + a.disbursement_method : '');
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;gap:8px">
+          <div>
+            <strong>${a.staff_name}</strong> <span style="color:var(--muted)">${CUR}${parseFloat(a.amount).toFixed(2)}</span>
+            ${a.status === 'declined' && a.decline_note ? `<div style="font-size:11px;color:#ef4444;margin-top:2px">${a.decline_note}</div>` : ''}
+            ${a.status === 'disbursed' && a.proof_b64 ? `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;margin-top:4px" onclick="viewCaProof('${a.id}')">&#128247; View Proof</button>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-weight:700;color:${color}">${label}</div>
+            <div style="font-size:10px;color:var(--dim)">${new Date(a.created_at).toLocaleDateString('en-PH',{month:'short',day:'numeric'})}</div>
+          </div>
+        </div>`;
+      }).join('');
+}
+
+function viewCaProof(id) {
+  const adv = _caAdvancesCache.find(a => a.id === id);
+  if (!adv || !adv.proof_b64) return;
+  document.getElementById('caProofImg').src = adv.proof_b64;
+  document.getElementById('caProofModal').classList.add('show');
+}
+
+async function saveCaSettings() {
+  const maxAmt = document.getElementById('caSetMaxAmt').value;
+  const maxPerMonth = document.getElementById('caSetMaxPerMonth').value;
+  const { error } = await _sb.from('stores').update({
+    ca_max_amount: maxAmt === '' ? null : parseFloat(maxAmt),
+    ca_max_per_month: maxPerMonth === '' ? null : parseInt(maxPerMonth, 10),
+  }).eq('id', STORE.id);
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  showToast('Cash advance limits saved.');
+}
+
+async function approveCashAdvance(id, method) {
+  const { data: adv } = await _sb.from('cash_advances').select('*').eq('id', id).single();
+  if (!adv) return;
+  const { error } = await _sb.from('cash_advances').update({
+    status: 'approved', disbursement_method: method, decided_at: new Date().toISOString()
+  }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  _sb.from('activity_logs').insert({
+    store_id: STORE.id, actor_name: (STORE.owner_name || 'Owner'), actor_role: 'owner',
+    action: 'CASH_ADVANCE_APPROVED', target_name: adv.staff_name,
+    details: `${CUR}${parseFloat(adv.amount).toFixed(2)} via ${method}`
+  }).then(() => {});
+  showToast('Cash advance approved.');
+  loadCashAdvanceAdmin();
+}
+
+async function declineCashAdvance(id) {
+  const note = prompt('Reason for declining this cash advance (the staff will see this):');
+  if (note === null) return;
+  const { error } = await _sb.from('cash_advances').update({
+    status: 'declined', decline_note: note.trim() || null, decided_at: new Date().toISOString()
+  }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  showToast('Cash advance declined.');
+  loadCashAdvanceAdmin();
 }
 
 // ── Late remittance alert ────────────────────────────────────────────────
@@ -2061,6 +2376,7 @@ async function loadDashboard() {
 
     checkUnremittedCash();
     checkLateRemittances();
+    checkPendingCashAdvance();
 
     // Auto-send Telegram low stock alert once per day
     if (lowItems.length && STORE.telegram_bot_token && STORE.telegram_chat_id) {
