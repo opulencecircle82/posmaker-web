@@ -125,6 +125,7 @@ button{cursor:pointer}
     <div class="sb-item" onclick="nav('funds')" title="Money sent by owner to staff — salary, advance, allowance."><span class="ico">&#128176;</span> Staff Funds</div>
     <div class="sb-item" onclick="nav('cashadvance')" title="Request a cash advance — deducted from your next salary."><span class="ico">&#128179;</span> Cash Advance</div>
     <div class="sb-item" onclick="nav('payroll')" title="View salary status for all staff — view only, the owner runs payroll."><span class="ico">&#128181;</span> Payroll</div>
+    <div class="sb-item" onclick="nav('voidrefund')" title="Approve or decline void/refund requests submitted by cashiers, with photo proof."><span class="ico">&#8630;</span> Void &amp; Refund <span id="vrBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:auto"></span></div>
     <div class="sb-item" onclick="nav('helpers')" title="Non-account staff — utility, maintenance, helper. Clock in/out and assign tasks."><span class="ico">&#128119;</span> Helpers</div>
   </div>
   <div class="sb-bottom">
@@ -363,6 +364,35 @@ button{cursor:pointer}
         <thead><tr><th>Date</th><th>Staff</th><th style="text-align:right">Amount</th><th>Notes</th></tr></thead>
         <tbody id="mgrPayrollHistoryTbody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- VOID & REFUND -->
+  <div class="section" id="sec-voidrefund">
+    <div class="tbl-wrap">
+      <div class="tbl-head"><h3>&#8630; Pending Requests</h3></div>
+      <div id="vrPendingList" style="padding:16px 20px">
+        <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
+      </div>
+    </div>
+    <div class="tbl-wrap" style="margin-top:16px">
+      <div class="tbl-head"><h3>History</h3></div>
+      <div id="vrHistoryList" style="padding:16px 20px">
+        <div style="text-align:center;color:var(--muted);padding:20px">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOID/REFUND PROOF VIEWER -->
+  <div class="modal" id="vrProofModal">
+    <div class="mbox" style="width:min(420px,100%)">
+      <h3>&#128247; Void / Refund Proof</h3>
+      <div style="text-align:center;margin:12px 0;background:var(--bg);border-radius:8px;padding:8px">
+        <img id="vrProofImg" src="" style="max-width:100%;max-height:60vh;object-fit:contain;border-radius:6px">
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-ghost" onclick="closeModal('vrProofModal')">Close</button>
+      </div>
     </div>
   </div>
 
@@ -667,7 +697,9 @@ const {createClient} = supabase;
 const _sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 const params = new URLSearchParams(location.search);
 const SID = params.get('sid');
-let MGR = null, _allInv = [], _pingInterval = null, _tgToken = '', _tgChatId = '', _storeName = '';
+let MGR = null, _allInv = [], _pingInterval = null, _tgToken = '', _tgChatId = '', _storeName = '', _storeBizType = '';
+const RESTAURANT_BIZ = new Set(['Fast Food','Carinderya','Coffee Shop','Bakery','Lechon',
+  'Pizza / Pasta','Seafood','Milk Tea / Drinks','Karinderya / Buffet','Snack Bar']);
 
 function goLogin(){ location.href = 'staff-login.html' + (SID ? '?sid='+SID : ''); }
 
@@ -682,10 +714,11 @@ async function init(){
   _OPS_STORE_ID = MGR.store_id;
   _OPS_READONLY_ITEMS = true;
   _OPS_REQUIRE_PHOTO = true;
-  const {data:st} = await _sb.from('stores').select('name,telegram_bot_token,telegram_chat_id').eq('id', MGR.store_id).maybeSingle();
+  const {data:st} = await _sb.from('stores').select('name,telegram_bot_token,telegram_chat_id,business_type').eq('id', MGR.store_id).maybeSingle();
   if(st){
     document.getElementById('storeName').textContent = st.name;
     _storeName = st.name || '';
+    _storeBizType = st.business_type || '';
     _tgToken   = st.telegram_bot_token || '';
     _tgChatId  = st.telegram_chat_id || '';
   }
@@ -695,8 +728,10 @@ async function init(){
   loadMonitor();
   checkPendingRemits();
   checkMgrInbox();
+  checkPendingVoidRefund();
   setInterval(checkPendingRemits, 30000);
   setInterval(checkMgrInbox, 60000);
+  setInterval(checkPendingVoidRefund, 30000);
   if (MGR?.staff_id) {
     _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }).then(() => {});
     _pingInterval = setInterval(() => { if (MGR?.staff_id) _sb.rpc('ping_staff_online', { p_staff_id: MGR.staff_id }).then(() => {}); }, 30 * 1000);
@@ -1206,7 +1241,7 @@ function downloadSalesCSV(){
 }
 
 // ── UI Helpers ─────────────────────────────────────────────────────────────
-const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', staff:'Staff', checklist:'Daily Checklist', funds:'Staff Funds', cashadvance:'Cash Advance', payroll:'Payroll', helpers:'Helpers'};
+const SECTION_TITLES = {inv:'Inventory', log:'Activity Log', sales:'Sales', remit:'Cash Remit', staff:'Staff', checklist:'Daily Checklist', funds:'Staff Funds', cashadvance:'Cash Advance', payroll:'Payroll', voidrefund:'Void & Refund', helpers:'Helpers'};
 function nav(id){
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
@@ -1224,6 +1259,7 @@ function nav(id){
   if(id==='funds')     loadPayments();
   if(id==='cashadvance') loadCashAdvance();
   if(id==='payroll')     loadMgrPayroll();
+  if(id==='voidrefund')  loadVoidRefund();
   if(id==='helpers')   loadHelpers();
 }
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbOverlay').classList.add('show'); }
@@ -1689,6 +1725,154 @@ async function checkPendingRemits() {
   const count = (data||[]).length;
   const badge = document.getElementById('remitBadge');
   if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline' : 'none'; }
+}
+
+// ── Void / Refund (cashiers request with proof, manager approves) ────────
+let _vrCache = [];
+async function checkPendingVoidRefund() {
+  const { data } = await _sb.from('void_refund_requests')
+    .select('id').eq('store_id', MGR.store_id).eq('status', 'pending');
+  const count = (data || []).length;
+  const badge = document.getElementById('vrBadge');
+  if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline' : 'none'; }
+}
+
+async function loadVoidRefund() {
+  const CUR = '₱';
+  const pendingEl = document.getElementById('vrPendingList');
+  const histEl = document.getElementById('vrHistoryList');
+  const { data } = await _sb.from('void_refund_requests')
+    .select('*').eq('store_id', MGR.store_id).order('created_at', { ascending: false }).limit(100);
+  _vrCache = data || [];
+
+  const pending = _vrCache.filter(r => r.status === 'pending');
+  pendingEl.innerHTML = !pending.length
+    ? '<div style="text-align:center;color:var(--muted);padding:16px;font-size:12px">No pending requests.</div>'
+    : pending.map(r => `<div style="border:1px solid #f59e0b55;background:#2a1a0022;border-radius:10px;padding:12px 14px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <div>
+            <strong>Order #${r.order_id}</strong> — <strong style="color:#f59e0b">${r.type === 'void' ? 'VOID' : 'REFUND'}</strong> <span style="color:var(--muted)">${CUR}${parseFloat(r.order_total || 0).toFixed(2)}</span>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">${r.reason || ''}</div>
+            <div style="font-size:11px;color:var(--dim);margin-top:2px">Requested by ${r.requested_by_name} &middot; ${new Date(r.created_at).toLocaleString('en-PH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${r.proof_b64 ? `<button class="btn btn-ghost btn-sm" onclick="viewVoidRefundProof('${r.id}')">&#128247; View Proof</button>` : ''}
+            <button class="btn btn-accent btn-sm" onclick="approveVoidRefund('${r.id}')">&#10003; Approve</button>
+            <button class="btn btn-ghost btn-sm" style="color:#ef4444" onclick="declineVoidRefund('${r.id}')">&#10005; Decline</button>
+          </div>
+        </div>
+      </div>`).join('');
+
+  const rest = _vrCache.filter(r => r.status !== 'pending');
+  histEl.innerHTML = !rest.length
+    ? '<div style="text-align:center;color:var(--muted);padding:16px;font-size:12px">No history yet.</div>'
+    : rest.map(r => {
+        const color = r.status === 'declined' ? '#ef4444' : '#10b981';
+        const label = r.status === 'declined' ? 'Declined' : 'Approved';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;gap:8px">
+          <div>
+            <strong>Order #${r.order_id}</strong> <span style="color:var(--muted)">${r.type === 'void' ? 'VOID' : 'REFUND'} &middot; ${CUR}${parseFloat(r.order_total || 0).toFixed(2)}</span>
+            ${r.status === 'declined' && r.decline_note ? `<div style="font-size:11px;color:#ef4444;margin-top:2px">${r.decline_note}</div>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-weight:700;color:${color}">${label}</div>
+            <div style="font-size:10px;color:var(--dim)">${new Date(r.created_at).toLocaleDateString('en-PH',{month:'short',day:'numeric'})}</div>
+          </div>
+        </div>`;
+      }).join('');
+}
+
+function viewVoidRefundProof(id) {
+  const r = _vrCache.find(x => x.id === id);
+  if (!r || !r.proof_b64) return;
+  document.getElementById('vrProofImg').src = r.proof_b64;
+  document.getElementById('vrProofModal').classList.add('show');
+}
+
+// For retail stores, a refund puts the physical item back on the shelf, so
+// stock is restored. For restaurant/food types the stock was already
+// cooked/consumed and can't be un-made, so only the money is reversed.
+async function restoreStockForOrder(orderId) {
+  if (RESTAURANT_BIZ.has(_storeBizType)) return;
+  const { data: orderItems } = await _sb.from('order_items').select('product_id,qty').eq('order_id', orderId);
+  if (!orderItems || !orderItems.length) return;
+  const prodIds = orderItems.map(i => i.product_id).filter(Boolean);
+  if (!prodIds.length) return;
+  const { data: prodRows } = await _sb.from('products').select('id,inv_links').in('id', prodIds);
+  const linksMap = {};
+  (prodRows || []).forEach(p => { linksMap[p.id] = p.inv_links; });
+
+  const restores = {};
+  for (const item of orderItems) {
+    let links = []; try { links = linksMap[item.product_id] ? JSON.parse(linksMap[item.product_id]) : []; } catch (_) {}
+    for (const link of links) {
+      const invId = typeof link === 'string' ? link : link.id;
+      const useQty = typeof link === 'object' ? (link.qty || 1) : 1;
+      restores[invId] = (restores[invId] || 0) + useQty * item.qty;
+    }
+  }
+  const invIds = Object.keys(restores);
+  if (!invIds.length) return;
+  const { data: invRows } = await _sb.from('inventory_items').select('id,stock').in('id', invIds);
+  const stockMap = {};
+  (invRows || []).forEach(r => { stockMap[r.id] = r.stock; });
+  await Promise.all(invIds.map(invId => {
+    const cur = stockMap[invId];
+    if (cur == null) return Promise.resolve();
+    const newStock = (cur || 0) + restores[invId];
+    _sb.from('stock_history').insert({ store_id: MGR.store_id, inventory_item_id: invId, change_type: 'REFUND_RESTOCK', qty_change: restores[invId] }).then(() => {});
+    return _sb.from('inventory_items').update({ stock: newStock }).eq('id', invId);
+  }));
+}
+
+async function approveVoidRefund(id) {
+  const r = _vrCache.find(x => x.id === id);
+  if (!r) return;
+  if (!confirm(`Approve this ${r.type} for Order #${r.order_id} (${'₱'}${parseFloat(r.order_total || 0).toFixed(2)})?`)) return;
+
+  const { data: orig } = await _sb.from('orders').select('*').eq('id', r.order_id).maybeSingle();
+  if (!orig) { showToast('Original order not found.', true); return; }
+
+  // Insert a compensating negative order — every existing revenue total
+  // just sums orders.total, so this nets out automatically everywhere
+  // (Today's Revenue, Sales Report, etc.) without touching those queries
+  // or the original order record.
+  await _sb.from('orders').insert({
+    store_id: MGR.store_id,
+    cashier_name: MGR.name,
+    subtotal: -(parseFloat(orig.subtotal) || 0),
+    tax: -(parseFloat(orig.tax) || 0),
+    total: -(parseFloat(orig.total) || 0),
+    payment_method: orig.payment_method,
+    amount_tendered: 0,
+    change_given: 0,
+    discount_pct: 0,
+    order_type: r.type === 'void' ? 'VOID' : 'REFUND',
+    table_no: `Order #${r.order_id}`,
+  });
+
+  if (r.type === 'refund') await restoreStockForOrder(r.order_id);
+
+  await _sb.from('void_refund_requests').update({
+    status: 'approved', decided_by: MGR.name, decided_at: new Date().toISOString()
+  }).eq('id', id);
+
+  await logAction(r.type === 'void' ? 'ORDER_VOIDED' : 'ORDER_REFUNDED', `Order #${r.order_id}`, { amount: r.order_total, reason: r.reason });
+  showToast(`${r.type === 'void' ? 'Void' : 'Refund'} approved.`);
+  loadVoidRefund();
+  checkPendingVoidRefund();
+}
+
+async function declineVoidRefund(id) {
+  const note = prompt('Reason for declining (the cashier will see this):');
+  if (note === null) return;
+  const { error } = await _sb.from('void_refund_requests').update({
+    status: 'declined', decline_note: note.trim() || null, decided_by: MGR.name, decided_at: new Date().toISOString()
+  }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, true); return; }
+  showToast('Request declined.');
+  loadVoidRefund();
+  checkPendingVoidRefund();
 }
 
 function openConfirmRemit(id) {

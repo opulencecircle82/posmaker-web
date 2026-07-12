@@ -290,6 +290,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
   <button id="btnSync" onclick="syncProds()" title="Refresh products" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Refresh products">&#128260;</button>
   <button id="btnPrinterSettings" onclick="openPrinterSettings()" title="Printer Settings" style="display:none;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Printer settings">&#128424;</button>
   <button id="btnWebPrinter" onclick="openWebPrinterSetup()" title="Install Thermal Printer" style="display:none;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Install thermal printer">&#128424;</button>
+  <button onclick="openVoidRefundModal()" title="Request Void / Refund" style="background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Request void or refund">&#8630;</button>
   <button onclick="openCashierInbox()" title="Messages" style="position:relative;background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 9px;border-radius:6px;cursor:pointer;font-size:15px;opacity:.75;margin-right:3px" aria-label="Messages">
     &#128172;<span id="cashierInboxBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:9px;border-radius:8px;padding:1px 5px;font-weight:700;min-width:16px;text-align:center"></span>
   </button>
@@ -532,6 +533,51 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;he
     <div class="m-actions">
       <button class="btn-cancel"  onclick="closeM('mDraft')">Close</button>
       <button class="btn-confirm" onclick="saveDraft()">&#128190; Save Cart as Draft</button>
+      <button class="btn-confirm" style="background:#7c3aed" onclick="saveReservedOrder()" title="Locks these items out of stock now, so they can't be sold to someone else while this order is pending.">&#128204; Save Order (Reserve Stock)</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mVoidRefund">
+  <div class="mbox">
+    <div class="mtitle">&#8630; Request Void / Refund</div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:11px;color:#999;margin-bottom:4px">Order Number</label>
+      <div style="display:flex;gap:6px">
+        <input type="number" id="vrOrderNum" placeholder="e.g. 423" class="disc-inp" style="padding:9px 10px;font-size:14px">
+        <button type="button" class="btn-cancel" style="flex:0 0 auto;padding:9px 14px" onclick="lookupVoidRefundOrder()">Look Up</button>
+      </div>
+      <div id="vrLookupMsg" style="font-size:11px;color:#f59e0b;margin-top:4px"></div>
+    </div>
+    <div id="vrOrderSummary" style="display:none;background:var(--s2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:#ccc"></div>
+    <div id="vrDetailsWrap" style="display:none">
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:11px;color:#999;margin-bottom:4px">Type</label>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn-cancel" id="vrTypeVoidBtn" style="flex:1" onclick="setVrType('void')">Void (cancel order)</button>
+          <button type="button" class="btn-cancel" id="vrTypeRefundBtn" style="flex:1" onclick="setVrType('refund')">Refund</button>
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:11px;color:#999;margin-bottom:4px">Reason</label>
+        <textarea id="vrReason" rows="2" placeholder="e.g. Customer changed mind, wrong item, defective" class="disc-inp" style="width:100%;padding:9px 10px;font-size:13px;resize:vertical"></textarea>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="display:block;font-size:11px;color:#999;margin-bottom:4px">Photo Proof <span style="color:#666">(receipt, item, or reason)</span></label>
+        <div style="display:flex;gap:8px">
+          <label class="btn-cancel" for="vrFileCam" style="flex:1;text-align:center;cursor:pointer">&#128247; Take Photo</label>
+          <input id="vrFileCam" type="file" accept="image/*" capture="environment" style="display:none" onchange="handleVrPhoto(this)">
+          <label class="btn-cancel" for="vrFile" style="flex:1;text-align:center;cursor:pointer">&#128193; Upload</label>
+          <input id="vrFile" type="file" accept="image/*" style="display:none" onchange="handleVrPhoto(this)">
+        </div>
+        <div id="vrPreview" style="display:none;margin-top:8px;text-align:center">
+          <img id="vrPhotoImg" style="max-width:100%;max-height:150px;border-radius:8px;border:1px solid var(--border)">
+        </div>
+      </div>
+    </div>
+    <div class="m-actions">
+      <button class="btn-cancel" onclick="closeM('mVoidRefund')">Close</button>
+      <button class="btn-confirm" id="vrSubmitBtn" style="display:none" onclick="submitVoidRefundRequest()">Submit Request</button>
     </div>
   </div>
 </div>
@@ -2026,6 +2072,79 @@ window.addEventListener('online', ()=>{ updateNetStatus(); syncOfflineQueue(); s
 window.addEventListener('offline', ()=>{ updateNetStatus(); });
 
 // ── Confirm Order ─────────────────────────────────────────────────────────
+// ── Inventory stock deduction (shared by real sales and reservations) ─────
+// Set when a reserved draft is loaded into the cart, so confirmOrder() knows
+// the inventory was already locked at reservation time and skips deducting
+// it a second time.
+let _skipStockDeductionForOrder = false;
+let _activeReservedDraftId = null;
+
+// Pure computation, no DB writes — figures out how much of each inventory
+// item a cart would consume, based on each product's inv_links (or an
+// auto-matched inventory item by name/SKU).
+function computeStockDeductions(items, prodRows) {
+  const prodLinksMap = {};
+  (prodRows || []).forEach(p => { prodLinksMap[p.id] = p.inv_links; });
+  const deductions = {};
+  const deductionNotes = {};
+  for (const item of items) {
+    let links = []; try { links = prodLinksMap[item.id] ? JSON.parse(prodLinksMap[item.id]) : []; } catch {}
+    if (links.length > 0) {
+      for (const link of links) {
+        const invId = typeof link === 'string' ? link : link.id;
+        const useQty = typeof link === 'object' ? (link.qty || 1) : 1;
+        deductions[invId] = (deductions[invId] || 0) + useQty * item.qty;
+        (deductionNotes[invId] = deductionNotes[invId] || new Set()).add(item.name);
+      }
+    } else {
+      const p = prods.find(x => x.id === item.id);
+      const autoId = p?._autoInvLink;
+      if (autoId) { deductions[autoId] = (deductions[autoId] || 0) + item.qty; (deductionNotes[autoId] = deductionNotes[autoId] || new Set()).add(item.name); }
+    }
+  }
+  return { deductions, deductionNotes };
+}
+
+async function applyStockDeductions(deductions, deductionNotes, changeType) {
+  const invIds = Object.keys(deductions);
+  if (!invIds.length) return;
+  const { data: invRows } = await _sb.from('inventory_items').select('id,stock').in('id', invIds);
+  const stockMap = {};
+  (invRows || []).forEach(r => { stockMap[r.id] = r.stock; });
+  await Promise.all(invIds.map(invId => {
+    const curStock = stockMap[invId];
+    if (curStock == null) return Promise.resolve();
+    const totalUse = deductions[invId];
+    const newStock = Math.max(0, (curStock || 0) - totalUse);
+    if (invById[invId]) invById[invId].stock = newStock;
+    const mp = prods.find(x => x._autoInvLink === invId || (x._invResolved && (JSON.parse(x.inv_links||'[]').some(l=>(l.id||l)===invId))));
+    if (mp) mp.stock = Math.max(0, (mp.stock || 0) - totalUse);
+    _sb.from('stock_history').insert({ store_id: STORE_ID, inventory_item_id: invId, change_type: changeType, qty_change: -totalUse, note: [...(deductionNotes[invId] || [])].join(', ') }).then(() => {});
+    return _sb.from('inventory_items').update({ stock: newStock }).eq('id', invId);
+  }));
+}
+
+// Reverses a previously-applied deduction map — used when a reserved order
+// is cancelled, so the held stock becomes sellable again.
+async function restoreStockDeductions(deductions, note) {
+  const invIds = Object.keys(deductions);
+  if (!invIds.length) return;
+  const { data: invRows } = await _sb.from('inventory_items').select('id,stock').in('id', invIds);
+  const stockMap = {};
+  (invRows || []).forEach(r => { stockMap[r.id] = r.stock; });
+  await Promise.all(invIds.map(invId => {
+    const curStock = stockMap[invId];
+    if (curStock == null) return Promise.resolve();
+    const addBack = deductions[invId];
+    const newStock = (curStock || 0) + addBack;
+    if (invById[invId]) invById[invId].stock = newStock;
+    const mp = prods.find(x => x._autoInvLink === invId || (x._invResolved && (JSON.parse(x.inv_links||'[]').some(l=>(l.id||l)===invId))));
+    if (mp) mp.stock = (mp.stock || 0) + addBack;
+    _sb.from('stock_history').insert({ store_id: STORE_ID, inventory_item_id: invId, change_type: 'RESERVE_CANCELLED', qty_change: addBack, note: note || '' }).then(() => {});
+    return _sb.from('inventory_items').update({ stock: newStock }).eq('id', invId);
+  }));
+}
+
 async function confirmOrder() {
   const { items, raw, disc, total, tax, sub } = getCartTotals();
   const tender = payMeth === 'Cash' ? parseFloat(document.getElementById('tendered').value) || 0 : total;
@@ -2086,60 +2205,27 @@ async function confirmOrder() {
 
   if (oErr) { alert(oErr.message); return; }
 
-  // Run order_items insert and the products inv_links lookup in parallel —
-  // neither depends on the other's result.
-  const [, prodRowsRes] = await Promise.all([
-    _sb.from('order_items').insert(
-      items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
-    ),
-    _sb.from('products').select('id,inv_links').in('id', items.map(i => i.id))
-  ]);
-
-  // Auto-deduct inventory stock based on inv_links (or auto-matched inventory item)
-  try {
-    const prodLinksMap = {};
-    (prodRowsRes.data || []).forEach(p => { prodLinksMap[p.id] = p.inv_links; });
-
-    const deductions = {};
-    const deductionNotes = {};
-    for (const item of items) {
-      let links = []; try { links = prodLinksMap[item.id] ? JSON.parse(prodLinksMap[item.id]) : []; } catch {}
-      if (links.length > 0) {
-        for (const link of links) {
-          const invId = typeof link === 'string' ? link : link.id;
-          const useQty = typeof link === 'object' ? (link.qty || 1) : 1;
-          deductions[invId] = (deductions[invId] || 0) + useQty * item.qty;
-          (deductionNotes[invId] = deductionNotes[invId] || new Set()).add(item.name);
-        }
-      } else {
-        // Fallback: match inventory item by product name/SKU
-        const p = prods.find(x => x.id === item.id);
-        const autoId = p?._autoInvLink;
-        if (autoId) { deductions[autoId] = (deductions[autoId] || 0) + item.qty; (deductionNotes[autoId] = deductionNotes[autoId] || new Set()).add(item.name); }
-      }
-    }
-
-    const invIds = Object.keys(deductions);
-    if (invIds.length > 0) {
-      const { data: invRows } = await _sb.from('inventory_items').select('id,stock').in('id', invIds);
-      const stockMap = {};
-      (invRows || []).forEach(r => { stockMap[r.id] = r.stock; });
-
-      // Fire all stock updates in parallel instead of one-by-one
-      await Promise.all(invIds.map(invId => {
-        const curStock = stockMap[invId];
-        if (curStock == null) return Promise.resolve();
-        const totalUse = deductions[invId];
-        const newStock = Math.max(0, (curStock || 0) - totalUse);
-        // Update in-memory stock so display refreshes without a full reload
-        if (invById[invId]) invById[invId].stock = newStock;
-        const mp = prods.find(x => x._autoInvLink === invId || (x._invResolved && (JSON.parse(x.inv_links||'[]').some(l=>(l.id||l)===invId))));
-        if (mp) mp.stock = Math.max(0, (mp.stock || 0) - totalUse);
-        _sb.from('stock_history').insert({ store_id: STORE_ID, inventory_item_id: invId, change_type: 'SALE', qty_change: -totalUse, note: [...(deductionNotes[invId] || [])].join(', ') }).then(() => {});
-        return _sb.from('inventory_items').update({ stock: newStock }).eq('id', invId);
-      }));
-    }
-  } catch (_) { /* stock deduction is best-effort */ }
+  // Run order_items insert and the order_items insert in parallel — the
+  // inv_links lookup is skipped when this order came from a reserved draft,
+  // since that stock was already deducted at reservation time (see
+  // saveReservedOrder / _skipStockDeductionForOrder below).
+  const orderItemsInsert = _sb.from('order_items').insert(
+    items.map(i => ({ order_id: ord.id, product_id: i.id, name: i.name, price: i.price, qty: i.qty }))
+  );
+  if (_skipStockDeductionForOrder) {
+    await orderItemsInsert;
+    if (_activeReservedDraftId) { _sb.from('draft_orders').delete().eq('id', _activeReservedDraftId).then(() => {}); _activeReservedDraftId = null; }
+  } else {
+    const [, prodRowsRes] = await Promise.all([
+      orderItemsInsert,
+      _sb.from('products').select('id,inv_links').in('id', items.map(i => i.id))
+    ]);
+    try {
+      const { deductions, deductionNotes } = computeStockDeductions(items, prodRowsRes.data || []);
+      await applyStockDeductions(deductions, deductionNotes, 'SALE');
+    } catch (_) { /* stock deduction is best-effort */ }
+  }
+  _skipStockDeductionForOrder = false;
 
   _sb.from('activity_logs').insert({
     store_id:    STORE_ID,
@@ -2346,7 +2432,7 @@ async function loadDraftList() {
   el.innerHTML = '<div style="color:#555;text-align:center;padding:12px;font-size:12px"><span class="spinner"></span> Loading...</div>';
 
   const { data, error } = await _sb.from('draft_orders')
-    .select('id,cashier_name,order_type,table_no,items_json,created_at')
+    .select('id,cashier_name,order_type,table_no,items_json,created_at,is_reserved')
     .eq('store_id', STORE_ID)
     .order('created_at', { ascending: false })
     .limit(30);
@@ -2362,9 +2448,10 @@ async function loadDraftList() {
     const total = items.reduce((s, i) => s + i.price * i.qty, 0);
     const cnt   = items.reduce((s, i) => s + i.qty, 0);
     const ts    = new Date(d.created_at).toLocaleString();
+    const reservedTag = d.is_reserved ? ' <span style="color:#a78bfa;font-weight:700">&#128204; Reserved</span>' : '';
     return `<div class="draft-item" onclick="loadDraft('${d.id}')">
       <button class="draft-del" onclick="event.stopPropagation();deleteDraft('${d.id}')">&#10005;</button>
-      <div class="draft-top">${d.order_type}${d.table_no ? ' &mdash; ' + d.table_no : ''} &middot; ${cnt} item${cnt !== 1 ? 's' : ''} &middot; ${CUR}${total.toFixed(2)}</div>
+      <div class="draft-top">${d.order_type}${d.table_no ? ' &mdash; ' + d.table_no : ''} &middot; ${cnt} item${cnt !== 1 ? 's' : ''} &middot; ${CUR}${total.toFixed(2)}${reservedTag}</div>
       <div class="draft-sub">${d.cashier_name} &middot; ${ts}</div>
     </div>`;
   }).join('');
@@ -2395,6 +2482,45 @@ async function saveDraft() {
   await loadDraftList();
 }
 
+// Same as a draft, but immediately locks the items out of inventory so
+// another customer can't buy the same stock while this order is pending —
+// e.g. a customer reserves items to pick up and pay for later.
+async function saveReservedOrder() {
+  const items = Object.values(cart);
+  if (!items.length) { alert('Cart is empty.'); return; }
+  if (IS_DEMO || !STORE_ID) { alert('Reservations not available in demo mode.'); return; }
+  if (!navigator.onLine) { alert('Reservations need an internet connection — stock must be locked immediately. Use Confirm Order instead for a walk-in sale.'); return; }
+
+  const { data: prodRows } = await _sb.from('products').select('id,inv_links').in('id', items.map(i => i.id));
+  const { deductions, deductionNotes } = computeStockDeductions(items, prodRows || []);
+  await applyStockDeductions(deductions, deductionNotes, 'RESERVE');
+
+  const { error } = await _sb.from('draft_orders').insert({
+    store_id:     STORE_ID,
+    cashier_name: CASHIER_NAME,
+    order_type:   orderType,
+    table_no:     tableNo,
+    items_json:   JSON.stringify(items),
+    is_reserved:  true,
+    reserved_deductions: JSON.stringify(deductions),
+  });
+
+  if (error) {
+    // The draft failed to save — undo the stock lock so nothing is stuck reserved with no record of it.
+    await restoreStockDeductions(deductions, 'Reservation save failed — auto-rollback');
+    if (error.message && (error.message.includes('does not exist') || error.message.includes('column'))) {
+      alert('Reserved orders need a schema update.\nPlease ask your admin to run the latest schema SQL in Supabase.');
+    } else {
+      alert(error.message);
+    }
+    return;
+  }
+  cart = {};
+  redrawCart();
+  showToast('Order saved — stock reserved for these items.');
+  await loadDraftList();
+}
+
 async function loadDraft(id) {
   const { data, error } = await _sb.from('draft_orders').select('*').eq('id', id).single();
   if (error || !data) { alert('Draft not found.'); return; }
@@ -2412,14 +2538,125 @@ async function loadDraft(id) {
     b.classList.toggle('active', b.dataset.type === orderType);
   });
 
-  await _sb.from('draft_orders').delete().eq('id', id);
+  if (data.is_reserved) {
+    // Stock was already deducted when this was reserved — don't delete the
+    // draft row yet (so it can still be cancelled from the Drafts list if
+    // the cashier backs out) and skip re-deducting when the sale completes.
+    _skipStockDeductionForOrder = true;
+    _activeReservedDraftId = id;
+  } else {
+    await _sb.from('draft_orders').delete().eq('id', id);
+  }
   closeM('mDraft');
   redrawCart();
 }
 
 async function deleteDraft(id) {
+  const { data: d } = await _sb.from('draft_orders').select('is_reserved,reserved_deductions').eq('id', id).single();
+  if (d?.is_reserved && d.reserved_deductions) {
+    let deductions = {};
+    try { deductions = JSON.parse(d.reserved_deductions); } catch (_) {}
+    await restoreStockDeductions(deductions, 'Reservation cancelled');
+    if (_activeReservedDraftId === id) { _skipStockDeductionForOrder = false; _activeReservedDraftId = null; }
+  }
   await _sb.from('draft_orders').delete().eq('id', id);
   await loadDraftList();
+}
+
+// ── Void / Refund requests (cashier submits with proof, manager approves) ─
+let _vrOrder = null, _vrType = null;
+function openVoidRefundModal() {
+  _vrOrder = null; _vrType = null;
+  document.getElementById('vrOrderNum').value = '';
+  document.getElementById('vrLookupMsg').textContent = '';
+  document.getElementById('vrOrderSummary').style.display = 'none';
+  document.getElementById('vrDetailsWrap').style.display = 'none';
+  document.getElementById('vrSubmitBtn').style.display = 'none';
+  document.getElementById('vrReason').value = '';
+  document.getElementById('vrFile').value = '';
+  document.getElementById('vrFileCam').value = '';
+  document.getElementById('vrPreview').style.display = 'none';
+  document.getElementById('mVoidRefund').classList.add('show');
+}
+
+async function lookupVoidRefundOrder() {
+  const numInt = parseInt(document.getElementById('vrOrderNum').value, 10);
+  const msgEl = document.getElementById('vrLookupMsg');
+  const sumEl = document.getElementById('vrOrderSummary');
+  const detailsEl = document.getElementById('vrDetailsWrap');
+  msgEl.textContent = '';
+  sumEl.style.display = 'none';
+  detailsEl.style.display = 'none';
+  document.getElementById('vrSubmitBtn').style.display = 'none';
+  _vrOrder = null;
+  if (!numInt) { msgEl.textContent = 'Enter an order number.'; return; }
+
+  const { data: ord, error } = await _sb.from('orders').select('id,total,cashier_name,timestamp,payment_method').eq('id', numInt).eq('store_id', STORE_ID).maybeSingle();
+  if (error || !ord) { msgEl.textContent = 'Order not found in this store.'; return; }
+
+  const { data: existing } = await _sb.from('void_refund_requests').select('id').eq('order_id', ord.id).eq('status', 'pending').maybeSingle();
+  if (existing) { msgEl.textContent = 'This order already has a pending void/refund request.'; return; }
+
+  _vrOrder = ord;
+  sumEl.innerHTML = `Order #${ord.id} &middot; ${new Date(ord.timestamp).toLocaleString()}<br>Cashier: ${ord.cashier_name} &middot; ${ord.payment_method}<br><strong style="color:var(--accent)">${CUR}${parseFloat(ord.total).toFixed(2)}</strong>`;
+  sumEl.style.display = '';
+  detailsEl.style.display = '';
+}
+
+function setVrType(type) {
+  _vrType = type;
+  document.getElementById('vrTypeVoidBtn').style.background = type === 'void' ? 'var(--accent)' : '#252540';
+  document.getElementById('vrTypeVoidBtn').style.color = type === 'void' ? '#fff' : '#ccc';
+  document.getElementById('vrTypeRefundBtn').style.background = type === 'refund' ? 'var(--accent)' : '#252540';
+  document.getElementById('vrTypeRefundBtn').style.color = type === 'refund' ? '#fff' : '#ccc';
+  document.getElementById('vrSubmitBtn').style.display = '';
+}
+
+function handleVrPhoto(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1000, cv = document.createElement('canvas');
+      const sc = Math.min(1, MAX / Math.max(img.width, img.height));
+      cv.width = img.width * sc; cv.height = img.height * sc;
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      document.getElementById('vrPhotoImg').src = cv.toDataURL('image/jpeg', 0.6);
+      document.getElementById('vrPreview').style.display = '';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+async function submitVoidRefundRequest() {
+  if (!_vrOrder) { alert('Look up an order first.'); return; }
+  if (!_vrType) { alert('Select Void or Refund.'); return; }
+  const reason = document.getElementById('vrReason').value.trim();
+  if (!reason) { alert('Enter a reason.'); return; }
+  const photoImg = document.getElementById('vrPhotoImg');
+  const proof = photoImg.src && photoImg.src.startsWith('data:') ? photoImg.src : null;
+  if (!proof) { alert('Attach a photo as proof.'); return; }
+
+  const btn = document.getElementById('vrSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  const { error } = await _sb.from('void_refund_requests').insert({
+    store_id: STORE_ID, order_id: _vrOrder.id, order_total: _vrOrder.total,
+    type: _vrType, reason, proof_b64: proof, requested_by_name: CASHIER_NAME, status: 'pending'
+  });
+  btn.disabled = false; btn.textContent = 'Submit Request';
+  if (error) {
+    if (error.message && (error.message.includes('does not exist') || error.message.includes('relation'))) {
+      alert('Void/Refund requests need a schema update.\nPlease ask your admin to run the latest schema SQL in Supabase.');
+    } else {
+      alert(error.message);
+    }
+    return;
+  }
+  closeM('mVoidRefund');
+  showToast('Void/Refund request sent to manager for approval.');
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────
