@@ -663,6 +663,19 @@ input:checked + .slider:before{transform:translateX(18px)}
           <input type="checkbox" id="sShowCalc" style="width:auto">
           <label for="sShowCalc" style="margin:0">Show floating calculator widget</label>
         </div>
+        <h3 style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">&#128220; Store Policies <span style="font-size:11px;color:var(--muted);font-weight:400">(printed on customer receipts)</span></h3>
+        <div class="field" style="margin-top:14px"><label>Warranty</label><input id="sWarranty" type="text" placeholder="e.g. 7 days warranty on electronics"></div>
+        <div class="row2">
+          <div class="field"><label>Days of Return</label><input id="sReturnDays" type="number" min="0" step="1" placeholder="e.g. 7 (blank = no returns)"></div>
+          <div class="field">
+            <label>Damaged Items Accepted?</label>
+            <select id="sDamageAccepted">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>Damage Policy Note <span style="color:var(--dim);font-weight:400">(optional)</span></label><textarea id="sDamageNote" rows="2" placeholder="e.g. Must be reported within 24 hours with proof of purchase"></textarea></div>
         <button class="btn btn-accent" onclick="saveSettings()">Save Settings</button>
       </div>
       <div class="info-card">
@@ -1556,6 +1569,10 @@ function _sig(ms = 25000) {
   document.getElementById('sFooter').value   = store.receipt_footer || '';
   document.getElementById('sShowCalc').checked = store.show_calculator !== false;
   applyCalcVisibility(store.show_calculator !== false);
+  document.getElementById('sWarranty').value    = store.policy_warranty || '';
+  document.getElementById('sReturnDays').value  = store.policy_return_days ?? '';
+  document.getElementById('sDamageAccepted').value = store.policy_damage_accepted === false ? 'false' : 'true';
+  document.getElementById('sDamageNote').value  = store.policy_damage_note || '';
   const { data: { user: _u } } = await _sb.auth.getUser();
   if (_u) document.getElementById('resetEmail').value = _u.email || '';
   document.getElementById('sTgToken').value  = store.telegram_bot_token || '';
@@ -4415,6 +4432,10 @@ async function saveSettings() {
     closed_days:    [0,1,2,3,4,5,6].filter(d => document.getElementById('sClosedDay'+d).checked).join(','),
     receipt_footer: document.getElementById('sFooter').value.trim(),
     show_calculator: document.getElementById('sShowCalc').checked,
+    policy_warranty: document.getElementById('sWarranty').value.trim(),
+    policy_return_days: document.getElementById('sReturnDays').value === '' ? null : parseInt(document.getElementById('sReturnDays').value, 10),
+    policy_damage_accepted: document.getElementById('sDamageAccepted').value === 'true',
+    policy_damage_note: document.getElementById('sDamageNote').value.trim(),
   };
   if (!payload.name) { showToast('Store name is required.', true); return; }
   const { error } = await _sb.from('stores').update(payload).eq('id', STORE.id);

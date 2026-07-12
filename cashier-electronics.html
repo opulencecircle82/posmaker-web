@@ -2258,6 +2258,14 @@ function buildReceiptText(d) {
   s += `VAT:      ${CUR}${d.tax.toFixed(2)}\nTOTAL:    ${CUR}${d.total.toFixed(2)}\n`;
   if (d.method === 'Cash') s += `Cash:     ${CUR}${d.tender.toFixed(2)}\nChange:   ${CUR}${d.change.toFixed(2)}\n`;
   else s += `Paid via: ${d.method}\n`;
+  const hasPolicy = STORE?.policy_warranty || STORE?.policy_return_days || STORE?.policy_damage_note || STORE?.policy_damage_accepted != null;
+  if (hasPolicy) {
+    s += `${ln}\n`;
+    if (STORE.policy_warranty) s += `Warranty: ${STORE.policy_warranty}\n`;
+    if (STORE.policy_return_days) s += `Returns: Within ${STORE.policy_return_days} day${STORE.policy_return_days == 1 ? '' : 's'}\n`;
+    if (STORE.policy_damage_accepted != null) s += `Damaged items: ${STORE.policy_damage_accepted === false ? 'Not accepted' : 'Accepted'}\n`;
+    if (STORE.policy_damage_note) s += `  ${STORE.policy_damage_note}\n`;
+  }
   s += `${ln}\n${STORE?.receipt_footer || 'Thank you!'}`;
   return s;
 }
